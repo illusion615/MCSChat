@@ -1,0 +1,42 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Chat Application</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div id="container">
+        <div id="leftPanel">
+            <h2>History Conversations</h2>
+            <div id="sessionList"></div>
+        </div>
+        <div id="chatPanel">
+            <div id="chatContainer">
+                <button id="clearButton" title="New chat">
+                    <img src="images/reset.jpg" alt="New Chat"> <!-- Replace with the path to your clear icon -->
+                </button>
+                <div id="chatWindow"></div>
+                <div id="inputContainer">
+                    <input type="text" id="userInput" placeholder="Type a message..." />
+                    <button id="sendButton">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include Adaptive Cards SDK -->
+    <script src="https://unpkg.com/adaptivecards@2.9.0/dist/adaptivecards.min.js"></script>
+    <!-- Include Bot Framework DirectLine JS -->
+    <script src="https://unpkg.com/botframework-directlinejs@0.11.6/dist/directline.js"></script>
+    <!-- Include Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.0.12/marked.min.js"></script>
+    <!-- Include DOMPurify for sanitizing HTML -->
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+    <!-- Your chat.js script -->
+    <script src="chat.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,217 @@
+/* ...existing code... */
+
+body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background-color: #ffffff;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+#container {
+    display: flex;
+    height: 100%;
+}
+
+#leftPanel {
+    width: 250px;
+    border-right: 1px solid #e1e1e1;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+#chatPanel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+#chatContainer {
+    display: flex;
+    flex-direction: column;
+    max-width: 1024px;
+    width: 100%;
+    height: 100%;
+    margin: 0 auto;
+    border: 1px solid #e1e1e1;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+#clearButton {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+#clearButton img {
+    width: 20px;
+    height: 20px;
+}
+
+#chatWindow {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background-color: #f3f2f1;
+}
+
+.message {            
+    border-radius: 10px;
+    max-width: 70%;            
+}
+
+.userMessage {
+    background-color: #ffffff00;
+    color: #fff;
+    align-self: flex-end;
+    text-align: right;
+}
+
+.botMessage {
+    background-color: #e1e1e100;
+    color: #000;
+    align-self: flex-start;
+    text-align: left;
+}
+
+#inputContainer {
+    display: flex;
+    padding: 10px 20px;
+    border-top: 1px solid #e1e1e1;
+    background-color: #ffffff;
+}
+
+#userInput {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #c8c6c4;
+    border-radius: 5px;
+    margin-right: 10px;
+    font-size: 14px;
+}
+
+#sendButton {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 5px;
+    background-color: #0078d4;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+#sendButton:hover {
+    background-color: #005a9e;
+}
+
+.actionsContainer {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.actionButton {
+    padding: 10px 20px;
+    background-color: #e1e1e1;
+    color: #000000;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.actionButton:hover {
+    background-color: #838383;
+    color:#ffffff
+}
+
+.messageContainer {
+    display: flex;
+    align-items: flex-start;
+    margin: 10px 0;
+}
+
+.messageContainer.userMessage {
+    justify-content: flex-end;
+}
+
+.messageContainer.botMessage {
+    justify-content: flex-start;
+}
+
+.messageIcon {
+    width: 40px;
+    height: 40px;
+    margin: 10px;
+    margin-top: 15px;
+    border-radius: 50%;
+    background-size: cover;
+}
+
+.messageContent {
+    max-width: 70%;
+    padding: 15px;
+    padding-top: 0px;
+    border-radius: 10px;
+    line-height: 1.5;
+    margin: 10px 0; /* Ensure consistent margin for both user and bot messages */
+}
+
+.userMessage .messageContent {
+    background-color: #e0e0e0;
+    padding: 15px;
+    color: #323232;
+    text-align: right;
+    border-radius: 50px; /* Set border radius to 50 for user messages */
+}
+
+.botMessage .messageContent {
+    background-color: transparent; /* Remove colored background for bot messages */
+    color: #000;
+    text-align: left;
+}
+
+/* Progress indicator styles */
+.progressIndicator {
+    width: 30px;
+    height: 30px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #0078d4;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ...existing code... */
+
+.sessionItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px;
+    cursor: pointer;
+}
+
+.sessionItem:hover {
+    background-color: #f0f0f0;
+}
+
+.deleteIcon {
+    cursor: pointer;
+    margin-left: 10px;
+    font-size: 16px; /* Adjust size as needed */
+}
+
+/* ...existing code... */
