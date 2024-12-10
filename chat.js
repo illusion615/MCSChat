@@ -2,7 +2,29 @@
 
 // Initialize DirectLine
 const directLine = new DirectLine.DirectLine({
-    secret: 'you can find the secret in Microsoft Copilot Studio web security' // Replace with your Direct Line secret
+    secret: 'Your secret' // Replace with your Direct Line secret
+});
+
+// --- Initialize the connection and handle the welcome message ---
+
+// Subscribe to connection status changes
+directLine.connectionStatus$.subscribe(status => {
+    if (status === 2) { // 2 = ConnectionStatus.Online
+        // Option 1: Rely on the bot to send a welcome message automatically
+        // Ensure your bot's backend is configured to send the welcome message upon connection
+        console.log('The bot is online!');
+
+        // Ideally, use Option 1 for a cleaner separation of concerns
+    }
+});
+
+// Receive messages from bot
+directLine.activity$.subscribe(activity => {
+    if (activity.from.id !== 'user' && activity.type === 'message') {
+        renderActivity(activity);
+        // Save bot message to localStorage
+        saveMessageToLocalStorage('bot', activity.text);
+    }
 });
 
 // Get DOM elements
@@ -63,10 +85,7 @@ function sendMessage(messageContent) {
 function removeSuggestedActions() {
     const actionsContainer = document.getElementById('suggestedActionsContainer');
     if (actionsContainer) {
-        const messageContainer = actionsContainer.closest('.messageContainer');
-        if (messageContainer) {
-            messageContainer.remove();
-        }
+        actionsContainer.remove();
     }
 }
 
@@ -92,15 +111,6 @@ function renderUserMessage(message) {
     chatWindow.appendChild(messageContainer);
     chatWindow.scrollTop = chatWindow.scrollHeight;
 }
-
-// Receive messages from bot
-directLine.activity$.subscribe(activity => {
-    if (activity.from.id !== 'user' && activity.type === 'message') {
-        renderActivity(activity);
-        // Save bot message to localStorage
-        saveMessageToLocalStorage('bot', activity.text);
-    }
-});
 
 // Render activity (bot's messages)
 function renderActivity(activity) {
@@ -327,19 +337,3 @@ function clearChatHistory() {
     // Update session list
     loadChatHistory();
 }
-
-// --- Initialize the connection and handle the welcome message ---
-
-// Subscribe to connection status changes
-directLine.connectionStatus$.subscribe(status => {
-    if (status === 2) { // 2 = ConnectionStatus.Online
-        // Option 1: Rely on the bot to send a welcome message automatically
-        // Ensure your bot's backend is configured to send the welcome message upon connection
-
-        // Option 2: If the bot does not send a welcome message automatically,
-        // uncomment the line below to send an initial message from the client
-        // sendMessage('Hello!');
-
-        // Ideally, use Option 1 for a cleaner separation of concerns
-    }
-});
