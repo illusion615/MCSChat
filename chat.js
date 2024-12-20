@@ -1,7 +1,7 @@
 // chat.js
 
 // Initialize DirectLine
-const secret = 'lRxHNQ9niAY.3G-umHBCHS7accXFKfzpj0ab2qEkB0COle8y4P83OxM' // Replace with your Direct Line secret
+const secret = '' // Replace with your Direct Line secret
 const directLine = new DirectLine.DirectLine({ token: secret });
 
 // Receive messages from bot
