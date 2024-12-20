@@ -50,8 +50,8 @@ body {
 }
 
 #clearButton img {
-    width: 20px;
-    height: 20px;
+    width: 30px;
+    height: 30px;
 }
 
 #chatWindow {
@@ -102,7 +102,7 @@ body {
     border-radius: 5px;
     background-color: #0078d4;
     color: #fff;
-    font-size: 14px;
+    font-size: 12px;
     cursor: pointer;
 }
 
@@ -211,7 +211,30 @@ body {
 .deleteIcon {
     cursor: pointer;
     margin-left: 10px;
-    font-size: 16px; /* Adjust size as needed */
+    font-size: 18px; /* Adjust size as needed */
+}
+
+/* styles.css */
+#suggestedActionsContainer {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 10px 0;
+    margin-left: 10px;
+    margin-right: 10px;
+    background-color: inherit;
+}
+
+.suggestedAction {
+    margin: 5px;
+    padding: 10px;
+    background-color: #e0e0e0;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.suggestedAction:hover {
+    background-color: #d5d5d5;
 }
 
 /* ...existing code... */
