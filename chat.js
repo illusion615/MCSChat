@@ -1,7 +1,7 @@
 // chat.js
 
 // Initialize DirectLine
-const secret = '' // Replace with your Direct Line secret
+const secret = 'FuFzkuOirvNwORa0A0NDHctbAGgn7Wq3OL3Q3foMxVFYyWdQ58IKJQQJ99ALACGhslBAArohAAABAZBS47Ih.3VgLmSJfry0QUt0pox1oQefxGFghzx6BNZzIHiGLmg4QM5OgvkMPJQQJ99ALACGhslBAArohAAABAZBS19Cj' // Replace with your Direct Line secret
 const directLine = new DirectLine.DirectLine({ token: secret });
 
 // Receive messages from bot
@@ -50,7 +50,10 @@ const userInput = document.getElementById('userInput');
 const sendButton = document.getElementById('sendButton');
 const clearButton = document.getElementById('clearButton'); // Get the clear button element
 const sessionList = document.getElementById('sessionList'); // Get the session list element
-const suggestedActionsContainer = document.getElementById('suggestedActionsContainer');
+const embeddedBrowser = document.getElementById('embeddedBrowser');
+const rightPanel = document.getElementById('rightPanel');
+const closeButton = document.getElementById('closeButton'); // Get the close button element
+const dragBar = document.getElementById('dragBar'); // Get the drag bar element
 
 // Load chat history from localStorage
 loadChatHistory();
@@ -64,6 +67,7 @@ userInput.addEventListener('keydown', function (e) {
     }
 });
 clearButton.addEventListener('click', clearChatHistory); // Add event listener to clear button
+closeButton.addEventListener('click', closeRightPanel); // Add event listener to close button
 
 // Function to send message
 function sendMessage(messageContent) {
@@ -207,6 +211,16 @@ function renderActivity(activity) {
     // Save bot message to localStorage only if it has text or attachments
     if (activity.text || (activity.attachments && activity.attachments.length > 0)) {
         saveMessageToLocalStorage('bot', activity.text || '');
+    }
+
+    // Add event listener for links
+    const links = messageDiv.getElementsByTagName('a');
+    for (let link of links) {
+        link.addEventListener('click', function (event) {
+            event.preventDefault();
+            const url = event.target.href;
+            openInRightPanel(url);
+        });
     }
 }
 
@@ -379,4 +393,44 @@ function updateNewChatButtonState() {
     } else {
         clearButton.disabled = false; // Enable the button
     }
+}
+
+// Function to open URL in right panel
+function openInRightPanel(url) {
+    rightPanel.style.display = 'block';
+    embeddedBrowser.src = url;
+}
+
+// Function to close the right panel
+function closeRightPanel() {
+    rightPanel.style.display = 'none';
+    embeddedBrowser.src = '';
+}
+
+// Add event listener to close button
+closeButton.addEventListener('click', closeRightPanel);
+
+// Drag functionality
+let isDragging = false;
+
+dragBar.addEventListener('mousedown', function (e) {
+    if (e.button !== 0) return; // Only activate on left mouse button
+    isDragging = true;
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+});
+
+function onMouseMove(e) {
+    if (!isDragging) return;
+    const containerWidth = document.getElementById('container').offsetWidth;
+    const newRightPanelWidth = containerWidth - e.clientX;
+    if (newRightPanelWidth >= 460) {
+        rightPanel.style.width = newRightPanelWidth + 'px';
+    }
+}
+
+function onMouseUp() {
+    isDragging = false;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
 }
