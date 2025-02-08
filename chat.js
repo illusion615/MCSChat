@@ -424,7 +424,7 @@ function onMouseMove(e) {
     if (!isDragging) return;
     const containerWidth = document.getElementById('container').offsetWidth;
     const newRightPanelWidth = containerWidth - e.clientX;
-    if (newRightPanelWidth >= 460) {
+    if (newRightPanelWidth <= 640) {
         rightPanel.style.width = newRightPanelWidth + 'px';
     }
 }

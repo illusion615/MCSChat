@@ -258,8 +258,8 @@ body {
 
 #rightPanel {
     display: none;
-    width: 460px;
-    min-width: 460px;
+    width: 640px;
+    min-width: 640px;
     overflow: auto;
     border-left: 1px solid #e1e1e1;
     position: relative;
