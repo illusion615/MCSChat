@@ -32,6 +32,12 @@
         </div>
     </div>
 
+    <!-- Image Modal -->
+    <div id="imageModal" class="modal">
+        <span class="closeModal">&times;</span>
+        <img class="modal-content" id="enlargedImage">
+    </div>
+
     <!-- Include Adaptive Cards SDK -->
     <script src="https://unpkg.com/adaptivecards@2.9.0/dist/adaptivecards.min.js"></script>
     <!-- Include Bot Framework DirectLine JS -->
@@ -42,6 +48,17 @@
     <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
     <!-- Your chat.js script -->
     <script src="chat.js"></script>
+    <!-- 添加到 HTML 中 -->
+    <script src="https://unpkg.com/marked/marked.min.js"></script>
+    <script src="https://unpkg.com/dompurify/dist/purify.min.js"></script>
+    <!-- 备选方案 -->
+    <script>
+    if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+        // 加载本地文件
+        document.write('<script src="lib/marked.min.js"><\/script>');
+        document.write('<script src="lib/purify.min.js"><\/script>');
+    }
+    </script>
 </body>
 
 </html>

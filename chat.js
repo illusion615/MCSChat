@@ -2,13 +2,33 @@
 
 // Initialize DirectLine
 const secret = 'FuFzkuOirvNwORa0A0NDHctbAGgn7Wq3OL3Q3foMxVFYyWdQ58IKJQQJ99ALACGhslBAArohAAABAZBS47Ih.3VgLmSJfry0QUt0pox1oQefxGFghzx6BNZzIHiGLmg4QM5OgvkMPJQQJ99ALACGhslBAArohAAABAZBS19Cj' // Replace with your Direct Line secret
-const directLine = new DirectLine.DirectLine({ token: secret });
+const directLine = new DirectLine.DirectLine({ secret: secret });
 
 // Receive messages from bot
 directLine.activity$.subscribe(activity => {
     console.log('Received activity:', activity);
-    if (activity.from.id !== 'user' && activity.type === 'message') {
-        renderActivity(activity);
+    
+    // 处理打字指示器
+    if (activity.type === 'typing') {
+        // 可选：显示打字指示器
+        showTypingIndicator();
+        return;
+    }
+    
+    // 处理消息和对话更新
+    if (activity.from && activity.from.id !== 'user') {
+        if (activity.type === 'message') {
+            renderActivity(activity);
+        } 
+        // 处理对话更新类型的消息（可能包含欢迎消息）
+        else if (activity.type === 'conversationUpdate') {
+            // 一些 bot 使用 conversationUpdate 发送欢迎消息
+            console.log('Conversation updated:', activity);
+            // 如果有实际内容，可以尝试渲染
+            if (activity.text) {
+                renderActivity(activity);
+            }
+        }
     }
 });
 
@@ -20,6 +40,31 @@ directLine.connectionStatus$.subscribe(status => {
             break;
         case 2: // ConnectionStatus.Online
             console.log('The bot is online!');
+            
+            // 先发送 join 事件
+            directLine.postActivity({
+                from: { id: 'user' },
+                type: 'event',
+                name: 'webchat/join',
+                value: ''
+            }).subscribe(
+                id => {
+                    console.log('Initialization event sent, id:', id);
+                    
+                    // 再发送空消息，进一步确保触发欢迎消息
+                    setTimeout(() => {
+                        directLine.postActivity({
+                            from: { id: 'user' },
+                            type: 'message',
+                            text: ''
+                        }).subscribe(
+                            id => console.log('Empty message sent, id:', id),
+                            error => console.error('Error sending empty message:', error)
+                        );
+                    }, 1000);
+                },
+                error => console.error('Error sending initialization event:', error)
+            );
             break;
         case 3: // ConnectionStatus.ExpiredToken
             console.log('The token has expired.');
@@ -36,13 +81,6 @@ directLine.connectionStatus$.subscribe(status => {
 });
 
 startNewSession();
-
-// Ensure marked library is available
-if (typeof marked === 'undefined') {
-    var script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
-    document.head.appendChild(script);
-}
 
 // Get DOM elements
 const chatWindow = document.getElementById('chatWindow');
@@ -121,6 +159,10 @@ function renderUserMessage(message) {
     const images = messageDiv.querySelectorAll('img');
     images.forEach(img => {
         img.style.maxWidth = '100%';
+        img.style.cursor = 'pointer';
+        img.addEventListener('click', function() {
+            showEnlargedImage(this.src);
+        });
     });
 
     const messageIcon = document.createElement('div');
@@ -170,10 +212,14 @@ function renderActivity(activity) {
         // Set the HTML content
         messageDiv.innerHTML = sanitizedContent;
 
-        // Ensure images fit within the chat window
+        // 为所有图片添加点击放大功能
         const images = messageDiv.querySelectorAll('img');
         images.forEach(img => {
             img.style.maxWidth = '100%';
+            img.style.cursor = 'pointer';
+            img.addEventListener('click', function() {
+                showEnlargedImage(this.src);
+            });
         });
 
         hasContent = true;
@@ -189,6 +235,10 @@ function renderActivity(activity) {
                 const img = document.createElement('img');
                 img.src = attachment.contentUrl;
                 img.style.maxWidth = '100%';
+                img.style.cursor = 'pointer';
+                img.addEventListener('click', function() {
+                    showEnlargedImage(this.src);
+                });
                 messageDiv.appendChild(img);
                 hasContent = true;
             }
@@ -340,6 +390,15 @@ function loadSessionMessages(messages) {
             renderActivity({ from: { id: 'bot' }, type: 'message', text: entry.message });
         }
     });
+    
+    // 为所有已加载的图片添加点击事件
+    const allImages = chatWindow.querySelectorAll('img');
+    allImages.forEach(img => {
+        img.style.cursor = 'pointer';
+        img.addEventListener('click', function() {
+            showEnlargedImage(this.src);
+        });
+    });
 }
 
 // Function to get current session
@@ -434,3 +493,82 @@ function onMouseUp() {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
 }
+
+// 添加打字指示器函数
+function showTypingIndicator() {
+    // 实现类似进度指示器的打字状态
+    const existingIndicator = document.getElementById('typingIndicator');
+    if (existingIndicator) return; // 已存在则不重复创建
+    
+    const messageContainer = document.createElement('div');
+    messageContainer.className = 'messageContainer botMessage';
+    
+    const typingIndicator = document.createElement('div');
+    typingIndicator.id = 'typingIndicator';
+    typingIndicator.className = 'typingIndicator';
+    typingIndicator.innerHTML = '<span>.</span><span>.</span><span>.</span>';
+    
+    messageContainer.appendChild(typingIndicator);
+    chatWindow.appendChild(messageContainer);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+    
+    // 10秒后自动移除（如果仍存在）
+    setTimeout(() => {
+        const indicator = document.getElementById('typingIndicator');
+        if (indicator) {
+            indicator.parentElement.remove();
+        }
+    }, 10000);
+}
+
+// Function to show enlarged image
+function showEnlargedImage(src) {
+    const modal = document.getElementById('imageModal');
+    const enlargedImg = document.getElementById('enlargedImage');
+    
+    enlargedImg.src = src;
+    modal.style.display = 'block';
+    
+    // 关闭按钮事件
+    const closeBtn = document.getElementsByClassName('closeModal')[0];
+    closeBtn.onclick = function() {
+        modal.style.display = 'none';
+    };
+    
+    // 点击模态框背景也可以关闭
+    modal.onclick = function(event) {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    };
+    
+    // ESC 键关闭模态框
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            modal.style.display = 'none';
+        }
+    });
+}
+
+// CSS styles for enlarged image (to be added in your CSS file)
+/*
+.imageOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.enlargedImage {
+    max-width: 90%;
+    max-height: 90%;
+    border: 5px solid white;
+    border-radius: 10px;
+}
+*/
