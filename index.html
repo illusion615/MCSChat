@@ -44,7 +44,7 @@
                     </button>
                 </div>
                 <input type="text" id="userInput" placeholder="Type a message..." />
-                <button id="sendButton">Send</button>
+                <button id="sendButton" title="Send message">Send</button>
             </div>
             <!-- File preview container -->
             <div id="filePreviewContainer" style="display: none;">
@@ -64,7 +64,7 @@
 
     <!-- Image Modal -->
     <div id="imageModal" class="modal">
-        <span class="closeModal">&times;</span>
+        <span class="closeModal" title="Close image">&times;</span>
         <img class="modal-content" id="enlargedImage">
     </div>
 
@@ -73,32 +73,98 @@
         <div class="modal-content setup-modal">
             <div class="modal-header">
                 <h2>Bot Configuration</h2>
-                <span class="closeModal" id="closeSetupModal">&times;</span>
+                <span class="closeModal" id="closeSetupModal" title="Close configuration">&times;</span>
             </div>
             <div class="modal-body">
+                <!-- Agent Management Section -->
                 <div class="form-group">
-                    <label for="secretInput">DirectLine Secret:</label>
-                    <div class="input-with-button">
-                        <input type="password" id="secretInput" placeholder="Enter your DirectLine secret..." />
-                        <button type="button" id="toggleSecretVisibility" title="Show/Hide secret">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" id="eyeIcon">
-                                <path d="M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z"/>
-                            </svg>
-                        </button>
+                    <div class="agents-header">
+                        <label>Agents:</label>
+                        <button type="button" id="addNewAgentBtn" class="btn btn-secondary btn-small" title="Add new agent">+ Add New</button>
                     </div>
-                    <small class="help-text">Your DirectLine secret from Azure Bot Service</small>
-                </div>
-                
-                <div class="form-group">
-                    <div class="connection-status" id="connectionStatus">
-                        <span class="status-indicator" id="statusIndicator"></span>
-                        <span class="status-text" id="statusText">Not connected</span>
+                    <div id="agentsList" class="agents-list">
+                        <div class="no-agents-message">No agents configured. Click "Add New" to create your first agent.</div>
                     </div>
                 </div>
-                
-                <div class="form-actions">
-                    <button type="button" id="testConnectionBtn" class="btn btn-secondary">Test Connection</button>
-                    <button type="button" id="saveConfigBtn" class="btn btn-primary">Save Configuration</button>
+
+                <!-- Agent Configuration Section -->
+                <div id="agentConfigSection" style="display: none;">
+                    <div class="config-header">
+                        <h3 id="configTitle">Add New Agent</h3>
+                        <button type="button" id="cancelConfigBtn" class="btn btn-secondary btn-small">Cancel</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="agentNameInput">Agent Name:</label>
+                        <input type="text" id="agentNameInput" placeholder="Enter agent name (e.g., Customer Support Bot)" />
+                        <small class="help-text">A friendly name to identify this agent</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="secretInput">DirectLine Secret:</label>
+                        <div class="input-with-button">
+                            <input type="password" id="secretInput" placeholder="Enter your DirectLine secret..." />
+                            <button type="button" id="toggleSecretVisibility" title="Show/Hide secret">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" id="eyeIcon">
+                                    <path d="M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <small class="help-text">DirectLine secret from Azure Bot Service for this agent</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="connection-status" id="connectionStatus">
+                            <span class="status-indicator" id="statusIndicator"></span>
+                            <span class="status-text" id="statusText">Not connected</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" id="testAgentBtn" class="btn btn-secondary" title="Test DirectLine connection">Test Connection</button>
+                        <button type="button" id="saveAgentBtn" class="btn btn-primary" title="Save agent configuration">Save Agent</button>
+                    </div>
+                </div>
+
+                <!-- Current Active Agent Display -->
+                <div class="form-group">
+                    <label>Currently Active Agent:</label>
+                    <div class="current-agent-display" id="currentAgentDisplay">
+                        <span id="currentAgentName">No agent selected</span>
+                        <span class="agent-status disconnected" id="currentAgentStatus">Disconnected</span>
+                    </div>
+                </div>
+
+                <!-- Streaming Options -->
+                <div class="form-group">
+                    <label>Response Mode:</label>
+                    <div class="streaming-options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="enableStreamingCheckbox" />
+                            <span class="checkmark"></span>
+                            Enable streaming responses (simulation mode)
+                        </label>
+                        <small class="help-text">Simulates progressive response display for better UX with DirectLine bots</small>
+                        
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="enableRealStreamingCheckbox" />
+                            <span class="checkmark"></span>
+                            Use real streaming API (requires API key)
+                        </label>
+                        <small class="help-text">Connect directly to streaming LLM APIs like OpenAI, Claude, etc.</small>
+                        
+                        <div id="apiKeySection" style="display: none; margin-top: 10px;">
+                            <label for="apiKeyInput">API Key:</label>
+                            <input type="password" id="apiKeyInput" placeholder="Enter your API key..." />
+                            <select id="apiProviderSelect">
+                                <option value="openai">OpenAI GPT</option>
+                                <option value="anthropic">Anthropic Claude</option>
+                                <option value="azure">Azure OpenAI</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                    </div>
                 </div>
             </div>
         </div>
