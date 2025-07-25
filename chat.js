@@ -41,6 +41,10 @@ async function initializeDirectLine(secret) {
         setupDirectLineSubscriptions();
         
         console.log('DirectLine initialized successfully');
+        
+        // Start a new session when DirectLine is initialized
+        startNewSession();
+        
         return true;
     } catch (error) {
         console.error('Error initializing DirectLine:', error);
@@ -70,7 +74,15 @@ function setupDirectLineSubscriptions() {
                 // 一些 bot 使用 conversationUpdate 发送欢迎消息
                 console.log('Conversation updated:', activity);
                 // 如果有实际内容，可以尝试渲染
-                if (activity.text) {
+                if (activity.text || (activity.attachments && activity.attachments.length > 0)) {
+                    renderActivity(activity);
+                }
+            }
+            // Handle event activities that might contain responses
+            else if (activity.type === 'event') {
+                console.log('Event activity received:', activity);
+                // Some bots send responses as events
+                if (activity.text || (activity.attachments && activity.attachments.length > 0)) {
                     renderActivity(activity);
                 }
             }
@@ -86,41 +98,67 @@ directLine.connectionStatus$.subscribe(status => {
         case 2: // ConnectionStatus.Online
             console.log('The bot is online!');
 
-            // 发送 startConversation 事件
-            directLine.postActivity({
-                from: { id: 'user' },
-                type: 'event',
-                name: 'startConversation',
-                value: ''
-            }).subscribe(
-                id => console.log('startConversation event sent, id:', id),
-                error => console.error('Error sending startConversation event:', error)
-            );
+            // Wait a moment for the connection to stabilize, then try multiple initialization approaches
+            setTimeout(() => {
+                console.log('Attempting to trigger greeting message...');
+                
+                // Method 1: Send conversationUpdate event (most common for greeting)
+                directLine.postActivity({
+                    from: { id: 'user' },
+                    type: 'conversationUpdate',
+                    membersAdded: [{ id: 'user' }]
+                }).subscribe(
+                    id => console.log('conversationUpdate event sent, id:', id),
+                    error => console.error('Error sending conversationUpdate event:', error)
+                );
 
-            // // 先发送 join 事件
-            // directLine.postActivity({
-            //     from: { id: 'user' },
-            //     type: 'event',
-            //     name: 'webchat/join',
-            //     value: ''
-            // }).subscribe(
-            //     id => {
-            //         console.log('Initialization event sent, id:', id);
+                // Method 2: Send startConversation event (backup)
+                setTimeout(() => {
+                    directLine.postActivity({
+                        from: { id: 'user' },
+                        type: 'event',
+                        name: 'startConversation',
+                        value: ''
+                    }).subscribe(
+                        id => console.log('startConversation event sent, id:', id),
+                        error => console.error('Error sending startConversation event:', error)
+                    );
+                }, 500);
 
-            //         // 再发送空消息，进一步确保触发欢迎消息
-            //         setTimeout(() => {
-            //             directLine.postActivity({
-            //                 from: { id: 'user' },
-            //                 type: 'message',
-            //                 text: ''
-            //             }).subscribe(
-            //                 id => console.log('Empty message sent, id:', id),
-            //                 error => console.error('Error sending empty message:', error)
-            //             );
-            //         }, 1000);
-            //     },
-            //     error => console.error('Error sending initialization event:', error)
-            // );
+                // Method 3: Send webchat/join event (alternative approach)
+                setTimeout(() => {
+                    directLine.postActivity({
+                        from: { id: 'user' },
+                        type: 'event',
+                        name: 'webchat/join',
+                        value: ''
+                    }).subscribe(
+                        id => console.log('webchat/join event sent, id:', id),
+                        error => console.error('Error sending webchat/join event:', error)
+                    );
+                }, 1000);
+
+                // Method 4: If no greeting after 3 seconds, send an empty message (last resort)
+                setTimeout(() => {
+                    const chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
+                    const currentSession = getCurrentSession();
+                    const currentSessionMessages = chatHistory.filter(entry => entry.session === currentSession);
+                    
+                    // Only send empty message if no bot messages received yet
+                    if (currentSessionMessages.filter(msg => msg.sender === 'bot').length === 0) {
+                        console.log('No greeting received, sending empty message...');
+                        directLine.postActivity({
+                            from: { id: 'user' },
+                            type: 'message',
+                            text: ''
+                        }).subscribe(
+                            id => console.log('Empty message sent to trigger greeting, id:', id),
+                            error => console.error('Error sending empty message:', error)
+                        );
+                    }
+                }, 3000);
+            }, 1000);
+
             break;
         case 3: // ConnectionStatus.ExpiredToken
             console.log('The token has expired.');
@@ -135,8 +173,6 @@ directLine.connectionStatus$.subscribe(status => {
             console.log('Unknown connection status:', status);
     }
 });
-
-    startNewSession();
 }
 
 // Get DOM elements
@@ -149,6 +185,7 @@ const embeddedBrowser = document.getElementById('embeddedBrowser');
 const rightPanel = document.getElementById('rightPanel');
 const closeButton = document.getElementById('closeButton'); // Get the close button element
 const dragBar = document.getElementById('dragBar'); // Get the drag bar element
+const suggestedActionsContainer = document.getElementById('suggestedActionsContainer'); // Get the suggested actions container
 
 // File upload elements
 const fileInput = document.getElementById('fileInput');
@@ -160,6 +197,7 @@ const removeFileButton = document.getElementById('removeFileButton');
 
 // Setup modal elements
 const setupButton = document.getElementById('setupButton');
+const clearAllHistoryButton = document.getElementById('clearAllHistoryButton');
 const setupModal = document.getElementById('setupModal');
 const closeSetupModal = document.getElementById('closeSetupModal');
 const secretInput = document.getElementById('secretInput');
@@ -307,6 +345,11 @@ closeButton.addEventListener('click', closeRightPanel); // Add event listener to
 
 // Setup modal event listeners
 setupButton.addEventListener('click', showSetupModal);
+clearAllHistoryButton.addEventListener('click', () => {
+    if (confirm('Are you sure you want to clear ALL chat history? This action cannot be undone.')) {
+        clearAllChatHistory();
+    }
+});
 closeSetupModal.addEventListener('click', hideSetupModal);
 
 setupModal.addEventListener('click', (e) => {
@@ -743,6 +786,62 @@ function clearSuggestedActions() {
     suggestedActionsContainer.innerHTML = ''; // Clear previous actions
 }
 
+// Function to render adaptive cards
+function renderAdaptiveCard(attachment, messageDiv) {
+    try {
+        if (typeof AdaptiveCards !== 'undefined' && attachment.content) {
+            // Create an adaptive card
+            const adaptiveCard = new AdaptiveCards.AdaptiveCard();
+            
+            // Parse the card content
+            adaptiveCard.parse(attachment.content);
+            
+            // Render the card
+            const renderedCard = adaptiveCard.render();
+            
+            if (renderedCard) {
+                // Style the rendered card
+                renderedCard.style.maxWidth = '100%';
+                renderedCard.style.borderRadius = '8px';
+                renderedCard.style.overflow = 'hidden';
+                
+                // Append to message div
+                messageDiv.appendChild(renderedCard);
+                
+                // Handle action events
+                adaptiveCard.onExecuteAction = (action) => {
+                    if (action instanceof AdaptiveCards.SubmitAction) {
+                        console.log('Adaptive Card action executed:', action.data);
+                        // You can send the action data back to the bot
+                        if (action.data) {
+                            sendMessage(JSON.stringify(action.data));
+                        }
+                    }
+                };
+            }
+        } else {
+            // Fallback: display as JSON if AdaptiveCards is not available
+            console.warn('AdaptiveCards library not available, displaying as text');
+            const pre = document.createElement('pre');
+            pre.style.backgroundColor = '#f5f5f5';
+            pre.style.padding = '12px';
+            pre.style.borderRadius = '8px';
+            pre.style.fontSize = '12px';
+            pre.style.overflow = 'auto';
+            pre.textContent = JSON.stringify(attachment.content, null, 2);
+            messageDiv.appendChild(pre);
+        }
+    } catch (error) {
+        console.error('Error rendering adaptive card:', error);
+        // Fallback: display error message
+        const errorDiv = document.createElement('div');
+        errorDiv.style.color = '#d13438';
+        errorDiv.style.fontStyle = 'italic';
+        errorDiv.textContent = 'Error rendering adaptive card';
+        messageDiv.appendChild(errorDiv);
+    }
+}
+
 // Function to show progress indicator
 function showProgressIndicator() {
     const messageContainer = document.createElement('div');
@@ -922,10 +1021,26 @@ function startNewSession() {
     const currentSession = new Date().toISOString();
     localStorage.setItem('currentSession', currentSession);
     console.log('New session started:', currentSession);
+    
+    // If DirectLine is connected, try to trigger greeting for new session
+    if (directLine && directLine.connectionStatus$ && directLine.connectionStatus$.value === 2) {
+        console.log('Triggering greeting for new session...');
+        setTimeout(() => {
+            // Send conversationUpdate to trigger greeting
+            directLine.postActivity({
+                from: { id: 'user' },
+                type: 'conversationUpdate',
+                membersAdded: [{ id: 'user' }]
+            }).subscribe(
+                id => console.log('New session conversationUpdate sent, id:', id),
+                error => console.error('Error sending new session conversationUpdate:', error)
+            );
+        }, 500);
+    }
 }
 
 // Function to start a new chat (without clearing history)
-function startNewChat() {
+async function startNewChat() {
     // Only start new chat if current conversation has messages
     if (!isCurrentConversationEmpty()) {
         // Start a new session (this will save current conversation automatically)
@@ -942,6 +1057,17 @@ function startNewChat() {
         
         // Update button state
         updateNewChatButtonState();
+        
+        // Reinitialize DirectLine connection to trigger greeting (like page refresh)
+        try {
+            const savedSecret = await SecureStorage.retrieve('directLineSecret');
+            if (savedSecret) {
+                console.log('Reinitializing DirectLine for new chat...');
+                await initializeDirectLine(savedSecret);
+            }
+        } catch (error) {
+            console.error('Error reinitializing DirectLine for new chat:', error);
+        }
         
         console.log('New chat started');
     }
