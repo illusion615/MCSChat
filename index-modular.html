@@ -468,6 +468,22 @@
                                     Enable streaming responses (simulation mode)
                                 </label>
                                 <small class="help-text">Simulates progressive response display for better UX</small>
+
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="enableSideBrowserCheckbox" />
+                                    <span class="checkmark"></span>
+                                    Open citations in side browser
+                                </label>
+                                <small class="help-text">View citation sources within the app instead of external
+                                    browser</small>
+
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="fullWidthMessagesCheckbox" />
+                                    <span class="checkmark"></span>
+                                    Display agent messages in full width
+                                </label>
+                                <small class="help-text">Show agent responses across the full panel width for maximum
+                                    information display</small>
                             </div>
                         </div>
                     </div>
@@ -508,6 +524,48 @@
                                 <input type="password" id="apiKeyInput" placeholder="Enter your API key..."
                                     aria-describedby="apiKeyHelp" />
                                 <small id="apiKeyHelp" class="help-text">API key for the selected provider</small>
+                            </div>
+
+                            <!-- Azure OpenAI Configuration -->
+                            <div id="azureConfig" style="display: none;">
+                                <div class="form-group">
+                                    <label for="azureEndpointInput">Azure Endpoint:</label>
+                                    <input type="url" id="azureEndpointInput"
+                                        placeholder="https://your-resource.openai.azure.com"
+                                        aria-describedby="azureEndpointHelp" />
+                                    <small id="azureEndpointHelp" class="help-text">Azure OpenAI service endpoint
+                                        URL</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="azureDeploymentInput">Deployment Name:</label>
+                                    <input type="text" id="azureDeploymentInput" placeholder="gpt-4o-mini"
+                                        aria-describedby="azureDeploymentHelp" />
+                                    <small id="azureDeploymentHelp" class="help-text">Azure OpenAI deployment model
+                                        name</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="azureApiVersionInput">API Version:</label>
+                                    <input type="text" id="azureApiVersionInput" placeholder="2024-02-01"
+                                        value="2024-02-01" aria-describedby="azureApiVersionHelp" />
+                                    <small id="azureApiVersionHelp" class="help-text">Azure OpenAI API version</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <button type="button" id="testAzureBtn" class="btn btn-secondary">
+                                        Test Azure OpenAI Connection
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- General API Test Button -->
+                            <div id="apiTestSection" style="display: none;">
+                                <div class="form-group">
+                                    <button type="button" id="testApiBtn" class="btn btn-secondary">
+                                        Test API Connection
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Ollama Configuration -->
@@ -588,6 +646,25 @@
     <div id="loadingIndicator" class="loading-indicator" style="display: none;">
         <div class="loading-spinner"></div>
         <span class="loading-text">Initializing...</span>
+    </div>
+
+    <!-- Side Browser for Citations -->
+    <div id="sideBrowser" class="side-browser">
+        <div class="side-browser-header">
+            <h3 id="sideBrowserTitle">Citation Source</h3>
+            <button id="closeSideBrowser" class="side-browser-close" title="Close browser">×</button>
+        </div>
+        <div class="side-browser-content">
+            <iframe id="sideBrowserFrame" src="about:blank" title="Citation content"></iframe>
+            <div id="sideBrowserLoader" class="side-browser-loader">
+                <div class="loader-spinner"></div>
+                <p>Loading citation source...</p>
+            </div>
+            <div id="sideBrowserError" class="side-browser-error" style="display: none;">
+                <p>Unable to load citation source.</p>
+                <button id="openExternalBtn" class="btn btn-secondary">Open in External Browser</button>
+            </div>
+        </div>
     </div>
 
     <!-- Screen Reader Only Content -->

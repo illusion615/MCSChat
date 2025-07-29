@@ -36,18 +36,26 @@ export class DirectLineManager {
                 this.directLine.end();
             }
 
-            // Create DirectLine with optimized settings
+            // Create DirectLine with enhanced WebSocket streaming configuration
             this.directLine = new DirectLine.DirectLine({
                 secret: secret,
                 webSocket: true,
                 timeout: 20000, // 20 second timeout
-                conversationId: undefined // Let DirectLine create new conversation
+                conversationId: undefined, // Let DirectLine create new conversation
+                // Enhanced WebSocket configuration for optimal streaming
+                streamUrl: null, // Will be auto-generated
+                watermark: null, // Start from beginning
+                pollingInterval: 1000, // 1 second polling fallback
+                domain: 'https://directline.botframework.com/v3/directline'
             });
 
-            // Set up subscriptions
+            // Set up subscriptions with enhanced error handling
             this.setupSubscriptions();
 
-            console.log('DirectLine initialized successfully');
+            // Monitor WebSocket connection health for streaming optimization
+            this.setupStreamingMonitor();
+
+            console.log('DirectLine initialized successfully with WebSocket streaming');
             return true;
 
         } catch (error) {
@@ -77,21 +85,95 @@ export class DirectLineManager {
     }
 
     /**
-     * Set up DirectLine subscriptions
+     * Set up DirectLine subscriptions with enhanced streaming support
      * @private
      */
     setupSubscriptions() {
-        // Subscribe to activities
-        this.directLine.activity$.subscribe(activity => {
-            console.log('Received activity:', activity);
-            this.handleActivity(activity);
-        });
+        // Subscribe to activities with enhanced logging
+        this.directLine.activity$.subscribe(
+            activity => {
+                console.log('Received activity:', activity.type, activity.id);
+                this.handleActivity(activity);
+            },
+            error => {
+                console.error('Activity subscription error:', error);
+                this.handleError(error);
+            }
+        );
 
         // Subscribe to connection status changes
-        this.directLine.connectionStatus$.subscribe(status => {
-            console.log('Connection status changed:', status);
-            this.handleConnectionStatusChange(status);
-        });
+        this.directLine.connectionStatus$.subscribe(
+            status => {
+                console.log('Connection status changed:', this.getStatusName(status));
+                this.handleConnectionStatusChange(status);
+            },
+            error => {
+                console.error('Connection status subscription error:', error);
+                this.handleError(error);
+            }
+        );
+    }
+
+    /**
+     * Set up WebSocket streaming health monitor
+     * @private
+     */
+    setupStreamingMonitor() {
+        // Monitor for streaming performance metrics
+        this.streamingMetrics = {
+            messagesReceived: 0,
+            streamingEnabled: true,
+            averageLatency: 0,
+            connectionQuality: 'excellent'
+        };
+
+        // Set up periodic health check
+        this.healthCheckInterval = setInterval(() => {
+            this.checkStreamingHealth();
+        }, 30000); // Check every 30 seconds
+    }
+
+    /**
+     * Check WebSocket streaming health
+     * @private
+     */
+    checkStreamingHealth() {
+        const status = this.directLine?.connectionStatus$?.value;
+        const isOnline = status === 2; // ConnectionStatus.Online
+
+        if (!isOnline) {
+            this.streamingMetrics.connectionQuality = 'poor';
+            console.warn('DirectLine connection quality degraded');
+        } else {
+            this.streamingMetrics.connectionQuality = 'excellent';
+        }
+
+        // Emit streaming health event for diagnostics
+        window.dispatchEvent(new CustomEvent('streamingHealth', {
+            detail: {
+                ...this.streamingMetrics,
+                isOnline,
+                timestamp: Date.now()
+            }
+        }));
+    }
+
+    /**
+     * Get human-readable connection status name
+     * @param {number} status - Connection status code
+     * @returns {string} Status name
+     * @private
+     */
+    getStatusName(status) {
+        const statusNames = {
+            0: 'Uninitialized',
+            1: 'Connecting',
+            2: 'Online',
+            3: 'ExpiredToken',
+            4: 'FailedToConnect',
+            5: 'Ended'
+        };
+        return statusNames[status] || `Unknown(${status})`;
     }
 
     /**
@@ -128,56 +210,336 @@ export class DirectLineManager {
     }
 
     /**
-     * Handle typing indicator
+     * Handle typing indicator with enhanced timing
      * @private
      */
     handleTypingIndicator() {
-        // Notify typing indicator
-        window.dispatchEvent(new CustomEvent('showTypingIndicator'));
+        // Record when streaming might start
+        this.streamingStartTime = Date.now();
+
+        // Notify typing indicator with enhanced metadata
+        window.dispatchEvent(new CustomEvent('showTypingIndicator', {
+            detail: {
+                timestamp: this.streamingStartTime,
+                source: 'realtime',
+                expectedDuration: 5000 // Estimate 5 seconds max
+            }
+        }));
 
         // Clear any existing typing timeout
         if (this.typingTimeout) {
             clearTimeout(this.typingTimeout);
         }
 
-        // Set a timeout to hide the typing indicator if no message follows
+        // Set a more intelligent timeout based on message complexity
+        const timeoutDuration = this.calculateTypingTimeout();
         this.typingTimeout = setTimeout(() => {
             console.log('Typing indicator timeout - hiding indicator');
-            window.dispatchEvent(new CustomEvent('hideTypingIndicator'));
+            window.dispatchEvent(new CustomEvent('hideTypingIndicator', {
+                detail: {
+                    reason: 'timeout',
+                    duration: timeoutDuration
+                }
+            }));
             this.typingTimeout = null;
-        }, 10000); // Hide after 10 seconds if no message received
+        }, timeoutDuration);
     }
 
     /**
-     * Handle message activity
+     * Calculate adaptive typing timeout based on context
+     * @returns {number} Timeout duration in milliseconds
+     * @private
+     */
+    calculateTypingTimeout() {
+        // Base timeout of 8 seconds
+        let timeout = 8000;
+
+        // Extend timeout if we detect a complex query was sent
+        const lastUserMessage = this.getLastUserMessage();
+        if (lastUserMessage && lastUserMessage.length > 100) {
+            timeout += 4000; // Add 4 seconds for complex queries
+        }
+
+        // Cap at 15 seconds maximum
+        return Math.min(timeout, 15000);
+    }
+
+    /**
+     * Get the last user message for context
+     * @returns {string|null} Last user message text
+     * @private
+     */
+    getLastUserMessage() {
+        try {
+            const chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
+            const userMessages = chatHistory.filter(msg => msg.sender === 'user');
+            return userMessages.length > 0 ? userMessages[userMessages.length - 1].message : null;
+        } catch (error) {
+            console.warn('Could not retrieve last user message:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Handle message activity with enhanced streaming detection
      * @param {Object} activity - Message activity
      * @private
      */
     handleMessageActivity(activity) {
-        // Check if this is a streaming message
-        const isStreamingMessage = activity.channelData && activity.channelData.streaming;
-        const isStreamingEnd = activity.channelData && activity.channelData.streamingEnd;
-
-        // Also detect streaming based on message patterns
-        const couldBeStreaming = activity.text && activity.text.length > 0 && activity.text.length < 100;
         const now = Date.now();
 
-        // If we received a short message within 2 seconds of the last one, treat as streaming
-        if (couldBeStreaming && this.lastMessageTime && (now - this.lastMessageTime) < 2000) {
-            window.dispatchEvent(new CustomEvent('streamingActivity', { detail: activity }));
-        } else if (isStreamingMessage) {
-            // This is a streaming message chunk
-            window.dispatchEvent(new CustomEvent('streamingActivity', { detail: activity }));
+        // Enhanced streaming detection based on DirectLine 3.0 best practices
+        const isStreamingMessage = this.detectStreamingMessage(activity);
+        const isStreamingEnd = this.detectStreamingEnd(activity);
+
+        if (isStreamingMessage) {
+            // Real streaming message chunk detected
+            this.handleStreamingChunk(activity);
         } else if (isStreamingEnd) {
-            // This marks the end of streaming
-            window.dispatchEvent(new CustomEvent('streamingEnd', { detail: activity }));
+            // End of streaming detected
+            this.handleStreamingEnd(activity);
         } else {
-            // Regular complete message - but simulate streaming for demo
-            window.dispatchEvent(new CustomEvent('completeMessage', { detail: activity }));
+            // Complete message - enhance with intelligent streaming simulation
+            this.handleCompleteMessage(activity);
         }
 
-        // Update last message time
+        // Update last message time for timing analysis
         this.lastMessageTime = now;
+    }
+
+    /**
+     * Enhanced streaming detection using DirectLine patterns
+     * @param {Object} activity - Message activity
+     * @returns {boolean} True if this is a streaming chunk
+     * @private
+     */
+    detectStreamingMessage(activity) {
+        // Method 1: Check for explicit streaming markers
+        if (activity.channelData) {
+            if (activity.channelData.streaming === true) return true;
+            if (activity.channelData.streamType === 'fragment') return true;
+            if (activity.channelData.isPartial === true) return true;
+        }
+
+        // Method 2: Check for incomplete content patterns
+        if (activity.text) {
+            const text = activity.text.trim();
+            // Short message that doesn't end with punctuation might be streaming
+            if (text.length > 0 && text.length < 150 &&
+                !text.match(/[.!?]\s*$/) &&
+                !text.match(/^\s*$/) &&
+                this.lastMessageTime &&
+                (Date.now() - this.lastMessageTime) < 3000) {
+                return true;
+            }
+        }
+
+        // Method 3: Check for rapid successive messages (streaming pattern)
+        if (this.lastMessageTime && (Date.now() - this.lastMessageTime) < 1000) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Detect end of streaming
+     * @param {Object} activity - Message activity
+     * @returns {boolean} True if this marks end of streaming
+     * @private
+     */
+    detectStreamingEnd(activity) {
+        if (activity.channelData) {
+            if (activity.channelData.streamingEnd === true) return true;
+            if (activity.channelData.streamType === 'complete') return true;
+            if (activity.channelData.isComplete === true) return true;
+        }
+
+        // If message contains entities (citations), it's likely complete
+        if (activity.entities && activity.entities.length > 0) {
+            return true;
+        }
+
+        // Long message with proper punctuation is likely complete
+        if (activity.text && activity.text.length > 150 &&
+            activity.text.match(/[.!?]\s*$/)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Handle streaming chunk with progressive loading
+     * @param {Object} activity - Streaming chunk activity
+     * @private
+     */
+    handleStreamingChunk(activity) {
+        // Add typing indicator management for streaming
+        if (this.typingTimeout) {
+            clearTimeout(this.typingTimeout);
+            this.typingTimeout = null;
+        }
+
+        // Hide typing indicator when first chunk arrives
+        window.dispatchEvent(new CustomEvent('hideTypingIndicator'));
+
+        // Dispatch streaming event
+        window.dispatchEvent(new CustomEvent('streamingActivity', {
+            detail: {
+                ...activity,
+                streamingMetadata: {
+                    timestamp: Date.now(),
+                    chunkNumber: this.getChunkNumber(),
+                    isRealtime: true
+                }
+            }
+        }));
+    }
+
+    /**
+     * Handle end of streaming
+     * @param {Object} activity - Final streaming activity
+     * @private
+     */
+    handleStreamingEnd(activity) {
+        window.dispatchEvent(new CustomEvent('streamingEnd', {
+            detail: {
+                ...activity,
+                streamingMetadata: {
+                    timestamp: Date.now(),
+                    totalDuration: this.getStreamingDuration(),
+                    isComplete: true
+                }
+            }
+        }));
+    }
+
+    /**
+     * Handle complete message with intelligent streaming simulation
+     * @param {Object} activity - Complete message activity
+     * @private
+     */
+    handleCompleteMessage(activity) {
+        // For better UX, simulate streaming for long messages
+        if (this.shouldSimulateStreaming(activity)) {
+            this.simulateStreamingForMessage(activity);
+        } else {
+            // Immediate display for short messages
+            window.dispatchEvent(new CustomEvent('completeMessage', {
+                detail: {
+                    ...activity,
+                    streamingMetadata: {
+                        timestamp: Date.now(),
+                        isImmediate: true
+                    }
+                }
+            }));
+        }
+    }
+
+    /**
+     * Determine if message should be streamed for better UX
+     * @param {Object} activity - Message activity
+     * @returns {boolean} True if should simulate streaming
+     * @private
+     */
+    shouldSimulateStreaming(activity) {
+        if (!activity.text) return false;
+
+        // Stream long messages for better perceived performance
+        const textLength = activity.text.length;
+        if (textLength > 200) return true;
+
+        // Stream messages with citations for progressive reveal
+        if (activity.entities && activity.entities.length > 0) return true;
+
+        // Stream messages with attachments
+        if (activity.attachments && activity.attachments.length > 0) return true;
+
+        return false;
+    }
+
+    /**
+     * Simulate streaming for complete messages to improve UX
+     * @param {Object} activity - Complete message activity
+     * @private
+     */
+    simulateStreamingForMessage(activity) {
+        const text = activity.text || '';
+        const words = text.split(' ');
+        const chunks = [];
+
+        // Create progressive chunks (optimal for reading)
+        let currentChunk = '';
+        const wordsPerChunk = Math.min(5, Math.max(2, Math.floor(words.length / 12))); // Smaller chunks for faster streaming
+
+        for (let i = 0; i < words.length; i++) {
+            currentChunk += (i > 0 ? ' ' : '') + words[i];
+
+            if ((i + 1) % wordsPerChunk === 0 || i === words.length - 1) {
+                chunks.push(currentChunk);
+                currentChunk = '';
+            }
+        }
+
+        // Start streaming simulation
+        this.streamChunks(activity, chunks);
+    }
+
+    /**
+     * Stream message chunks progressively
+     * @param {Object} baseActivity - Base activity
+     * @param {Array} chunks - Text chunks to stream
+     * @private
+     */
+    streamChunks(baseActivity, chunks) {
+        const baseDelay = 25; // Much faster base delay for powerful AI feel
+        let cumulativeText = '';
+
+        chunks.forEach((chunk, index) => {
+            setTimeout(() => {
+                cumulativeText = chunks.slice(0, index + 1).join(' ');
+
+                const chunkActivity = {
+                    ...baseActivity,
+                    text: cumulativeText,
+                    streamingMetadata: {
+                        chunkNumber: index + 1,
+                        totalChunks: chunks.length,
+                        isSimulated: true,
+                        isComplete: index === chunks.length - 1
+                    }
+                };
+
+                if (index === chunks.length - 1) {
+                    // Final chunk - include all original data
+                    window.dispatchEvent(new CustomEvent('streamingEnd', { detail: chunkActivity }));
+                } else {
+                    // Progressive chunk
+                    window.dispatchEvent(new CustomEvent('streamingActivity', { detail: chunkActivity }));
+                }
+            }, index * (baseDelay + Math.random() * 15)); // Reduced variance for consistent speed
+        });
+    }
+
+    /**
+     * Get current chunk number for streaming
+     * @returns {number} Current chunk number
+     * @private
+     */
+    getChunkNumber() {
+        this.chunkCounter = (this.chunkCounter || 0) + 1;
+        return this.chunkCounter;
+    }
+
+    /**
+     * Get total streaming duration
+     * @returns {number} Duration in milliseconds
+     * @private
+     */
+    getStreamingDuration() {
+        return this.streamingStartTime ? Date.now() - this.streamingStartTime : 0;
     }
 
     /**
@@ -455,7 +817,7 @@ export class DirectLineManager {
     }
 
     /**
-     * End DirectLine connection
+     * End DirectLine connection with full cleanup
      */
     disconnect() {
         if (this.directLine) {
@@ -469,6 +831,20 @@ export class DirectLineManager {
             clearTimeout(this.typingTimeout);
             this.typingTimeout = null;
         }
+
+        // Clear streaming health monitor
+        if (this.healthCheckInterval) {
+            clearInterval(this.healthCheckInterval);
+            this.healthCheckInterval = null;
+        }
+
+        // Reset streaming state
+        this.streamingMetrics = null;
+        this.streamingStartTime = null;
+        this.chunkCounter = 0;
+        this.lastMessageTime = null;
+
+        console.log('DirectLine disconnected and cleaned up');
     }
 
     /**

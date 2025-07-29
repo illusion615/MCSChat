@@ -93,6 +93,21 @@ export class AICompanion {
     }
 
     /**
+     * Reload AI companion settings and update status
+     * @public
+     */
+    reloadSettings() {
+        console.log('Reloading AI companion settings...');
+        this.loadSettings();
+        this.updateStatus();
+
+        // Update panel visibility based on new enabled state
+        this.togglePanel(this.isEnabled);
+
+        console.log('AI companion settings reloaded:', { enabled: this.isEnabled, provider: this.currentProvider });
+    }
+
+    /**
      * Setup real-time conversation synchronization
      * @private
      */
@@ -323,16 +338,31 @@ export class AICompanion {
                 this.elements.llmStatus.className = 'status-indicator';
             }
         } else {
-            // For other providers, check if API key exists
+            // For other providers, check if API key exists and additional configuration for Azure
             SecureStorage.retrieve(`${this.currentProvider}ApiKey`).then(apiKey => {
                 const providerName = this.currentProvider.charAt(0).toUpperCase() + this.currentProvider.slice(1);
 
                 // Update model name display with provider name
                 if (this.elements.llmModelName) {
-                    this.elements.llmModelName.textContent = providerName || '';
+                    if (this.currentProvider === 'azure') {
+                        const deployment = localStorage.getItem('azureDeployment');
+                        this.elements.llmModelName.textContent = deployment ? `Azure: ${deployment}` : 'Azure OpenAI';
+                    } else {
+                        this.elements.llmModelName.textContent = providerName || '';
+                    }
                 }
 
-                if (apiKey) {
+                // Check if provider is properly configured
+                let isConfigured = false;
+                if (this.currentProvider === 'azure') {
+                    const endpoint = localStorage.getItem('azureEndpoint');
+                    const deployment = localStorage.getItem('azureDeployment');
+                    isConfigured = apiKey && endpoint && deployment;
+                } else {
+                    isConfigured = !!apiKey;
+                }
+
+                if (isConfigured) {
                     this.elements.llmStatus.className = 'status-indicator connected';
                 } else {
                     this.elements.llmStatus.className = 'status-indicator';
@@ -436,8 +466,6 @@ export class AICompanion {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
 
-            this.hideTypingIndicator();
-
             let fullResponse = '';
             let messageContainer = null;
             let messageDiv = null;
@@ -456,22 +484,19 @@ export class AICompanion {
                             fullResponse += data.response;
 
                             if (!messageContainer) {
-                                // Create initial message container
-                                messageContainer = this.createMessageContainer('assistant');
-                                messageDiv = DOMUtils.createElement('div', {
-                                    className: 'messageDiv'
-                                });
-                                messageContainer.appendChild(messageDiv);
-                                this.elements.llmChatWindow.appendChild(messageContainer);
+                                // Use unified streaming message initialization
+                                const streaming = this.initializeStreamingMessage();
+                                messageContainer = streaming.messageContainer;
+                                messageDiv = streaming.messageDiv;
                             }
 
-                            // Update message content with streaming effect
+                            // Use unified streaming content update with markdown support
                             this.updateStreamingContent(messageDiv, fullResponse);
                             this.scrollToBottom();
                         }
 
                         if (data.done) {
-                            // Remove typing cursor and finalize
+                            // Use unified message finalization with markdown processing
                             if (messageDiv) {
                                 this.finalizeMessage(messageDiv, fullResponse);
                             }
@@ -490,15 +515,292 @@ export class AICompanion {
     }
 
     /**
-     * Handle API streaming (OpenAI, Anthropic, etc.)
+     * Handle API streaming (OpenAI, Anthropic, Azure)
      * @param {string} message - Message to send
      * @param {string} provider - API provider
      * @private
      */
     async handleAPIStreaming(message, provider = this.currentProvider) {
-        // Placeholder for other AI API implementations
-        this.hideTypingIndicator();
-        this.renderMessage('error', `${provider} API integration is not yet implemented. Please use Ollama.`);
+        try {
+            const apiKey = await SecureStorage.retrieve(`${provider}ApiKey`);
+            if (!apiKey) {
+                throw new Error(`${provider} API key not found. Please configure it in settings.`);
+            }
+
+            if (provider === 'azure') {
+                await this.sendToAzureOpenAI(message, apiKey);
+            } else if (provider === 'openai') {
+                await this.sendToOpenAI(message, apiKey);
+            } else if (provider === 'anthropic') {
+                await this.sendToAnthropic(message, apiKey);
+            } else {
+                throw new Error(`${provider} API integration is not implemented yet.`);
+            }
+        } catch (error) {
+            console.error(`${provider} API error:`, error);
+            this.hideTypingIndicator();
+            this.renderMessage('error', `${provider} API error: ${error.message}`);
+        }
+    }
+
+    /**
+     * Send message to Azure OpenAI
+     * @param {string} message - Message to send
+     * @param {string} apiKey - Azure API key
+     * @private
+     */
+    async sendToAzureOpenAI(message, apiKey) {
+        const endpoint = localStorage.getItem('azureEndpoint');
+        const deployment = localStorage.getItem('azureDeployment');
+        const apiVersion = localStorage.getItem('azureApiVersion') || '2024-02-01';
+
+        if (!endpoint || !deployment) {
+            throw new Error('Azure OpenAI configuration incomplete. Please set endpoint and deployment in settings.');
+        }
+
+        const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+
+        console.log('Sending to Azure OpenAI:', { endpoint, deployment, apiVersion });
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'api-key': apiKey
+            },
+            body: JSON.stringify({
+                messages: [
+                    {
+                        role: 'user',
+                        content: message
+                    }
+                ],
+                max_tokens: 2000,
+                temperature: 0.7,
+                stream: true
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`Azure OpenAI request failed: ${response.status} ${errorData.error?.message || response.statusText}`);
+        }
+
+        await this.processStreamingResponse(response);
+    }
+
+    /**
+     * Send message to OpenAI
+     * @param {string} message - Message to send
+     * @param {string} apiKey - OpenAI API key
+     * @private
+     */
+    async sendToOpenAI(message, apiKey) {
+        const url = 'https://api.openai.com/v1/chat/completions';
+
+        console.log('Sending to OpenAI API');
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-3.5-turbo',
+                messages: [
+                    {
+                        role: 'user',
+                        content: message
+                    }
+                ],
+                max_tokens: 2000,
+                temperature: 0.7,
+                stream: true
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`OpenAI request failed: ${response.status} ${errorData.error?.message || response.statusText}`);
+        }
+
+        await this.processStreamingResponse(response);
+    }
+
+    /**
+     * Send message to Anthropic
+     * @param {string} message - Message to send
+     * @param {string} apiKey - Anthropic API key
+     * @private
+     */
+    async sendToAnthropic(message, apiKey) {
+        const url = 'https://api.anthropic.com/v1/messages';
+
+        console.log('Sending to Anthropic API');
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+                model: 'claude-3-haiku-20240307',
+                messages: [
+                    {
+                        role: 'user',
+                        content: message
+                    }
+                ],
+                max_tokens: 2000,
+                stream: true
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`Anthropic request failed: ${response.status} ${errorData.error?.message || errorData.message || response.statusText}`);
+        }
+
+        await this.processAnthropicStreamingResponse(response);
+    }
+
+    /**
+     * Process streaming response from OpenAI/Azure OpenAI APIs
+     * @param {Response} response - Fetch response
+     * @private
+     */
+    async processStreamingResponse(response) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let messageContainer = null;
+        let messageDiv = null;
+        let fullResponse = '';
+
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6);
+                        if (data === '[DONE]') {
+                            // Finalize message with markdown processing
+                            if (messageDiv && fullResponse) {
+                                this.finalizeMessage(messageDiv, fullResponse);
+                            }
+                            return;
+                        }
+
+                        try {
+                            const parsed = JSON.parse(data);
+                            const content = parsed.choices?.[0]?.delta?.content;
+
+                            if (content) {
+                                fullResponse += content;
+
+                                if (!messageContainer) {
+                                    // Use unified streaming message initialization
+                                    const streaming = this.initializeStreamingMessage();
+                                    messageContainer = streaming.messageContainer;
+                                    messageDiv = streaming.messageDiv;
+                                }
+
+                                // Use unified streaming content update with markdown support
+                                this.updateStreamingContent(messageDiv, fullResponse);
+                                this.scrollToBottom();
+                            }
+                        } catch (e) {
+                            console.warn('Error parsing chunk:', e);
+                        }
+                    }
+                }
+            }
+
+            // Finalize message if stream ended without [DONE]
+            if (messageDiv && fullResponse) {
+                this.finalizeMessage(messageDiv, fullResponse);
+            }
+        } catch (error) {
+            console.error('Streaming error:', error);
+            this.hideTypingIndicator();
+            throw error;
+        }
+    }
+
+    /**
+     * Process streaming response from Anthropic API
+     * @param {Response} response - Fetch response
+     * @private
+     */
+    async processAnthropicStreamingResponse(response) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let messageContainer = null;
+        let messageDiv = null;
+        let fullResponse = '';
+
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6);
+
+                        try {
+                            const parsed = JSON.parse(data);
+
+                            if (parsed.type === 'content_block_delta') {
+                                const content = parsed.delta?.text;
+
+                                if (content) {
+                                    fullResponse += content;
+
+                                    if (!messageContainer) {
+                                        // Use unified streaming message initialization
+                                        const streaming = this.initializeStreamingMessage();
+                                        messageContainer = streaming.messageContainer;
+                                        messageDiv = streaming.messageDiv;
+                                    }
+
+                                    // Use unified streaming content update with markdown support
+                                    this.updateStreamingContent(messageDiv, fullResponse);
+                                    this.scrollToBottom();
+                                }
+                            } else if (parsed.type === 'message_stop') {
+                                // Finalize message with markdown processing
+                                if (messageDiv && fullResponse) {
+                                    this.finalizeMessage(messageDiv, fullResponse);
+                                }
+                                return;
+                            }
+                        } catch (e) {
+                            console.warn('Error parsing chunk:', e);
+                        }
+                    }
+                }
+            }
+
+            // Finalize message if stream ended without message_stop
+            if (messageDiv && fullResponse) {
+                this.finalizeMessage(messageDiv, fullResponse);
+            }
+        } catch (error) {
+            console.error('Anthropic streaming error:', error);
+            this.hideTypingIndicator();
+            throw error;
+        }
     }
 
     /**
@@ -549,26 +851,9 @@ export class AICompanion {
             className: 'messageDiv'
         });
 
-        // Add message content
-        const messageText = DOMUtils.createElement('div', {
-            className: `messageText ${sender === 'error' ? 'error-message' : ''}`
-        });
+        // Use unified message creation with proper markdown processing
+        this.createMessageElement(messageDiv, message, sender === 'error');
 
-        // Process markdown if available
-        if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined' && sender !== 'error') {
-            try {
-                const htmlContent = marked.parse(message);
-                const sanitizedContent = DOMPurify.sanitize(htmlContent);
-                messageText.innerHTML = sanitizedContent;
-            } catch (error) {
-                console.warn('Error processing markdown:', error);
-                messageText.textContent = message;
-            }
-        } else {
-            messageText.textContent = message;
-        }
-
-        messageDiv.appendChild(messageText);
         messageContainer.appendChild(messageDiv);
         this.elements.llmChatWindow.appendChild(messageContainer);
 
@@ -607,6 +892,74 @@ export class AICompanion {
     }
 
     /**
+     * Process and render markdown content safely
+     * @param {string} content - Raw content to process
+     * @param {boolean} isError - Whether this is an error message
+     * @returns {string} Processed HTML content or text
+     * @private
+     */
+    processMarkdownContent(content, isError = false) {
+        if (isError || typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+            return { html: false, content: content };
+        }
+
+        try {
+            const htmlContent = marked.parse(content);
+            const sanitizedContent = DOMPurify.sanitize(htmlContent);
+            return { html: true, content: sanitizedContent };
+        } catch (error) {
+            console.warn('Error processing markdown:', error);
+            return { html: false, content: content };
+        }
+    }
+
+    /**
+     * Create and initialize a message element with proper content handling
+     * @param {HTMLElement} parentDiv - Parent message div
+     * @param {string} content - Message content
+     * @param {boolean} isError - Whether this is an error message
+     * @returns {HTMLElement} Message text element
+     * @private
+     */
+    createMessageElement(parentDiv, content = '', isError = false) {
+        let textElement = parentDiv.querySelector('.messageText');
+        if (!textElement) {
+            textElement = DOMUtils.createElement('div', {
+                className: `messageText ${isError ? 'error-message' : ''}`
+            });
+            parentDiv.appendChild(textElement);
+        }
+
+        if (content) {
+            const processed = this.processMarkdownContent(content, isError);
+            if (processed.html) {
+                textElement.innerHTML = processed.content;
+            } else {
+                textElement.textContent = processed.content;
+            }
+        }
+
+        return textElement;
+    }
+
+    /**
+     * Initialize streaming message structure
+     * @returns {Object} Object containing messageContainer and messageDiv
+     * @private
+     */
+    initializeStreamingMessage() {
+        this.hideTypingIndicator();
+
+        const messageContainer = this.createMessageContainer('assistant');
+        const messageDiv = DOMUtils.createElement('div', { className: 'messageDiv' });
+
+        messageContainer.appendChild(messageDiv);
+        this.elements.llmChatWindow.appendChild(messageContainer);
+
+        return { messageContainer, messageDiv };
+    }
+
+    /**
      * Update streaming content with typing cursor
      * @param {HTMLElement} messageDiv - Message div
      * @param {string} content - Current content
@@ -615,26 +968,18 @@ export class AICompanion {
     updateStreamingContent(messageDiv, content) {
         let textElement = messageDiv.querySelector('.messageText');
         if (!textElement) {
-            textElement = DOMUtils.createElement('div', {
-                className: 'messageText'
-            });
-            messageDiv.appendChild(textElement);
+            textElement = this.createMessageElement(messageDiv);
         }
 
-        // Add typing cursor for streaming effect
-        const displayText = content + '<span class="typing-cursor">|</span>';
+        // Process markdown and add typing cursor for streaming effect
+        const processed = this.processMarkdownContent(content);
 
-        // Process markdown if available
-        if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-            try {
-                const htmlContent = marked.parse(content) + '<span class="typing-cursor">|</span>';
-                const sanitizedContent = DOMPurify.sanitize(htmlContent);
-                textElement.innerHTML = sanitizedContent;
-            } catch (error) {
-                textElement.innerHTML = displayText;
-            }
+        if (processed.html) {
+            // For HTML content, append typing cursor as HTML
+            textElement.innerHTML = processed.content + '<span class="typing-cursor">|</span>';
         } else {
-            textElement.innerHTML = displayText;
+            // For plain text, append typing cursor as text
+            textElement.innerHTML = processed.content + '<span class="typing-cursor">|</span>';
         }
     }
 
@@ -646,20 +991,210 @@ export class AICompanion {
      */
     finalizeMessage(messageDiv, content) {
         let textElement = messageDiv.querySelector('.messageText');
-        if (textElement) {
-            // Process markdown if available
-            if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-                try {
-                    const htmlContent = marked.parse(content);
-                    const sanitizedContent = DOMPurify.sanitize(htmlContent);
-                    textElement.innerHTML = sanitizedContent;
-                } catch (error) {
-                    textElement.textContent = content;
-                }
-            } else {
-                textElement.textContent = content;
-            }
+        if (!textElement) {
+            textElement = this.createMessageElement(messageDiv);
         }
+
+        // Process final markdown content without typing cursor
+        const processed = this.processMarkdownContent(content);
+
+        if (processed.html) {
+            textElement.innerHTML = processed.content;
+        } else {
+            textElement.textContent = processed.content;
+        }
+
+        // Check for citations in the content and add them
+        this.addCitationsIfPresent(messageDiv, content);
+    }
+
+    /**
+     * Check for and add citations if present in content
+     * @param {HTMLElement} messageDiv - Message div element
+     * @param {string} content - Message content
+     * @private
+     */
+    addCitationsIfPresent(messageDiv, content) {
+        try {
+            // Look for JSON arrays in the content that might contain citation data
+            const jsonMatch = content.match(/\[[\s\S]*?\]/);
+            if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    const firstItem = parsed[0];
+                    if (firstItem.SourceDocument || firstItem.ReferencePath || firstItem.PageNum) {
+                        this.renderCitations(messageDiv, parsed);
+                    }
+                }
+            }
+        } catch (e) {
+            // Not valid JSON citation data, skip
+        }
+    }
+
+    /**
+     * Render citations in AI companion (reuse logic from MessageRenderer)
+     * @param {HTMLElement} messageDiv - Message div element
+     * @param {Array} citations - Array of citation objects
+     * @private
+     */
+    renderCitations(messageDiv, citations) {
+        const citationsContainer = DOMUtils.createElement('div', {
+            className: 'citations-container'
+        });
+
+        const citationsHeader = DOMUtils.createElement('div', {
+            className: 'citations-header'
+        });
+
+        const headerIcon = DOMUtils.createElement('span', {
+            className: 'citations-icon'
+        }, '📚');
+
+        const headerText = DOMUtils.createElement('span', {
+            className: 'citations-title'
+        }, `References (${citations.length})`);
+
+        const toggleButton = DOMUtils.createElement('button', {
+            className: 'citations-toggle',
+            type: 'button'
+        }, '▼');
+
+        citationsHeader.appendChild(headerIcon);
+        citationsHeader.appendChild(headerText);
+        citationsHeader.appendChild(toggleButton);
+
+        const citationsList = DOMUtils.createElement('div', {
+            className: 'citations-list'
+        });
+
+        // Group citations by source document
+        const groupedCitations = this.groupCitationsBySource(citations);
+
+        Object.entries(groupedCitations).forEach(([source, items], index) => {
+            const citationItem = this.createCitationItem(source, items, index + 1);
+            citationsList.appendChild(citationItem);
+        });
+
+        citationsContainer.appendChild(citationsHeader);
+        citationsContainer.appendChild(citationsList);
+
+        // Add toggle functionality
+        DOMUtils.addEventListener(toggleButton, 'click', () => {
+            const isExpanded = citationsList.style.display !== 'none';
+            citationsList.style.display = isExpanded ? 'none' : 'block';
+            toggleButton.textContent = isExpanded ? '▶' : '▼';
+            toggleButton.setAttribute('aria-expanded', !isExpanded);
+        });
+
+        // Add to message
+        messageDiv.appendChild(citationsContainer);
+    }
+
+    /**
+     * Group citations by source document
+     * @param {Array} citations - Array of citation objects
+     * @returns {Object} Grouped citations
+     * @private
+     */
+    groupCitationsBySource(citations) {
+        const grouped = {};
+
+        citations.forEach(citation => {
+            const source = citation.SourceDocument || 'Unknown Source';
+            if (!grouped[source]) {
+                grouped[source] = [];
+            }
+            grouped[source].push(citation);
+        });
+
+        return grouped;
+    }
+
+    /**
+     * Create citation item element
+     * @param {string} source - Source document name
+     * @param {Array} items - Citation items for this source
+     * @param {number} index - Citation index number
+     * @returns {HTMLElement} Citation item element
+     * @private
+     */
+    createCitationItem(source, items, index) {
+        const citationItem = DOMUtils.createElement('div', {
+            className: 'citation-item'
+        });
+
+        const citationHeader = DOMUtils.createElement('div', {
+            className: 'citation-header'
+        });
+
+        const citationNumber = DOMUtils.createElement('span', {
+            className: 'citation-number'
+        }, `[${index}]`);
+
+        const citationSource = DOMUtils.createElement('span', {
+            className: 'citation-source'
+        }, source);
+
+        citationHeader.appendChild(citationNumber);
+        citationHeader.appendChild(citationSource);
+
+        const citationDetails = DOMUtils.createElement('div', {
+            className: 'citation-details'
+        });
+
+        // Add details for each item from this source
+        items.forEach(item => {
+            const detailItem = DOMUtils.createElement('div', {
+                className: 'citation-detail-item'
+            });
+
+            if (item.PageNum) {
+                const pageInfo = DOMUtils.createElement('span', {
+                    className: 'citation-page'
+                }, `Page ${item.PageNum}`);
+                detailItem.appendChild(pageInfo);
+            }
+
+            if (item.content) {
+                const content = DOMUtils.createElement('div', {
+                    className: 'citation-content'
+                }, this.truncateText(item.content, 200));
+                detailItem.appendChild(content);
+            }
+
+            if (item.ReferencePath) {
+                const linkButton = DOMUtils.createElement('button', {
+                    className: 'citation-link',
+                    type: 'button'
+                }, '🔗 View Source');
+
+                DOMUtils.addEventListener(linkButton, 'click', () => {
+                    window.open(item.ReferencePath, '_blank', 'noopener,noreferrer');
+                });
+
+                detailItem.appendChild(linkButton);
+            }
+
+            citationDetails.appendChild(detailItem);
+        });
+
+        citationItem.appendChild(citationHeader);
+        citationItem.appendChild(citationDetails);
+
+        return citationItem;
+    }
+
+    /**
+     * Truncate text to specified length
+     * @param {string} text - Text to truncate
+     * @param {number} maxLength - Maximum length
+     * @returns {string} Truncated text
+     * @private
+     */
+    truncateText(text, maxLength) {
+        if (!text || text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
     }
 
     /**

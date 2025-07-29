@@ -5,7 +5,33 @@ A sophisticated chatbot user interface that demonstrates how to create a customi
 ## 🚀 Features
 
 ### Core Functionality
-- **Multi-Agent Management**: Support for multiple chatbot agents with individual configurations
+- **Multi-Agent Management**: Support for multiple chatbot agents with## 🚦 Troubleshooting
+
+### Common Issues
+- **CORS Errors**: Use the included `ollama-proxy.js` for local models
+- **Connection Failures**: Verify DirectLine secrets and network connectivity
+- **File Upload Issues**: Check file size limits and format restrictions
+- **Streaming Problems**: Ensure proper API provider configuration
+- **Message Ordering Issues**: Check browser console for timestamp comparison logs
+- **Citation Display Problems**: Verify message metadata and entity structure
+
+### Debug Mode
+Enable detailed logging by opening browser developer tools. All operations are logged with timestamps and context.
+
+### Message Ordering Debugging
+If messages appear out of chronological order:
+1. Open browser developer console (F12)
+2. Look for "Inserting message with timestamp" logs
+3. Check timestamp comparison details with human-readable times
+4. Verify timestamp parsing and validation messages
+5. Review final insertion position decisions
+
+### Citation and Reference Issues
+If citations don't display properly:
+1. Check console for "hasCitations" and "addCitationsSection" logs
+2. Verify activity object contains proper entities/metadata
+3. Ensure inline references [1], [2] are properly styled
+4. Check for citation positioning outside message bubblesl configurations
 - **AI Companion Analysis**: Real-time conversation analysis with performance metrics and insights
 - **Secure Credential Storage**: AES-256 encrypted storage for API keys and secrets
 - **Real-time Streaming**: Support for both simulated and genuine streaming responses
@@ -13,6 +39,8 @@ A sophisticated chatbot user interface that demonstrates how to create a customi
 - **Chat History Management**: Persistent conversation history with session management
 - **Responsive Design**: Modern, mobile-friendly interface with customizable font sizes
 - **Enhanced Settings Panel**: Organized configuration interface with navigation and sections
+- **Chronological Message Ordering**: Robust timestamp-based message ordering with error handling
+- **Citation System**: Enhanced reference handling with clickable inline citations and proper positioning
 
 ### AI Backend Integrations
 - **Microsoft Copilot Studio**: Full DirectLine API integration with adaptive cards and suggested actions
@@ -36,6 +64,10 @@ A sophisticated chatbot user interface that demonstrates how to create a customi
 - **Error Handling**: Comprehensive error reporting and recovery mechanisms
 - **Font Customization**: Adjustable font sizes for agent and AI companion chats
 - **Consolidated Initialization**: Unified startup process for consistent user experience
+- **Dual Chat Windows**: Support for both Agent Chat (middle panel) and AI Companion Chat (right panel)
+- **Message Display Options**: User-configurable bubble vs full-width message display modes
+- **Enhanced Citation Handling**: Proper positioning of references with inline styling and click navigation
+- **Robust Timestamp Management**: Advanced message ordering with validation and error recovery
 
 ### Developer Features
 - **Modular Architecture**: Clean separation of concerns with reusable components
@@ -102,6 +134,10 @@ node ollama-proxy.js
 - **Stream Manager**: Progressive response rendering system
 - **Security Layer**: Client-side encryption for sensitive data
 - **Font Customization**: User-configurable font sizes for optimal readability
+- **Message Renderer**: Advanced chronological ordering with timestamp validation and citation handling
+- **Window Context Manager**: Dynamic targeting for Agent Chat vs AI Companion Chat windows
+- **Citation System**: Enhanced reference display with inline styling and proper positioning
+- **Debug Console**: Comprehensive logging system for troubleshooting message ordering and rendering
 
 ### Backend Integrations
 - **DirectLine Client**: Microsoft Bot Framework connectivity
@@ -162,7 +198,7 @@ MCSChat/
 - **DirectLineManager**: Microsoft Bot Framework DirectLine API integration with connection handling
 
 ### UI Layer
-- **MessageRenderer**: Message display, adaptive card rendering, streaming text, and user interaction
+- **MessageRenderer**: Message display, adaptive card rendering, streaming text, chronological ordering, citation handling, and dual-window support
 
 ### AI Integration
 - **AICompanion**: Ollama model integration, conversation analysis, KPI tracking, and AI-powered insights
@@ -224,7 +260,215 @@ async function handleCustomStreaming(message) {
 }
 ```
 
-## 🚦 Troubleshooting
+## � Deployment Guide
+
+### Development Environment
+1. **Prerequisites**
+   - Python 3.7+ for local HTTP server
+   - Modern web browser with ES6 support
+   - Text editor or IDE
+
+2. **Quick Start**
+   ```bash
+   # Clone the repository
+   git clone https://github.com/yourusername/MCSChat.git
+   cd MCSChat
+   
+   # Start development server
+   python -m http.server 8000
+   
+   # Access application
+   # Navigate to http://localhost:8000/index-modular.html
+   ```
+
+### Production Deployment Options
+
+#### Option 1: Static Web Hosting (Recommended for most users)
+
+**Netlify Deployment**
+1. Fork or download this repository
+2. Connect your GitHub account to Netlify
+3. Deploy directly from GitHub
+4. Configure custom domain (optional)
+
+**Vercel Deployment**
+1. Install Vercel CLI: `npm i -g vercel`
+2. Run `vercel` in the project directory
+3. Follow the prompts to deploy
+
+**GitHub Pages**
+1. Enable GitHub Pages in repository settings
+2. Select source branch (main/master)
+3. Access via `https://yourusername.github.io/MCSChat`
+
+#### Option 2: Traditional Web Servers
+
+**Apache Configuration**
+```apache
+<VirtualHost *:80>
+    ServerName your-domain.com
+    DocumentRoot /path/to/MCSChat
+    
+    # Enable CORS for API calls
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
+    
+    # Security headers
+    Header always set X-Frame-Options DENY
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-XSS-Protection "1; mode=block"
+</VirtualHost>
+```
+
+**Nginx Configuration**
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+    root /path/to/MCSChat;
+    index index-modular.html;
+    
+    # CORS configuration
+    add_header Access-Control-Allow-Origin *;
+    add_header Access-Control-Allow-Methods "GET, POST, OPTIONS";
+    add_header Access-Control-Allow-Headers "Content-Type, Authorization";
+    
+    # Security headers
+    add_header X-Frame-Options DENY;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    
+    location / {
+        try_files $uri $uri/ /index-modular.html;
+    }
+}
+```
+
+**IIS Configuration (Windows)**
+1. Copy files to `C:\inetpub\wwwroot\MCSChat`
+2. Create web.config:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <system.webServer>
+        <httpProtocol>
+            <customHeaders>
+                <add name="Access-Control-Allow-Origin" value="*" />
+                <add name="X-Frame-Options" value="DENY" />
+            </customHeaders>
+        </httpProtocol>
+        <defaultDocument>
+            <files>
+                <add value="index-modular.html" />
+            </files>
+        </defaultDocument>
+    </system.webServer>
+</configuration>
+```
+
+#### Option 3: Docker Deployment
+
+**Dockerfile**
+```dockerfile
+FROM nginx:alpine
+COPY . /usr/share/nginx/html/
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+**Docker Commands**
+```bash
+# Build image
+docker build -t mcschat .
+
+# Run container
+docker run -p 8080:80 mcschat
+
+# Access application at http://localhost:8080
+```
+
+**Docker Compose**
+```yaml
+version: '3.8'
+services:
+  mcschat:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+```
+
+### Environment Configuration
+
+#### Security Considerations
+1. **API Key Management**
+   - Never commit API keys to version control
+   - Use environment-specific configuration
+   - Consider using Azure Key Vault or AWS Secrets Manager for production
+
+2. **HTTPS Configuration**
+   - Always use HTTPS in production
+   - Configure SSL certificates (Let's Encrypt recommended)
+   - Update CORS policies for production domains
+
+3. **Content Security Policy**
+   ```html
+   <meta http-equiv="Content-Security-Policy" 
+         content="default-src 'self'; 
+                  script-src 'self' 'unsafe-inline'; 
+                  style-src 'self' 'unsafe-inline';
+                  connect-src 'self' https://api.openai.com https://api.anthropic.com https://*.openai.azure.com http://localhost:11434">
+   ```
+
+#### Performance Optimization
+1. **Enable Compression**
+   - Gzip/Brotli for static assets
+   - Minify CSS and JavaScript files
+
+2. **Caching Strategy**
+   ```nginx
+   location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg)$ {
+       expires 1y;
+       add_header Cache-Control "public, immutable";
+   }
+   ```
+
+3. **CDN Integration**
+   - Use CDN for static assets
+   - Consider edge locations for global users
+
+### Production Checklist
+- [ ] API keys configured and secured
+- [ ] HTTPS enabled with valid SSL certificate
+- [ ] Security headers configured
+- [ ] CORS policies set for production domains
+- [ ] Error monitoring implemented
+- [ ] Backup strategy in place
+- [ ] Performance monitoring configured
+- [ ] Content Security Policy applied
+- [ ] File upload limits configured
+- [ ] Rate limiting implemented (if applicable)
+
+### Monitoring and Maintenance
+1. **Health Checks**
+   - Monitor API endpoint availability
+   - Set up uptime monitoring
+   - Configure alerting for failures
+
+2. **Log Management**
+   - Enable browser console logging in development
+   - Implement server-side logging for production
+   - Monitor for JavaScript errors
+
+3. **Updates and Maintenance**
+   - Regularly update dependencies
+   - Monitor for security vulnerabilities
+   - Test new API provider integrations
+
+## �🚦 Troubleshooting
 
 ### Common Issues
 - **CORS Errors**: Use the included `ollama-proxy.js` for local models
@@ -239,7 +483,47 @@ Enable detailed logging by opening browser developer tools. All operations are l
 
 ## 📅 Changelog
 
-### Version 3.2.0 (Current - AI Companion & Enhanced UX)
+### Version 3.2.2 (Current - Message Ordering & Citation Enhancements)
+**Critical Bug Fixes:**
+- 🐛 **Message Chronological Ordering**: Fixed timestamp comparison algorithm to ensure messages display in correct chronological order (oldest to newest)
+- 🐛 **Timestamp Parsing**: Enhanced timestamp validation with better error handling for malformed or missing timestamps
+- 🐛 **Citation Positioning**: Fixed reference sections to display at the bottom of messages instead of inline
+- 🐛 **Agent Metadata Alignment**: Corrected agent meta information alignment with message bubbles
+
+**UI/UX Improvements:**
+- ⚡ **Enhanced Reference Handling**: Improved inline reference styling with clickable [1], [2] style citations
+- ⚡ **Side Browser Restoration**: Restored missing side browser option in settings panel
+- ⚡ **Message Display Options**: Added setting to allow users to choose between bubble and full-width display for agent messages
+- ⚡ **Dual Chat Window Support**: Enhanced message renderer to properly handle both Agent Chat (middle panel) and AI Companion Chat (right panel)
+
+**Technical Enhancements:**
+- 🔧 **Robust Timestamp Handling**: Added comprehensive error handling for timestamp parsing with fallback to current time
+- 🔧 **Message Insertion Algorithm**: Improved `insertMessageInOrder()` method with detailed debug logging and tie-breaking logic
+- 🔧 **Citation System**: Enhanced citation detection and rendering with proper positioning outside message bubbles
+- 🔧 **Window Context Management**: Added `setTargetWindow()` and `getCurrentWindowId()` methods for better chat window targeting
+- 🔧 **Debug Capabilities**: Extensive logging for message ordering troubleshooting with human-readable timestamps
+
+**Debugging Features:**
+- 📊 **Enhanced Debug Logging**: Detailed timestamp comparison logs with human-readable time formats
+- 📊 **Message Insertion Tracking**: Step-by-step logging of message positioning decisions
+- 📊 **Error Recovery**: Graceful handling of invalid timestamps with appropriate fallback mechanisms
+- 📊 **Tie-Breaking Logic**: Smart handling of messages with identical or very similar timestamps
+
+### Version 3.2.1 (Unified AI Companion Architecture)
+**Code Consolidation & Bug Fixes:**
+- 🔧 **Unified Streaming Architecture**: Consolidated all AI provider streaming implementations to use shared markdown processing
+- 🔧 **Markdown Rendering Fix**: Fixed Azure OpenAI and Anthropic Claude responses to properly render markdown like Ollama
+- 🔧 **Code Deduplication**: Eliminated duplicate message creation and content processing logic across all providers
+- 🔧 **Improved Maintainability**: Created reusable helper methods for message handling and content processing
+- 🐛 **Consistent User Experience**: All AI providers now have identical formatting and rendering capabilities
+
+**Technical Improvements:**
+- ⚡ **Unified Message Processing**: Single `processMarkdownContent()` method for all providers
+- ⚡ **Consolidated Streaming**: Shared `initializeStreamingMessage()`, `updateStreamingContent()`, and `finalizeMessage()` methods
+- ⚡ **Cleaner Architecture**: Reduced code duplication by ~40% in AI companion module
+- ⚡ **Better Error Handling**: Consistent error handling across all streaming implementations
+
+### Version 3.2.0 (AI Companion & Enhanced UX)
 **Major Features Added:**
 - 🆕 **AI Companion Panel**: Complete conversation analysis system with real-time KPI tracking
 - 🆕 **Performance Analytics**: Accuracy, Helpfulness, Completeness, Human-likeness, and Efficiency metrics

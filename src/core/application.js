@@ -114,11 +114,20 @@ export class Application {
 
             // Setup modal form elements
             enableStreamingCheckbox: DOMUtils.getElementById('enableStreamingCheckbox'),
+            enableSideBrowserCheckbox: DOMUtils.getElementById('enableSideBrowserCheckbox'),
+            fullWidthMessagesCheckbox: DOMUtils.getElementById('fullWidthMessagesCheckbox'),
             enableLLMCheckbox: DOMUtils.getElementById('enableLLMCheckbox'),
             apiKeySection: DOMUtils.getElementById('apiKeySection'),
             apiProviderSelect: DOMUtils.getElementById('apiProviderSelect'),
             apiKeyInput: DOMUtils.getElementById('apiKeyInput'),
             apiKeyField: DOMUtils.getElementById('apiKeyField'),
+            azureConfig: DOMUtils.getElementById('azureConfig'),
+            azureEndpointInput: DOMUtils.getElementById('azureEndpointInput'),
+            azureDeploymentInput: DOMUtils.getElementById('azureDeploymentInput'),
+            azureApiVersionInput: DOMUtils.getElementById('azureApiVersionInput'),
+            testAzureBtn: DOMUtils.getElementById('testAzureBtn'),
+            apiTestSection: DOMUtils.getElementById('apiTestSection'),
+            testApiBtn: DOMUtils.getElementById('testApiBtn'),
             ollamaConfig: DOMUtils.getElementById('ollamaConfig'),
             ollamaUrlInput: DOMUtils.getElementById('ollamaUrlInput'),
             ollamaModelSelect: DOMUtils.getElementById('ollamaModelSelect'),
@@ -129,10 +138,45 @@ export class Application {
             agentFontSize: DOMUtils.getElementById('agentFontSize'),
             agentFontSizeValue: DOMUtils.getElementById('agentFontSizeValue'),
             companionFontSize: DOMUtils.getElementById('companionFontSize'),
-            companionFontSizeValue: DOMUtils.getElementById('companionFontSizeValue')
+            companionFontSizeValue: DOMUtils.getElementById('companionFontSizeValue'),
+
+            // Side browser elements
+            sideBrowser: DOMUtils.getElementById('sideBrowser')
         };
 
+        // Debug: Check if Azure elements were found
+        console.log('Azure DOM elements check:', {
+            azureConfig: !!this.elements.azureConfig,
+            azureEndpointInput: !!this.elements.azureEndpointInput,
+            azureDeploymentInput: !!this.elements.azureDeploymentInput,
+            azureApiVersionInput: !!this.elements.azureApiVersionInput,
+            testAzureBtn: !!this.elements.testAzureBtn,
+            apiKeySection: !!this.elements.apiKeySection,
+            apiProviderSelect: !!this.elements.apiProviderSelect
+        });
+
         console.log('DOM elements initialized');
+
+        // Add global diagnostic function for Azure settings
+        window.debugAzureSettings = () => {
+            console.log('=== Azure Settings Debug ===');
+            console.log('AI Companion enabled:', this.elements.enableLLMCheckbox?.checked);
+            console.log('Selected provider:', this.elements.apiProviderSelect?.value);
+            console.log('API Key Section visible:', this.elements.apiKeySection?.style.display !== 'none');
+            console.log('Azure Config visible:', this.elements.azureConfig?.style.display !== 'none');
+            console.log('Azure elements exist:', {
+                azureConfig: !!this.elements.azureConfig,
+                azureEndpointInput: !!this.elements.azureEndpointInput,
+                azureDeploymentInput: !!this.elements.azureDeploymentInput,
+                testAzureBtn: !!this.elements.testAzureBtn
+            });
+            console.log('Current Azure values:', {
+                endpoint: this.elements.azureEndpointInput?.value,
+                deployment: this.elements.azureDeploymentInput?.value,
+                apiVersion: this.elements.azureApiVersionInput?.value
+            });
+            console.log('========================');
+        };
     }
 
     /**
@@ -142,6 +186,9 @@ export class Application {
     async initializeManagers() {
         // Initialize agent manager (loads agents and sets up event listeners)
         await agentManager.initialize();
+
+        // Configure MessageRenderer to target the agent chat window (middle panel)
+        messageRenderer.setTargetWindow('chatWindow');
 
         // Set up DirectLine callbacks (only for connection status and errors)
         directLineManager.setCallbacks({
@@ -412,6 +459,37 @@ export class Application {
                 this.toggleAICompanionSection(e.target.checked);
                 // Save the setting
                 localStorage.setItem('enableLLM', e.target.checked.toString());
+
+                // Update AI companion status immediately
+                if (this.aiCompanion) {
+                    if (e.target.checked) {
+                        this.aiCompanion.enable();
+                    } else {
+                        this.aiCompanion.disable();
+                    }
+                }
+            });
+        }
+
+        // Streaming checkbox
+        if (this.elements.enableStreamingCheckbox) {
+            DOMUtils.addEventListener(this.elements.enableStreamingCheckbox, 'change', (e) => {
+                localStorage.setItem('enableStreaming', e.target.checked.toString());
+            });
+        }
+
+        // Side Browser checkbox
+        if (this.elements.enableSideBrowserCheckbox) {
+            DOMUtils.addEventListener(this.elements.enableSideBrowserCheckbox, 'change', (e) => {
+                localStorage.setItem('enableSideBrowser', e.target.checked.toString());
+            });
+        }
+
+        // Full Width Messages checkbox
+        if (this.elements.fullWidthMessagesCheckbox) {
+            DOMUtils.addEventListener(this.elements.fullWidthMessagesCheckbox, 'change', (e) => {
+                localStorage.setItem('fullWidthMessages', e.target.checked.toString());
+                this.toggleFullWidthMessages(e.target.checked);
             });
         }
 
@@ -421,6 +499,8 @@ export class Application {
                 this.handleAPIProviderChange(e.target.value);
                 // Save the selected provider
                 localStorage.setItem('selectedApiProvider', e.target.value);
+                // Load API key for the new provider
+                this.loadCurrentAPIKey(e.target.value);
             });
         }
 
@@ -455,6 +535,48 @@ export class Application {
                 if (e.target.value.trim()) {
                     await SecureStorage.store(`${provider}ApiKey`, e.target.value.trim());
                     console.log(`${provider} API key saved`);
+
+                    // Update AI companion status
+                    if (this.aiCompanion) {
+                        this.aiCompanion.updateStatus();
+                    }
+                }
+            });
+        }
+
+        // Azure OpenAI settings
+        if (this.elements.azureEndpointInput) {
+            DOMUtils.addEventListener(this.elements.azureEndpointInput, 'change', (e) => {
+                localStorage.setItem('azureEndpoint', e.target.value);
+                console.log('Azure endpoint saved:', e.target.value);
+
+                // Update AI companion status if Azure is selected
+                if (this.aiCompanion && this.elements.apiProviderSelect?.value === 'azure') {
+                    this.aiCompanion.updateStatus();
+                }
+            });
+        }
+
+        if (this.elements.azureDeploymentInput) {
+            DOMUtils.addEventListener(this.elements.azureDeploymentInput, 'change', (e) => {
+                localStorage.setItem('azureDeployment', e.target.value);
+                console.log('Azure deployment saved:', e.target.value);
+
+                // Update AI companion status if Azure is selected
+                if (this.aiCompanion && this.elements.apiProviderSelect?.value === 'azure') {
+                    this.aiCompanion.updateStatus();
+                }
+            });
+        }
+
+        if (this.elements.azureApiVersionInput) {
+            DOMUtils.addEventListener(this.elements.azureApiVersionInput, 'change', (e) => {
+                localStorage.setItem('azureApiVersion', e.target.value);
+                console.log('Azure API version saved:', e.target.value);
+
+                // Update AI companion status if Azure is selected
+                if (this.aiCompanion && this.elements.apiProviderSelect?.value === 'azure') {
+                    this.aiCompanion.updateStatus();
                 }
             });
         }
@@ -470,6 +592,20 @@ export class Application {
         if (this.elements.testOllamaBtn) {
             DOMUtils.addEventListener(this.elements.testOllamaBtn, 'click', () => {
                 this.testOllamaConnection();
+            });
+        }
+
+        // Test Azure OpenAI connection
+        if (this.elements.testAzureBtn) {
+            DOMUtils.addEventListener(this.elements.testAzureBtn, 'click', () => {
+                this.testAzureConnection();
+            });
+        }
+
+        // Test general API connection
+        if (this.elements.testApiBtn) {
+            DOMUtils.addEventListener(this.elements.testApiBtn, 'click', () => {
+                this.testApiConnection();
             });
         }
 
@@ -541,6 +677,15 @@ export class Application {
             this.handleConnectionErrorUI(e.detail);
         });
 
+        // Streaming events
+        window.addEventListener('streamingHealth', (e) => {
+            this.handleStreamingHealth(e.detail);
+        });
+
+        window.addEventListener('streamingCompleted', (e) => {
+            this.handleStreamingCompleted(e.detail);
+        });
+
         // Session events
         window.addEventListener('sessionLoaded', (e) => {
             this.handleSessionLoaded(e.detail);
@@ -580,15 +725,19 @@ export class Application {
             // Clear input
             this.elements.userInput.value = '';
 
+            // Create timestamp for proper chronological ordering
+            const userMessageTimestamp = new Date().toISOString();
+
             // Add user message to session
             sessionManager.addMessage({
                 from: 'user',
                 text: messageText,
-                attachments: this.selectedFile ? [this.selectedFile] : []
+                attachments: this.selectedFile ? [this.selectedFile] : [],
+                timestamp: userMessageTimestamp
             });
 
-            // Render user message
-            this.renderUserMessage(messageText);
+            // Render user message with explicit timestamp
+            this.renderUserMessage(messageText, userMessageTimestamp);
 
             // Send to DirectLine
             if (this.selectedFile) {
@@ -609,15 +758,16 @@ export class Application {
     }
 
     /**
-     * Render user message
+     * Render user message with explicit timestamp for proper ordering
      * @param {string} text - Message text
+     * @param {string} timestamp - Message timestamp
      * @private
      */
-    renderUserMessage(text) {
+    renderUserMessage(text, timestamp) {
         const activity = {
             from: { id: 'user' },
             text: text,
-            timestamp: new Date().toISOString()
+            timestamp: timestamp || new Date().toISOString()
         };
 
         messageRenderer.renderCompleteMessage(activity);
@@ -671,6 +821,8 @@ export class Application {
     clearAllHistory() {
         sessionManager.clearAllHistory();
         messageRenderer.clearMessages();
+        // Ensure MessageRenderer targets the correct window after clearing
+        messageRenderer.setTargetWindow('chatWindow');
         console.log('All chat history cleared');
     }
 
@@ -693,22 +845,44 @@ export class Application {
             });
         }
 
-        // Check if streaming is enabled for simulation
+        // Check if this message is already being handled by DirectLine streaming simulation
+        const isSimulatedStreaming = activity.streamingMetadata?.isSimulated;
         const streamingEnabled = localStorage.getItem('enableStreaming') === 'true';
+
+        console.log('handleCompleteMessage:', {
+            text: activity.text?.substring(0, 50) + '...',
+            streamingEnabled,
+            isSimulatedStreaming,
+            hasStreamingMetadata: !!activity.streamingMetadata
+        });
+
+        if (isSimulatedStreaming) {
+            // DirectLine manager is already handling streaming via events, don't duplicate
+            console.log('Message already being streamed by DirectLine manager, skipping local simulation');
+            return;
+        }
+
         if (streamingEnabled) {
+            console.log('Starting local streaming simulation');
             messageRenderer.simulateStreaming(activity);
         } else {
+            console.log('Rendering complete message without streaming');
             messageRenderer.renderCompleteMessage(activity);
         }
     }
 
     /**
-     * Handle streaming activity (enhanced to include session management)
-     * @param {Object} activity - Streaming activity
+     * Handle streaming activity with enhanced metadata processing
+     * @param {Object} activity - Streaming activity with metadata
      * @private
      */
     handleStreamingActivity(activity) {
         this.hideProgressIndicator();
+
+        // Process streaming metadata for improved UX
+        if (activity.streamingMetadata) {
+            this.updateStreamingMetrics(activity.streamingMetadata);
+        }
 
         // For streaming messages, we'll add to session when streaming ends
         // Just handle the rendering here
@@ -716,21 +890,140 @@ export class Application {
     }
 
     /**
-     * Handle streaming end (enhanced to include session management)
-     * @param {Object} activity - Final activity
+     * Handle streaming end with completion metrics
+     * @param {Object} activity - Final activity with metadata
      * @private
      */
     handleStreamingEnd(activity) {
+        // Process final streaming metrics
+        if (activity.streamingMetadata) {
+            this.finalizeStreamingMetrics(activity.streamingMetadata);
+        }
+
         // Add the final complete message to session
         sessionManager.addMessage({
             from: activity.from?.id || 'bot',
             text: activity.text,
             attachments: activity.attachments,
             suggestedActions: activity.suggestedActions,
-            timestamp: activity.timestamp
+            timestamp: activity.timestamp,
+            streamingMetadata: activity.streamingMetadata // Include for analytics
         });
 
         messageRenderer.finalizeStreamingMessage(activity);
+    }
+
+    /**
+     * Update streaming metrics for performance monitoring
+     * @param {Object} metadata - Streaming metadata
+     * @private
+     */
+    updateStreamingMetrics(metadata) {
+        if (!this.streamingSession) {
+            this.streamingSession = {
+                startTime: metadata.timestamp || Date.now(),
+                chunksReceived: 0,
+                isRealtime: metadata.isRealtime || false,
+                isSimulated: metadata.isSimulated || false
+            };
+        }
+
+        this.streamingSession.chunksReceived++;
+
+        // Update streaming progress indicator if available
+        if (metadata.chunkNumber && metadata.totalChunks) {
+            const progress = (metadata.chunkNumber / metadata.totalChunks) * 100;
+            this.updateStreamingProgress(progress, metadata);
+        }
+    }
+
+    /**
+     * Finalize streaming metrics and log performance
+     * @param {Object} metadata - Final streaming metadata
+     * @private
+     */
+    finalizeStreamingMetrics(metadata) {
+        if (this.streamingSession) {
+            const totalDuration = (metadata.timestamp || Date.now()) - this.streamingSession.startTime;
+
+            console.log('Streaming completed:', {
+                duration: totalDuration,
+                chunks: this.streamingSession.chunksReceived,
+                realtime: this.streamingSession.isRealtime,
+                simulated: this.streamingSession.isSimulated,
+                averageChunkDelay: totalDuration / Math.max(1, this.streamingSession.chunksReceived)
+            });
+
+            // Emit performance metrics for analytics
+            window.dispatchEvent(new CustomEvent('streamingCompleted', {
+                detail: {
+                    ...this.streamingSession,
+                    totalDuration,
+                    metadata
+                }
+            }));
+
+            this.streamingSession = null;
+        }
+    }
+
+    /**
+     * Update streaming progress indicator
+     * @param {number} progress - Progress percentage (0-100)
+     * @param {Object} metadata - Streaming metadata
+     * @private
+     */
+    updateStreamingProgress(progress, metadata) {
+        // Find existing progress indicator or create one
+        let progressIndicator = this.elements.chatWindow.querySelector('.streaming-progress');
+
+        if (!progressIndicator && progress < 100) {
+            progressIndicator = document.createElement('div');
+            progressIndicator.className = 'streaming-progress';
+
+            // Add specific class based on streaming type
+            if (metadata.isRealtime) {
+                progressIndicator.classList.add('realtime');
+            } else if (metadata.isSimulated) {
+                progressIndicator.classList.add('simulated');
+            }
+
+            progressIndicator.innerHTML = `
+                <div class="streaming-progress-bar">
+                    <div class="streaming-progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="streaming-progress-text">Receiving response...</div>
+            `;
+            this.elements.chatWindow.appendChild(progressIndicator);
+        }
+
+        if (progressIndicator) {
+            const progressFill = progressIndicator.querySelector('.streaming-progress-fill');
+            const progressText = progressIndicator.querySelector('.streaming-progress-text');
+
+            if (progressFill) {
+                progressFill.style.width = `${Math.min(progress, 100)}%`;
+            }
+
+            if (progressText) {
+                if (metadata.isRealtime) {
+                    progressText.textContent = `Receiving live response... (${Math.round(progress)}%)`;
+                } else if (metadata.isSimulated) {
+                    progressText.textContent = `Processing response... (${Math.round(progress)}%)`;
+                } else {
+                    progressText.textContent = `Receiving response... (${Math.round(progress)}%)`;
+                }
+            }
+
+            // Remove progress indicator when complete
+            if (progress >= 100) {
+                setTimeout(() => {
+                    if (progressIndicator && progressIndicator.parentNode) {
+                        progressIndicator.parentNode.removeChild(progressIndicator);
+                    }
+                }, 500);
+            }
+        }
     }
 
     /**
@@ -938,6 +1231,8 @@ export class Application {
 
         // Clear current display
         messageRenderer.clearMessages();
+        // Ensure MessageRenderer targets the correct window after clearing
+        messageRenderer.setTargetWindow('chatWindow');
 
         // Render session messages
         detail.messages.forEach(message => {
@@ -1015,6 +1310,22 @@ export class Application {
             this.elements.enableLLMCheckbox.checked = localStorage.getItem('enableLLM') === 'true';
         }
 
+        // Load streaming settings
+        if (this.elements.enableStreamingCheckbox) {
+            this.elements.enableStreamingCheckbox.checked = localStorage.getItem('enableStreaming') === 'true';
+        }
+
+        // Load side browser settings
+        if (this.elements.enableSideBrowserCheckbox) {
+            this.elements.enableSideBrowserCheckbox.checked = localStorage.getItem('enableSideBrowser') === 'true';
+        }
+
+        // Load full width messages settings
+        if (this.elements.fullWidthMessagesCheckbox) {
+            this.elements.fullWidthMessagesCheckbox.checked = localStorage.getItem('fullWidthMessages') === 'true';
+            this.toggleFullWidthMessages(this.elements.fullWidthMessagesCheckbox.checked);
+        }
+
         // Load API provider
         const savedProvider = localStorage.getItem('selectedApiProvider') || 'openai';
         if (this.elements.apiProviderSelect) {
@@ -1037,10 +1348,28 @@ export class Application {
             }
         }
 
+        // Load Azure OpenAI settings
+        const savedAzureEndpoint = localStorage.getItem('azureEndpoint');
+        const savedAzureDeployment = localStorage.getItem('azureDeployment');
+        const savedAzureApiVersion = localStorage.getItem('azureApiVersion') || '2024-02-01';
+
+        if (this.elements.azureEndpointInput && savedAzureEndpoint) {
+            this.elements.azureEndpointInput.value = savedAzureEndpoint;
+        }
+        if (this.elements.azureDeploymentInput && savedAzureDeployment) {
+            this.elements.azureDeploymentInput.value = savedAzureDeployment;
+        }
+        if (this.elements.azureApiVersionInput) {
+            this.elements.azureApiVersionInput.value = savedAzureApiVersion;
+        }
+
         // Update AI companion section visibility
         if (this.elements.enableLLMCheckbox?.checked) {
             this.toggleAICompanionSection(true);
             this.handleAPIProviderChange(savedProvider);
+
+            // Load current API key for the selected provider
+            this.loadCurrentAPIKey(savedProvider);
         }
 
         // Load font size settings
@@ -1055,6 +1384,44 @@ export class Application {
     }
 
     /**
+     * Load current API key for the selected provider
+     * @param {string} provider - API provider
+     * @private
+     */
+    async loadCurrentAPIKey(provider) {
+        if (!this.elements.apiKeyInput || provider === 'ollama') return;
+
+        try {
+            const apiKey = await SecureStorage.retrieve(`${provider}ApiKey`);
+            if (apiKey) {
+                this.elements.apiKeyInput.value = apiKey;
+                console.log(`${provider} API key loaded`);
+            } else {
+                this.elements.apiKeyInput.value = '';
+                console.log(`No ${provider} API key found`);
+            }
+        } catch (error) {
+            console.error('Error loading API key:', error);
+            this.elements.apiKeyInput.value = '';
+        }
+    }
+
+    /**
+     * Toggle full width messages display
+     * @param {boolean} enabled - Whether to enable full width messages
+     */
+    toggleFullWidthMessages(enabled) {
+        const chatWindow = this.elements.chatWindow;
+        if (chatWindow) {
+            if (enabled) {
+                DOMUtils.addClass(chatWindow, 'full-width-messages');
+            } else {
+                DOMUtils.removeClass(chatWindow, 'full-width-messages');
+            }
+        }
+    }
+
+    /**
      * Hide setup modal
      */
     hideSetupModal() {
@@ -1063,6 +1430,11 @@ export class Application {
             setTimeout(() => {
                 DOMUtils.hide(this.elements.setupModal);
             }, 300);
+
+            // Reload AI companion settings when modal is closed
+            if (this.aiCompanion) {
+                this.aiCompanion.reloadSettings();
+            }
         }
     }
 
@@ -1260,13 +1632,20 @@ export class Application {
      * @param {boolean} enabled - Whether AI companion is enabled
      */
     toggleAICompanionSection(enabled) {
+        console.log('toggleAICompanionSection called with enabled:', enabled);
         if (this.elements.apiKeySection) {
             if (enabled) {
+                console.log('Showing AI companion section');
                 DOMUtils.show(this.elements.apiKeySection);
-                this.handleAPIProviderChange(this.elements.apiProviderSelect?.value || 'openai');
+                const currentProvider = this.elements.apiProviderSelect?.value || 'openai';
+                console.log('Current provider:', currentProvider);
+                this.handleAPIProviderChange(currentProvider);
             } else {
+                console.log('Hiding AI companion section');
                 DOMUtils.hide(this.elements.apiKeySection);
             }
+        } else {
+            console.error('apiKeySection element not found!');
         }
     }
 
@@ -1275,15 +1654,36 @@ export class Application {
      * @param {string} provider - Selected provider
      */
     handleAPIProviderChange(provider) {
-        if (this.elements.apiKeyField && this.elements.ollamaConfig) {
-            if (provider === 'ollama') {
-                DOMUtils.hide(this.elements.apiKeyField);
-                DOMUtils.show(this.elements.ollamaConfig);
-                this.refreshOllamaModels();
-            } else {
-                DOMUtils.show(this.elements.apiKeyField);
-                DOMUtils.hide(this.elements.ollamaConfig);
-            }
+        console.log('handleAPIProviderChange called with provider:', provider);
+
+        // Save the provider setting
+        localStorage.setItem('selectedApiProvider', provider);
+
+        // Hide all config sections first
+        if (this.elements.apiKeyField) DOMUtils.hide(this.elements.apiKeyField);
+        if (this.elements.azureConfig) DOMUtils.hide(this.elements.azureConfig);
+        if (this.elements.apiTestSection) DOMUtils.hide(this.elements.apiTestSection);
+        if (this.elements.ollamaConfig) DOMUtils.hide(this.elements.ollamaConfig);
+
+        // Show appropriate config section based on provider
+        if (provider === 'ollama') {
+            console.log('Showing Ollama config');
+            DOMUtils.show(this.elements.ollamaConfig);
+            this.refreshOllamaModels();
+        } else if (provider === 'azure') {
+            console.log('Showing Azure config - API key field and Azure config');
+            DOMUtils.show(this.elements.apiKeyField);
+            DOMUtils.show(this.elements.azureConfig);
+        } else {
+            // OpenAI, Anthropic, etc.
+            console.log('Showing general API config for provider:', provider);
+            DOMUtils.show(this.elements.apiKeyField);
+            DOMUtils.show(this.elements.apiTestSection);
+        }
+
+        // Update AI companion provider and status
+        if (this.aiCompanion) {
+            this.aiCompanion.setProvider(provider);
         }
     }
 
@@ -1363,7 +1763,131 @@ export class Application {
             console.error('Ollama connection test failed:', error);
             alert(`❌ Ollama connection failed:\n${error.message}\n\nMake sure Ollama is running and accessible at the specified URL.`);
         }
-    }    /**
+    }
+
+    /**
+     * Test Azure OpenAI connection
+     */
+    async testAzureConnection() {
+        try {
+            const apiKey = this.elements.apiKeyInput?.value;
+            const endpoint = this.elements.azureEndpointInput?.value;
+            const deployment = this.elements.azureDeploymentInput?.value;
+            const apiVersion = this.elements.azureApiVersionInput?.value || '2024-02-01';
+
+            if (!apiKey || !endpoint || !deployment) {
+                alert('❌ Please fill in all required Azure OpenAI fields:\n- API Key\n- Endpoint\n- Deployment Name');
+                return;
+            }
+
+            // Test with a simple chat completion request
+            const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'api-key': apiKey
+                },
+                body: JSON.stringify({
+                    messages: [
+                        {
+                            role: 'user',
+                            content: 'Hello, this is a connection test.'
+                        }
+                    ],
+                    max_tokens: 10,
+                    temperature: 0
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`HTTP ${response.status}: ${errorData.error?.message || response.statusText}`);
+            }
+
+            const data = await response.json();
+            alert(`✅ Azure OpenAI connection successful!\nModel: ${data.model || deployment}\nUsage: ${data.usage?.total_tokens || 'N/A'} tokens`);
+
+        } catch (error) {
+            console.error('Azure OpenAI connection test failed:', error);
+            alert(`❌ Azure OpenAI connection failed:\n${error.message}\n\nPlease check your configuration and try again.`);
+        }
+    }
+
+    /**
+     * Test general API connection (OpenAI, Anthropic, etc.)
+     */
+    async testApiConnection() {
+        try {
+            const provider = this.elements.apiProviderSelect?.value || 'openai';
+            const apiKey = this.elements.apiKeyInput?.value;
+
+            if (!apiKey) {
+                alert('❌ Please enter your API key before testing the connection.');
+                return;
+            }
+
+            let url, headers, body;
+
+            if (provider === 'openai') {
+                url = 'https://api.openai.com/v1/chat/completions';
+                headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                };
+                body = JSON.stringify({
+                    model: 'gpt-3.5-turbo',
+                    messages: [{ role: 'user', content: 'Hello, this is a connection test.' }],
+                    max_tokens: 10,
+                    temperature: 0
+                });
+            } else if (provider === 'anthropic') {
+                url = 'https://api.anthropic.com/v1/messages';
+                headers = {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01'
+                };
+                body = JSON.stringify({
+                    model: 'claude-3-haiku-20240307',
+                    messages: [{ role: 'user', content: 'Hello, this is a connection test.' }],
+                    max_tokens: 10
+                });
+            } else {
+                alert(`❌ Connection testing for ${provider} is not implemented yet.`);
+                return;
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers,
+                body
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`HTTP ${response.status}: ${errorData.error?.message || errorData.message || response.statusText}`);
+            }
+
+            const data = await response.json();
+            let modelInfo = '';
+
+            if (provider === 'openai') {
+                modelInfo = `Model: ${data.model || 'Unknown'}\nUsage: ${data.usage?.total_tokens || 'N/A'} tokens`;
+            } else if (provider === 'anthropic') {
+                modelInfo = `Model: ${data.model || 'Unknown'}\nUsage: ${data.usage?.input_tokens || 'N/A'} input, ${data.usage?.output_tokens || 'N/A'} output tokens`;
+            }
+
+            alert(`✅ ${provider.charAt(0).toUpperCase() + provider.slice(1)} connection successful!\n${modelInfo}`);
+
+        } catch (error) {
+            console.error('API connection test failed:', error);
+            alert(`❌ API connection failed:\n${error.message}\n\nPlease check your API key and try again.`);
+        }
+    }
+
+    /**
      * Open URL in right panel
      * @param {string} url - URL to open
      */
@@ -1507,6 +2031,45 @@ export class Application {
      */
     isAppInitialized() {
         return this.isInitialized;
+    }
+
+    /**
+     * Handle streaming health updates
+     * @param {Object} healthData - Streaming health metrics
+     * @private
+     */
+    handleStreamingHealth(healthData) {
+        // Update internal metrics
+        this.streamingHealth = {
+            ...this.streamingHealth,
+            ...healthData
+        };
+
+        // Log health metrics for debugging
+        if (healthData.connectionQuality === 'poor') {
+            console.warn('DirectLine streaming quality degraded:', healthData);
+        }
+
+        // Could update UI indicators here if needed
+        // For now, just store for analytics
+    }
+
+    /**
+     * Handle streaming completion events
+     * @param {Object} completionData - Streaming completion metrics
+     * @private
+     */
+    handleStreamingCompleted(completionData) {
+        // Log streaming performance for analytics
+        console.log('Streaming session completed:', {
+            duration: completionData.totalDuration,
+            chunks: completionData.chunksReceived,
+            type: completionData.isRealtime ? 'realtime' : (completionData.isSimulated ? 'simulated' : 'unknown'),
+            efficiency: completionData.averageChunkDelay
+        });
+
+        // Could send analytics data here
+        // For now, just log for debugging
     }
 }
 

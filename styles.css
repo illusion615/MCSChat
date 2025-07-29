@@ -916,16 +916,19 @@ body {
 #chatWindow,
 #llmChatWindow {
     flex: 1;
-    padding: 20px;
+    padding: 16px;
+    /* Reduced from 20px for compactness */
     overflow-y: auto;
     background: transparent;
     border-radius: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
+    /* Reduced from 16px */
 }
 
 /* Compact styling for AI companion chat window */
 #llmChatWindow {
-    padding: 12px;
+    padding: 8px;
+    /* Reduced from 12px */
     font-size: var(--companion-chat-font-size);
     line-height: 1.4;
 }
@@ -947,37 +950,53 @@ body {
     justify-content: flex-end;
 }
 
-#llmChatWindow .userMessage .messageContent {
+#llmChatWindow .userMessage .messageDiv {
+    max-width: 70%;
+    margin: 10px 0;
+}
+
+#llmChatWindow .userMessage .messageText {
     background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
-    padding: 12px 16px;
+    padding: 16px 20px;
     color: #ffffff;
     text-align: left;
-    border-radius: 16px 16px 4px 16px;
+    border-radius: 20px 20px 4px 20px;
     box-shadow: 0 2px 8px rgba(0, 120, 212, 0.3);
     font-weight: 500;
     font-size: var(--companion-chat-font-size);
+    line-height: 1.5;
 }
 
-/* AI Companion bot message styling */
-#llmChatWindow .botMessage {
+/* AI Companion assistant message styling - match agent chat style */
+#llmChatWindow .assistantMessage {
     justify-content: flex-start;
 }
 
-#llmChatWindow .botMessage .messageContent {
-    background: rgba(248, 249, 250, 0.9);
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    color: #323130;
-    text-align: left;
-    padding: 12px 16px;
-    border-radius: 16px 16px 16px 4px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-    backdrop-filter: blur(10px);
-    font-size: var(--companion-chat-font-size);
+#llmChatWindow .assistantMessage .messageDiv {
+    max-width: 100%;
+    margin: 10px 0;
 }
 
-/* Hide AI companion message icons */
+#llmChatWindow .assistantMessage .messageText {
+    color: #323130;
+    text-align: left;
+    padding: 16px 20px;
+    backdrop-filter: blur(10px);
+    font-size: var(--companion-chat-font-size);
+    line-height: 1.5;
+}
+
+/* AI Companion message icons - match agent chat style */
 #llmChatWindow .messageContainer .messageIcon {
-    display: none;
+    width: 32px;
+    height: 32px;
+    margin: 8px;
+    margin-top: 12px;
+    border-radius: 50%;
+    background-size: cover;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Adjust user message icon positioning for companion chat */
@@ -988,6 +1007,23 @@ body {
     margin-right: 0;
     background-image: url("images/carter_30k.png");
     background-size: cover;
+}
+
+/* AI Companion error message styling */
+#llmChatWindow .errorMessage .messageText {
+    background: linear-gradient(135deg, #d83b01 0%, #c239007a 100%);
+    color: #ffffff;
+    padding: 16px 20px;
+    border-radius: 20px 20px 20px 4px;
+    box-shadow: 0 2px 8px rgba(216, 59, 1, 0.3);
+    font-size: var(--companion-chat-font-size);
+    line-height: 1.5;
+    max-width: 70%;
+    margin: 10px 0;
+}
+
+#llmChatWindow .errorMessage {
+    justify-content: flex-start;
 }
 
 /* Custom scrollbar for chat windows */
@@ -1196,7 +1232,8 @@ body {
 .messageContainer {
     display: flex;
     align-items: flex-start;
-    margin: 10px 0;
+    margin: 4px 0;
+    /* Reduced from 10px to 4px for compactness */
 }
 
 .messageContainer.userMessage {
@@ -1208,10 +1245,14 @@ body {
 }
 
 .messageIcon {
-    width: 32px;
-    height: 32px;
-    margin: 8px;
-    margin-top: 12px;
+    width: 28px;
+    /* Reduced from 32px */
+    height: 28px;
+    /* Reduced from 32px */
+    margin: 4px;
+    /* Reduced from 8px */
+    margin-top: 6px;
+    /* Reduced from 12px */
     border-radius: 50%;
     background-size: cover;
     background-color: rgba(255, 255, 255, 0.9);
@@ -1221,17 +1262,20 @@ body {
 
 .messageContent {
     max-width: 70%;
-    padding: 15px;
+    padding: 12px;
+    /* Reduced from 15px */
     padding-top: 0px;
     border-radius: 10px;
     line-height: 1.5;
-    margin: 10px 0;
+    margin: 6px 0;
+    /* Reduced from 10px to 6px */
     /* Ensure consistent margin for both user and bot messages */
 }
 
 .userMessage .messageContent {
     background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
-    padding: 16px 20px;
+    padding: 12px 16px;
+    /* Reduced from 16px 20px */
     color: #ffffff;
     text-align: left;
     border-radius: 20px 20px 4px 20px;
@@ -1245,11 +1289,116 @@ body {
     border: 1px solid rgba(0, 0, 0, 0.08);
     color: #323130;
     text-align: left;
-    padding: 16px 20px;
+    padding: 12px 16px;
+    /* Reduced from 16px 20px */
     border-radius: 20px 20px 20px 4px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
     backdrop-filter: blur(10px);
     font-size: var(--agent-chat-font-size);
+}
+
+/* Full width message styling for bot messages */
+.full-width-messages .botMessage .messageContent {
+    max-width: 100%;
+    background: rgba(248, 249, 250, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 8px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.full-width-messages .botMessage {
+    justify-content: stretch;
+}
+
+.full-width-messages .botMessage .messageIcon {
+    margin-top: 8px;
+}
+
+.full-width-messages .message-metadata {
+    margin-left: 44px;
+    /* Keep same alignment for metadata */
+}
+
+/* AI Companion Response Styling - Professor-like, full-width display */
+.companion-response {
+    width: 100%;
+    margin: 12px 0;
+}
+
+.companion-response .messageContent {
+    max-width: 100%;
+    width: 100%;
+    background: rgba(248, 250, 252, 0.98);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    border-left: 4px solid rgba(59, 130, 246, 0.6);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 0;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    font-size: 15px;
+    line-height: 1.6;
+    color: #1f2937;
+}
+
+.companion-response .messageIcon {
+    display: none;
+    /* Hide icon for professor-like appearance */
+}
+
+.companion-response {
+    justify-content: stretch;
+    align-items: stretch;
+}
+
+/* Enhanced typography for companion responses */
+.companion-response .messageContent h1,
+.companion-response .messageContent h2,
+.companion-response .messageContent h3 {
+    color: #374151;
+    margin-top: 1.5em;
+    margin-bottom: 0.8em;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+    padding-bottom: 0.3em;
+}
+
+.companion-response .messageContent p {
+    margin-bottom: 1em;
+}
+
+.companion-response .messageContent ul,
+.companion-response .messageContent ol {
+    margin: 1em 0;
+    padding-left: 1.5em;
+}
+
+.companion-response .messageContent li {
+    margin-bottom: 0.5em;
+}
+
+.companion-response .messageContent code {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.companion-response .messageContent pre {
+    background: rgba(248, 250, 252, 0.95);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 6px;
+    padding: 12px 16px;
+    overflow-x: auto;
+    margin: 1em 0;
+}
+
+/* Companion response metadata styling */
+.companion-response+.message-wrapper .message-metadata {
+    margin-left: 0;
+    padding-left: 24px;
+    border-left: 4px solid transparent;
 }
 
 /* Error message styles */
@@ -1540,15 +1689,15 @@ body {
     display: block;
 }
 
-/* Typing cursor for streaming */
+/* Typing cursor for streaming - DISABLED */
 .typing-cursor {
-    animation: blink 1s infinite;
-    font-weight: bold;
-    color: #0073e6;
+    display: none;
+    /* Removed cursor effect as requested */
 }
 
 .userMessage .typing-cursor {
-    color: rgba(255, 255, 255, 0.8);
+    display: none;
+    /* Removed cursor effect as requested */
 }
 
 /* Streaming options styles */
@@ -2607,6 +2756,125 @@ input[type="range"]::-moz-range-thumb:hover {
     width: 0%;
 }
 
+/* Streaming progress styles */
+.streaming-progress {
+    margin: 12px 0;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    border-left: 4px solid #0078d4;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    animation: streamingAppear 0.3s ease-out;
+}
+
+.streaming-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 120, 212, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.streaming-progress-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #0078d4 0%, #106ebe 50%, #005a9e 100%);
+    border-radius: 3px;
+    transition: width 0.2s ease-out;
+    position: relative;
+    overflow: hidden;
+}
+
+.streaming-progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    animation: streamingShimmer 1.5s ease-in-out infinite;
+}
+
+.streaming-progress-text {
+    font-size: 13px;
+    color: #605e5c;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.streaming-progress-text::before {
+    content: '';
+    width: 16px;
+    height: 16px;
+    border: 2px solid #0078d4;
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    animation: streamingSpin 1s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes streamingAppear {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes streamingShimmer {
+    0% {
+        left: -100%;
+    }
+
+    100% {
+        left: 100%;
+    }
+}
+
+@keyframes streamingSpin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Enhanced streaming progress for realtime vs simulated */
+.streaming-progress.realtime {
+    border-left-color: #107c10;
+}
+
+.streaming-progress.realtime .streaming-progress-fill {
+    background: linear-gradient(135deg, #107c10 0%, #0e6e0e 50%, #0c5d0c 100%);
+}
+
+.streaming-progress.realtime .streaming-progress-text::before {
+    border-color: #107c10;
+    border-top-color: transparent;
+}
+
+.streaming-progress.simulated {
+    border-left-color: #8764b8;
+}
+
+.streaming-progress.simulated .streaming-progress-fill {
+    background: linear-gradient(135deg, #8764b8 0%, #7558a3 50%, #634c8e 100%);
+}
+
+.streaming-progress.simulated .streaming-progress-text::before {
+    border-color: #8764b8;
+    border-top-color: transparent;
+}
+
 /* Drag and drop styles */
 .dragover {
     border: 2px dashed #0078d4 !important;
@@ -2714,50 +2982,404 @@ button,
     background: transparent;
 }
 
-/* Response Metadata Notification */
-.response-metadata {
+/* Message wrapper for metadata outside bubble */
+.message-wrapper {
+    margin-bottom: 16px;
+}
+
+/* Message metadata outside the bubble */
+.message-metadata {
     font-size: 11px;
     color: #8a8886;
-    margin-top: 8px;
-    padding-top: 6px;
-    border-top: 1px solid rgba(0, 0, 0, 0.06);
-    font-style: italic;
+    margin-top: 2px;
+    /* Reduced from 6px to 2px for compactness */
+    margin-left: 44px;
+    /* Reduced from 52px to account for smaller icon */
+    /* Align with message content, accounting for icon */
+    display: flex;
+    align-items: center;
     opacity: 0.8;
     line-height: 1.3;
 }
 
-.response-metadata .source-info {
-    display: inline-block;
+.userMessage+.message-metadata,
+.messageContainer.userMessage~.message-metadata {
+    margin-left: 0;
+    margin-right: 44px;
+    /* Reduced from 52px to account for smaller icon */
+    justify-content: flex-end;
 }
 
-.response-metadata .timing-info {
-    display: inline-block;
-    margin-left: 4px;
+.message-metadata .metadata-time {
+    font-weight: 500;
+    color: #8a8886;
+    /* Gray color */
+}
+
+.message-metadata .metadata-source {
+    display: none;
+    /* Hide source name as requested */
+}
+
+.message-metadata .metadata-duration {
+    color: #8a8886;
+    /* Gray color instead of blue */
+    font-weight: 500;
+}
+
+.message-metadata .metadata-separator {
+    margin: 0 4px;
+    opacity: 0.6;
+    color: #c8c6c4;
+}
+
+/* Dark mode support for new metadata */
+.dark-mode .message-metadata {
+    color: #8a8886;
+}
+
+.dark-mode .message-metadata .metadata-time {
+    color: #d2d0ce;
+}
+
+.dark-mode .message-metadata .metadata-source {
+    color: #979593;
+}
+
+.dark-mode .message-metadata .metadata-duration {
+    color: #4fc3f7;
+}
+
+.dark-mode .message-metadata .metadata-separator {
+    color: #797775;
+}
+
+/* Response Metadata - Keep for backward compatibility but hide */
+.response-metadata {
+    display: none;
+    /* Hide old metadata inside bubbles */
+}
+
+.response-metadata.visible {
+    opacity: 1;
+    max-height: none;
+}
+
+.response-metadata .response-time {
+    font-weight: 500;
+    color: #333;
+}
+
+.response-metadata .response-source {
+    color: #888;
+}
+
+.response-metadata .response-duration {
+    color: #007acc;
+    font-weight: 500;
 }
 
 .response-metadata .metadata-separator {
     margin: 0 4px;
     opacity: 0.6;
+    color: #999;
 }
 
-/* Hide metadata initially and show on hover */
+/* Dark mode support for metadata */
+.dark-mode .response-metadata {
+    color: #ccc;
+}
+
+.dark-mode .response-metadata .response-time {
+    color: #fff;
+}
+
+.dark-mode .response-metadata .response-source {
+    color: #aaa;
+}
+
+.dark-mode .response-metadata .response-duration {
+    color: #4fc3f7;
+}
+
+.dark-mode .response-metadata .metadata-separator {
+    color: #777;
+}
+
+/* Remove old auto-hide behavior */
 .messageContainer .response-metadata {
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    max-height: 0;
-    overflow: hidden;
-    transition: opacity 0.2s ease, max-height 0.2s ease;
+    opacity: 1;
+    max-height: none;
+    transition: none;
+    overflow: visible;
 }
 
 .messageContainer:hover .response-metadata {
-    opacity: 0.8;
-    max-height: 30px;
+    opacity: 1;
+    max-height: none;
 }
 
-/* Always show metadata for recent messages (last 2) */
 .messageContainer.recent-message .response-metadata {
-    opacity: 0.8;
-    max-height: 30px;
+    opacity: 1;
+    max-height: none;
+}
+
+/* Citations and References Styling */
+.citations-container {
+    margin-top: 6px;
+    /* Reduced from 12px for compactness */
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    background-color: rgba(248, 249, 250, 0.8);
+    overflow: hidden;
+    width: 100%;
+    /* Ensure full width */
+    box-sizing: border-box;
+    /* Include border in width calculation */
+    order: 10;
+    /* Ensure citations appear after message content */
+    clear: both;
+    /* Ensure citations don't float alongside other content */
+}
+
+/* Inline reference styling */
+.inline-reference {
+    display: inline-block;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 5px;
+    border-radius: 3px;
+    margin: 0 2px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    vertical-align: baseline;
+    text-decoration: none;
+    /* Remove any default underline */
+}
+
+.inline-reference:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+    color: white;
+    /* Ensure text stays white on hover */
+}
+
+.citations-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background-color: rgba(240, 242, 245, 0.9);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    user-select: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.citations-header:hover {
+    background-color: rgba(232, 236, 241, 0.9);
+}
+
+.citations-icon {
+    margin-right: 6px;
+    font-size: 14px;
+    flex-shrink: 0;
+    /* Prevent icon from shrinking */
+}
+
+.citations-title {
+    font-weight: 500;
+    font-size: 13px;
+    color: #374151;
+    flex: 1;
+    white-space: nowrap;
+    /* Prevent text wrapping */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.citations-toggle {
+    background: none;
+    border: none;
+    font-size: 12px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+    flex-shrink: 0;
+    /* Prevent button from shrinking */
+}
+
+.citations-toggle:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.citations-list {
+    display: block;
+    max-height: 300px;
+    overflow-y: auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.citation-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.citation-item:last-child {
+    border-bottom: none;
+}
+
+.citation-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    width: 100%;
+}
+
+.citation-number {
+    background-color: #3b82f6;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 8px;
+    min-width: 24px;
+    text-align: center;
+    flex-shrink: 0;
+    /* Prevent number from shrinking */
+}
+
+.citation-source {
+    font-weight: 500;
+    font-size: 13px;
+    color: #1f2937;
+    word-break: break-word;
+    flex: 1;
+    /* Allow source to take remaining space */
+}
+
+.citation-details {
+    margin-left: 32px;
+    width: calc(100% - 32px);
+    box-sizing: border-box;
+}
+
+.citation-detail-item {
+    margin-bottom: 6px;
+    padding: 6px 0;
+    width: 100%;
+}
+
+.citation-detail-item:last-child {
+    margin-bottom: 0;
+}
+
+.citation-page {
+    display: inline-block;
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-bottom: 4px;
+}
+
+.citation-content {
+    font-size: 12px;
+    color: #4b5563;
+    line-height: 1.4;
+    margin: 4px 0 6px 0;
+    padding: 6px 8px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-left: 2px solid #e5e7eb;
+    border-radius: 3px;
+    word-wrap: break-word;
+    /* Ensure long text wraps properly */
+    overflow-wrap: break-word;
+}
+
+.citation-link {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.citation-link:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.citation-link:active {
+    transform: translateY(0);
+}
+
+/* Dark mode support for citations */
+.dark-mode .citations-container {
+    background-color: rgba(31, 41, 55, 0.8);
+    border-color: rgba(75, 85, 99, 0.3);
+}
+
+.dark-mode .citations-header {
+    background-color: rgba(17, 24, 39, 0.9);
+    border-bottom-color: rgba(75, 85, 99, 0.2);
+}
+
+.dark-mode .citations-header:hover {
+    background-color: rgba(31, 41, 55, 0.9);
+}
+
+.dark-mode .citations-title {
+    color: #d1d5db;
+}
+
+.dark-mode .citation-source {
+    color: #f3f4f6;
+}
+
+.dark-mode .citation-content {
+    background-color: rgba(17, 24, 39, 0.7);
+    color: #d1d5db;
+    border-left-color: #4b5563;
+}
+
+.dark-mode .citation-page {
+    background-color: rgba(59, 130, 246, 0.2);
+}
+
+/* Responsive design for citations */
+@media (max-width: 768px) {
+    .citations-container {
+        margin-top: 8px;
+    }
+
+    .citation-details {
+        margin-left: 24px;
+    }
+
+    .citation-content {
+        font-size: 11px;
+    }
 }
 
 /* Multi-Agent Configuration Styles */
@@ -3465,5 +4087,147 @@ button,
         max-width: none;
         border-left: none;
         border-top: 2px solid #0078d4;
+    }
+}
+
+/* Side Browser Styles */
+.side-browser {
+    position: fixed;
+    top: 0;
+    right: -40%;
+    width: 40%;
+    height: 100vh;
+    background: var(--bg-color);
+    border-left: 2px solid var(--border-color);
+    z-index: 1000;
+    transition: right 0.3s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.side-browser.open {
+    right: 0;
+}
+
+.side-browser-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--border-color);
+    min-height: 60px;
+}
+
+.side-browser-header h3 {
+    margin: 0;
+    color: var(--text-color);
+    font-size: 16px;
+    font-weight: 600;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.side-browser-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    line-height: 1;
+    min-width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.side-browser-close:hover {
+    background: var(--hover-bg);
+}
+
+.side-browser-content {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.side-browser-content iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #fff;
+}
+
+.side-browser-loader {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--text-color);
+}
+
+.loader-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border-color);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.side-browser-error {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--text-color);
+    padding: 20px;
+}
+
+.side-browser-error p {
+    margin-bottom: 15px;
+    color: var(--error-color, #d13438);
+}
+
+/* Responsive design for side browser */
+@media (max-width: 1200px) {
+    .side-browser {
+        width: 50%;
+        right: -50%;
+    }
+}
+
+@media (max-width: 768px) {
+    .side-browser {
+        width: 100%;
+        right: -100%;
+    }
+
+    .side-browser-header {
+        padding: 10px 15px;
+        min-height: 50px;
+    }
+
+    .side-browser-header h3 {
+        font-size: 14px;
     }
 }
