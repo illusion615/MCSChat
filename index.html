@@ -315,7 +315,7 @@
                             <path
                                 d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z" />
                         </svg>
-                        <span>Conversation context automatically included</span>
+                        <span>Full conversation context automatically included (adaptive)</span>
                     </div>
 
                     <!-- AI Input Field -->
@@ -654,14 +654,14 @@
             <h3 id="sideBrowserTitle">Citation Source</h3>
             <button id="closeSideBrowser" class="side-browser-close" title="Close browser">×</button>
         </div>
-        <div class="side-browser-content">
+        <div id="sideBrowserContent" class="side-browser-content">
             <iframe id="sideBrowserFrame" src="about:blank" title="Citation content"></iframe>
             <div id="sideBrowserLoader" class="side-browser-loader">
                 <div class="loader-spinner"></div>
                 <p>Loading citation source...</p>
             </div>
             <div id="sideBrowserError" class="side-browser-error" style="display: none;">
-                <p>Unable to load citation source.</p>
+                <p>Unable to load citation source. This content may be blocked by security policies.</p>
                 <button id="openExternalBtn" class="btn btn-secondary">Open in External Browser</button>
             </div>
         </div>

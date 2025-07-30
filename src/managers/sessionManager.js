@@ -44,10 +44,14 @@ export class SessionManager {
         // Listen for conversation context requests from AI companion
         window.addEventListener('getConversationContext', (e) => {
             const maxMessages = e.detail?.maxMessages || 10;
+            console.log(`[Session Manager] Context request received for ${maxMessages} messages`);
+            
             const context = this.getConversationContext(maxMessages);
 
             // Store the context in the event detail for the caller to access
             e.detail.context = context;
+            
+            console.log(`[Session Manager] Context provided: ${context.substring(0, 100)}...`);
 
             // Also dispatch a response event
             window.dispatchEvent(new CustomEvent('conversationContextResponse', {
@@ -430,17 +434,27 @@ export class SessionManager {
      * @param {number} maxMessages - Maximum number of messages to include
      * @returns {string} Conversation context
      */
-    getConversationContext(maxMessages = 10) {
+    getConversationContext(maxMessages = 50) {
         const messages = this.getSessionMessages();
+        console.log(`[Session Manager] Total messages in current session: ${messages.length}`);
+        console.log(`[Session Manager] Requested maxMessages: ${maxMessages}`);
+        
         const recentMessages = messages.slice(-maxMessages);
+        console.log(`[Session Manager] Providing ${recentMessages.length} messages for context`);
 
         let context = 'Recent conversation:\n';
-        recentMessages.forEach(message => {
+        recentMessages.forEach((message, index) => {
             const sender = message.from === 'user' ? 'User' : 'Agent';
             const text = message.text || '[Non-text message]';
             context += `${sender}: ${text}\n`;
+            
+            // Log first few messages for debugging
+            if (index < 3) {
+                console.log(`[Session Manager] Message ${index + 1}: ${sender} - ${text.substring(0, 50)}...`);
+            }
         });
 
+        console.log(`[Session Manager] Context generated with ${(context.match(/\n(User|Agent):/g) || []).length} messages`);
         return context;
     }
 

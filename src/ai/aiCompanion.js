@@ -388,7 +388,7 @@ export class AICompanion {
         this.renderMessage('user', userMessage);
 
         // Add conversation context for user messages
-        const conversationContext = this.getConversationContext();
+        const conversationContext = this.getAdaptiveConversationContext('general');
         const messageWithContext = `${conversationContext}\n\nUser Question: ${userMessage}`;
 
         // Show typing indicator
@@ -415,18 +415,25 @@ export class AICompanion {
         const action = event.target.dataset.action;
         console.log('Quick action clicked:', action);
 
-        let prompt = '';
-        const conversationContext = this.getConversationContext();
+        // Debug conversation context when analysis is requested
+        if (action === 'analyze') {
+            this.debugConversationContext();
+        }
 
+        let prompt = '';
+        
         switch (action) {
             case 'analyze':
-                prompt = `${conversationContext}\n\nPlease analyze the agent's responses in this conversation. Focus on:\n1. Response quality and accuracy\n2. Helpfulness and relevance\n3. Communication style\n4. Areas for improvement\n\nProvide a brief but insightful analysis.`;
+                const analysisContext = this.getAdaptiveConversationContext('analysis');
+                prompt = `${analysisContext}\n\nPlease analyze the agent's responses in this conversation. Focus on:\n1. Response quality and accuracy\n2. Helpfulness and relevance\n3. Communication style\n4. Areas for improvement\n\nProvide a brief but insightful analysis.`;
                 break;
             case 'summarize':
-                prompt = `${conversationContext}\n\nPlease provide a concise summary of this conversation, highlighting:\n1. Main topics discussed\n2. Key information provided by the agent\n3. User's main questions or concerns\n4. Overall conversation outcome`;
+                const summaryContext = this.getAdaptiveConversationContext('summary');
+                prompt = `${summaryContext}\n\nPlease provide a concise summary of this conversation, highlighting:\n1. Main topics discussed\n2. Key information provided by the agent\n3. User's main questions or concerns\n4. Overall conversation outcome`;
                 break;
             case 'suggest':
-                prompt = `${conversationContext}\n\nBased on this conversation, suggest a short, descriptive title (3-8 words) that captures the main topic or purpose. Return only the title, nothing else.`;
+                const titleContext = this.getAdaptiveConversationContext('title');
+                prompt = `${titleContext}\n\nBased on this conversation, suggest a short, descriptive title (3-8 words) that captures the main topic or purpose. Return only the title, nothing else.`;
                 break;
         }
 
@@ -1255,7 +1262,9 @@ export class AICompanion {
      * @param {number} maxMessages - Maximum messages to include
      * @returns {string} Conversation context
      */
-    getConversationContext(maxMessages = 10) {
+    getConversationContext(maxMessages = 50) {
+        console.log(`[AI Companion] Requesting conversation context with maxMessages: ${maxMessages}`);
+        
         // Try to get context from session manager first
         const eventDetail = { maxMessages };
         const event = new CustomEvent('getConversationContext', {
@@ -1265,26 +1274,168 @@ export class AICompanion {
 
         // Check if session manager provided context
         if (eventDetail.context) {
-            return eventDetail.context;
+            console.log(`[AI Companion] Got context from session manager:`, eventDetail.context.substring(0, 200) + '...');
+            const messageCount = (eventDetail.context.match(/\n(User|Agent):/g) || []).length;
+            console.log(`[AI Companion] Session manager provided ${messageCount} messages`);
+            
+            if (messageCount > 0) {
+                return eventDetail.context;
+            }
         }
 
-        // Fallback: extract from DOM (improved selector)
+        console.log(`[AI Companion] Session manager context insufficient, falling back to DOM extraction`);
+
+        // Enhanced fallback: extract from DOM with better selectors
         const chatWindow = DOMUtils.getElementById('chatWindow');
-        if (!chatWindow) return 'No conversation available.';
+        if (!chatWindow) {
+            console.warn(`[AI Companion] No chatWindow found for DOM extraction`);
+            return 'No conversation available.';
+        }
 
-        const messageContainers = chatWindow.querySelectorAll('.messageContainer');
+        // Try multiple selectors to catch all message types
+        const messageContainers = chatWindow.querySelectorAll('.messageContainer, .message, [data-message-id]');
+        console.log(`[AI Companion] Found ${messageContainers.length} message containers in DOM`);
+        
         const recentMessages = Array.from(messageContainers).slice(-maxMessages);
-
+        
         let context = 'Recent conversation:\n';
-        recentMessages.forEach(container => {
-            const isUser = container.classList.contains('userMessage');
-            const messageContent = container.querySelector('.messageContent');
-            const text = messageContent ? messageContent.textContent.trim() : '[Non-text message]';
-            const sender = isUser ? 'User' : 'Agent';
-            context += `${sender}: ${text}\n`;
+        let messageCount = 0;
+        
+        recentMessages.forEach((container, index) => {
+            const isUser = container.classList.contains('userMessage') || 
+                          container.querySelector('.userMessage') ||
+                          container.dataset.sender === 'user';
+            
+            // Try multiple selectors for message content
+            let messageContent = container.querySelector('.messageContent') ||
+                               container.querySelector('.messageText') ||
+                               container.querySelector('.messageDiv') ||
+                               container.querySelector('[data-content]');
+            
+            // If no specific content element, try the container itself
+            if (!messageContent) {
+                messageContent = container;
+            }
+            
+            let text = '[Unable to extract message]';
+            if (messageContent) {
+                // Try to get text content, excluding citations and metadata
+                const clonedContent = messageContent.cloneNode(true);
+                
+                // Remove citations, metadata, and other non-essential elements
+                const elementsToRemove = clonedContent.querySelectorAll(
+                    '.citations-container, .simplified-citations, .message-metadata, .citation-tooltip, ' +
+                    '.messageIcon, .timestamp, .typing-cursor, .streaming-progress'
+                );
+                elementsToRemove.forEach(el => el.remove());
+                
+                text = clonedContent.textContent?.trim() || '[Empty message]';
+                
+                // Limit message length for context
+                if (text.length > 500) {
+                    text = text.substring(0, 500) + '...';
+                }
+            }
+            
+            if (text && text !== '[Empty message]' && text !== '[Unable to extract message]') {
+                const sender = isUser ? 'User' : 'Agent';
+                context += `${sender}: ${text}\n`;
+                messageCount++;
+                console.log(`[AI Companion] Extracted message ${index + 1}: ${sender} - ${text.substring(0, 50)}...`);
+            }
         });
 
+        console.log(`[AI Companion] DOM extraction completed: ${messageCount} messages extracted`);
         return context || 'No conversation available.';
+    }
+
+    /**
+     * Get adaptive conversation context based on total conversation length
+     * @param {string} purpose - Purpose of the context ('analysis', 'summary', 'title', 'general')
+     * @returns {string} Conversation context
+     */
+    getAdaptiveConversationContext(purpose = 'general') {
+        console.log(`[AI Companion] Getting adaptive context for purpose: ${purpose}`);
+        
+        // Get total message count first by requesting a large number
+        const eventDetail = { maxMessages: 1000 }; // Get a large number to count all messages
+        const event = new CustomEvent('getConversationContext', {
+            detail: eventDetail
+        });
+        window.dispatchEvent(event);
+
+        const totalContext = eventDetail.context || '';
+        const totalMessages = (totalContext.match(/\n(User|Agent):/g) || []).length;
+        
+        console.log(`[AI Companion] Total messages available: ${totalMessages}`);
+
+        // Adaptive limits based on purpose and conversation length
+        let maxMessages;
+        switch (purpose) {
+            case 'analysis':
+            case 'summary':
+                // For analysis, include more messages for longer conversations
+                maxMessages = Math.min(Math.max(50, totalMessages), 200);
+                break;
+            case 'title':
+                // For titles, focus on recent exchanges but include more for context
+                maxMessages = Math.min(Math.max(15, Math.floor(totalMessages * 0.3)), 30);
+                break;
+            case 'general':
+            default:
+                // For general purposes, scale with conversation size
+                maxMessages = Math.min(Math.max(50, Math.floor(totalMessages * 0.7)), 150);
+                break;
+        }
+
+        console.log(`[AI Companion] Adaptive context: ${totalMessages} total messages, requesting ${maxMessages} for ${purpose}`);
+        
+        const finalContext = this.getConversationContext(maxMessages);
+        const finalMessageCount = (finalContext.match(/\n(User|Agent):/g) || []).length;
+        
+        console.log(`[AI Companion] Final context delivered: ${finalMessageCount} messages`);
+        return finalContext;
+    }
+
+    /**
+     * Force refresh of conversation context and verify data integrity
+     * @returns {Object} Debug information about context retrieval
+     */
+    debugConversationContext() {
+        console.log('[AI Companion] === CONVERSATION CONTEXT DEBUG ===');
+        
+        // Test direct session manager access
+        const testEvent = new CustomEvent('getConversationContext', {
+            detail: { maxMessages: 1000 }
+        });
+        window.dispatchEvent(testEvent);
+        
+        const sessionContext = testEvent.detail.context || '';
+        const sessionMessageCount = (sessionContext.match(/\n(User|Agent):/g) || []).length;
+        
+        // Test DOM extraction
+        const chatWindow = DOMUtils.getElementById('chatWindow');
+        const domMessageContainers = chatWindow ? chatWindow.querySelectorAll('.messageContainer, .message') : [];
+        
+        const debugInfo = {
+            sessionManager: {
+                available: !!testEvent.detail.context,
+                messageCount: sessionMessageCount,
+                contextLength: sessionContext.length,
+                sample: sessionContext.substring(0, 200) + '...'
+            },
+            domExtraction: {
+                chatWindowFound: !!chatWindow,
+                messageContainers: domMessageContainers.length,
+                containerTypes: Array.from(domMessageContainers).map(c => c.className).slice(0, 5)
+            },
+            combined: {
+                totalMessagesFound: Math.max(sessionMessageCount, domMessageContainers.length)
+            }
+        };
+        
+        console.log('[AI Companion] Debug info:', debugInfo);
+        return debugInfo;
     }
 
     /**
@@ -1781,7 +1932,7 @@ export class AICompanion {
         }
 
         try {
-            const conversationContext = this.getConversationContext(5); // Use fewer messages for title
+            const conversationContext = this.getAdaptiveConversationContext('title');
             console.log('Title generation - conversation context:', conversationContext);
 
             if (!conversationContext || conversationContext === 'No conversation available.') {

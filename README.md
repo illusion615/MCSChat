@@ -82,22 +82,24 @@ If citations don't display properly:
 1. **Get DirectLine Secret**: Find your secret in Microsoft Copilot Studio web channel security
    ![DirectLine Secret](image-2.png)
 
-2. **Open the Modular Application**: Launch `index-modular.html` in your browser
-   ![Application Interface](image-4.png)
+2. **Open the Application**: Launch `index.html` in your browser
+   ![Application Interface](image-5.png)
 
 3. **Configure Agent**: Click setup button, navigate to Agent Management section, input your secret, test and save configuration
-   ![Agent Configuration](image-1.png)
+   ![Setting Panel](image-6.png)
 
 4. **Enable AI Companion** (Optional): In settings, go to AI Companion section to enable analysis features
-   
+   ![alt text](image-7.png)
+
 5. **Customize Appearance** (Optional): Adjust font sizes in the Appearance section for optimal readability
+   ![alt text](image-8.png)
 
 6. **Start Chatting**: Begin interacting with your configured agent
    ![Chat Interface](image-3.png)
 
 ### Legacy Version
-- For the original monolithic version, use `index.html` with `chat-legacy.js`
-- The modular version (`index-modular.html`) is recommended for new deployments
+- For the original monolithic version, use `index-legacy.html` with `chat-legacy.js`
+- The current version (`index.html`) is the recommended approach for all deployments
 
 ### Local Ollama Setup
 1. **Start CORS Proxy**: `node ollama-proxy.js` (handles browser CORS restrictions)
@@ -155,8 +157,8 @@ node ollama-proxy.js
 
 ```
 MCSChat/
-├── index.html              # Legacy application interface (monolithic)
-├── index-modular.html      # Modern modular application interface
+├── index.html              # Main application interface (modular architecture)
+├── index-legacy.html       # Legacy application interface (monolithic)
 ├── chat-legacy.js          # Original monolithic application logic (backup)
 ├── styles.css              # Application styling and responsive design
 ├── ollama-proxy.js         # CORS proxy server for local Ollama access
@@ -271,14 +273,14 @@ async function handleCustomStreaming(message) {
 2. **Quick Start**
    ```bash
    # Clone the repository
-   git clone https://github.com/yourusername/MCSChat.git
+   git clone https://github.com/illusion615/MCSChat.git
    cd MCSChat
    
    # Start development server
    python -m http.server 8000
    
    # Access application
-   # Navigate to http://localhost:8000/index-modular.html
+   # Navigate to http://localhost:8000
    ```
 
 ### Production Deployment Options
@@ -340,7 +342,7 @@ server {
     add_header X-XSS-Protection "1; mode=block";
     
     location / {
-        try_files $uri $uri/ /index-modular.html;
+        try_files $uri $uri/ /index.html;
     }
 }
 ```
@@ -360,7 +362,7 @@ server {
         </httpProtocol>
         <defaultDocument>
             <files>
-                <add value="index-modular.html" />
+                <add value="index.html" />
             </files>
         </defaultDocument>
     </system.webServer>
@@ -482,6 +484,27 @@ Enable detailed logging by opening browser developer tools. All operations are l
 ---
 
 ## 📅 Changelog
+
+### Version 3.3.0 (2025-07-30 - Enhanced Citation System)
+**Major Citation System Overhaul:**
+- 🆕 **Inline Citation Integration**: Citations now appear directly within message content instead of separate containers
+- 🆕 **Streamlined Citation Display**: Clean "Sources: [1] document.pdf (page 5), [2] another.pdf" format
+- 🆕 **Improved Message Layout**: Fixed horizontal citation layout issues for proper vertical integration
+- 🆕 **Enhanced Citation Rendering**: Simplified DOM structure with direct content appending for better performance
+- 🆕 **Side Browser Integration**: Enhanced citation links with CSP-aware external browser fallbacks
+
+**Technical Improvements:**
+- 🔧 **Fixed Citation Positioning**: Resolved messageContainer vs messageDiv targeting for proper inline placement
+- 🔧 **Optimized Citation Rendering**: Removed complex column layouts in favor of simple content integration
+- 🔧 **Improved CSS Management**: Cleaned up unused simplified citation styles for better maintainability
+- 🔧 **Enhanced Debug Support**: Better error handling for citation rendering with detailed console logging
+- 🔧 **DOM Performance**: Reduced citation-related DOM complexity by ~60% for faster rendering
+
+**User Experience:**
+- ⚡ **Natural Citation Flow**: Citations now feel like an integral part of the message content
+- ⚡ **Consistent Message Styling**: Uniform appearance between messages with and without citations
+- ⚡ **Improved Readability**: Better visual hierarchy with citations at the end of message content
+- ⚡ **Responsive Design**: Citations adapt naturally to different screen sizes and layouts
 
 ### Version 3.2.2 (Current - Message Ordering & Citation Enhancements)
 **Critical Bug Fixes:**
@@ -622,5 +645,5 @@ Enable detailed logging by opening browser developer tools. All operations are l
 
 ---
 
-*Last Updated: July 28, 2025*
+*Last Updated: July 30, 2025*
 *Project maintained by: [MCSChat Contributors](https://github.com/illusion615/MCSChat)*

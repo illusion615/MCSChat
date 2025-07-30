@@ -20,8 +20,32 @@ export class MessageRenderer {
             startTime: null
         };
 
+        // Initialize side browser state
+        this.escapeListenerAdded = false;
+
         // Debug markdown libraries on initialization
         this.debugMarkdownLibraries();
+        
+        // Initialize side browser immediately
+        this.initializeSideBrowser();
+    }
+
+    /**
+     * Initialize side browser functionality
+     * @public
+     */
+    initializeSideBrowser() {
+        console.log('[MessageRenderer] Initializing side browser...');
+        
+        // Set up event listeners immediately if DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                this.setupSideBrowserEventListeners();
+            });
+        } else {
+            // DOM is already ready
+            this.setupSideBrowserEventListeners();
+        }
     }
 
     /**
@@ -805,16 +829,19 @@ export class MessageRenderer {
         }, 'Copilot Studio');
 
         metadata.appendChild(timeSpan);
-        metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • '));
+        metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • Response time: '));
         metadata.appendChild(timeSpentSpan);
 
         // Add metadata after the message container
         messageWrapper.appendChild(metadata);
 
-        // Check for entities/citations in the activity - add to message container
+        // Check for entities/citations in the activity - add to message content div
         if (activity && this.hasCitations(activity)) {
-            // Add citations to the messageContainer (after the entire message content)
-            this.addCitationsSection(messageContainer, activity);
+            // Find the messageDiv within the messageContainer and add citations there
+            const messageDiv = messageContainer.querySelector('.messageContent');
+            if (messageDiv) {
+                this.addCitationsSection(messageDiv, activity);
+            }
         }
     }
 
@@ -1022,6 +1049,69 @@ export class MessageRenderer {
     }
 
     /**
+     * Create column layout with message content and citations
+     * @param {HTMLElement} messageDiv - Message div element
+     * @param {Array} citations - Array of citation objects
+     * @private
+     */
+    createColumnLayoutWithCitations(messageDiv, citations) {
+        // Create the column container for horizontal layout (icon + content)
+        const columnContainer = DOMUtils.createElement('div', {
+            className: 'message-column-container'
+        });
+
+        // Create the content column for vertical layout (content + citations)
+        const contentColumn = DOMUtils.createElement('div', {
+            className: 'message-content-column'
+        });
+
+        // Move all existing content from messageDiv to contentColumn
+        const existingContent = Array.from(messageDiv.childNodes);
+        existingContent.forEach(node => {
+            contentColumn.appendChild(node);
+        });
+
+        // Group citations by source document and remove duplicates
+        const groupedCitations = this.groupCitationsBySource(citations);
+
+        // Create citations container
+        const citationsContainer = DOMUtils.createElement('div', {
+            className: 'simplified-citations'
+        });
+
+        Object.entries(groupedCitations).forEach(([source, items], index) => {
+            const citationItem = this.createSimplifiedCitationItem(source, items, index + 1);
+            citationsContainer.appendChild(citationItem);
+        });
+
+        // Add citations below the content in the same column
+        contentColumn.appendChild(citationsContainer);
+
+        // Find the message icon (should be a sibling of messageDiv)
+        const messageContainer = messageDiv.parentNode;
+        const messageIcon = messageContainer ? messageContainer.querySelector('.messageIcon') : null;
+
+        if (messageIcon && messageContainer) {
+            // Remove icon from its current position
+            messageIcon.parentNode.removeChild(messageIcon);
+            
+            // Remove messageDiv from its current position
+            messageDiv.parentNode.removeChild(messageDiv);
+            
+            // Add icon first, then content column to the column container
+            columnContainer.appendChild(messageIcon);
+            columnContainer.appendChild(contentColumn);
+            
+            // Replace messageDiv with the column container
+            messageContainer.appendChild(columnContainer);
+        } else {
+            // Fallback: if no icon found, just add content column
+            columnContainer.appendChild(contentColumn);
+            messageDiv.appendChild(columnContainer);
+        }
+    }
+
+    /**
      * Remove duplicate citations based on source document and content
      * @param {Array} citations - Array of citation objects
      * @returns {Array} Array of unique citations
@@ -1161,62 +1251,76 @@ export class MessageRenderer {
     }
 
     /**
-     * Render citations in a user-friendly format
+     * Render citations in a simplified, user-friendly format
      * @param {HTMLElement} messageDiv - Message div element
      * @param {Array} citations - Array of citation objects
      * @private
      */
     renderCitations(messageDiv, citations) {
-        const citationsContainer = DOMUtils.createElement('div', {
-            className: 'citations-container'
-        });
-
-        const citationsHeader = DOMUtils.createElement('div', {
-            className: 'citations-header'
-        });
-
-        const headerIcon = DOMUtils.createElement('span', {
-            className: 'citations-icon'
-        }, '📚');
-
-        const headerText = DOMUtils.createElement('span', {
-            className: 'citations-title'
-        }, `References (${citations.length})`);
-
-        const toggleButton = DOMUtils.createElement('button', {
-            className: 'citations-toggle',
-            type: 'button'
-        }, '▼');
-
-        citationsHeader.appendChild(headerIcon);
-        citationsHeader.appendChild(headerText);
-        citationsHeader.appendChild(toggleButton);
-
-        const citationsList = DOMUtils.createElement('div', {
-            className: 'citations-list'
-        });
-
-        // Group citations by source document
+        // Group citations by source document and remove duplicates
         const groupedCitations = this.groupCitationsBySource(citations);
 
+        // Add a line break before citations if there's existing content
+        if (messageDiv.textContent.trim()) {
+            messageDiv.appendChild(DOMUtils.createElement('br'));
+            messageDiv.appendChild(DOMUtils.createElement('br'));
+        }
+
+        // Add citations text
+        const citationsText = DOMUtils.createElement('div', {
+            style: 'margin-top: 8px; font-size: 0.9em; color: #6b7280;'
+        });
+
+        const citationsLabel = DOMUtils.createElement('strong', {}, 'Sources: ');
+        citationsText.appendChild(citationsLabel);
+        citationsText.appendChild(document.createTextNode(' '));
+
         Object.entries(groupedCitations).forEach(([source, items], index) => {
-            const citationItem = this.createCitationItem(source, items, index + 1);
-            citationsList.appendChild(citationItem);
+            if (index > 0) {
+                citationsText.appendChild(document.createTextNode(', '));
+                citationsText.appendChild(DOMUtils.createElement('br'));
+            }
+
+            // Extract page numbers from items
+            const pageNumbers = items
+                .map(item => item.PageNum)
+                .filter(page => page !== null && page !== undefined)
+                .sort((a, b) => a - b);
+
+            // Create page range display
+            let pageDisplay = '';
+            if (pageNumbers.length > 0) {
+                if (pageNumbers.length === 1) {
+                    pageDisplay = ` (page ${pageNumbers[0]})`;
+                } else if (pageNumbers.length === 2) {
+                    pageDisplay = ` (pages ${pageNumbers[0]}, ${pageNumbers[1]})`;
+                } else {
+                    const firstPage = pageNumbers[0];
+                    const lastPage = pageNumbers[pageNumbers.length - 1];
+                    pageDisplay = ` (pages ${firstPage}-${lastPage})`;
+                }
+            }
+
+            // Create clickable citation
+            const citationLink = DOMUtils.createElement('a', {
+                href: '#',
+                style: 'color: #3b82f6; text-decoration: underline; cursor: pointer;',
+                dataset: {
+                    citationIndex: (index + 1).toString()
+                }
+            }, `[${index + 1}] ${source}${pageDisplay}`);
+
+            // Add click handler
+            DOMUtils.addEventListener(citationLink, 'click', (e) => {
+                e.preventDefault();
+                this.handleCitationClick(items);
+            });
+
+            citationsText.appendChild(citationLink);
         });
 
-        citationsContainer.appendChild(citationsHeader);
-        citationsContainer.appendChild(citationsList);
-
-        // Add toggle functionality
-        DOMUtils.addEventListener(toggleButton, 'click', () => {
-            const isExpanded = citationsList.style.display !== 'none';
-            citationsList.style.display = isExpanded ? 'none' : 'block';
-            toggleButton.textContent = isExpanded ? '▶' : '▼';
-            toggleButton.setAttribute('aria-expanded', !isExpanded);
-        });
-
-        // Add to message
-        messageDiv.appendChild(citationsContainer);
+        // Append citations directly to the message content
+        messageDiv.appendChild(citationsText);
     }
 
     /**
@@ -1240,80 +1344,150 @@ export class MessageRenderer {
     }
 
     /**
-     * Create citation item element
+     * Create simplified citation item element with hover tooltip
      * @param {string} source - Source document name
      * @param {Array} items - Citation items for this source
      * @param {number} index - Citation index number
      * @returns {HTMLElement} Citation item element
      * @private
      */
-    createCitationItem(source, items, index) {
-        const citationItem = DOMUtils.createElement('div', {
-            className: 'citation-item',
+    createSimplifiedCitationItem(source, items, index) {
+        // Extract page numbers from items
+        const pageNumbers = items
+            .map(item => item.PageNum)
+            .filter(page => page !== null && page !== undefined)
+            .sort((a, b) => a - b);
+
+        // Create page range display
+        let pageDisplay = '';
+        if (pageNumbers.length > 0) {
+            if (pageNumbers.length === 1) {
+                pageDisplay = `, page ${pageNumbers[0]}`;
+            } else if (pageNumbers.length === 2) {
+                pageDisplay = `, page ${pageNumbers[0]}, ${pageNumbers[1]}`;
+            } else {
+                const firstPage = pageNumbers[0];
+                const lastPage = pageNumbers[pageNumbers.length - 1];
+                pageDisplay = `, page ${firstPage}-${lastPage}`;
+            }
+        }
+
+        // Create clickable citation title
+        const citationLink = DOMUtils.createElement('a', {
+            className: 'simplified-citation-item',
+            href: '#',
             dataset: {
-                citationNumber: index.toString()
+                citationIndex: index.toString()
             }
+        }, `[${index}] ${source}${pageDisplay}`);
+
+        // Create hover tooltip with citation snippets
+        const tooltip = this.createCitationTooltip(items);
+        citationLink.appendChild(tooltip);
+
+        // Add click handler
+        DOMUtils.addEventListener(citationLink, 'click', (e) => {
+            e.preventDefault();
+            this.handleCitationClick(items);
         });
 
-        const citationHeader = DOMUtils.createElement('div', {
-            className: 'citation-header'
+        // Add hover handlers for tooltip
+        DOMUtils.addEventListener(citationLink, 'mouseenter', () => {
+            this.showTooltip(citationLink, tooltip);
         });
 
-        const citationNumber = DOMUtils.createElement('span', {
-            className: 'citation-number'
-        }, `[${index}]`);
-
-        const citationSource = DOMUtils.createElement('span', {
-            className: 'citation-source'
-        }, source);
-
-        citationHeader.appendChild(citationNumber);
-        citationHeader.appendChild(citationSource);
-
-        const citationDetails = DOMUtils.createElement('div', {
-            className: 'citation-details'
+        DOMUtils.addEventListener(citationLink, 'mouseleave', () => {
+            this.hideTooltip(tooltip);
         });
 
-        // Add details for each item from this source
-        items.forEach(item => {
-            const detailItem = DOMUtils.createElement('div', {
-                className: 'citation-detail-item'
-            });
+        return citationLink;
+    }
 
-            if (item.PageNum) {
-                const pageInfo = DOMUtils.createElement('span', {
-                    className: 'citation-page'
-                }, `Page ${item.PageNum}`);
-                detailItem.appendChild(pageInfo);
-            }
+    /**
+     * Create citation tooltip with content snippets
+     * @param {Array} items - Citation items
+     * @returns {HTMLElement} Tooltip element
+     * @private
+     */
+    createCitationTooltip(items) {
+        const tooltip = DOMUtils.createElement('div', {
+            className: 'citation-tooltip'
+        });
 
+        items.forEach((item, index) => {
             if (item.content) {
-                const content = DOMUtils.createElement('div', {
-                    className: 'citation-content'
-                }, this.truncateText(item.content, 200));
-                detailItem.appendChild(content);
+                const contentDiv = DOMUtils.createElement('div', {
+                    className: 'citation-tooltip-content'
+                }, this.truncateText(item.content, 150));
+
+                tooltip.appendChild(contentDiv);
+
+                // Add separator if not the last item
+                if (index < items.length - 1 && items[index + 1].content) {
+                    const separator = DOMUtils.createElement('hr', {
+                        style: 'margin: 8px 0; border: none; border-top: 1px solid #e5e7eb;'
+                    });
+                    tooltip.appendChild(separator);
+                }
             }
-
-            if (item.ReferencePath) {
-                const linkButton = DOMUtils.createElement('button', {
-                    className: 'citation-link',
-                    type: 'button'
-                }, '🔗 View Source');
-
-                DOMUtils.addEventListener(linkButton, 'click', () => {
-                    this.handleCitationLink(item.ReferencePath);
-                });
-
-                detailItem.appendChild(linkButton);
-            }
-
-            citationDetails.appendChild(detailItem);
         });
 
-        citationItem.appendChild(citationHeader);
-        citationItem.appendChild(citationDetails);
+        return tooltip;
+    }
 
-        return citationItem;
+    /**
+     * Show citation tooltip
+     * @param {HTMLElement} citationItem - Citation item element
+     * @param {HTMLElement} tooltip - Tooltip element
+     * @private
+     */
+    showTooltip(citationItem, tooltip) {
+        // Position tooltip relative to citation item
+        const rect = citationItem.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        
+        // Position above the citation if there's space, otherwise below
+        const spaceAbove = rect.top;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        
+        if (spaceAbove > 200 || spaceAbove > spaceBelow) {
+            tooltip.style.top = 'auto';
+            tooltip.style.bottom = '100%';
+            tooltip.style.marginBottom = '8px';
+        } else {
+            tooltip.style.top = '100%';
+            tooltip.style.bottom = 'auto';
+            tooltip.style.marginTop = '8px';
+        }
+
+        // Show tooltip
+        tooltip.classList.add('visible');
+    }
+
+    /**
+     * Hide citation tooltip
+     * @param {HTMLElement} tooltip - Tooltip element
+     * @private
+     */
+    hideTooltip(tooltip) {
+        tooltip.classList.remove('visible');
+    }
+
+    /**
+     * Handle citation click - open source if available
+     * @param {Array} items - Citation items
+     * @private
+     */
+    handleCitationClick(items) {
+        // Find first item with a reference path
+        const itemWithPath = items.find(item => item.ReferencePath);
+        
+        if (itemWithPath && itemWithPath.ReferencePath) {
+            this.handleCitationLink(itemWithPath.ReferencePath);
+        } else {
+            // Show a message if no source is available
+            console.log('No source URL available for this citation');
+        }
     }
 
     /**
@@ -1328,6 +1502,35 @@ export class MessageRenderer {
             this.openSideBrowser(url);
         } else {
             window.open(url, '_blank', 'noopener,noreferrer');
+        }
+    }
+
+    /**
+     * Check if URL is from a domain that likely has CSP frame-ancestors restrictions
+     * @param {string} url - URL to check
+     * @returns {boolean} True if domain likely has CSP restrictions
+     * @private
+     */
+    isCSPRestrictedDomain(url) {
+        try {
+            const urlObj = new URL(url);
+            const hostname = urlObj.hostname.toLowerCase();
+            
+            // Only block the most problematic domains that definitely don't allow framing
+            const restrictedDomains = [
+                'sharepoint.com',
+                'sharepointonline.com',
+                'login.microsoft.com',
+                'account.microsoft.com'
+            ];
+            
+            return restrictedDomains.some(domain => 
+                hostname === domain || hostname.endsWith('.' + domain)
+            );
+        } catch (e) {
+            // If URL parsing fails, assume it's safe to try
+            console.warn('Failed to parse URL for CSP check:', url);
+            return false;
         }
     }
 
@@ -1349,18 +1552,27 @@ export class MessageRenderer {
             return;
         }
 
-        // Show the side browser
+        // Show the side browser with loading state
         DOMUtils.addClass(sideBrowser, 'open');
+        DOMUtils.addClass(sideBrowser, 'loading');
 
-        // Reset state
+        // Reset state and add loading class to content
+        const sideBrowserContent = DOMUtils.getElementById('sideBrowserContent') || 
+                                 sideBrowser.querySelector('.side-browser-content');
+        if (sideBrowserContent) {
+            DOMUtils.addClass(sideBrowserContent, 'loading');
+        }
+        
         sideBrowserLoader.style.display = 'block';
         sideBrowserError.style.display = 'none';
         sideBrowserFrame.style.display = 'none';
+        DOMUtils.removeClass(sideBrowserFrame, 'loaded');
 
-        // Set title
+        // Set title with enhanced formatting
         try {
             const urlObj = new URL(url);
-            sideBrowserTitle.textContent = urlObj.hostname || 'Citation Source';
+            const hostname = urlObj.hostname || 'Citation Source';
+            sideBrowserTitle.textContent = hostname.replace('www.', '');
         } catch (e) {
             sideBrowserTitle.textContent = 'Citation Source';
         }
@@ -1368,29 +1580,101 @@ export class MessageRenderer {
         // Store URL for external button
         sideBrowserError.dataset.url = url;
 
-        // Load the URL in iframe
+        // Check if URL might have CSP issues before loading
+        if (this.isCSPRestrictedDomain(url)) {
+            console.warn('URL likely has CSP restrictions, opening in external browser instead:', url);
+            this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError, 
+                'This content cannot be displayed in a frame due to security policies.', url);
+            return;
+        }
+
+        // Enhanced iframe loading with better feedback
         sideBrowserFrame.onload = () => {
-            sideBrowserLoader.style.display = 'none';
-            sideBrowserFrame.style.display = 'block';
+            console.log('Side browser iframe loaded successfully');
+            setTimeout(() => {
+                sideBrowserLoader.style.display = 'none';
+                sideBrowserFrame.style.display = 'block';
+                DOMUtils.addClass(sideBrowserFrame, 'loaded');
+                DOMUtils.removeClass(sideBrowser, 'loading');
+                if (sideBrowserContent) {
+                    DOMUtils.removeClass(sideBrowserContent, 'loading');
+                }
+            }, 300); // Small delay for smooth transition
         };
 
         sideBrowserFrame.onerror = () => {
-            sideBrowserLoader.style.display = 'none';
-            sideBrowserError.style.display = 'block';
+            console.warn('Failed to load URL in iframe:', url);
+            this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError, 
+                'Unable to load citation source. This content may be blocked by security policies.', url);
         };
 
-        // Set a timeout for loading
-        setTimeout(() => {
+        // Monitor for CSP violations and other frame loading issues
+        const cspErrorHandler = (event) => {
+            if (event.data && typeof event.data === 'string' && 
+                (event.data.includes('frame-ancestors') || event.data.includes('CSP'))) {
+                console.warn('CSP violation detected for iframe:', url);
+                this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError, 
+                    'Content blocked by security policy.', url);
+            }
+        };
+        window.addEventListener('message', cspErrorHandler, { once: true });
+
+        // Enhanced timeout with better feedback
+        const loadingTimeout = setTimeout(() => {
             if (sideBrowserLoader.style.display !== 'none') {
-                sideBrowserLoader.style.display = 'none';
-                sideBrowserError.style.display = 'block';
+                console.warn('Iframe loading timeout for URL:', url);
+                this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError, 
+                    'Loading timeout. This content may be taking too long to load.', url);
+                window.removeEventListener('message', cspErrorHandler);
             }
         }, 10000); // 10 second timeout
 
-        sideBrowserFrame.src = url;
+        // Clear timeout on successful load
+        const originalOnload = sideBrowserFrame.onload;
+        sideBrowserFrame.onload = () => {
+            clearTimeout(loadingTimeout);
+            window.removeEventListener('message', cspErrorHandler);
+            originalOnload();
+        };
+
+        try {
+            sideBrowserFrame.src = url;
+        } catch (error) {
+            console.error('Error setting iframe src:', error);
+            clearTimeout(loadingTimeout);
+            this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError, 
+                'Failed to load citation source.', url);
+        }
 
         // Setup event listeners if not already done
         this.setupSideBrowserEventListeners();
+    }
+
+    /**
+     * Show error state in side browser with consistent styling
+     * @param {HTMLElement} sideBrowser - Side browser container
+     * @param {HTMLElement} loader - Loader element
+     * @param {HTMLElement} errorElement - Error element
+     * @param {string} message - Error message to display
+     * @param {string} url - URL for external button
+     * @private
+     */
+    showSideBrowserError(sideBrowser, loader, errorElement, message, url) {
+        // Update loading states
+        DOMUtils.removeClass(sideBrowser, 'loading');
+        const sideBrowserContent = sideBrowser.querySelector('.side-browser-content');
+        if (sideBrowserContent) {
+            DOMUtils.removeClass(sideBrowserContent, 'loading');
+        }
+
+        // Show error with message
+        loader.style.display = 'none';
+        errorElement.style.display = 'block';
+        const errorParagraph = errorElement.querySelector('p');
+        if (errorParagraph) {
+            errorParagraph.textContent = message;
+        }
+        errorElement.dataset.url = url;
     }
 
     /**
@@ -1398,38 +1682,139 @@ export class MessageRenderer {
      * @private
      */
     setupSideBrowserEventListeners() {
+        console.log('[SideBrowser] Setting up event listeners...');
+        
+        // Use event delegation for better reliability
+        document.addEventListener('click', (e) => {
+            // Handle close button clicks
+            if (e.target.id === 'closeSideBrowser' || e.target.closest('#closeSideBrowser')) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('[SideBrowser] Close button clicked via delegation');
+                this.closeSideBrowser();
+                return;
+            }
+            
+            // Handle external button clicks
+            if (e.target.id === 'openExternalBtn' || e.target.closest('#openExternalBtn')) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('[SideBrowser] External button clicked via delegation');
+                
+                // Try multiple ways to get the URL
+                const sideBrowserError = DOMUtils.getElementById('sideBrowserError');
+                let url = sideBrowserError?.dataset?.url;
+                
+                // Fallback: look for URL in button itself
+                if (!url) {
+                    const button = e.target.closest('#openExternalBtn') || e.target;
+                    url = button?.dataset?.url;
+                }
+                
+                // Fallback: look for URL in any parent elements
+                if (!url) {
+                    const errorContainer = e.target.closest('.side-browser-error');
+                    url = errorContainer?.dataset?.url;
+                }
+                
+                console.log('[SideBrowser] External button URL found:', url);
+                console.log('[SideBrowser] sideBrowserError element:', sideBrowserError);
+                console.log('[SideBrowser] sideBrowserError dataset:', sideBrowserError?.dataset);
+                
+                if (url) {
+                    console.log('[SideBrowser] Opening URL in external browser:', url);
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                } else {
+                    console.warn('[SideBrowser] No URL found for external button');
+                    console.warn('[SideBrowser] All available data:', {
+                        sideBrowserError: sideBrowserError,
+                        errorDataset: sideBrowserError?.dataset,
+                        buttonTarget: e.target,
+                        buttonDataset: e.target.dataset
+                    });
+                }
+                return;
+            }
+        });
+
+        // Also try direct event listeners as backup
         const closeSideBrowser = DOMUtils.getElementById('closeSideBrowser');
         const openExternalBtn = DOMUtils.getElementById('openExternalBtn');
         const sideBrowser = DOMUtils.getElementById('sideBrowser');
 
-        // Avoid duplicate listeners
+        console.log('[SideBrowser] Elements found:', {
+            closeSideBrowser: !!closeSideBrowser,
+            openExternalBtn: !!openExternalBtn,
+            sideBrowser: !!sideBrowser
+        });
+
+        // Direct listeners as backup
         if (closeSideBrowser && !closeSideBrowser.dataset.listenerAdded) {
-            DOMUtils.addEventListener(closeSideBrowser, 'click', () => {
+            console.log('[SideBrowser] Adding direct close button listener');
+            closeSideBrowser.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('[SideBrowser] Close button clicked directly');
                 this.closeSideBrowser();
             });
             closeSideBrowser.dataset.listenerAdded = 'true';
         }
 
         if (openExternalBtn && !openExternalBtn.dataset.listenerAdded) {
-            DOMUtils.addEventListener(openExternalBtn, 'click', () => {
+            console.log('[SideBrowser] Adding direct external button listener');
+            openExternalBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('[SideBrowser] External button clicked directly');
+                
+                // Try multiple ways to get the URL
                 const sideBrowserError = DOMUtils.getElementById('sideBrowserError');
-                const url = sideBrowserError.dataset.url;
+                let url = sideBrowserError?.dataset?.url;
+                
+                // Fallback: look for URL in button itself
+                if (!url) {
+                    url = openExternalBtn?.dataset?.url;
+                }
+                
+                // Fallback: look for URL in any parent elements
+                if (!url) {
+                    const errorContainer = openExternalBtn.closest('.side-browser-error');
+                    url = errorContainer?.dataset?.url;
+                }
+                
+                console.log('[SideBrowser] External button URL found:', url);
+                console.log('[SideBrowser] sideBrowserError element:', sideBrowserError);
+                console.log('[SideBrowser] sideBrowserError dataset:', sideBrowserError?.dataset);
+                
                 if (url) {
+                    console.log('[SideBrowser] Opening URL in external browser:', url);
                     window.open(url, '_blank', 'noopener,noreferrer');
+                } else {
+                    console.warn('[SideBrowser] No URL found for external button');
+                    console.warn('[SideBrowser] All available data:', {
+                        sideBrowserError: sideBrowserError,
+                        errorDataset: sideBrowserError?.dataset,
+                        buttonElement: openExternalBtn,
+                        buttonDataset: openExternalBtn.dataset
+                    });
                 }
             });
             openExternalBtn.dataset.listenerAdded = 'true';
         }
 
         // Close on escape key
-        if (sideBrowser && !sideBrowser.dataset.escapeListenerAdded) {
-            DOMUtils.addEventListener(document, 'keydown', (e) => {
+        if (sideBrowser && !this.escapeListenerAdded) {
+            console.log('[SideBrowser] Adding escape key listener');
+            document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape' && DOMUtils.hasClass(sideBrowser, 'open')) {
+                    console.log('[SideBrowser] Escape key pressed');
                     this.closeSideBrowser();
                 }
             });
-            sideBrowser.dataset.escapeListenerAdded = 'true';
+            this.escapeListenerAdded = true;
         }
+
+        console.log('[SideBrowser] Event listeners setup complete');
     }
 
     /**
@@ -1437,17 +1822,31 @@ export class MessageRenderer {
      * @private
      */
     closeSideBrowser() {
+        console.log('[SideBrowser] Closing side browser...');
+        
         const sideBrowser = DOMUtils.getElementById('sideBrowser');
         const sideBrowserFrame = DOMUtils.getElementById('sideBrowserFrame');
 
         if (sideBrowser) {
+            console.log('[SideBrowser] Removing classes and closing...');
+            // Remove all loading states
             DOMUtils.removeClass(sideBrowser, 'open');
+            DOMUtils.removeClass(sideBrowser, 'loading');
+            
+            const sideBrowserContent = sideBrowser.querySelector('.side-browser-content');
+            if (sideBrowserContent) {
+                DOMUtils.removeClass(sideBrowserContent, 'loading');
+            }
+        } else {
+            console.warn('[SideBrowser] Could not find sideBrowser element to close');
         }
 
-        // Clear iframe after transition
+        // Clear iframe and reset states after transition
         setTimeout(() => {
             if (sideBrowserFrame) {
+                console.log('[SideBrowser] Clearing iframe content');
                 sideBrowserFrame.src = 'about:blank';
+                DOMUtils.removeClass(sideBrowserFrame, 'loaded');
             }
         }, 300);
     }

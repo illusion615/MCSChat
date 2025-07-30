@@ -1443,7 +1443,7 @@ export class Application {
      */
     showProgressIndicator() {
         // Check if an indicator already exists to prevent duplicates
-        const existingIndicator = DOMUtils.getElementById('progressIndicator');
+        const existingIndicator = this.elements.chatWindow?.querySelector('#progressIndicator');
         if (existingIndicator) {
             console.log('Progress indicator already exists, skipping creation');
             return;
@@ -1481,7 +1481,8 @@ export class Application {
 
         // Safety timeout to remove indicator if it gets stuck (30 seconds)
         setTimeout(() => {
-            const stuckIndicator = DOMUtils.getElementById('progressIndicator');
+            // Use a more direct approach to avoid getElementById warnings
+            const stuckIndicator = chatWindow.querySelector('#progressIndicator');
             if (stuckIndicator) {
                 console.log('Removing stuck progress indicator after 30 seconds');
                 stuckIndicator.remove();
@@ -1493,7 +1494,8 @@ export class Application {
      * Hide progress indicator (enhanced with legacy's implementation)
      */
     hideProgressIndicator() {
-        const progressIndicator = DOMUtils.getElementById('progressIndicator');
+        // Use querySelector to avoid warnings when element doesn't exist
+        const progressIndicator = this.elements.chatWindow?.querySelector('#progressIndicator');
         if (progressIndicator) {
             progressIndicator.remove();
             console.log('Typing indicator removed');
@@ -1888,14 +1890,76 @@ export class Application {
     }
 
     /**
+     * Check if URL is from a domain that likely has CSP frame-ancestors restrictions
+     * @param {string} url - URL to check
+     * @returns {boolean} True if domain likely has CSP restrictions
+     * @private
+     */
+    isCSPRestrictedDomain(url) {
+        try {
+            const urlObj = new URL(url);
+            const hostname = urlObj.hostname.toLowerCase();
+            
+            // Known domains that typically have strict CSP frame-ancestors policies
+            const restrictedDomains = [
+                'sharepoint.com',
+                'sharepointonline.com',
+                'office.com',
+                'office365.com',
+                'microsoft365.com',
+                'teams.microsoft.com',
+                'onedrive.live.com',
+                'powerbi.com',
+                'powerapps.com',
+                'dynamics.com',
+                'live.com',
+                'outlook.com',
+                'hotmail.com',
+                'yammer.com',
+                'microsoftonline.com',
+                'login.microsoft.com',
+                'account.microsoft.com'
+            ];
+            
+            return restrictedDomains.some(domain => 
+                hostname === domain || hostname.endsWith('.' + domain)
+            );
+        } catch (e) {
+            // If URL parsing fails, assume it might be restricted
+            console.warn('Failed to parse URL for CSP check:', url);
+            return false;
+        }
+    }
+
+    /**
      * Open URL in right panel
      * @param {string} url - URL to open
      */
     openInRightPanel(url) {
         const embeddedBrowser = DOMUtils.getElementById('embeddedBrowser');
         if (embeddedBrowser && this.elements.rightPanel) {
-            embeddedBrowser.src = url;
-            DOMUtils.show(this.elements.rightPanel);
+            // Check for CSP-restricted domains
+            if (this.isCSPRestrictedDomain(url)) {
+                console.warn('URL likely has CSP restrictions, opening in external browser instead:', url);
+                window.open(url, '_blank', 'noopener,noreferrer');
+                return;
+            }
+
+            try {
+                embeddedBrowser.src = url;
+                DOMUtils.show(this.elements.rightPanel);
+                
+                // Monitor for loading errors
+                embeddedBrowser.onerror = () => {
+                    console.warn('Failed to load URL in embedded browser:', url);
+                    // Fallback to external browser
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                    this.closeRightPanel();
+                };
+            } catch (error) {
+                console.error('Error loading URL in embedded browser:', error);
+                window.open(url, '_blank', 'noopener,noreferrer');
+            }
         }
     }
 
