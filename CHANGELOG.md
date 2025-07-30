@@ -1,0 +1,336 @@
+# CHANGELOG
+
+All notable changes to MCS Chat will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- Comprehensive documentation restructure with organized sections
+- AI Companion system with auto title generation and suggested actions
+- User icon selection system with 10 pre-built avatars
+- Custom user icon upload functionality
+- Enhanced message icon positioning and alignment
+- Improved localStorage management with consistent key naming
+
+### Changed
+- Restructured documentation from single README to modular doc system
+- Updated icon positioning CSS for better visual alignment
+- Improved user icon application logic with automatic persistence
+
+### Fixed
+- User icon selection not applying automatically to messages
+- Inconsistent localStorage key handling between components
+- Message icon alignment issues with message content
+- Auto title generation being inadvertently disabled
+
+## [2.0.0] - 2024-01-15
+
+### Added
+- **Multi-Provider AI Support**: OpenAI, Anthropic, Ollama, and Azure OpenAI
+- **Agent Management System**: Pre-configured and custom agents
+- **AI Companion Features**: Auto title generation and suggested actions
+- **Progressive Web App**: PWA support with offline capabilities
+- **Advanced Message Rendering**: Markdown, syntax highlighting, and interactive features
+- **Theme System**: Dark, light, and custom theme support
+- **Export/Import**: Multiple formats including JSON, Markdown, and Plain Text
+- **Search Functionality**: Full-text search across conversations
+- **Local Storage**: Secure local data storage with encryption options
+
+### Changed
+- **Complete Architecture Rewrite**: Modular, component-based architecture
+- **Modern JavaScript**: ES6+ modules and async/await patterns
+- **Enhanced UI/UX**: Responsive design with mobile optimization
+- **Performance Improvements**: Virtual scrolling and lazy loading
+- **Security Enhancements**: Content sanitization and secure storage
+
+### Removed
+- **Legacy Dependencies**: Removed outdated libraries and polyfills
+- **Single Provider Limitation**: No longer limited to one AI provider
+
+## [1.5.2] - 2023-12-20
+
+### Fixed
+- Conversation loading performance issues
+- Message rendering bugs with code blocks
+- Export functionality edge cases
+
+### Changed
+- Improved error handling and user feedback
+- Updated dependencies for security patches
+
+## [1.5.1] - 2023-12-10
+
+### Added
+- Basic conversation search functionality
+- Message copy buttons for code blocks
+- Improved keyboard navigation
+
+### Fixed
+- Session persistence issues in certain browsers
+- CSS styling conflicts with user themes
+
+## [1.5.0] - 2023-11-25
+
+### Added
+- **Conversation Management**: Save, load, and organize multiple conversations
+- **Message History**: Persistent conversation history
+- **Basic Themes**: Dark and light theme options
+- **Settings Panel**: Centralized configuration interface
+
+### Changed
+- Improved message rendering performance
+- Enhanced mobile responsiveness
+- Better error handling and user feedback
+
+### Fixed
+- Memory leaks in long conversations
+- Scroll position issues in message view
+
+## [1.4.1] - 2023-11-10
+
+### Fixed
+- API key storage and retrieval issues
+- Message formatting edge cases
+- Browser compatibility issues with older versions
+
+### Security
+- Enhanced input sanitization
+- Improved XSS protection measures
+
+## [1.4.0] - 2023-10-28
+
+### Added
+- **Multiple AI Providers**: Support for OpenAI and Anthropic
+- **Streaming Responses**: Real-time response streaming
+- **Message Actions**: Edit, delete, and regenerate messages
+- **Code Syntax Highlighting**: Enhanced code block rendering
+
+### Changed
+- Redesigned user interface with modern styling
+- Improved message layout and readability
+- Better mobile device support
+
+### Deprecated
+- Legacy API configuration methods
+
+## [1.3.2] - 2023-10-15
+
+### Fixed
+- Message persistence bugs
+- UI responsiveness issues
+- API rate limiting edge cases
+
+### Changed
+- Optimized bundle size and loading performance
+- Updated styling for better accessibility
+
+## [1.3.1] - 2023-10-05
+
+### Added
+- Basic conversation export functionality
+- Improved error messages and user guidance
+
+### Fixed
+- Session management edge cases
+- Cross-browser compatibility issues
+
+## [1.3.0] - 2023-09-20
+
+### Added
+- **Local Storage**: Conversations now persist locally
+- **Session Management**: Basic session handling
+- **Settings Persistence**: User preferences saved across sessions
+
+### Changed
+- Improved application startup performance
+- Enhanced error handling and recovery
+- Better user feedback for API errors
+
+### Fixed
+- Message ordering issues in fast typing scenarios
+- Memory usage optimization
+
+## [1.2.1] - 2023-09-10
+
+### Fixed
+- Critical bug in message sending functionality
+- CSS styling issues on mobile devices
+- Performance issues with long conversations
+
+### Security
+- Fixed potential XSS vulnerability in message rendering
+
+## [1.2.0] - 2023-08-25
+
+### Added
+- **Markdown Support**: Full markdown rendering in messages
+- **Message Formatting**: Rich text formatting options
+- **Copy Functionality**: Copy messages and code blocks
+- **Responsive Design**: Mobile and tablet optimization
+
+### Changed
+- Improved user interface design
+- Better message bubble styling
+- Enhanced readability and typography
+
+### Fixed
+- Text input performance issues
+- Message rendering bugs
+
+## [1.1.2] - 2023-08-15
+
+### Fixed
+- API connection timeout issues
+- User input validation edge cases
+- Browser compatibility problems
+
+### Changed
+- Improved error messages for better user guidance
+- Enhanced loading indicators
+
+## [1.1.1] - 2023-08-05
+
+### Fixed
+- Critical bug preventing message sending
+- Styling issues in certain browsers
+- Memory leak in message handling
+
+### Added
+- Basic error logging for debugging
+
+## [1.1.0] - 2023-07-20
+
+### Added
+- **User Interface**: Modern chat interface design
+- **Message History**: Basic conversation tracking
+- **Input Validation**: User input sanitization and validation
+- **Error Handling**: Basic error handling and user feedback
+
+### Changed
+- Improved application structure and organization
+- Better separation of concerns in codebase
+- Enhanced user experience flows
+
+### Fixed
+- Message display formatting issues
+- Input field focus problems
+
+## [1.0.1] - 2023-07-10
+
+### Fixed
+- Initial release bug fixes
+- Documentation updates
+- Performance optimizations
+
+### Security
+- Added basic input sanitization
+- Implemented secure API key handling
+
+## [1.0.0] - 2023-07-01
+
+### Added
+- **Initial Release**: Basic chat functionality with OpenAI integration
+- **Core Features**:
+  - Single conversation interface
+  - OpenAI GPT integration
+  - Basic message sending and receiving
+  - Simple HTML/CSS interface
+- **Documentation**: Basic setup and usage instructions
+- **License**: MIT license for open source distribution
+
+### Technical Details
+- Pure HTML, CSS, and JavaScript implementation
+- Client-side only architecture
+- Local browser storage for API keys
+- Responsive web design principles
+
+---
+
+## Release Notes
+
+### Version 2.0.0 - Major Rewrite
+This version represents a complete rewrite of the application with modern architecture, enhanced features, and improved performance. The transition from v1.x to v2.0 includes:
+
+- **Breaking Changes**: Configuration format changes require migration
+- **New Features**: Extensive new functionality and capabilities
+- **Performance**: Significant performance improvements
+- **Security**: Enhanced security measures and best practices
+
+### Migration Guide (v1.x to v2.0)
+1. **Settings Migration**: Export settings from v1.x before upgrading
+2. **Conversation Data**: Conversations from v1.x can be imported using the new import feature
+3. **API Configuration**: Reconfigure API providers using the new settings interface
+4. **Custom Themes**: Custom themes need to be adapted to the new theme system
+
+### Deprecation Notice
+- **v1.x Support**: v1.x will receive security updates only until July 2024
+- **Legacy Features**: Some v1.x features may not be available in v2.0
+- **Migration Tools**: Automated migration tools available in the application
+
+### Future Releases
+
+#### v2.1.0 (Planned - Q2 2024)
+- Voice input and output capabilities
+- Enhanced mobile experience
+- File upload and processing
+- Advanced AI provider features
+
+#### v2.2.0 (Planned - Q3 2024)
+- Team collaboration features
+- Enhanced security options
+- Performance optimizations
+- Additional AI providers
+
+#### v3.0.0 (Planned - Q4 2024)
+- Desktop application
+- Cloud synchronization options
+- Enterprise features
+- Plugin ecosystem
+
+---
+
+## Contributing to Changelog
+
+When contributing to this project:
+
+1. **Version Numbering**: Follow semantic versioning (MAJOR.MINOR.PATCH)
+2. **Change Categories**: Use standard categories (Added, Changed, Deprecated, Removed, Fixed, Security)
+3. **Description Format**: Write clear, concise descriptions of changes
+4. **Links and References**: Include relevant issue/PR numbers
+5. **Breaking Changes**: Clearly mark breaking changes and provide migration guidance
+
+### Change Categories
+
+- **Added**: New features and capabilities
+- **Changed**: Changes in existing functionality
+- **Deprecated**: Soon-to-be removed features
+- **Removed**: Features removed in this release
+- **Fixed**: Bug fixes and corrections
+- **Security**: Security-related changes and fixes
+
+### Example Entry
+```markdown
+## [1.2.3] - 2023-XX-XX
+
+### Added
+- New feature description (#123)
+- Another feature with clear benefits
+
+### Changed
+- Modified existing behavior with rationale
+- Updated dependency with version info
+
+### Fixed
+- Bug fix description (#456)
+- Performance improvement details
+
+### Security
+- Security vulnerability fix (CVE-XXXX-XXXX)
+```
+
+---
+
+For the complete history and detailed technical changes, see the [GitHub commit history](https://github.com/illusion615/MCSChat/commits/main).

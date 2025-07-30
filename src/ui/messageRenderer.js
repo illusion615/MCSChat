@@ -522,14 +522,89 @@ export class MessageRenderer {
             className: 'messageIcon'
         });
 
-        // Set background image like legacy
         if (isUser) {
-            iconElement.style.backgroundImage = 'url("images/carter_30k.png")';
+            // Apply the selected user icon
+            this.applyUserIconToElement(iconElement);
         } else {
             iconElement.style.backgroundImage = 'url("images/Microsoft-Copilot-Logo-30.png")';
         }
 
         return iconElement;
+    }
+
+    /**
+     * Apply user icon to an element
+     * @param {HTMLElement} element - The element to apply the icon to
+     * @private
+     */
+    applyUserIconToElement(element) {
+        const selectedIcon = localStorage.getItem('userIcon') || 'carter-avatar';
+        
+        // Clear all existing styles first
+        element.style.backgroundImage = '';
+        element.style.background = '';
+        element.style.display = '';
+        element.style.alignItems = '';
+        element.style.justifyContent = '';
+        element.style.fontSize = '';
+        element.innerHTML = '';
+        
+        // Remove any existing avatar classes
+        element.className = 'messageIcon';
+        
+        // Apply the selected icon style
+        switch (selectedIcon) {
+            case 'friendly-avatar':
+                element.style.display = 'flex';
+                element.style.alignItems = 'center';
+                element.style.justifyContent = 'center';
+                element.style.fontSize = '20px';
+                element.innerHTML = '😊';
+                break;
+            case 'robot-avatar':
+                element.style.display = 'flex';
+                element.style.alignItems = 'center';
+                element.style.justifyContent = 'center';
+                element.style.fontSize = '20px';
+                element.innerHTML = '🤖';
+                break;
+            case 'assistant-avatar':
+                element.classList.add('assistant-avatar');
+                break;
+            case 'smart-avatar':
+                element.classList.add('smart-avatar');
+                break;
+            case 'modern-avatar':
+                element.classList.add('modern-avatar');
+                break;
+            case 'cute-avatar':
+                element.classList.add('cute-avatar');
+                break;
+            case 'professional-avatar':
+                element.classList.add('professional-avatar');
+                break;
+            case 'gaming-avatar':
+                element.classList.add('gaming-avatar');
+                break;
+            case 'minimal-avatar':
+                element.classList.add('minimal-avatar');
+                break;
+            case 'custom-avatar':
+                const customIcon = localStorage.getItem('customUserIconData');
+                if (customIcon) {
+                    element.style.backgroundImage = `url(${customIcon})`;
+                    element.style.backgroundSize = 'cover';
+                    element.style.backgroundPosition = 'center';
+                } else {
+                    // Fallback to carter if no custom icon
+                    element.style.backgroundImage = 'url("images/carter_30k.png")';
+                }
+                break;
+            case 'carter-avatar':
+            default:
+                element.style.backgroundImage = 'url("images/carter_30k.png")';
+                break;
+        }
     }
 
     /**

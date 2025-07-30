@@ -332,8 +332,8 @@ export class AICompanion {
         // Listen for session changes to schedule title updates
         window.addEventListener('messageRendered', () => {
             if (this.isEnabled) {
-                // Automatic title updates removed - user can manually request title suggestions if needed
-                // this.scheduleConversationTitleUpdate();
+                // Re-enabled automatic title generation
+                this.scheduleConversationTitleUpdate();
             }
         });
     }
@@ -2329,13 +2329,11 @@ export class AICompanion {
     }
 
     /**
-     * Schedule conversation title update with debouncing (DISABLED)
-     * Note: Automatic title updates have been disabled to prevent unwanted AI requests
+     * Schedule conversation title update with debouncing
+     * Re-enabled to provide automatic title generation based on conversation content
      */
     scheduleConversationTitleUpdate() {
-        // Automatic title updates disabled - users can manually request title suggestions if needed
-        console.log('[AI Companion] Automatic title updates disabled');
-        return;
+        console.log('[AI Companion] Scheduling conversation title update...');
         
         if (this.titleUpdateTimeout) {
             clearTimeout(this.titleUpdateTimeout);
@@ -2352,7 +2350,7 @@ export class AICompanion {
      */
     async updateConversationTitle() {
         if (!this.isEnabled) {
-            console.log('AI Companion not enabled, skipping title update');
+            console.log('[AI Companion] AI Companion not enabled, skipping title update. Enable AI Companion in settings to use automatic title generation.');
             return;
         }
 
@@ -2361,7 +2359,7 @@ export class AICompanion {
             console.log('Title generation - conversation context:', conversationContext);
 
             if (!conversationContext || conversationContext === 'No conversation available.') {
-                console.log('No conversation context available for title generation');
+                console.log('[AI Companion] No conversation context available for title generation');
                 return;
             }
 

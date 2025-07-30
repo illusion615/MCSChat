@@ -86,7 +86,7 @@
         <div id="leftPanel">
             <!-- History Header -->
             <div id="historyHeader">
-                <h3>History Topic</h3>
+                <h3>Conversations</h3>
                 <button id="toggleLLMPanelBtn" class="icon-button" title="Toggle AI Companion Panel"
                     style="display: none;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -192,7 +192,7 @@
             <!-- AI Companion Panel -->
             <div id="llmAnalysisPanel" class="chat-panel collapsed" style="display: none;">
                 <div class="panel-header">
-                    <h3>Agent Performance</h3>
+                    <h3>Agent Companion</h3>
                     <div class="panel-controls">
                         <span id="llmStatus" class="status-indicator"></span>
                         <span id="llmModelName" class="agent-name"></span>
@@ -603,6 +603,71 @@
                     <!-- Appearance Section -->
                     <div id="appearance-section" class="settings-section">
                         <h3 class="section-title">Appearance</h3>
+
+                        <!-- User Icon Selection -->
+                        <div class="form-group">
+                            <label>User Icon:</label>
+                            <div class="user-icon-selection">
+                                <div class="current-icon-preview">
+                                    <div class="icon-preview" id="currentUserIconPreview">
+                                        <!-- Current selected icon will be shown here -->
+                                    </div>
+                                    <span class="current-icon-label">Current Icon</span>
+                                </div>
+                                <div class="icon-options">
+                                    <div class="icon-option" data-icon="friendly">
+                                        <div class="icon-preview friendly-avatar"></div>
+                                        <span class="icon-name">Friendly</span>
+                                    </div>
+                                    <div class="icon-option" data-icon="robot">
+                                        <div class="icon-preview robot-avatar"></div>
+                                        <span class="icon-name">Robot</span>
+                                    </div>
+                                    <div class="icon-option" data-icon="assistant">
+                                        <div class="icon-preview assistant-avatar"></div>
+                                        <span class="icon-name">Assistant</span>
+                                    </div>
+                                    <div class="icon-option" data-icon="smart">
+                                        <div class="icon-preview smart-avatar"></div>
+                                        <span class="icon-name">Smart</span>
+                                    </div>
+                                    <div class="icon-option" data-icon="modern">
+                                        <div class="icon-preview modern-avatar"></div>
+                                        <span class="icon-name">Modern</span>
+                                    </div>
+                                    <div class="icon-option" data-icon="cute">
+                                        <div class="icon-preview cute-avatar"></div>
+                                        <span class="icon-name">Cute</span>
+                                    </div>
+                                    <div class="icon-option" data-icon="professional">
+                                        <div class="icon-preview professional-avatar"></div>
+                                        <span class="icon-name">Professional</span>
+                                    </div>
+                                    <div class="icon-option" data-icon="gaming">
+                                        <div class="icon-preview gaming-avatar"></div>
+                                        <span class="icon-name">Gaming</span>
+                                    </div>
+                                    <div class="icon-option" data-icon="minimal">
+                                        <div class="icon-preview minimal-avatar"></div>
+                                        <span class="icon-name">Minimal</span>
+                                    </div>
+                                    <div class="icon-option" data-icon="carter">
+                                        <div class="icon-preview carter-avatar"></div>
+                                        <span class="icon-name">Carter</span>
+                                    </div>
+                                    <div class="icon-option" data-icon="custom">
+                                        <div class="icon-preview custom-icon">
+                                            <input type="file" id="customIconInput" accept="image/*" style="display: none;">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                                            </svg>
+                                        </div>
+                                        <span class="icon-name">Custom</span>
+                                    </div>
+                                </div>
+                                <small class="help-text">Choose an icon to represent yourself in conversations</small>
+                            </div>
+                        </div>
 
                         <!-- Font Size Configuration - moved to bottom -->
                         <div class="form-group">

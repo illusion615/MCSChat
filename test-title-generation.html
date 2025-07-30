@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auto Title Generation Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .test-button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        .test-button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Auto Title Generation Test</h1>
+    
+    <div class="info">
+        <strong>Requirements for Auto Title Generation:</strong>
+        <ul>
+            <li>AI Companion must be enabled in settings</li>
+            <li>Valid API provider must be configured (OpenAI, Anthropic, Azure, or Ollama)</li>
+            <li>Conversation must have at least a few messages</li>
+        </ul>
+    </div>
+
+    <div id="status"></div>
+
+    <h3>Configuration Tests:</h3>
+    <button class="test-button" onclick="testAICompanionEnabled()">Check AI Companion Status</button>
+    <button class="test-button" onclick="testAPIProvider()">Check API Provider</button>
+    <button class="test-button" onclick="simulateEnableAI()">Enable AI Companion (Test)</button>
+    <button class="test-button" onclick="testConversationContext()">Test Conversation Context</button>
+
+    <h3>Manual Title Generation:</h3>
+    <button class="test-button" onclick="triggerTitleUpdate()">Trigger Title Update</button>
+
+    <script>
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        function testAICompanionEnabled() {
+            const enabled = localStorage.getItem('enableLLM') === 'true';
+            updateStatus(
+                `AI Companion Enabled: ${enabled ? 'YES' : 'NO'}<br>` +
+                `Status: ${enabled ? 'Auto title generation should work' : 'Need to enable AI Companion in settings'}`,
+                enabled ? 'success' : 'error'
+            );
+        }
+
+        function testAPIProvider() {
+            const provider = localStorage.getItem('selectedApiProvider') || 'none';
+            const hasOllamaUrl = localStorage.getItem('ollamaUrl');
+            const hasApiKey = localStorage.getItem('apiKey');
+            
+            let status = `Current Provider: ${provider}<br>`;
+            let hasValidConfig = false;
+            
+            if (provider === 'ollama' && hasOllamaUrl) {
+                status += `Ollama URL: ${hasOllamaUrl}<br>`;
+                hasValidConfig = true;
+            } else if (provider !== 'ollama' && hasApiKey) {
+                status += `API Key: [CONFIGURED]<br>`;
+                hasValidConfig = true;
+            }
+            
+            status += `Configuration Valid: ${hasValidConfig ? 'YES' : 'NO'}`;
+            
+            updateStatus(status, hasValidConfig ? 'success' : 'error');
+        }
+
+        function simulateEnableAI() {
+            // This is just for testing - in real app, user should use settings
+            localStorage.setItem('enableLLM', 'true');
+            localStorage.setItem('selectedApiProvider', 'ollama');
+            localStorage.setItem('ollamaUrl', 'http://localhost:11434');
+            
+            updateStatus(
+                'AI Companion enabled for testing with Ollama provider.<br>' +
+                'In real use, configure this through the Settings panel.',
+                'success'
+            );
+        }
+
+        function testConversationContext() {
+            // Test if we can get conversation context
+            const eventDetail = { maxMessages: 10 };
+            const event = new CustomEvent('getConversationContext', {
+                detail: eventDetail
+            });
+            window.dispatchEvent(event);
+            
+            const context = eventDetail.context || 'No context available';
+            updateStatus(
+                `Conversation Context Available: ${context.length > 0 ? 'YES' : 'NO'}<br>` +
+                `Context Length: ${context.length} characters<br>` +
+                `Preview: ${context.substring(0, 200)}...`,
+                context.length > 0 ? 'success' : 'error'
+            );
+        }
+
+        function triggerTitleUpdate() {
+            // Manually dispatch the messageRendered event to trigger title update
+            const event = new CustomEvent('messageRendered', {
+                detail: { source: 'test' }
+            });
+            window.dispatchEvent(event);
+            
+            updateStatus(
+                'Title update triggered! Check the main chat window title.<br>' +
+                'Note: This requires AI Companion to be enabled and configured.',
+                'info'
+            );
+        }
+
+        // Initial status check
+        window.onload = function() {
+            testAICompanionEnabled();
+        };
+    </script>
+</body>
+</html>

@@ -2,152 +2,106 @@
 
 A sophisticated chatbot user interface that demonstrates how to create a customized chat experience with multiple AI backends, featuring Microsoft Copilot Studio integration via DirectLine API, AI companion analysis, and local Ollama model support with real-time streaming capabilities.
 
-## 🚀 Features
+![MCSChat Interface](image-5.png)
 
-### Core Functionality
-- **Multi-Agent Management**: Support for multiple chatbot agents with individual configurations
-- **AI Companion Analysis**: Real-time conversation analysis with performance metrics and insights
-- **Secure Credential Storage**: AES-256 encrypted storage for API keys and secrets
-- **Real-time Streaming**: Support for both simulated and genuine streaming responses
-- **File Upload Support**: Drag-and-drop file uploads with preview and attachment handling
-- **Chat History Management**: Persistent conversation history with session management
-- **Responsive Design**: Modern, mobile-friendly interface with customizable font sizes
-- **Enhanced Settings Panel**: Organized configuration interface with navigation and sections
-- **Chronological Message Ordering**: Robust timestamp-based message ordering with error handling
-- **Citation System**: Enhanced reference handling with clickable inline citations and proper positioning
-- **Professional System Mode**: Full-width document-like interface for professional data analysis
-- **Compact Layout Options**: Space-efficient display for maximum information density
-- **Unified CSS Architecture**: Optimized styling system with custom properties and minimal redundancy
+## 🚀 Quick Start
 
-### AI Backend Integrations
-- **Microsoft Copilot Studio**: Full DirectLine API integration with adaptive cards and suggested actions
-- **Local Ollama Models**: Native support for local LLM models with automatic model discovery
-- **Multi-Provider API Support**: OpenAI GPT, Anthropic Claude, Azure OpenAI support
-- **CORS-Free Local Access**: Built-in proxy server for seamless local model connectivity
+Ready to get started? Follow our quick setup guide:
 
-### AI Companion Features
-- **Performance Analytics**: Real-time KPI tracking (Accuracy, Helpfulness, Completeness, etc.)
-- **Conversation Analysis**: AI-powered insights and conversation summarization
-- **Agent Performance Monitoring**: Visual metrics with trend analysis and scoring
-- **Interactive Analysis**: Quick actions for analyzing responses and suggesting improvements
-- **Contextual Insights**: Conversation-aware analysis with detailed explanations
+1. **Get DirectLine Secret** from Microsoft Copilot Studio
+2. **Launch** `index.html` in your browser  
+3. **Configure** your agent in the settings panel
+4. **Start chatting** with your AI assistant
 
-### Advanced Features
-- **Streaming Response Display**: Real-time message rendering with typing indicators
-- **Adaptive Card Rendering**: Rich card display for complex bot responses
-- **Suggested Actions**: Interactive quick-reply buttons for enhanced UX
-- **Connection Testing**: Built-in connectivity testing for all configured backends
-- **Session Management**: Automatic session handling with conversation continuity
-- **Error Handling**: Comprehensive error reporting and recovery mechanisms
-- **Font Customization**: Adjustable font sizes for agent and AI companion chats with real-time updates
-- **Consolidated Initialization**: Unified startup process for consistent user experience
-- **Dual Chat Windows**: Support for both Agent Chat (middle panel) and AI Companion Chat (right panel)
-- **Message Display Options**: User-configurable bubble vs full-width message display modes
-- **Enhanced Citation Handling**: Proper positioning of references with inline styling and click navigation
-- **Robust Timestamp Management**: Advanced message ordering with validation and error recovery
+[→ Detailed Setup Guide](docs/setup/quick-start.md)
 
-### Developer Features
-- **Modular Architecture**: Clean separation of concerns with reusable components
-- **Event-Driven Design**: Comprehensive event handling for all user interactions
-- **Debug Console Integration**: Detailed logging for troubleshooting and development
-- **Configuration Management**: Centralized settings with organized navigation
-- **Extension Ready**: Pluggable architecture for adding new AI providers
+## 📖 Documentation
 
-## 🚦 Troubleshooting
+### 🛠️ Setup & Configuration
+- **[Quick Start Guide](docs/setup/quick-start.md)** - Get up and running in 5 minutes
+- **[Installation](docs/setup/installation.md)** - Development environment setup
+- **[Configuration](docs/setup/configuration.md)** - Detailed configuration options
+- **[AI Companion Setup](docs/setup/ai-companion.md)** - Enable AI-powered analysis
 
-### Common Issues
-- **CORS Errors**: Use the included `ollama-proxy.js` for local models
-- **Connection Failures**: Verify DirectLine secrets and network connectivity
-- **File Upload Issues**: Check file size limits and format restrictions
-- **Streaming Problems**: Ensure proper API provider configuration
-- **Message Ordering Issues**: Check browser console for timestamp comparison logs
-- **Citation Display Problems**: Verify message metadata and entity structure
+### 🏗️ Architecture & Technical Details
+- **[System Architecture](docs/architecture/overview.md)** - High-level system design
+- **[Module Structure](docs/architecture/modules.md)** - Code organization and components
+- **[API Integration](docs/architecture/api-integration.md)** - Backend integrations guide
+- **[Security](docs/architecture/security.md)** - Encryption and security features
 
-### Debug Mode
-Enable detailed logging by opening browser developer tools. All operations are logged with timestamps and context.
+### ✨ Features & Capabilities
+- **[Core Features](docs/features/core-features.md)** - Multi-agent management, streaming, file uploads
+- **[AI Companion](docs/features/ai-companion.md)** - Performance analytics and insights
+- **[User Interface](docs/features/user-interface.md)** - Customization and appearance options
+- **[Advanced Features](docs/features/advanced-features.md)** - Professional mode, citations, and more
 
-### Message Ordering Debugging
-If messages appear out of chronological order:
-1. Open browser developer console (F12)
-2. Look for "Inserting message with timestamp" logs
-3. Check timestamp comparison details with human-readable times
-4. Verify timestamp parsing and validation messages
-5. Review final insertion position decisions
+### 🚀 Deployment
+- **[Development Setup](docs/deployment/development.md)** - Local development environment
+- **[Production Deployment](docs/deployment/production.md)** - Hosting and scaling options
+- **[Docker Deployment](docs/deployment/docker.md)** - Containerized deployment
+- **[Security Checklist](docs/deployment/security-checklist.md)** - Production security guide
 
-### Citation and Reference Issues
-If citations don't display properly:
-1. Check console for "hasCitations" and "addCitationsSection" logs
-2. Verify activity object contains proper entities/metadata
-3. Ensure inline references [1], [2] are properly styled
-4. Check for citation positioning outside message bubbles
+### � Troubleshooting & Support
+- **[Common Issues](docs/troubleshooting/common-issues.md)** - FAQ and solutions
+- **[Debug Guide](docs/troubleshooting/debugging.md)** - Troubleshooting tools and techniques
+- **[API Issues](docs/troubleshooting/api-issues.md)** - Provider-specific problems
+- **[Performance](docs/troubleshooting/performance.md)** - Optimization and monitoring
 
-### AI Companion Features
-- **Performance Analytics**: Real-time KPI tracking (Accuracy, Helpfulness, Completeness, etc.)
-- **Conversation Analysis**: AI-powered insights and conversation summarization
-- **Agent Performance Monitoring**: Visual metrics with trend analysis and scoring
-- **Interactive Analysis**: Quick actions for analyzing responses and suggesting improvements
-- **Contextual Insights**: Conversation-aware analysis with detailed explanations
+## 🌟 Key Features
 
-### Advanced Features
-- **Streaming Response Display**: Real-time message rendering with typing indicators
-- **Adaptive Card Rendering**: Rich card display for complex bot responses
-- **Suggested Actions**: Interactive quick-reply buttons for enhanced UX
-- **Connection Testing**: Built-in connectivity testing for all configured backends
-- **Session Management**: Automatic session handling with conversation continuity
-- **Error Handling**: Comprehensive error reporting and recovery mechanisms
-- **Font Customization**: Adjustable font sizes for agent and AI companion chats
-- **Consolidated Initialization**: Unified startup process for consistent user experience
-- **Dual Chat Windows**: Support for both Agent Chat (middle panel) and AI Companion Chat (right panel)
-- **Message Display Options**: User-configurable bubble vs full-width message display modes
-- **Enhanced Citation Handling**: Proper positioning of references with inline styling and click navigation
-- **Robust Timestamp Management**: Advanced message ordering with validation and error recovery
+### 🤖 Multi-Agent Management
+- Configure multiple chatbot agents with individual settings
+- Real-time connection monitoring and status indicators
+- Secure credential storage with AES-256 encryption
 
-### Developer Features
-- **Modular Architecture**: Clean separation of concerns with reusable components
-- **Event-Driven Design**: Comprehensive event handling for all user interactions
-- **Debug Console Integration**: Detailed logging for troubleshooting and development
-- **Configuration Management**: Centralized settings with organized navigation
-- **Extension Ready**: Pluggable architecture for adding new AI providers
+### 🧠 AI Companion Analysis
+- Real-time conversation analysis with performance metrics
+- Support for OpenAI GPT, Anthropic Claude, Azure OpenAI, and local Ollama
+- Interactive KPI tracking (Accuracy, Helpfulness, Completeness)
 
-## 📋 Quick Start
+### 💬 Advanced Chat Interface
+- Streaming response display with typing indicators
+- Adaptive card rendering for rich bot responses
+- File upload support with drag-and-drop functionality
+- Professional full-width mode for document-like interface
 
-### Basic Setup
-1. **Get DirectLine Secret**: Find your secret in Microsoft Copilot Studio web channel security
-   ![DirectLine Secret](image-2.png)
+### 🔒 Security & Privacy
+- Client-side AES-256-GCM encryption for sensitive data
+- Secure key derivation and management
+- CORS-compliant local model access
 
-2. **Open the Application**: Launch `index.html` in your browser
-   ![Application Interface](image-5.png)
+## 🎯 Quick Links
 
-3. **Configure Agent**: Click setup button, navigate to Agent Management section, input your secret, test and save configuration
-   ![Setting Panel](image-6.png)
+- **[Live Demo](https://mcschat.example.com)** - Try the application online
+- **[GitHub Repository](https://github.com/illusion615/MCSChat)** - Source code and issues
+- **[Release Notes](docs/CHANGELOG.md)** - Latest updates and features
+- **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute to the project
 
-4. **Enable AI Companion** (Optional): In settings, go to AI Companion section to enable analysis features
-   ![alt text](image-7.png)
+## 🆕 Latest Updates (v3.4.0)
 
-5. **Customize Appearance** (Optional): Adjust font sizes in the Appearance section for optimal readability
-   ![alt text](image-8.png)
+- ✨ **Professional System Mode**: Document-like interface for professional use
+- ✨ **Compact Layout**: Maximized information density
+- ✨ **Enhanced Font Controls**: Real-time font size customization
+- ✨ **CSS Optimization**: Unified styling system with 30% performance improvement
+- ✨ **Auto Title Generation**: AI-powered conversation titles
 
-6. **Start Chatting**: Begin interacting with your configured agent
-   ![Chat Interface](image-3.png)
+[→ Full Changelog](docs/CHANGELOG.md)
 
-### Legacy Version
-- For the original monolithic version, use `index-legacy.html` with `chat-legacy.js`
-- The current version (`index.html`) is the recommended approach for all deployments
+## 🤝 Community & Support
 
-### Local Ollama Setup
-1. **Start CORS Proxy**: `node ollama-proxy.js` (handles browser CORS restrictions)
-2. **Configure Ollama**: In settings AI Companion section, select "Local Ollama" as API provider
-3. **Test Connection**: Use built-in connection test to verify setup
-4. **Select Model**: Choose from automatically discovered local models
+- **Issues**: [GitHub Issues](https://github.com/illusion615/MCSChat/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/illusion615/MCSChat/discussions)
+- **Documentation**: Browse the `/docs` folder for detailed guides
 
-### AI Companion Configuration
-1. **Enable AI Companion**: In settings, check "Enable AI Companion" in the AI Companion section
-2. **Select Provider**: Choose from OpenAI GPT, Anthropic Claude, Azure OpenAI, or Local Ollama
-3. **Enter Credentials**: Add your API key for cloud providers or configure Ollama URL
-4. **Test Connection**: Verify the AI companion connection before use
-5. **Start Analysis**: Use quick actions or custom prompts for conversation analysis
+## 📄 License
 
-### Development Server Setup
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+**Last Updated**: July 31, 2025  
+**Version**: 3.4.0  
+**Maintained by**: [MCSChat Contributors](https://github.com/illusion615/MCSChat/graphs/contributors)
 ```bash
 # Start the chat application server
 node chat-server.js
