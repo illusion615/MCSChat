@@ -116,7 +116,14 @@ export class MessageRenderer {
      * @param {Object} activity - DirectLine activity
      */
     renderCompleteMessage(activity) {
-        console.log('Rendering complete message:', activity);
+        console.log('Rendering complete message:', {
+            id: activity.id,
+            from: activity.from?.id,
+            textLength: activity.text?.length,
+            hasAttachments: !!(activity.attachments && activity.attachments.length > 0),
+            attachmentCount: activity.attachments?.length || 0,
+            attachments: activity.attachments
+        });
 
         const messageContainer = this.createMessageContainer(activity);
         const messageDiv = this.createMessageDiv(activity);
@@ -130,7 +137,10 @@ export class MessageRenderer {
 
         // Add attachments
         if (activity.attachments && activity.attachments.length > 0) {
+            console.log('MessageRenderer: Processing', activity.attachments.length, 'attachments');
             this.addAttachments(messageDiv, activity.attachments);
+        } else {
+            console.log('MessageRenderer: No attachments to process');
         }
 
         // Add elements in correct order based on message type
@@ -436,7 +446,7 @@ export class MessageRenderer {
                 this.scrollToBottom();
 
                 // Much faster delays for powerful AI feel
-                const delay = text[i] === ' ' ? 15 : Math.random() * 8 + 3; // 3-11ms per character
+                const delay = text[i] === ' ' ? 15 : Math.random() * 4 + 1; // 3-11ms per character
                 await Utils.sleep(delay);
             }
 
@@ -541,6 +551,8 @@ export class MessageRenderer {
      * @private
      */
     addTextContent(messageDiv, text) {
+        console.log('MessageRenderer: addTextContent called with text length:', text?.length);
+        
         // Process markdown if available - exactly like legacy
         if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
             try {
@@ -549,6 +561,8 @@ export class MessageRenderer {
                     marked.parse(text) :
                     marked(text);
                 const sanitizedContent = DOMPurify.sanitize(htmlContent);
+
+                console.log('MessageRenderer: Processed markdown, checking for images in HTML:', sanitizedContent.includes('<img'));
 
                 // Enhance inline references
                 const enhancedContent = this.enhanceInlineReferences(sanitizedContent);
@@ -568,7 +582,14 @@ export class MessageRenderer {
 
         // Make images clickable for enlargement - exactly like legacy
         const images = messageDiv.querySelectorAll('img');
-        images.forEach(img => {
+        console.log('MessageRenderer: Found', images.length, 'images in message content');
+        images.forEach((img, index) => {
+            console.log(`MessageRenderer: Processing image ${index}:`, {
+                src: img.src,
+                alt: img.alt,
+                complete: img.complete,
+                naturalWidth: img.naturalWidth
+            });
             img.style.maxWidth = '100%';
             img.style.cursor = 'pointer';
             DOMUtils.addEventListener(img, 'click', () => {
@@ -635,12 +656,22 @@ export class MessageRenderer {
      * @private
      */
     addAttachments(messageDiv, attachments) {
-        attachments.forEach(attachment => {
+        console.log('MessageRenderer: Processing attachments:', attachments);
+        attachments.forEach((attachment, index) => {
+            console.log(`MessageRenderer: Processing attachment ${index}:`, {
+                contentType: attachment.contentType,
+                contentUrl: attachment.contentUrl,
+                name: attachment.name
+            });
+            
             if (attachment.contentType === 'application/vnd.microsoft.card.adaptive') {
+                console.log('MessageRenderer: Rendering adaptive card');
                 this.renderAdaptiveCard(attachment, messageDiv);
             } else if (attachment.contentType && attachment.contentType.startsWith('image/')) {
+                console.log('MessageRenderer: Rendering image attachment');
                 this.renderImageAttachment(attachment, messageDiv);
             } else {
+                console.log('MessageRenderer: Rendering generic attachment');
                 this.renderGenericAttachment(attachment, messageDiv);
             }
         });
@@ -683,6 +714,8 @@ export class MessageRenderer {
      * @private
      */
     renderImageAttachment(attachment, messageDiv) {
+        console.log('MessageRenderer: renderImageAttachment called with:', attachment);
+        
         const imageContainer = DOMUtils.createElement('div', {
             className: 'image-attachment'
         });
@@ -691,6 +724,12 @@ export class MessageRenderer {
             src: attachment.contentUrl,
             alt: attachment.name || 'Image',
             className: 'attachment-image'
+        });
+
+        console.log('MessageRenderer: Created image element:', {
+            src: img.src,
+            alt: img.alt,
+            className: img.className
         });
 
         // Make image clickable for enlargement
@@ -703,6 +742,8 @@ export class MessageRenderer {
 
         imageContainer.appendChild(img);
         messageDiv.appendChild(imageContainer);
+        
+        console.log('MessageRenderer: Image attachment rendered and appended to messageDiv');
     }
 
     /**
@@ -818,25 +859,30 @@ export class MessageRenderer {
             className: 'message-metadata'
         });
 
-        // Calculate time spent (if we have timestamp info)
+        // Calculate time spent only for assistant messages
         const messageTime = activity?.timestamp ? new Date(activity.timestamp) : new Date();
-        const timeSpent = this.calculateTimeSpent(activity);
+        const isUserMessage = activity.from && activity.from.id === 'user';
+        const timeSpent = isUserMessage ? null : 'Response time: ' + this.calculateTimeSpent(activity);
 
         const timeSpan = DOMUtils.createElement('span', {
             className: 'metadata-time'
         }, messageTime.toLocaleTimeString());
-
-        const timeSpentSpan = DOMUtils.createElement('span', {
-            className: 'metadata-duration'
-        }, timeSpent);
 
         const sourceSpan = DOMUtils.createElement('span', {
             className: 'metadata-source'
         }, 'Copilot Studio');
 
         metadata.appendChild(timeSpan);
-        metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • Response time: '));
-        metadata.appendChild(timeSpentSpan);
+        
+        // Only show response time for assistant messages, not user messages
+        if (!isUserMessage && timeSpent) {
+            const timeSpentSpan = DOMUtils.createElement('span', {
+                className: 'metadata-duration'
+            }, timeSpent);
+            
+            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • '));
+            metadata.appendChild(timeSpentSpan);
+        }
 
         // Add metadata after the message container
         messageWrapper.appendChild(metadata);
@@ -852,14 +898,19 @@ export class MessageRenderer {
     }
 
     /**
-     * Calculate time spent for response
+     * Calculate time spent for assistant response (not applicable for user messages)
      * @param {Object} activity - Activity object
-     * @returns {string} Formatted time spent
+     * @returns {string|null} Formatted time spent or null for user messages
      * @private
      */
     calculateTimeSpent(activity) {
+        // User messages don't have response times since they're manually input
+        if (activity.from && activity.from.id === 'user') {
+            return null;
+        }
+
         // Use global response time tracking for accurate request-to-response timing
-        if (this.responseTimeTracking.requestStartTime && activity.from && activity.from.id !== 'user') {
+        if (this.responseTimeTracking.requestStartTime) {
             // This is an assistant response, calculate full request-to-response time
             const duration = Date.now() - this.responseTimeTracking.requestStartTime;
             
@@ -867,7 +918,7 @@ export class MessageRenderer {
             this.responseTimeTracking.requestStartTime = null;
             this.responseTimeTracking.lastRequestId = null;
             
-            console.log(`[MessageRenderer] Full response time: ${duration}ms`);
+            console.log(`[MessageRenderer] Assistant response time: ${duration}ms`);
             return this.formatDuration(duration);
         }
 
@@ -879,7 +930,7 @@ export class MessageRenderer {
             return this.formatDuration(duration);
         }
 
-        // For non-streaming messages or when timing isn't available
+        // For assistant messages when timing isn't available
         return '~1s';
     }
 

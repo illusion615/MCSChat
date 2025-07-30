@@ -5,7 +5,55 @@ A sophisticated chatbot user interface that demonstrates how to create a customi
 ## 🚀 Features
 
 ### Core Functionality
-- **Multi-Agent Management**: Support for multiple chatbot agents with## 🚦 Troubleshooting
+- **Multi-Agent Management**: Support for multiple chatbot agents with individual configurations
+- **AI Companion Analysis**: Real-time conversation analysis with performance metrics and insights
+- **Secure Credential Storage**: AES-256 encrypted storage for API keys and secrets
+- **Real-time Streaming**: Support for both simulated and genuine streaming responses
+- **File Upload Support**: Drag-and-drop file uploads with preview and attachment handling
+- **Chat History Management**: Persistent conversation history with session management
+- **Responsive Design**: Modern, mobile-friendly interface with customizable font sizes
+- **Enhanced Settings Panel**: Organized configuration interface with navigation and sections
+- **Chronological Message Ordering**: Robust timestamp-based message ordering with error handling
+- **Citation System**: Enhanced reference handling with clickable inline citations and proper positioning
+- **Professional System Mode**: Full-width document-like interface for professional data analysis
+- **Compact Layout Options**: Space-efficient display for maximum information density
+- **Unified CSS Architecture**: Optimized styling system with custom properties and minimal redundancy
+
+### AI Backend Integrations
+- **Microsoft Copilot Studio**: Full DirectLine API integration with adaptive cards and suggested actions
+- **Local Ollama Models**: Native support for local LLM models with automatic model discovery
+- **Multi-Provider API Support**: OpenAI GPT, Anthropic Claude, Azure OpenAI support
+- **CORS-Free Local Access**: Built-in proxy server for seamless local model connectivity
+
+### AI Companion Features
+- **Performance Analytics**: Real-time KPI tracking (Accuracy, Helpfulness, Completeness, etc.)
+- **Conversation Analysis**: AI-powered insights and conversation summarization
+- **Agent Performance Monitoring**: Visual metrics with trend analysis and scoring
+- **Interactive Analysis**: Quick actions for analyzing responses and suggesting improvements
+- **Contextual Insights**: Conversation-aware analysis with detailed explanations
+
+### Advanced Features
+- **Streaming Response Display**: Real-time message rendering with typing indicators
+- **Adaptive Card Rendering**: Rich card display for complex bot responses
+- **Suggested Actions**: Interactive quick-reply buttons for enhanced UX
+- **Connection Testing**: Built-in connectivity testing for all configured backends
+- **Session Management**: Automatic session handling with conversation continuity
+- **Error Handling**: Comprehensive error reporting and recovery mechanisms
+- **Font Customization**: Adjustable font sizes for agent and AI companion chats with real-time updates
+- **Consolidated Initialization**: Unified startup process for consistent user experience
+- **Dual Chat Windows**: Support for both Agent Chat (middle panel) and AI Companion Chat (right panel)
+- **Message Display Options**: User-configurable bubble vs full-width message display modes
+- **Enhanced Citation Handling**: Proper positioning of references with inline styling and click navigation
+- **Robust Timestamp Management**: Advanced message ordering with validation and error recovery
+
+### Developer Features
+- **Modular Architecture**: Clean separation of concerns with reusable components
+- **Event-Driven Design**: Comprehensive event handling for all user interactions
+- **Debug Console Integration**: Detailed logging for troubleshooting and development
+- **Configuration Management**: Centralized settings with organized navigation
+- **Extension Ready**: Pluggable architecture for adding new AI providers
+
+## 🚦 Troubleshooting
 
 ### Common Issues
 - **CORS Errors**: Use the included `ollama-proxy.js` for local models
@@ -31,22 +79,7 @@ If citations don't display properly:
 1. Check console for "hasCitations" and "addCitationsSection" logs
 2. Verify activity object contains proper entities/metadata
 3. Ensure inline references [1], [2] are properly styled
-4. Check for citation positioning outside message bubblesl configurations
-- **AI Companion Analysis**: Real-time conversation analysis with performance metrics and insights
-- **Secure Credential Storage**: AES-256 encrypted storage for API keys and secrets
-- **Real-time Streaming**: Support for both simulated and genuine streaming responses
-- **File Upload Support**: Drag-and-drop file uploads with preview and attachment handling
-- **Chat History Management**: Persistent conversation history with session management
-- **Responsive Design**: Modern, mobile-friendly interface with customizable font sizes
-- **Enhanced Settings Panel**: Organized configuration interface with navigation and sections
-- **Chronological Message Ordering**: Robust timestamp-based message ordering with error handling
-- **Citation System**: Enhanced reference handling with clickable inline citations and proper positioning
-
-### AI Backend Integrations
-- **Microsoft Copilot Studio**: Full DirectLine API integration with adaptive cards and suggested actions
-- **Local Ollama Models**: Native support for local LLM models with automatic model discovery
-- **Multi-Provider API Support**: OpenAI GPT, Anthropic Claude, Azure OpenAI support
-- **CORS-Free Local Access**: Built-in proxy server for seamless local model connectivity
+4. Check for citation positioning outside message bubbles
 
 ### AI Companion Features
 - **Performance Analytics**: Real-time KPI tracking (Accuracy, Helpfulness, Completeness, etc.)
@@ -135,11 +168,13 @@ node ollama-proxy.js
 - **File Handler**: Drag-and-drop uploads with preview
 - **Stream Manager**: Progressive response rendering system
 - **Security Layer**: Client-side encryption for sensitive data
-- **Font Customization**: User-configurable font sizes for optimal readability
+- **Font Customization**: User-configurable font sizes with real-time updates for optimal readability
 - **Message Renderer**: Advanced chronological ordering with timestamp validation and citation handling
 - **Window Context Manager**: Dynamic targeting for Agent Chat vs AI Companion Chat windows
 - **Citation System**: Enhanced reference display with inline styling and proper positioning
 - **Debug Console**: Comprehensive logging system for troubleshooting message ordering and rendering
+- **Professional System Mode**: Full-width document-like interface for data analysis workflows
+- **Unified CSS Architecture**: Custom property system with minimal redundancy and optimized performance
 
 ### Backend Integrations
 - **DirectLine Client**: Microsoft Bot Framework connectivity
@@ -232,9 +267,12 @@ MCSChat/
 - **Connection Testing**: Built-in connectivity verification
 
 ### Appearance Settings (Appearance Section)
-- **Agent Chat Font Size**: Customizable font size (10-20px) for agent conversation messages
-- **AI Companion Font Size**: Separate font size control (8-16px) for companion analysis
-- **Real-time Preview**: Instant font size changes with live preview
+- **Agent Chat Font Size**: Customizable font size (10-20px) for agent conversation messages with real-time updates
+- **AI Companion Font Size**: Separate font size control (8-16px) for companion analysis with instant preview
+- **Message Display Mode**: Choose between bubble chat style or full-width professional system mode
+- **Professional Interface**: Full-width mode transforms chatbot appearance into document-like professional display
+- **Compact Layout**: Space-efficient spacing for maximum information density on screen
+- **Real-time Preview**: Instant font size and display mode changes with live preview
 
 ### Streaming Options
 - **Simulation Mode**: Progressive display of complete responses
@@ -484,6 +522,33 @@ Enable detailed logging by opening browser developer tools. All operations are l
 ---
 
 ## 📅 Changelog
+
+### Version 3.4.0 (2025-07-30 - Professional System Mode & CSS Optimization)
+**Major System Mode Implementation:**
+- 🆕 **Professional Full-Width Mode**: Transform interface from chatbot to document-like professional system display
+- 🆕 **Compact Layout System**: Maximized information density with reduced padding and margins for optimal screen usage
+- 🆕 **Clean Document Appearance**: Full-width mode removes borders, bubbles, and "SYSTEM RESPONSE:" labels for professional look
+- 🆕 **CSS Unification**: Consolidated duplicate styling systems to reduce complexity and improve maintainability
+- 🆕 **Custom Property System**: Comprehensive CSS variables for consistent spacing, colors, and typography
+
+**Font Size Control Enhancements:**
+- 🔧 **Real-Time Font Updates**: Fixed font size controls to work properly in both normal and full-width professional modes
+- 🔧 **Dynamic Variable System**: Font size settings now use proper `--agent-chat-font-size` and `--companion-chat-font-size` variables
+- 🔧 **Cross-Mode Consistency**: Font customization works seamlessly across all display modes
+- 🔧 **Professional Mode Typography**: Maintained professional appearance while enabling user font size preferences
+
+**CSS Optimization & Cleanup:**
+- 🔧 **Duplicate System Removal**: Eliminated ~165 lines of conflicting status indicator code (badge vs dot systems)
+- 🔧 **Style Consolidation**: Unified agent-name and panel-controls styling to reduce duplication
+- 🔧 **Animation Deduplication**: Consolidated multiple pulse animations into single reusable system
+- 🔧 **Semantic Color System**: Organized color variables with clear naming conventions
+- 🔧 **Performance Improvements**: Reduced CSS complexity by ~30% while maintaining all functionality
+
+**User Experience Enhancements:**
+- ⚡ **Professional Interface**: Full-width mode provides document-like reading experience for data analysis
+- ⚡ **Space Efficiency**: Compact mode shows more conversation content per screen
+- ⚡ **Unified Visual Language**: Consistent styling across all interface elements
+- ⚡ **Improved Readability**: Better typography and spacing for enhanced user experience
 
 ### Version 3.3.0 (2025-07-30 - Enhanced Citation System)
 **Major Citation System Overhaul:**

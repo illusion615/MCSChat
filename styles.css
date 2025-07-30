@@ -1,8 +1,58 @@
+/* CSS Custom Properties for consistent theming */
+:root {
+    /* Semantic color system */
+    --color-success: #107c10;
+    --color-warning: #ff8c00;
+    --color-danger: #d13438;
+    --color-info: #0078d4;
+    --color-neutral: #8a8886;
+    --color-disabled: #6c757d;
+    
+    /* Status shadows */
+    --shadow-success: 0 0 8px rgba(16, 124, 16, 0.3);
+    --shadow-warning: 0 0 8px rgba(255, 140, 0, 0.3);
+    --shadow-danger: 0 0 8px rgba(209, 52, 56, 0.3);
+    
+    /* Reusable gradients */
+    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-light: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    --gradient-neutral: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    --gradient-kpi: linear-gradient(135deg, #ffffff 0%, #f7fafc 100%);
+    --gradient-shimmer: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+    --gradient-success: linear-gradient(135deg, #10b981 0%, #34d399 50%, #6ee7b7 100%);
+    --gradient-info: linear-gradient(135deg, #3b82f6 0%, #60a5fa 50%, #93c5fd 100%);
+    --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #fcd34d 100%);
+    --gradient-error: linear-gradient(135deg, #ef4444 0%, #f87171 50%, #fca5a5 100%);
+    --gradient-dark: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    --gradient-dark-secondary: linear-gradient(135deg, #334155 0%, #475569 100%);
+    --gradient-microsoft: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+
+    /* UNIFIED: Common spacing and sizing variables */
+    --spacing-xs: 4px;
+    --spacing-sm: 6px;
+    --spacing-md: 8px;
+    --spacing-lg: 12px;
+    --spacing-xl: 16px;
+    --spacing-xxl: 24px;
+    
+    /* UNIFIED: Common border radius values */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    
+    /* UNIFIED: Common font sizes */
+    --font-size-xs: 12px;
+    --font-size-sm: 13px;
+    --font-size-md: 14px;
+    --font-size-lg: 16px;
+}
+
 /* ...existing code... */
 
 body {
     font-family: "Segoe UI", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Roboto", "Helvetica Neue", Arial, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     margin: 0;
     padding: 0;
     height: 100vh;
@@ -144,7 +194,7 @@ body {
 
 .panel-header {
     padding: 16px 20px;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    background: var(--gradient-neutral);
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
     display: flex;
     align-items: center;
@@ -159,18 +209,29 @@ body {
     font-weight: 600;
 }
 
+/* UNIFIED: Enhanced panel-controls for both agent and LLM contexts */
 .panel-controls {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: transparent;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+    min-height: 28px;
+    position: relative;
 }
 
+.panel-controls:hover {
+    background: rgba(248, 249, 250, 0.5);
+}
+
+/* UNIFIED: Enhanced agent-name styles for all contexts (agent and LLM panels) */
 .agent-name {
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-weight: 500;
+    background-color: transparent;
     color: #605e5c;
-    padding: 4px 8px;
-    border-radius: 4px;
     white-space: nowrap;
     max-width: 150px;
     overflow: hidden;
@@ -187,56 +248,66 @@ body {
     color: #323130;
 }
 
-.status-indicator {
+/* Unified Status Indicator System */
+.status-indicator,
+.agent-status-indicator {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #dc3545;
+    background: var(--color-danger); /* default/disconnected */
     position: relative;
     cursor: help;
     transition: all 0.3s ease;
     display: inline-block;
+    flex-shrink: 0;
 }
 
-.status-indicator:hover {
+.status-indicator:hover,
+.agent-status-indicator:hover {
     transform: scale(1.2);
     box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
 }
 
-.status-indicator.connected {
-    background: #28a745;
+.status-indicator.connected,
+.agent-status-indicator.connected {
+    background: var(--color-success);
+    box-shadow: var(--shadow-success);
 }
 
-.status-indicator.connecting {
-    background: #ffc107;
-    animation: pulse 1.5s infinite;
+.status-indicator.connecting,
+.agent-status-indicator.connecting {
+    background: var(--color-warning);
+    animation: statusPulse 1.5s infinite;
 }
 
-@keyframes pulse {
+.status-indicator.disconnected,
+.agent-status-indicator.disconnected {
+    background: var(--color-danger);
+}
 
-    0%,
-    100% {
+.status-indicator.disabled {
+    background: var(--color-disabled);
+}
+
+.status-indicator.error {
+    background: var(--color-danger);
+    animation: statusPulse 1.5s infinite;
+}
+
+/* Unified pulse animation */
+@keyframes statusPulse {
+    0%, 100% {
         opacity: 1;
     }
-
     50% {
         opacity: 0.5;
     }
 }
 
-.status-indicator.disabled {
-    background: #6c757d;
-}
-
-.status-indicator.error {
-    background: #dc3545;
-    animation: pulse 1.5s infinite;
-}
-
 /* KPI Section Styles - Compact Design */
 .kpi-section {
     padding: 12px 16px 16px;
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    background: var(--gradient-light);
     border-radius: 12px;
     margin-bottom: 16px;
     box-shadow:
@@ -256,7 +327,7 @@ body {
     left: 0;
     right: 0;
     height: 2px;
-    background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+    background: var(--gradient-shimmer);
     background-size: 200% 100%;
     animation: shimmer 3s ease-in-out infinite;
 }
@@ -284,7 +355,7 @@ body {
     font-size: 14px;
     font-weight: 700;
     letter-spacing: -0.025em;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: var(--gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -298,7 +369,7 @@ body {
 }
 
 .kpi-item {
-    background: linear-gradient(135deg, #ffffff 0%, #f7fafc 100%);
+    background: var(--gradient-kpi);
     padding: 12px 10px;
     border-radius: 8px;
     box-shadow:
@@ -515,19 +586,19 @@ body {
 }
 
 .kpi-progress.excellent {
-    background: linear-gradient(135deg, #10b981 0%, #34d399 50%, #6ee7b7 100%);
+    background: var(--gradient-success);
 }
 
 .kpi-progress.good {
-    background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 50%, #93c5fd 100%);
+    background: var(--gradient-info);
 }
 
 .kpi-progress.fair {
-    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #fcd34d 100%);
+    background: var(--gradient-warning);
 }
 
 .kpi-progress.poor {
-    background: linear-gradient(135deg, #ef4444 0%, #f87171 50%, #fca5a5 100%);
+    background: var(--gradient-error);
 }
 
 /* KPI Calculating Indicators */
@@ -580,6 +651,8 @@ body {
     animation: shimmer 1.5s ease-in-out infinite;
 }
 
+/* DUPLICATE: Commented out redundant shimmer animation - keeping first one at line 303 */
+/*
 @keyframes shimmer {
     0% {
         background-position: -200% 0;
@@ -588,6 +661,7 @@ body {
         background-position: 200% 0;
     }
 }
+*/
 
 /* Responsive Design */
 @media (max-width: 768px) {
@@ -654,6 +728,8 @@ body {
     justify-content: center;
 }
 
+/* DUPLICATE: Commented out simple modalFadeIn - keeping advanced one at line ~2420 with backdrop-filter */
+/*
 @keyframes modalFadeIn {
     from {
         opacity: 0;
@@ -663,9 +739,10 @@ body {
         opacity: 1;
     }
 }
+*/
 
 .kpi-modal-content {
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    background: var(--gradient-light);
     border-radius: 16px;
     box-shadow:
         0 20px 60px rgba(0, 0, 0, 0.3),
@@ -703,7 +780,7 @@ body {
     color: #1a202c;
     font-size: 20px;
     font-weight: 700;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: var(--gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -736,7 +813,7 @@ body {
 }
 
 .kpi-score-display {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     border-radius: 12px;
     padding: 20px;
     text-align: center;
@@ -877,12 +954,12 @@ body {
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
     .kpi-section {
-        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        background: var(--gradient-dark);
         border-color: rgba(255, 255, 255, 0.1);
     }
 
     .kpi-item {
-        background: linear-gradient(135deg, #334155 0%, #475569 100%);
+        background: var(--gradient-dark-secondary);
         border-color: rgba(255, 255, 255, 0.08);
     }
 
@@ -1015,7 +1092,7 @@ body {
 }
 
 #llmChatWindow .userMessage .messageText {
-    background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+    background: var(--gradient-microsoft);
     padding: 16px 20px;
     color: #ffffff;
     text-align: left;
@@ -1356,54 +1433,66 @@ body {
     font-size: var(--agent-chat-font-size);
 }
 
-/* Full width message styling for bot messages */
+/* PROFESSIONAL SYSTEM MODE - Full width message styling for professional interface */
 .full-width-messages .botMessage .messageContent {
     max-width: 100%;
-    background: rgba(248, 249, 250, 0.95);
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 8px;
-    padding: 16px 20px;
-    margin: 8px 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: var(--spacing-md) 0; /* Reduced from var(--spacing-xl) */
+    margin: var(--spacing-sm) 0; /* Reduced from var(--spacing-lg) */
+    box-shadow: none;
+    font-size: var(--agent-chat-font-size); /* Use dynamic font size for bot messages */
+    /* Remove border-bottom for cleaner look */
 }
 
 .full-width-messages .botMessage {
     justify-content: stretch;
+    background: transparent;
+    margin: 0;
+    padding: 0;
 }
 
+/* PROFESSIONAL: Hide agent icons for system-like appearance */
 .full-width-messages .botMessage .messageIcon {
-    margin-top: 8px;
+    display: none;
 }
 
+/* PROFESSIONAL: Hide metadata or make it more subtle */
 .full-width-messages .message-metadata {
-    margin-left: 44px;
-    /* Keep same alignment for metadata */
+    display: none; /* Can be changed to subtle styling if timestamps needed */
 }
 
-/* AI Companion Response Styling - Professor-like, full-width display */
+/* PROFESSIONAL: Enhanced AI Companion Response Styling - Document-like system display */
 .companion-response {
     width: 100%;
-    margin: 12px 0;
+    margin: 0;
+    background: transparent;
 }
 
 .companion-response .messageContent {
     max-width: 100%;
     width: 100%;
-    background: rgba(248, 250, 252, 0.98);
-    border: 1px solid rgba(59, 130, 246, 0.15);
-    border-left: 4px solid rgba(59, 130, 246, 0.6);
-    border-radius: 8px;
-    padding: 20px 24px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: var(--spacing-md) 0; /* Reduced from var(--spacing-xl) */
     margin: 0;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-    font-size: 15px;
-    line-height: 1.6;
+    box-shadow: none;
+    font-size: var(--agent-chat-font-size); /* Use dynamic font size instead of static var(--font-size-lg) */
+    line-height: 1.5; /* Reduced from 1.65 for compactness */
     color: #1f2937;
+    /* Remove border-bottom for cleaner look */
 }
 
+/* PROFESSIONAL: Hide icon completely for system appearance */
 .companion-response .messageIcon {
     display: none;
-    /* Hide icon for professor-like appearance */
+}
+
+/* PROFESSIONAL: Hide icon completely for system appearance */
+.companion-response .messageIcon {
+    display: none;
 }
 
 .companion-response {
@@ -1411,15 +1500,305 @@ body {
     align-items: stretch;
 }
 
-/* Enhanced typography for companion responses */
-.companion-response .messageContent h1,
-.companion-response .messageContent h2,
-.companion-response .messageContent h3 {
+/* PROFESSIONAL: Enhanced typography for system-like responses */
+.full-width-messages .companion-response .messageContent h1,
+.full-width-messages .companion-response .messageContent h2,
+.full-width-messages .companion-response .messageContent h3,
+.full-width-messages .botMessage .messageContent h1,
+.full-width-messages .botMessage .messageContent h2,
+.full-width-messages .botMessage .messageContent h3 {
+    color: #111827;
+    margin-top: 1.2em; /* Reduced from 2em */
+    margin-bottom: 0.6em; /* Reduced from 1em */
+    border-bottom: none;
+    padding-bottom: 0;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+.full-width-messages .companion-response .messageContent h1,
+.full-width-messages .botMessage .messageContent h1 {
+    font-size: 1.75rem; /* Slightly reduced from 1.875rem */
+    margin-top: 1em; /* Reduced from 1.5em */
+}
+
+.full-width-messages .companion-response .messageContent h2,
+.full-width-messages .botMessage .messageContent h2 {
+    font-size: 1.375rem; /* Slightly reduced from 1.5rem */
+}
+
+.full-width-messages .companion-response .messageContent h3,
+.full-width-messages .botMessage .messageContent h3 {
+    font-size: 1.125rem; /* Slightly reduced from 1.25rem */
+}
+
+/* PROFESSIONAL: Code blocks in system mode */
+.full-width-messages .botMessage .messageContent pre,
+.full-width-messages .companion-response .messageContent pre {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg); /* Reduced from var(--spacing-xl) */
+    margin: var(--spacing-lg) 0; /* Reduced from var(--spacing-xl) */
+    overflow-x: auto;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    font-size: 0.875rem; /* Slightly smaller for compactness */
+    line-height: 1.4; /* Tighter line spacing */
+}
+
+/* PROFESSIONAL: Inline code in system mode */
+.full-width-messages .botMessage .messageContent code,
+.full-width-messages .companion-response .messageContent code {
+    background: #f1f5f9;
+    padding: 1px 4px; /* Reduced padding */
+    border-radius: 3px; /* Slightly smaller radius */
+    font-size: 0.8em; /* Reduced from 0.875em */
+    border: 1px solid #e2e8f0;
+}
+
+/* PROFESSIONAL: Lists in system mode */
+.full-width-messages .botMessage .messageContent ul,
+.full-width-messages .botMessage .messageContent ol,
+.full-width-messages .companion-response .messageContent ul,
+.full-width-messages .companion-response .messageContent ol {
+    padding-left: var(--spacing-lg); /* Reduced from var(--spacing-xl) */
+    margin: var(--spacing-lg) 0; /* Reduced from var(--spacing-xl) */
+}
+
+.full-width-messages .botMessage .messageContent li,
+.full-width-messages .companion-response .messageContent li {
+    margin: var(--spacing-xs) 0; /* Reduced from var(--spacing-sm) */
+    line-height: 1.5; /* Reduced from 1.6 */
+}
+
+/* PROFESSIONAL: Blockquotes in system mode */
+.full-width-messages .botMessage .messageContent blockquote,
+.full-width-messages .companion-response .messageContent blockquote {
+    border-left: 3px solid #3b82f6; /* Thinner border */
+    background: #f8fafc;
+    padding: var(--spacing-lg); /* Reduced from var(--spacing-xl) */
+    margin: var(--spacing-lg) 0; /* Reduced from var(--spacing-xl) */
+    font-style: italic;
+    color: #475569;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0; /* Smaller radius */
+}
+
+/* PROFESSIONAL: User message styling in full-width mode - keep normal chat style */
+.full-width-messages .userMessage .messageContent {
+    /* Keep normal user message styling - don't change to document style */
+    background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+    padding: var(--spacing-md) var(--spacing-lg); /* Reduced padding for compactness */
+    color: #ffffff;
+    text-align: left;
+    border-radius: 20px 20px 4px 20px;
+    box-shadow: 0 2px 8px rgba(0, 120, 212, 0.3);
+    font-weight: 500;
+    margin: var(--spacing-sm) 0; /* Reduced margin for compactness */
+    max-width: 70%; /* Limit width for readability */
+    margin-left: auto; /* Right-align user messages */
+    font-size: var(--companion-chat-font-size); /* Use dynamic font size for user messages */
+}
+
+/* PROFESSIONAL: Keep user message icons in full-width mode for consistency */
+/* (User icons remain visible - no special styling needed) */
+
+/* REMOVED: No more "Query:" or "System Response:" labels in full-width mode */
+/* Users know what's what without explicit labeling */
+
+/* PROFESSIONAL: Table styling in system mode */
+.full-width-messages .botMessage .messageContent table,
+.full-width-messages .companion-response .messageContent table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--spacing-lg) 0; /* Reduced from var(--spacing-xl) */
+    font-size: var(--font-size-sm);
+}
+
+.full-width-messages .botMessage .messageContent th,
+.full-width-messages .companion-response .messageContent th {
+    background: #f8fafc;
+    padding: var(--spacing-md); /* Reduced from var(--spacing-lg) */
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid #e2e8f0;
     color: #374151;
-    margin-top: 1.5em;
-    margin-bottom: 0.8em;
-    border-bottom: 1px solid rgba(59, 130, 246, 0.2);
-    padding-bottom: 0.3em;
+}
+
+.full-width-messages .botMessage .messageContent td,
+.full-width-messages .companion-response .messageContent td {
+    padding: var(--spacing-md); /* Reduced from var(--spacing-lg) */
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: top;
+}
+
+.full-width-messages .botMessage .messageContent tr:nth-child(even),
+.full-width-messages .companion-response .messageContent tr:nth-child(even) {
+    background: #fafbfc;
+}
+
+/* PROFESSIONAL: Links in system mode */
+.full-width-messages .botMessage .messageContent a,
+.full-width-messages .companion-response .messageContent a,
+.full-width-messages .userMessage .messageContent a {
+    color: #3b82f6;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-bottom-color 0.2s ease;
+}
+
+.full-width-messages .botMessage .messageContent a:hover,
+.full-width-messages .companion-response .messageContent a:hover,
+.full-width-messages .userMessage .messageContent a:hover {
+    border-bottom-color: #3b82f6;
+}
+
+/* PROFESSIONAL: Document-like paragraph spacing */
+.full-width-messages .botMessage .messageContent p,
+.full-width-messages .companion-response .messageContent p,
+.full-width-messages .userMessage .messageContent p {
+    margin: var(--spacing-lg) 0; /* Reduced from var(--spacing-xl) */
+    line-height: 1.55; /* Reduced from 1.7 for compactness */
+}
+
+.full-width-messages .botMessage .messageContent p:first-child,
+.full-width-messages .companion-response .messageContent p:first-child,
+.full-width-messages .userMessage .messageContent p:first-child {
+    margin-top: 0;
+}
+
+.full-width-messages .botMessage .messageContent p:last-child,
+.full-width-messages .companion-response .messageContent p:last-child,
+.full-width-messages .userMessage .messageContent p:last-child {
+    margin-bottom: 0;
+}
+
+/* PROFESSIONAL: Chat window styling in full-width mode */
+.full-width-messages {
+    background: #ffffff;
+    padding: var(--spacing-lg); /* Reduced from var(--spacing-xxl) for compactness */
+}
+
+.full-width-messages .chat-window {
+    background: transparent;
+    max-width: none;
+    padding: 0;
+    box-shadow: none;
+    border: none;
+}
+
+/* PROFESSIONAL: Input area in system mode - keep minimal but professional */
+.full-width-messages .input-container {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: var(--spacing-lg); /* Reduced from var(--spacing-xl) */
+    margin-top: var(--spacing-lg); /* Reduced from var(--spacing-xl) */
+}
+
+.full-width-messages .input-container textarea {
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-md);
+}
+
+.full-width-messages .input-container textarea:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* PROFESSIONAL: Hide or minimize decorative elements in system mode */
+.full-width-messages .welcome-message {
+    background: transparent;
+    border: none;
+    padding: var(--spacing-xl) 0; /* Reduced from var(--spacing-xxl) */
+    text-align: center;
+}
+
+.full-width-messages .welcome-icon {
+    display: none;
+}
+
+.full-width-messages .welcome-message h2 {
+    color: #111827;
+    font-weight: 600;
+    margin-bottom: var(--spacing-md); /* Reduced from var(--spacing-lg) */
+}
+
+.full-width-messages .welcome-message p {
+    color: #6b7280;
+    font-size: var(--font-size-md);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.5; /* Reduced from 1.6 */
+}
+
+/* PROFESSIONAL: Optional timestamp and status styling (can be enabled via JS) */
+.full-width-messages .message-timestamp {
+    display: block;
+    font-size: var(--font-size-xs);
+    color: #9ca3af;
+    margin-top: var(--spacing-xs); /* Reduced from var(--spacing-md) */
+    font-weight: 400;
+}
+
+.full-width-messages .message-status {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: #6b7280;
+    margin-top: var(--spacing-xs); /* Reduced from var(--spacing-sm) */
+}
+
+.full-width-messages .message-status::before {
+    content: "•";
+    color: #10b981;
+}
+
+/* PROFESSIONAL: Response quality indicators */
+.full-width-messages .response-quality {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: #6b7280;
+    margin-top: var(--spacing-md); /* Reduced from var(--spacing-lg) */
+    padding-top: var(--spacing-md); /* Reduced from var(--spacing-lg) */
+    border-top: 1px solid #f3f4f6;
+}
+
+.full-width-messages .response-quality.high::before {
+    content: "✓";
+    color: #10b981;
+    font-weight: bold;
+}
+
+.full-width-messages .response-quality.medium::before {
+    content: "○";
+    color: #f59e0b;
+    font-weight: bold;
+}
+
+/* PROFESSIONAL: Token/word count indicators for system analysis */
+.full-width-messages .response-metrics {
+    display: flex;
+    gap: var(--spacing-md); /* Reduced from var(--spacing-lg) */
+    font-size: var(--font-size-xs);
+    color: #9ca3af;
+    margin-top: var(--spacing-md); /* Reduced from var(--spacing-lg) */
+    padding-top: var(--spacing-xs); /* Reduced from var(--spacing-sm) */
+    border-top: 1px solid #f3f4f6;
+}
+
+.full-width-messages .response-metrics .metric {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.full-width-messages .response-metrics .metric::before {
+    content: "□";
+    color: #d1d5db;
 }
 
 .companion-response .messageContent p {
@@ -2130,6 +2509,8 @@ input[type="range"]::-moz-range-thumb:hover {
     }
 }
 
+/* DUPLICATE: Commented out third shimmer animation - using different approach with left positioning */
+/*
 @keyframes shimmer {
     0% {
         left: -100%;
@@ -2139,8 +2520,10 @@ input[type="range"]::-moz-range-thumb:hover {
         left: 100%;
     }
 }
+*/
 
-/* Legacy spinner styles (keeping for backward compatibility) */
+/* LEGACY: Commented out unused legacy spinner styles - modern code uses .streaming-progress */
+/*
 .progressIndicator {
     width: 24px;
     height: 24px;
@@ -2150,7 +2533,10 @@ input[type="range"]::-moz-range-thumb:hover {
     animation: spin 1s linear infinite;
     margin: 12px;
 }
+*/
 
+/* DUPLICATE: Commented out redundant spin animations - keeping first one at line 573 */
+/*
 @keyframes spin {
     0% {
         transform: rotate(0deg);
@@ -2170,6 +2556,7 @@ input[type="range"]::-moz-range-thumb:hover {
         transform: rotate(360deg);
     }
 }
+*/
 
 /* ...existing code... */
 
@@ -2662,39 +3049,6 @@ input[type="range"]::-moz-range-thumb:hover {
     border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-.status-indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #8a8886;
-    transition: all 0.2s ease;
-}
-
-.status-indicator.connected {
-    background: #107c10;
-    box-shadow: 0 0 8px rgba(16, 124, 16, 0.3);
-}
-
-.status-indicator.connecting {
-    background: #ff8c00;
-    animation: pulse 1.5s ease-in-out infinite alternate;
-}
-
-.status-indicator.error {
-    background: #d13438;
-    box-shadow: 0 0 8px rgba(209, 52, 56, 0.3);
-}
-
-@keyframes pulse {
-    from {
-        opacity: 1;
-    }
-
-    to {
-        opacity: 0.3;
-    }
-}
-
 .status-text {
     font-size: 14px;
     color: #323130;
@@ -2710,17 +3064,27 @@ input[type="range"]::-moz-range-thumb:hover {
     border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-.btn {
-    padding: 12px 24px;
+/* UNIFIED: Base button system - consolidating all button styles */
+.btn,
+.agent-btn {
+    padding: var(--spacing-lg) var(--spacing-xxl);
     border: none;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-md);
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
     min-width: 120px;
     position: relative;
     z-index: 10;
+}
+
+/* Small button variant for agent buttons */
+.agent-btn {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: var(--font-size-xs);
+    min-width: auto;
+    font-weight: 500;
     pointer-events: auto;
 }
 
@@ -3623,6 +3987,8 @@ button,
     min-width: 0;
 }
 
+/* UNIFIED: Commenting out duplicate agent-name - consolidating into main definition above */
+/*
 .agent-name {
     font-weight: 500;
     font-size: 14px;
@@ -3630,6 +3996,7 @@ button,
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+*/
 
 .agent-status-inline {
     font-size: 12px;
@@ -3642,29 +4009,8 @@ button,
     align-items: center;
 }
 
-.agent-status-indicator {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #8a8886;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-}
-
-.agent-status-indicator.connected {
-    background: #107c10;
-    box-shadow: 0 0 8px rgba(16, 124, 16, 0.3);
-}
-
-.agent-status-indicator.connecting {
-    background: #ff8c00;
-    animation: pulse 1.5s ease-in-out infinite alternate;
-}
-
-.agent-status-indicator.disconnected {
-    background: #d13438;
-}
-
+/* UNIFIED: Commented out separate agent-btn - now part of unified button system above */
+/*
 .agent-btn {
     padding: 6px 12px;
     font-size: 12px;
@@ -3675,6 +4021,7 @@ button,
     transition: all 0.2s ease;
     min-width: auto;
 }
+*/
 
 .agent-btn-test {
     background: rgba(255, 255, 255, 0.2);
@@ -3788,8 +4135,7 @@ button,
 }
 
 /* Unified Information Block Styling for Agent and AI Companion */
-.current-agent-display,
-.panel-controls {
+.current-agent-display {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -3801,10 +4147,31 @@ button,
     position: relative;
 }
 
-.current-agent-display:hover,
+/* UNIFIED: Commenting out duplicate panel-controls - using main definition above */
+/*
+.panel-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: transparent;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    min-height: 28px;
+    position: relative;
+}
+*/
+
+.current-agent-display:hover {
+    background: rgba(248, 249, 250, 0.5);
+}
+
+/* UNIFIED: Applying hover to main panel-controls definition */
+/*
 .panel-controls:hover {
     background: rgba(248, 249, 250, 0.5);
 }
+*/
 
 /* Agent/Model Names */
 #currentAgentName,
@@ -3835,180 +4202,9 @@ button,
     max-width: none !important;
 }
 
-/* Status Badges - Unified Design */
-.agent-status,
-.status-indicator {
-    font-size: 10px;
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    border: 1px solid transparent;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-    min-width: fit-content;
-    display: inline-flex;
-    align-items: center;
-    line-height: 1;
-}
-
-/* Connected States */
-.agent-status.connected,
-.status-indicator.connected {
-    background: linear-gradient(135deg, rgba(16, 124, 16, 0.15) 0%, rgba(16, 124, 16, 0.1) 100%);
-    color: #0d5f0d;
-    border-color: rgba(16, 124, 16, 0.2);
-    box-shadow: 0 1px 3px rgba(16, 124, 16, 0.1);
-}
-
-.agent-status.connected::before,
-.status-indicator.connected::before {
-    content: "●";
-    margin-right: 6px;
-    color: #107c10;
-    animation: pulse 2s infinite;
-    font-size: 6px;
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    text-align: center;
-    line-height: 1;
-}
-
-/* Disconnected States */
-.agent-status.disconnected,
-.status-indicator:not(.connected):not(.connecting):not(.error):not(.disabled) {
-    background: linear-gradient(135deg, rgba(209, 52, 56, 0.15) 0%, rgba(209, 52, 56, 0.1) 100%);
-    color: #a03034;
-    border-color: rgba(209, 52, 56, 0.2);
-    box-shadow: 0 1px 3px rgba(209, 52, 56, 0.1);
-}
-
-.agent-status.disconnected::before,
-.status-indicator:not(.connected):not(.connecting):not(.error):not(.disabled)::before {
-    content: "●";
-    margin-right: 6px;
-    color: #d13438;
-    font-size: 6px;
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    text-align: center;
-    line-height: 1;
-}
-
-/* Connecting States */
-.agent-status.connecting,
-.status-indicator.connecting {
-    background: linear-gradient(135deg, rgba(255, 140, 0, 0.15) 0%, rgba(255, 140, 0, 0.1) 100%);
-    color: #cc6d00;
-    border-color: rgba(255, 140, 0, 0.2);
-    box-shadow: 0 1px 3px rgba(255, 140, 0, 0.1);
-}
-
-.agent-status.connecting::before,
-.status-indicator.connecting::before {
-    content: "●";
-    margin-right: 6px;
-    color: #ff8c00;
-    animation: pulse 1s infinite;
-    font-size: 6px;
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    text-align: center;
-    line-height: 1;
-}
-
-/* Error States */
-.status-indicator.error {
-    background: linear-gradient(135deg, rgba(209, 52, 56, 0.2) 0%, rgba(209, 52, 56, 0.15) 100%);
-    color: #8b2428;
-    border-color: rgba(209, 52, 56, 0.3);
-    box-shadow: 0 1px 3px rgba(209, 52, 56, 0.15);
-}
-
-.status-indicator.error::before {
-    content: "";
-    margin-right: 6px;
-    color: #d13438;
-    font-size: 6px;
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    text-align: center;
-    line-height: 1;
-}
-
-/* Disabled States */
-.status-indicator.disabled {
-    background: linear-gradient(135deg, rgba(96, 94, 92, 0.15) 0%, rgba(96, 94, 92, 0.1) 100%);
-    color: #605e5c;
-    border-color: rgba(96, 94, 92, 0.2);
-    box-shadow: 0 1px 3px rgba(96, 94, 92, 0.1);
-}
-
-.status-indicator.disabled::before {
-    content: "○";
-    margin-right: 6px;
-    color: #8a8886;
-    font-size: 6px;
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    border: 1px solid currentColor;
-    background: transparent;
-    text-align: center;
-    line-height: 1;
-}
-
-/* Pulse Animation */
-@keyframes pulse {
-
-    0%,
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-
-    50% {
-        opacity: 0.6;
-        transform: scale(0.9);
-    }
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-
-    .current-agent-display,
-    .panel-controls {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 6px;
-        padding: 6px 8px;
-    }
-
-    #currentAgentName,
-    #llmModelName {
-        font-size: 12px;
-    }
-
-    .agent-status,
-    .status-indicator {
-        font-size: 9px;
-        padding: 3px 6px;
-        align-self: flex-end;
-    }
+/* LLM Analysis Panel Styles */
+#llmChatWindow {
+    background: linear-gradient(135deg, #f8fdff 0%, #f0f8ff 100%);
 }
 
 /* LLM Analysis Panel Styles */
@@ -4404,7 +4600,7 @@ button,
 }
 
 .side-browser-error .btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     color: white;
     border: none;
     padding: 12px 20px;
