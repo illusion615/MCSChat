@@ -530,6 +530,65 @@ body {
     background: linear-gradient(135deg, #ef4444 0%, #f87171 50%, #fca5a5 100%);
 }
 
+/* KPI Calculating Indicators */
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes pulseGlow {
+    0%, 100% {
+        box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(102, 126, 234, 0.6), 0 0 30px rgba(102, 126, 234, 0.4);
+    }
+}
+
+.kpi-item.calculating {
+    animation: pulseGlow 2s ease-in-out infinite;
+    border-color: #667eea;
+}
+
+.kpi-value.calculating {
+    color: #667eea;
+    font-style: italic;
+    font-size: 12px;
+}
+
+.calculating-indicator {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+    margin-right: 5px;
+    color: #667eea;
+    font-weight: bold;
+}
+
+.kpi-item.calculating .kpi-progress {
+    background: linear-gradient(90deg, 
+        #667eea 0%, 
+        #764ba2 25%, 
+        #667eea 50%, 
+        #764ba2 75%, 
+        #667eea 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .kpi-section {

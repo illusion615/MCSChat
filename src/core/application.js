@@ -719,6 +719,9 @@ export class Application {
                 window.aiCompanion.startUserMessageTiming();
             }
 
+            // Start response time tracking for accurate request-to-response timing
+            messageRenderer.startResponseTimeTracking();
+
             // Clear suggested actions first (like legacy)
             messageRenderer.clearSuggestedActions();
 

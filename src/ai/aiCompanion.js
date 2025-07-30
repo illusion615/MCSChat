@@ -14,6 +14,10 @@ export class AICompanion {
         this.titleUpdateTimeout = null;
         this.currentConversationTitle = 'Agent Conversation';
         this.conversationContext = [];
+        
+        // Store the actual context used for KPI analysis
+        this.lastKPIAnalysisContext = '';
+        
         this.kpiData = {
             accuracy: 0,
             helpfulness: 0,
@@ -160,9 +164,9 @@ export class AICompanion {
         // Add to conversation context
         this.conversationContext.push(messageData);
 
-        // Keep only last 20 messages for performance
-        if (this.conversationContext.length > 20) {
-            this.conversationContext = this.conversationContext.slice(-20);
+        // Keep a larger context window for better analysis (100 messages instead of 20)
+        if (this.conversationContext.length > 100) {
+            this.conversationContext = this.conversationContext.slice(-100);
         }
 
         // Update context indicator
@@ -174,8 +178,10 @@ export class AICompanion {
         }
 
         console.log('Conversation context updated:', {
+            totalMessages: this.conversationContext.length,
             messageCount: this.conversationContext.length,
-            latestRole: messageData.role
+            role: messageData.role,
+            contentPreview: messageData.content.substring(0, 100) + '...'
         });
     }
 
@@ -185,9 +191,75 @@ export class AICompanion {
      */
     resetConversationContext() {
         this.conversationContext = [];
+        this.lastKPIAnalysisContext = '';
         this.resetKPIs();
         this.updateContextIndicator();
         console.log('Conversation context reset');
+    }
+
+    /**
+     * Manually refresh context for testing
+     * @public
+     */
+    refreshContext() {
+        console.log('[AI Companion] Manual context refresh triggered');
+        const currentContext = this.getAdaptiveConversationContext('analysis');
+        this.lastKPIAnalysisContext = currentContext;
+        const messageCount = (currentContext.match(/\n(User|Agent):/g) || []).length;
+        console.log(`[AI Companion] Refreshed context: ${messageCount} messages`);
+        this.updateContextIndicator();
+        return {
+            contextLength: currentContext.length,
+            messageCount: messageCount,
+            preview: currentContext.substring(0, 200) + '...'
+        };
+    }
+
+    /**
+     * Manually refresh KPI analysis with current conversation context
+     * @public
+     */
+    refreshKPIAnalysis() {
+        console.log('[AI Companion] Manual KPI analysis refresh triggered');
+        
+        // Get the latest conversation context
+        const currentContext = this.getAdaptiveConversationContext('analysis');
+        const messageCount = (currentContext.match(/\n(User|Agent):/g) || []).length;
+        
+        if (messageCount === 0) {
+            console.log('[AI Companion] No messages available for KPI analysis');
+            return { error: 'No conversation messages available' };
+        }
+
+        // Find the most recent assistant message to re-analyze
+        const contextLines = currentContext.split('\n').filter(line => 
+            line.startsWith('User:') || line.startsWith('Agent:')
+        );
+        
+        const lastAgentMessage = contextLines.filter(line => line.startsWith('Agent:')).pop();
+        
+        if (!lastAgentMessage) {
+            console.log('[AI Companion] No agent messages found for analysis');
+            return { error: 'No agent messages found' };
+        }
+
+        // Create a mock message data object from the last agent message
+        const messageData = {
+            role: 'assistant',
+            content: lastAgentMessage.substring(6), // Remove "Agent:" prefix
+            timestamp: new Date().toISOString()
+        };
+
+        // Run the KPI analysis
+        this.analyzeMessageForKPIs(messageData);
+        
+        console.log('[AI Companion] KPI analysis refreshed with current context');
+        return {
+            contextLength: currentContext.length,
+            messageCount: messageCount,
+            lastAnalyzedMessage: messageData.content.substring(0, 100) + '...',
+            kpiResults: { ...this.kpiData }
+        };
     }
 
     /**
@@ -260,7 +332,8 @@ export class AICompanion {
         // Listen for session changes to schedule title updates
         window.addEventListener('messageRendered', () => {
             if (this.isEnabled) {
-                this.scheduleConversationTitleUpdate();
+                // Automatic title updates removed - user can manually request title suggestions if needed
+                // this.scheduleConversationTitleUpdate();
             }
         });
     }
@@ -430,10 +503,6 @@ export class AICompanion {
             case 'summarize':
                 const summaryContext = this.getAdaptiveConversationContext('summary');
                 prompt = `${summaryContext}\n\nPlease provide a concise summary of this conversation, highlighting:\n1. Main topics discussed\n2. Key information provided by the agent\n3. User's main questions or concerns\n4. Overall conversation outcome`;
-                break;
-            case 'suggest':
-                const titleContext = this.getAdaptiveConversationContext('title');
-                prompt = `${titleContext}\n\nBased on this conversation, suggest a short, descriptive title (3-8 words) that captures the main topic or purpose. Return only the title, nothing else.`;
                 break;
         }
 
@@ -1283,7 +1352,22 @@ export class AICompanion {
             }
         }
 
-        console.log(`[AI Companion] Session manager context insufficient, falling back to DOM extraction`);
+        console.log(`[AI Companion] Session manager context insufficient, falling back to internal context and DOM extraction`);
+
+        // Try internal conversation context first
+        if (this.conversationContext && this.conversationContext.length > 0) {
+            console.log(`[AI Companion] Using internal conversation context: ${this.conversationContext.length} messages`);
+            let context = 'Recent conversation:\n';
+            
+            const recentMessages = this.conversationContext.slice(-maxMessages);
+            recentMessages.forEach((message, index) => {
+                const role = message.role === 'user' ? 'User' : 'Agent';
+                context += `${role}: ${message.content}\n`;
+            });
+            
+            console.log(`[AI Companion] Internal context generated: ${recentMessages.length} messages`);
+            return context;
+        }
 
         // Enhanced fallback: extract from DOM with better selectors
         const chatWindow = DOMUtils.getElementById('chatWindow');
@@ -1446,80 +1530,189 @@ export class AICompanion {
     analyzeMessageForKPIs(messageData) {
         if (!messageData.content || messageData.role !== 'assistant') return;
 
-        // Simple heuristic analysis (in production, this could use AI)
+        console.log('[AI Companion] Starting comprehensive KPI analysis with conversation context');
+
+        try {
+            // Show calculating indicators
+            this.showKPICalculatingIndicators();
+
+            // Get comprehensive conversation context for accurate KPI analysis
+            const conversationContext = this.getAdaptiveConversationContext('analysis');
+            
+            // Store the context used for KPI analysis for modal display
+            this.lastKPIAnalysisContext = conversationContext;
+            
+            // Calculate and log actual message count in context
+            const contextMessageCount = (conversationContext.match(/\n(User|Agent):/g) || []).length;
+            console.log(`[AI Companion] KPI Analysis using ${contextMessageCount} messages from conversation context`);
+            
+            const content = messageData.content.toLowerCase();
+            const wordCount = content.split(' ').length;
+
+            // Store word count for modal display
+            this.lastWordCount = wordCount;
+
+            // Store previous values for trend calculation
+            this.previousKpiData = { ...this.kpiData };
+
+            // Enhanced analysis with conversation context
+            const contextualAnalysis = this.analyzeWithContext(messageData, conversationContext);
+
+            console.log(`[AI Companion] Context analysis complete:`, {
+                contextLength: conversationContext.length,
+                contextPreview: conversationContext.substring(0, 150) + '...',
+                messageCount: contextMessageCount,
+                analysisResults: {
+                    accuracy: contextualAnalysis.accuracy.toFixed(1),
+                    helpfulness: contextualAnalysis.helpfulness.toFixed(1),
+                    completeness: contextualAnalysis.completeness.toFixed(1),
+                    humanlikeness: contextualAnalysis.humanlikeness.toFixed(1)
+                }
+            });
+
+            // Apply contextual analysis results
+            this.kpiData.accuracy = Math.max(0, Math.min(10, contextualAnalysis.accuracy));
+            this.kpiData.helpfulness = Math.max(0, Math.min(10, contextualAnalysis.helpfulness));
+            this.kpiData.completeness = Math.max(0, Math.min(10, contextualAnalysis.completeness));
+            this.kpiData.humanlikeness = Math.max(0, Math.min(10, contextualAnalysis.humanlikeness));
+
+            // Complete response timing and calculate efficiency
+            this.completeResponseTiming();
+            const efficiency = this.calculateEfficiency();
+            this.kpiData.efficiency = Math.max(0, Math.min(10, efficiency));
+
+            // Calculate changes
+            this.kpiData.changes++;
+
+            // Update trend (now includes all 5 core metrics)
+            const avgCurrent = (this.kpiData.accuracy + this.kpiData.helpfulness + this.kpiData.completeness + this.kpiData.humanlikeness + this.kpiData.efficiency) / 5;
+            const avgPrevious = (this.previousKpiData.accuracy + this.previousKpiData.helpfulness + this.previousKpiData.completeness + this.previousKpiData.humanlikeness + this.previousKpiData.efficiency) / 5;
+
+            if (avgCurrent > avgPrevious + 0.5) {
+                this.kpiData.trend = 'up';
+            } else if (avgCurrent < avgPrevious - 0.5) {
+                this.kpiData.trend = 'down';
+            } else {
+                this.kpiData.trend = 'stable';
+            }
+
+            console.log('[AI Companion] KPI analysis complete:', {
+                accuracy: this.kpiData.accuracy.toFixed(1),
+                helpfulness: this.kpiData.helpfulness.toFixed(1),
+                completeness: this.kpiData.completeness.toFixed(1),
+                humanlikeness: this.kpiData.humanlikeness.toFixed(1),
+                efficiency: this.kpiData.efficiency.toFixed(1),
+                trend: this.kpiData.trend
+            });
+
+        } catch (error) {
+            console.error('[AI Companion] Error during KPI analysis:', error);
+        } finally {
+            // Always hide calculating indicators and update UI
+            this.hideKPICalculatingIndicators();
+            this.updateKPIDisplay();
+        }
+    }
+
+    /**
+     * Analyze message with conversation context for enhanced KPI accuracy
+     * @param {Object} messageData - Message to analyze
+     * @param {string} conversationContext - Full conversation context
+     * @returns {Object} Analysis results with accuracy, helpfulness, completeness, humanlikeness scores
+     * @private
+     */
+    analyzeWithContext(messageData, conversationContext) {
         const content = messageData.content.toLowerCase();
         const wordCount = content.split(' ').length;
+        
+        // Parse conversation context for contextual understanding
+        const contextMessages = conversationContext.split('\n').filter(line => 
+            line.startsWith('User:') || line.startsWith('Agent:')
+        );
+        
+        const userMessages = contextMessages.filter(line => line.startsWith('User:'));
+        const agentMessages = contextMessages.filter(line => line.startsWith('Agent:'));
+        const conversationLength = contextMessages.length;
+        
+        console.log(`[AI Companion] Analyzing with context: ${conversationLength} messages, ${userMessages.length} user, ${agentMessages.length} agent`);
 
-        // Store word count for modal display
-        this.lastWordCount = wordCount;
-
-        // Store previous values for trend calculation
-        this.previousKpiData = { ...this.kpiData };
-
-        // Accuracy - based on specific phrases and certainty indicators
-        let accuracy = 7.0; // Base score out of 10
+        // Enhanced accuracy analysis with conversation context
+        let accuracy = 7.0;
+        
+        // Check for consistency with previous agent responses
+        if (agentMessages.length > 1) {
+            const previousResponses = agentMessages.slice(-3); // Last 3 responses
+            const hasConsistentTone = this.checkResponseConsistency(content, previousResponses);
+            if (hasConsistentTone) accuracy += 0.5;
+        }
+        
+        // Analyze response relevance to recent user questions
+        if (userMessages.length > 0) {
+            const recentUserMessage = userMessages[userMessages.length - 1].substring(5); // Remove "User:"
+            const relevanceScore = this.calculateRelevanceScore(content, recentUserMessage);
+            accuracy += relevanceScore * 2; // Scale relevance to accuracy
+        }
+        
+        // Traditional accuracy indicators
         if (content.includes('i think') || content.includes('maybe') || content.includes('probably')) {
-            accuracy -= 1.5;
+            accuracy -= 1.0;
         }
         if (content.includes('definitely') || content.includes('certainly') || content.includes('specifically')) {
-            accuracy += 1.5;
+            accuracy += 1.0;
         }
         if (content.includes('error') || content.includes('mistake') || content.includes('incorrect')) {
-            accuracy -= 2.0;
+            accuracy -= 1.5;
         }
 
-        // Helpfulness - based on actionable content and solutions
-        let helpfulness = 6.5; // Base score out of 10
-        if (content.includes('here\'s how') || content.includes('you can') || content.includes('try this')) {
-            helpfulness += 2.0;
+        // Enhanced helpfulness analysis
+        let helpfulness = 6.5;
+        
+        // Check if response builds on conversation history
+        if (conversationLength > 2) {
+            const buildsOnHistory = this.checkIfBuildsOnHistory(content, contextMessages);
+            if (buildsOnHistory) helpfulness += 1.5;
         }
-        if (content.includes('step') || content.includes('first') || content.includes('next')) {
+        
+        // Analyze actionable content
+        if (content.includes('here\'s how') || content.includes('you can') || content.includes('try this')) {
             helpfulness += 1.5;
         }
+        if (content.includes('step') || content.includes('first') || content.includes('next')) {
+            helpfulness += 1.0;
+        }
         if (content.includes('sorry') || content.includes('can\'t help') || content.includes('don\'t know')) {
-            helpfulness -= 1.5;
+            helpfulness -= 1.0;
         }
 
-        // Completeness - based on length and detail
-        let completeness = Math.min(9.0, Math.max(3.0, wordCount * 0.2)); // Word count influence
+        // Enhanced completeness analysis
+        let completeness = Math.min(8.0, Math.max(3.0, wordCount * 0.15));
+        
+        // Check if response addresses all parts of multi-part questions
+        if (userMessages.length > 0) {
+            const lastUserMessage = userMessages[userMessages.length - 1];
+            const questionParts = (lastUserMessage.match(/\?/g) || []).length;
+            if (questionParts > 1) {
+                const addressedParts = this.countAddressedQuestionParts(content, lastUserMessage);
+                completeness += (addressedParts / questionParts) * 2;
+            }
+        }
+        
         if (content.includes('example') || content.includes('for instance')) {
-            completeness += 1.0;
+            completeness += 0.8;
         }
         if (content.includes('brief') || content.includes('quick') || wordCount < 10) {
-            completeness -= 1.5;
+            completeness -= 1.0;
         }
 
-        // Normalize scores to 0-10 range
-        this.kpiData.accuracy = Math.max(0, Math.min(10, accuracy));
-        this.kpiData.helpfulness = Math.max(0, Math.min(10, helpfulness));
-        this.kpiData.completeness = Math.max(0, Math.min(10, completeness));
+        // Enhanced human-likeness with context
+        const humanlikeness = this.calculateHumanLikenessWithContext(messageData.content, conversationContext);
 
-        // Human-likeness analysis
-        const humanlikeness = this.calculateHumanLikeness(messageData.content);
-        this.kpiData.humanlikeness = Math.max(0, Math.min(10, humanlikeness));
-
-        // Complete response timing and calculate efficiency
-        this.completeResponseTiming();
-        const efficiency = this.calculateEfficiency();
-        this.kpiData.efficiency = Math.max(0, Math.min(10, efficiency));
-
-        // Calculate changes
-        this.kpiData.changes++;
-
-        // Update trend (now includes all 5 core metrics)
-        const avgCurrent = (this.kpiData.accuracy + this.kpiData.helpfulness + this.kpiData.completeness + this.kpiData.humanlikeness + this.kpiData.efficiency) / 5;
-        const avgPrevious = (this.previousKpiData.accuracy + this.previousKpiData.helpfulness + this.previousKpiData.completeness + this.previousKpiData.humanlikeness + this.previousKpiData.efficiency) / 5;
-
-        if (avgCurrent > avgPrevious + 0.5) {
-            this.kpiData.trend = 'up';
-        } else if (avgCurrent < avgPrevious - 0.5) {
-            this.kpiData.trend = 'down';
-        } else {
-            this.kpiData.trend = 'stable';
-        }
-
-        // Update UI
-        this.updateKPIDisplay();
+        return {
+            accuracy: Math.max(0, Math.min(10, accuracy)),
+            helpfulness: Math.max(0, Math.min(10, helpfulness)),
+            completeness: Math.max(0, Math.min(10, completeness)),
+            humanlikeness: Math.max(0, Math.min(10, humanlikeness))
+        };
     }
 
     /**
@@ -1748,6 +1941,8 @@ export class AICompanion {
         if (!this.timeTracking.conversationStart) {
             this.timeTracking.conversationStart = Date.now();
         }
+
+        console.log(`[AI Companion] Started timing user message at ${this.timeTracking.lastUserMessage}`);
     }
 
     /**
@@ -1755,8 +1950,169 @@ export class AICompanion {
      * @private
      */
     completeResponseTiming() {
-        // The efficiency calculation will handle the timing completion
-        this.timeTracking.lastUserMessage = null;
+        if (this.timeTracking.lastUserMessage) {
+            // Calculate the response time from user message to completion
+            this.timeTracking.responseTime = Date.now() - this.timeTracking.lastUserMessage;
+            
+            // Update message count and average
+            this.timeTracking.messageCount++;
+            this.timeTracking.avgResponseTime = (
+                (this.timeTracking.avgResponseTime * (this.timeTracking.messageCount - 1)) + 
+                this.timeTracking.responseTime
+            ) / this.timeTracking.messageCount;
+
+            console.log(`[AI Companion] Response completed in ${this.timeTracking.responseTime}ms, average: ${this.timeTracking.avgResponseTime.toFixed(0)}ms`);
+
+            // Reset for next cycle
+            this.timeTracking.lastUserMessage = null;
+        }
+    }
+
+    /**
+     * Check response consistency with previous agent messages
+     * @param {string} currentResponse - Current response content (lowercase)
+     * @param {Array} previousResponses - Array of previous agent responses
+     * @returns {boolean} True if response is consistent
+     * @private
+     */
+    checkResponseConsistency(currentResponse, previousResponses) {
+        if (!previousResponses || previousResponses.length === 0) return true;
+        
+        // Check for consistent tone and style indicators
+        const currentHasPersonal = /\b(i\s|my\s|me\s)/g.test(currentResponse);
+        const currentHasFormal = /\b(furthermore|therefore|additionally|consequently)\b/g.test(currentResponse);
+        
+        const previousResponses_text = previousResponses.join(' ').toLowerCase();
+        const previousHasPersonal = /\b(i\s|my\s|me\s)/g.test(previousResponses_text);
+        const previousHasFormal = /\b(furthermore|therefore|additionally|consequently)\b/g.test(previousResponses_text);
+        
+        // Consistency check: similar tone patterns
+        return (currentHasPersonal === previousHasPersonal) || (currentHasFormal === previousHasFormal);
+    }
+
+    /**
+     * Calculate relevance score between response and user question
+     * @param {string} response - Agent response content (lowercase)
+     * @param {string} userMessage - User message content
+     * @returns {number} Relevance score (0-1)
+     * @private
+     */
+    calculateRelevanceScore(response, userMessage) {
+        if (!userMessage) return 0.5;
+        
+        const userWords = userMessage.toLowerCase().split(/\W+/).filter(word => 
+            word.length > 3 && !['this', 'that', 'with', 'from', 'they', 'have', 'will', 'been', 'were'].includes(word)
+        );
+        
+        if (userWords.length === 0) return 0.5;
+        
+        let matches = 0;
+        userWords.forEach(word => {
+            if (response.includes(word)) matches++;
+        });
+        
+        return Math.min(1, matches / userWords.length);
+    }
+
+    /**
+     * Check if response builds on conversation history
+     * @param {string} response - Agent response content (lowercase)
+     * @param {Array} contextMessages - All conversation messages
+     * @returns {boolean} True if response builds on history
+     * @private
+     */
+    checkIfBuildsOnHistory(response, contextMessages) {
+        const historyIndicators = [
+            'as mentioned', 'as discussed', 'earlier', 'previously', 'before',
+            'following up', 'continuing', 'building on', 'expanding on'
+        ];
+        
+        return historyIndicators.some(indicator => response.includes(indicator));
+    }
+
+    /**
+     * Count how many parts of a multi-part question are addressed
+     * @param {string} response - Agent response content (lowercase)
+     * @param {string} userMessage - User message with questions
+     * @returns {number} Number of question parts addressed
+     * @private
+     */
+    countAddressedQuestionParts(response, userMessage) {
+        const questionParts = userMessage.split('?').filter(part => part.trim().length > 0);
+        if (questionParts.length <= 1) return 1;
+        
+        let addressedParts = 0;
+        questionParts.forEach(part => {
+            const keywords = part.toLowerCase().split(/\W+/).filter(word => 
+                word.length > 3 && !['what', 'how', 'why', 'when', 'where', 'which'].includes(word)
+            );
+            
+            const hasMatch = keywords.some(keyword => response.includes(keyword));
+            if (hasMatch) addressedParts++;
+        });
+        
+        return Math.max(1, addressedParts);
+    }
+
+    /**
+     * Calculate human-likeness with conversation context
+     * @param {string} content - Message content
+     * @param {string} conversationContext - Full conversation context
+     * @returns {number} Human-likeness score (0-10)
+     * @private
+     */
+    calculateHumanLikenessWithContext(content, conversationContext) {
+        if (!content) return 5.0;
+
+        let score = 5.0;
+        const lowerContent = content.toLowerCase();
+
+        // Base human-likeness analysis
+        const naturalness = this.analyzeLanguageNaturalness(lowerContent);
+        const empathy = this.analyzeEmpathy(lowerContent);
+        const contextAwareness = this.analyzeContextAwareness(content);
+
+        // Context-aware enhancements
+        const conversationLength = (conversationContext.match(/\n(User|Agent):/g) || []).length;
+        
+        // Adjust for conversation progression
+        if (conversationLength > 5) {
+            // Longer conversations should show more familiarity
+            if (lowerContent.includes('as we discussed') || lowerContent.includes('from our conversation')) {
+                score += 1.0;
+            }
+        }
+        
+        // Check for appropriate conversation flow
+        if (conversationLength > 2) {
+            const showsFlow = this.checkConversationFlow(content, conversationContext);
+            if (showsFlow) score += 0.5;
+        }
+
+        // Weighted combination with context awareness
+        score = (naturalness * 0.25) + (empathy * 0.35) + (contextAwareness * 0.25) + (score * 0.15);
+        
+        return Math.max(0, Math.min(10, score));
+    }
+
+    /**
+     * Check if response shows good conversation flow
+     * @param {string} content - Current response content
+     * @param {string} conversationContext - Full conversation context
+     * @returns {boolean} True if shows good flow
+     * @private
+     */
+    checkConversationFlow(content, conversationContext) {
+        const lowerContent = content.toLowerCase();
+        
+        // Look for transitional phrases
+        const transitions = [
+            'also', 'additionally', 'furthermore', 'moreover',
+            'however', 'on the other hand', 'nevertheless',
+            'by the way', 'speaking of', 'that reminds me'
+        ];
+        
+        return transitions.some(transition => lowerContent.includes(transition));
     }
 
     /**
@@ -1865,6 +2221,68 @@ export class AICompanion {
     }
 
     /**
+     * Show calculating indicators for KPI items
+     * @private
+     */
+    showKPICalculatingIndicators() {
+        const kpiItems = [
+            { element: this.elements.kpiAccuracy, name: 'accuracy' },
+            { element: this.elements.kpiHelpfulness, name: 'helpfulness' },
+            { element: this.elements.kpiCompleteness, name: 'completeness' },
+            { element: this.elements.kpiHumanlikeness, name: 'humanlikeness' },
+            { element: this.elements.kpiEfficiency, name: 'efficiency' }
+        ];
+
+        kpiItems.forEach(({ element, name }) => {
+            if (element) {
+                // Store original value
+                element.dataset.originalValue = element.textContent;
+                
+                // Show calculating indicator
+                element.innerHTML = '<span class="calculating-indicator">⟳</span> Calculating...';
+                element.classList.add('calculating');
+                
+                // Add calculating animation to parent container
+                const kpiItem = element.closest('.kpi-item');
+                if (kpiItem) {
+                    kpiItem.classList.add('calculating');
+                }
+            }
+        });
+
+        console.log('[AI Companion] Showing KPI calculating indicators');
+    }
+
+    /**
+     * Hide calculating indicators for KPI items
+     * @private
+     */
+    hideKPICalculatingIndicators() {
+        const kpiItems = document.querySelectorAll('.kpi-item');
+        kpiItems.forEach(item => {
+            item.classList.remove('calculating');
+        });
+
+        // Remove calculating class from value elements
+        const valueElements = [
+            this.elements.kpiAccuracy,
+            this.elements.kpiHelpfulness,
+            this.elements.kpiCompleteness,
+            this.elements.kpiHumanlikeness,
+            this.elements.kpiEfficiency
+        ];
+
+        valueElements.forEach(element => {
+            if (element) {
+                element.classList.remove('calculating');
+                // The actual values will be updated by updateKPIDisplay()
+            }
+        });
+
+        console.log('[AI Companion] Hiding KPI calculating indicators');
+    }
+
+    /**
      * Reset KPI values
      * @private
      */
@@ -1899,7 +2317,9 @@ export class AICompanion {
     updateContextIndicator() {
         if (!this.elements.contextIndicator || this.elements.llmPanel.style.display === 'none') return;
 
-        const messageCount = this.conversationContext.length;
+        // Get the actual context that would be used for analysis
+        const analysisContext = this.getAdaptiveConversationContext('analysis');
+        const messageCount = (analysisContext.match(/\n(User|Agent):/g) || []).length;
 
         if (messageCount === 0) {
             this.elements.contextIndicator.textContent = 'No conversation to analyze yet';
@@ -1909,9 +2329,14 @@ export class AICompanion {
     }
 
     /**
-     * Schedule conversation title update with debouncing
+     * Schedule conversation title update with debouncing (DISABLED)
+     * Note: Automatic title updates have been disabled to prevent unwanted AI requests
      */
     scheduleConversationTitleUpdate() {
+        // Automatic title updates disabled - users can manually request title suggestions if needed
+        console.log('[AI Companion] Automatic title updates disabled');
+        return;
+        
         if (this.titleUpdateTimeout) {
             clearTimeout(this.titleUpdateTimeout);
         }
@@ -2357,19 +2782,51 @@ export class AICompanion {
      * @private
      */
     generateContextHTML(kpiType) {
-        if (!this.conversationContext || this.conversationContext.length === 0) {
-            return '<p>No conversation data available yet. Start a conversation to see analysis.</p>';
+        // Get the current analysis context to ensure we show what's actually being used
+        const currentAnalysisContext = this.getAdaptiveConversationContext('analysis');
+        const analysisContextToUse = this.lastKPIAnalysisContext || currentAnalysisContext;
+        
+        console.log(`[AI Companion] Generating context HTML - stored context length: ${this.lastKPIAnalysisContext?.length || 0}, current context length: ${currentAnalysisContext.length}`);
+        
+        if (!analysisContextToUse || analysisContextToUse === 'No conversation available.') {
+            return '<p>No conversation context available for analysis. The KPI analysis uses conversation context from the session manager.</p>';
         }
 
-        let html = '';
-        const recentMessages = this.conversationContext.slice(-5); // Show last 5 messages
+        // Parse the context string that was actually used for analysis
+        const contextLines = analysisContextToUse.split('\n').filter(line => 
+            line.startsWith('User:') || line.startsWith('Agent:')
+        );
 
-        recentMessages.forEach((message, index) => {
-            const analysis = this.getMessageAnalysis(message, kpiType);
+        console.log(`[AI Companion] Context HTML: Found ${contextLines.length} messages in analysis context`);
+
+        if (contextLines.length === 0) {
+            return '<p>No parsed messages found in conversation context. Debug info: Context preview: ' + analysisContextToUse.substring(0, 200) + '...</p>';
+        }
+
+        let html = `<div class="context-summary">
+            <strong>KPI Analysis Context: </strong> ${contextLines.length} messages used for ${kpiType} analysis
+            <br><small>Last analysis: ${new Date().toLocaleTimeString()}</small>
+        </div>`;
+
+        // Show recent messages from the actual analysis context, ordered chronologically (old to new)
+        const recentMessages = contextLines.slice(-10); // Show last 10 messages
+        
+        // Ensure chronological order from oldest to newest
+        recentMessages.forEach((line, index) => {
+            const isUser = line.startsWith('User:');
+            const role = isUser ? 'user' : 'assistant';
+            const content = line.substring(isUser ? 5 : 6); // Remove "User:" or "Agent:"
+            
+            const analysis = !isUser ? this.getContextualMessageAnalysis(content, kpiType) : 'User message - provides context for agent analysis';
+            
+            // Calculate message number (chronological from start of context window)
+            const messageNumber = contextLines.length - 10 + index + 1;
+            const messageIndex = messageNumber > 0 ? messageNumber : index + 1;
+            
             html += `
-                <div class="context-message ${message.role}">
-                    <div class="message-role">${message.role}</div>
-                    <div class="message-content">${message.content.substring(0, 200)}${message.content.length > 200 ? '...' : ''}</div>
+                <div class="context-message ${role}">
+                    <div class="message-role">#${messageIndex} ${isUser ? 'User' : 'Agent'}</div>
+                    <div class="message-content">${content.substring(0, 200)}${content.length > 200 ? '...' : ''}</div>
                     <div class="message-analysis">${analysis}</div>
                 </div>
             `;
@@ -2391,40 +2848,78 @@ export class AICompanion {
         }
 
         const content = message.content.toLowerCase();
-        let analysis = [];
+        return this.getContextualMessageAnalysis(content, kpiType);
+    }
 
-        if (kpiType === 'accuracy') {
-            if (content.includes('definitely') || content.includes('certainly')) {
-                analysis.push('✓ Uses confident language');
-            }
-            if (content.includes('maybe') || content.includes('i think')) {
-                analysis.push('⚠ Contains uncertain phrases');
-            }
-            if (content.includes('error') || content.includes('mistake')) {
-                analysis.push('⚠ References errors');
-            }
-        } else if (kpiType === 'helpfulness') {
-            if (content.includes('here\'s how') || content.includes('you can')) {
-                analysis.push('✓ Provides actionable guidance');
-            }
-            if (content.includes('step') || content.includes('first')) {
-                analysis.push('✓ Includes step-by-step instructions');
-            }
-            if (content.includes('sorry') || content.includes('can\'t help')) {
-                analysis.push('⚠ Expresses inability to help');
-            }
-        } else if (kpiType === 'completeness') {
-            const wordCount = content.split(' ').length;
-            analysis.push(`📝 ${wordCount} words`);
-            if (content.includes('example') || content.includes('for instance')) {
-                analysis.push('✓ Includes examples');
-            }
-            if (content.includes('brief') || wordCount < 10) {
-                analysis.push('⚠ Brief response');
-            }
+    /**
+     * Get contextual analysis for message content based on KPI type
+     * @param {string} content - Message content (can be string from context)
+     * @param {string} kpiType - Type of KPI
+     * @returns {string} Analysis text
+     * @private
+     */
+    getContextualMessageAnalysis(content, kpiType) {
+        const lowerContent = typeof content === 'string' ? content.toLowerCase() : '';
+        
+        switch (kpiType) {
+            case 'accuracy':
+                const accuracyIndicators = [];
+                if (lowerContent.includes('definitely') || lowerContent.includes('certainly')) {
+                    accuracyIndicators.push('High certainty language (+)');
+                }
+                if (lowerContent.includes('maybe') || lowerContent.includes('probably')) {
+                    accuracyIndicators.push('Uncertain language (-)');
+                }
+                if (lowerContent.includes('error') || lowerContent.includes('incorrect')) {
+                    accuracyIndicators.push('Error acknowledgment (-)');
+                }
+                return accuracyIndicators.length > 0 ? accuracyIndicators.join(', ') : 'Neutral accuracy indicators';
+
+            case 'helpfulness':
+                const helpfulnessIndicators = [];
+                if (lowerContent.includes('here\'s how') || lowerContent.includes('you can')) {
+                    helpfulnessIndicators.push('Actionable guidance (+)');
+                }
+                if (lowerContent.includes('step') || lowerContent.includes('first')) {
+                    helpfulnessIndicators.push('Structured approach (+)');
+                }
+                if (lowerContent.includes('sorry') || lowerContent.includes('can\'t help')) {
+                    helpfulnessIndicators.push('Limited assistance (-)');
+                }
+                return helpfulnessIndicators.length > 0 ? helpfulnessIndicators.join(', ') : 'Standard helpfulness level';
+
+            case 'completeness':
+                const wordCount = lowerContent.split(' ').length;
+                const completenessIndicators = [];
+                if (lowerContent.includes('example') || lowerContent.includes('for instance')) {
+                    completenessIndicators.push('Includes examples (+)');
+                }
+                if (wordCount > 50) {
+                    completenessIndicators.push('Detailed response (+)');
+                } else if (wordCount < 10) {
+                    completenessIndicators.push('Brief response (-)');
+                }
+                return completenessIndicators.length > 0 ? completenessIndicators.join(', ') : `${wordCount} words - standard length`;
+
+            case 'humanlikeness':
+                const humanIndicators = [];
+                if (/(i'll|don't|can't|won't)/.test(lowerContent)) {
+                    humanIndicators.push('Natural contractions (+)');
+                }
+                if (/(i think|actually|basically)/.test(lowerContent)) {
+                    humanIndicators.push('Casual language (+)');
+                }
+                if (/(as an ai|i am programmed)/.test(lowerContent)) {
+                    humanIndicators.push('AI self-reference (-)');
+                }
+                return humanIndicators.length > 0 ? humanIndicators.join(', ') : 'Neutral human-like qualities';
+
+            case 'efficiency':
+                return `Response time analysis - see efficiency metrics`;
+
+            default:
+                return 'Analysis data not available';
         }
-
-        return analysis.length > 0 ? analysis.join(', ') : 'No specific indicators found';
     }
 }
 

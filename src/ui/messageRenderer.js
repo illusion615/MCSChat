@@ -20,6 +20,12 @@ export class MessageRenderer {
             startTime: null
         };
 
+        // Global response time tracking for accurate request-to-response timing
+        this.responseTimeTracking = {
+            requestStartTime: null,
+            lastRequestId: null
+        };
+
         // Initialize side browser state
         this.escapeListenerAdded = false;
 
@@ -852,15 +858,40 @@ export class MessageRenderer {
      * @private
      */
     calculateTimeSpent(activity) {
-        // If we have streaming state and this is the end of a streaming message
-        if (this.streamingState.startTime) {
-            const duration = Date.now() - this.streamingState.startTime;
-            this.streamingState.startTime = null; // Reset for next message
+        // Use global response time tracking for accurate request-to-response timing
+        if (this.responseTimeTracking.requestStartTime && activity.from && activity.from.id !== 'user') {
+            // This is an assistant response, calculate full request-to-response time
+            const duration = Date.now() - this.responseTimeTracking.requestStartTime;
+            
+            // Reset tracking for next request
+            this.responseTimeTracking.requestStartTime = null;
+            this.responseTimeTracking.lastRequestId = null;
+            
+            console.log(`[MessageRenderer] Full response time: ${duration}ms`);
             return this.formatDuration(duration);
         }
 
-        // For non-streaming messages, we can't calculate exact time, so show estimate
+        // Fallback: If we have streaming state and this is the end of a streaming message
+        if (this.streamingState.startTime) {
+            const duration = Date.now() - this.streamingState.startTime;
+            this.streamingState.startTime = null; // Reset for next message
+            console.log(`[MessageRenderer] Streaming render time: ${duration}ms (fallback)`);
+            return this.formatDuration(duration);
+        }
+
+        // For non-streaming messages or when timing isn't available
         return '~1s';
+    }
+
+    /**
+     * Start response time tracking when user sends a message
+     * @param {string} requestId - Optional request identifier
+     * @public
+     */
+    startResponseTimeTracking(requestId = null) {
+        this.responseTimeTracking.requestStartTime = Date.now();
+        this.responseTimeTracking.lastRequestId = requestId;
+        console.log(`[MessageRenderer] Started response time tracking at ${this.responseTimeTracking.requestStartTime}`);
     }
 
     /**
