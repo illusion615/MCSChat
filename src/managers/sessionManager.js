@@ -439,11 +439,19 @@ export class SessionManager {
         console.log(`[Session Manager] Total messages in current session: ${messages.length}`);
         console.log(`[Session Manager] Requested maxMessages: ${maxMessages}`);
         
-        const recentMessages = messages.slice(-maxMessages);
-        console.log(`[Session Manager] Providing ${recentMessages.length} messages for context`);
+        // For KPI analysis, always provide ALL messages if maxMessages is very large (>500)
+        // This ensures completeness analysis gets the full conversation context
+        let messagesToInclude;
+        if (maxMessages >= 500) {
+            messagesToInclude = messages; // Full conversation for KPI analysis
+            console.log(`[Session Manager] Providing FULL conversation (${messages.length} messages) for comprehensive analysis`);
+        } else {
+            messagesToInclude = messages.slice(-maxMessages);
+            console.log(`[Session Manager] Providing ${messagesToInclude.length} recent messages for context`);
+        }
 
         let context = 'Recent conversation:\n';
-        recentMessages.forEach((message, index) => {
+        messagesToInclude.forEach((message, index) => {
             const sender = message.from === 'user' ? 'User' : 'Agent';
             const text = message.text || '[Non-text message]';
             context += `${sender}: ${text}\n`;
@@ -454,7 +462,8 @@ export class SessionManager {
             }
         });
 
-        console.log(`[Session Manager] Context generated with ${(context.match(/\n(User|Agent):/g) || []).length} messages`);
+        const finalMessageCount = (context.match(/\n(User|Agent):/g) || []).length;
+        console.log(`[Session Manager] Context generated with ${finalMessageCount} messages`);
         return context;
     }
 

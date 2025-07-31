@@ -29,6 +29,9 @@ export class AICompanion {
         };
         this.previousKpiData = { ...this.kpiData };
 
+        // Store the last LLM evaluation for detailed modal display
+        this.lastHLSEvaluation = null;
+
         // Time tracking for efficiency KPI
         this.timeTracking = {
             conversationStart: null,
@@ -174,7 +177,10 @@ export class AICompanion {
 
         // Analyze for KPIs if this is an assistant message
         if (messageData.role === 'assistant' && this.isEnabled) {
-            this.analyzeMessageForKPIs(messageData);
+            // Run KPI analysis asynchronously (LLM-powered)
+            this.analyzeMessageForKPIs(messageData).catch(error => {
+                console.error('[AI Companion] Error in async KPI analysis:', error);
+            });
         }
 
         console.log('Conversation context updated:', {
@@ -219,47 +225,53 @@ export class AICompanion {
      * Manually refresh KPI analysis with current conversation context
      * @public
      */
-    refreshKPIAnalysis() {
+    async refreshKPIAnalysis() {
         console.log('[AI Companion] Manual KPI analysis refresh triggered');
         
-        // Get the latest conversation context
-        const currentContext = this.getAdaptiveConversationContext('analysis');
-        const messageCount = (currentContext.match(/\n(User|Agent):/g) || []).length;
-        
-        if (messageCount === 0) {
-            console.log('[AI Companion] No messages available for KPI analysis');
-            return { error: 'No conversation messages available' };
+        try {
+            // Get the latest conversation context
+            const currentContext = this.getAdaptiveConversationContext('analysis');
+            const messageCount = (currentContext.match(/\n(User|Agent):/g) || []).length;
+            
+            if (messageCount === 0) {
+                console.log('[AI Companion] No messages available for KPI analysis');
+                return { error: 'No conversation messages available' };
+            }
+
+            // Find the most recent assistant message to re-analyze
+            const contextLines = currentContext.split('\n').filter(line => 
+                line.startsWith('User:') || line.startsWith('Agent:')
+            );
+            
+            const lastAgentMessage = contextLines.filter(line => line.startsWith('Agent:')).pop();
+            
+            if (!lastAgentMessage) {
+                console.log('[AI Companion] No agent messages found for analysis');
+                return { error: 'No agent messages found' };
+            }
+
+            // Create a mock message data object from the last agent message
+            const messageData = {
+                role: 'assistant',
+                content: lastAgentMessage.substring(6), // Remove "Agent:" prefix
+                timestamp: new Date().toISOString()
+            };
+
+            // Run the KPI analysis (now async with LLM evaluation)
+            await this.analyzeMessageForKPIs(messageData);
+            
+            console.log('[AI Companion] KPI analysis refreshed with current context');
+            return {
+                contextLength: currentContext.length,
+                messageCount: messageCount,
+                lastAnalyzedMessage: messageData.content.substring(0, 100) + '...',
+                kpiResults: { ...this.kpiData }
+            };
+            
+        } catch (error) {
+            console.error('[AI Companion] Error refreshing KPI analysis:', error);
+            return { error: error.message };
         }
-
-        // Find the most recent assistant message to re-analyze
-        const contextLines = currentContext.split('\n').filter(line => 
-            line.startsWith('User:') || line.startsWith('Agent:')
-        );
-        
-        const lastAgentMessage = contextLines.filter(line => line.startsWith('Agent:')).pop();
-        
-        if (!lastAgentMessage) {
-            console.log('[AI Companion] No agent messages found for analysis');
-            return { error: 'No agent messages found' };
-        }
-
-        // Create a mock message data object from the last agent message
-        const messageData = {
-            role: 'assistant',
-            content: lastAgentMessage.substring(6), // Remove "Agent:" prefix
-            timestamp: new Date().toISOString()
-        };
-
-        // Run the KPI analysis
-        this.analyzeMessageForKPIs(messageData);
-        
-        console.log('[AI Companion] KPI analysis refreshed with current context');
-        return {
-            contextLength: currentContext.length,
-            messageCount: messageCount,
-            lastAnalyzedMessage: messageData.content.substring(0, 100) + '...',
-            kpiResults: { ...this.kpiData }
-        };
     }
 
     /**
@@ -1457,8 +1469,13 @@ export class AICompanion {
         let maxMessages;
         switch (purpose) {
             case 'analysis':
+                // For KPI analysis, ALWAYS use FULL conversation context for accurate completeness
+                // This ensures all messages are considered for comprehensive analysis
+                maxMessages = 999; // Request all messages for KPI analysis
+                console.log(`[AI Companion] KPI Analysis: Requesting FULL conversation (${totalMessages} messages) for accurate completeness assessment`);
+                break;
             case 'summary':
-                // For analysis, include more messages for longer conversations
+                // For summary, include more messages for longer conversations
                 maxMessages = Math.min(Math.max(50, totalMessages), 200);
                 break;
             case 'title':
@@ -1477,7 +1494,11 @@ export class AICompanion {
         const finalContext = this.getConversationContext(maxMessages);
         const finalMessageCount = (finalContext.match(/\n(User|Agent):/g) || []).length;
         
-        console.log(`[AI Companion] Final context delivered: ${finalMessageCount} messages`);
+        console.log(`[AI Companion] Final context delivered: ${finalMessageCount} messages for ${purpose} analysis`);
+        
+        if (purpose === 'analysis' && finalMessageCount < totalMessages * 0.8) {
+            console.warn(`[AI Companion] KPI Analysis Warning: Only received ${finalMessageCount}/${totalMessages} messages (${Math.round(finalMessageCount/totalMessages*100)}%). This may affect completeness accuracy.`);
+        }
         return finalContext;
     }
 
@@ -1527,7 +1548,7 @@ export class AICompanion {
      * @param {Object} messageData - Message to analyze
      * @private
      */
-    analyzeMessageForKPIs(messageData) {
+    async analyzeMessageForKPIs(messageData) {
         if (!messageData.content || messageData.role !== 'assistant') return;
 
         console.log('[AI Companion] Starting comprehensive KPI analysis with conversation context');
@@ -1555,8 +1576,8 @@ export class AICompanion {
             // Store previous values for trend calculation
             this.previousKpiData = { ...this.kpiData };
 
-            // Enhanced analysis with conversation context
-            const contextualAnalysis = this.analyzeWithContext(messageData, conversationContext);
+            // Enhanced analysis with conversation context (now async for LLM-powered evaluation)
+            const contextualAnalysis = await this.analyzeWithContext(messageData, conversationContext);
 
             console.log(`[AI Companion] Context analysis complete:`, {
                 contextLength: conversationContext.length,
@@ -1621,7 +1642,7 @@ export class AICompanion {
      * @returns {Object} Analysis results with accuracy, helpfulness, completeness, humanlikeness scores
      * @private
      */
-    analyzeWithContext(messageData, conversationContext) {
+    async analyzeWithContext(messageData, conversationContext) {
         const content = messageData.content.toLowerCase();
         const wordCount = content.split(' ').length;
         
@@ -1704,8 +1725,8 @@ export class AICompanion {
             completeness -= 1.0;
         }
 
-        // Enhanced human-likeness with context
-        const humanlikeness = this.calculateHumanLikenessWithContext(messageData.content, conversationContext);
+        // Enhanced human-likeness with LLM-powered context analysis
+        const humanlikeness = await this.calculateHumanLikenessWithContext(messageData.content, conversationContext);
 
         return {
             accuracy: Math.max(0, Math.min(10, accuracy)),
@@ -1713,133 +1734,6 @@ export class AICompanion {
             completeness: Math.max(0, Math.min(10, completeness)),
             humanlikeness: Math.max(0, Math.min(10, humanlikeness))
         };
-    }
-
-    /**
-     * Calculate human-likeness score based on conversational patterns
-     * @param {string} content - Message content to analyze
-     * @returns {number} Human-likeness score (0-10)
-     * @private
-     */
-    calculateHumanLikeness(content) {
-        if (!content) return 5.0;
-
-        let score = 5.0; // Base score
-        const lowerContent = content.toLowerCase();
-
-        // Language naturalness analysis (30% weight)
-        const naturalness = this.analyzeLanguageNaturalness(lowerContent);
-
-        // Empathy and emotional intelligence (40% weight)
-        const empathy = this.analyzeEmpathy(lowerContent);
-
-        // Conversation flow and context awareness (30% weight)
-        const contextAwareness = this.analyzeContextAwareness(content);
-
-        // Weighted average
-        score = (naturalness * 0.3) + (empathy * 0.4) + (contextAwareness * 0.3);
-
-        return Math.max(0, Math.min(10, score));
-    }
-
-    /**
-     * Analyze language naturalness
-     * @param {string} content - Lowercase content
-     * @returns {number} Naturalness score (0-10)
-     * @private
-     */
-    analyzeLanguageNaturalness(content) {
-        let score = 5.0;
-
-        // Positive indicators of natural language
-        const contractions = /(i'll|don't|can't|won't|you're|it's|we'll|they're|isn't|aren't)/g;
-        if (contractions.test(content)) score += 1.5;
-
-        const casualPhrases = /(you know|i think|well|actually|basically|honestly|obviously)/g;
-        if (casualPhrases.test(content)) score += 1.0;
-
-        const personalPhrases = /(in my experience|i believe|from what i understand|i feel|seems to me)/g;
-        if (personalPhrases.test(content)) score += 1.0;
-
-        // Negative indicators (too robotic)
-        const robotPhrases = /(as an ai|i am programmed|according to my training|i cannot feel|i do not have emotions)/g;
-        if (robotPhrases.test(content)) score -= 3.0;
-
-        const tooFormal = /(furthermore|nevertheless|consequently|therefore|thus)/g;
-        if (tooFormal.test(content) && content.length < 100) score -= 1.0;
-
-        // Check for repetitive patterns
-        const words = content.split(' ');
-        const uniqueWords = new Set(words);
-        if (words.length > 10 && uniqueWords.size / words.length < 0.6) score -= 1.5;
-
-        return Math.max(0, Math.min(10, score));
-    }
-
-    /**
-     * Analyze empathy and emotional intelligence
-     * @param {string} content - Lowercase content
-     * @returns {number} Empathy score (0-10)
-     * @private
-     */
-    analyzeEmpathy(content) {
-        let score = 5.0;
-
-        // Empathetic phrases
-        const empathy = /(that sounds|i understand|i can imagine|that must be|i'm sorry to hear|that's frustrating|that's exciting|how wonderful|that's great)/g;
-        if (empathy.test(content)) score += 2.0;
-
-        // Emotional acknowledgment
-        const emotion = /(feel|feeling|emotional|frustrated|excited|happy|sad|worried|concerned|glad)/g;
-        if (emotion.test(content)) score += 1.5;
-
-        // Supportive language
-        const support = /(i'm here to help|let me assist|i'll do my best|we can work|together|support)/g;
-        if (support.test(content)) score += 1.0;
-
-        // Conversational warmth
-        const warmth = /(great question|absolutely|definitely|of course|certainly|sure thing)/g;
-        if (warmth.test(content)) score += 0.5;
-
-        // Cold/robotic responses
-        const cold = /(error|invalid|incorrect|not possible|unable to process|system)/g;
-        if (cold.test(content)) score -= 1.5;
-
-        return Math.max(0, Math.min(10, score));
-    }
-
-    /**
-     * Analyze context awareness and conversation flow
-     * @param {string} content - Original content
-     * @returns {number} Context awareness score (0-10)
-     * @private
-     */
-    analyzeContextAwareness(content) {
-        let score = 5.0;
-
-        // References to earlier conversation
-        const contextRef = /(as you mentioned|like we discussed|from what you said|as you described|earlier you)/gi;
-        if (contextRef.test(content)) score += 2.0;
-
-        // Building on user input
-        const building = /(based on that|following up|to add to|expanding on|regarding your)/gi;
-        if (building.test(content)) score += 1.5;
-
-        // Natural transitions
-        const transitions = /(by the way|also|additionally|speaking of|that reminds me)/gi;
-        if (transitions.test(content)) score += 1.0;
-
-        // Questions showing engagement
-        const engagement = /\?.*?(what|how|why|when|where|would|could|do you)/gi;
-        if (engagement.test(content)) score += 1.0;
-
-        // Appropriate length (not too short, not too verbose)
-        const wordCount = content.split(' ').length;
-        if (wordCount >= 10 && wordCount <= 100) score += 0.5;
-        else if (wordCount < 5) score -= 1.0;
-        else if (wordCount > 200) score -= 1.0;
-
-        return Math.max(0, Math.min(10, score));
     }
 
     /**
@@ -2055,43 +1949,374 @@ export class AICompanion {
     }
 
     /**
-     * Calculate human-likeness with conversation context
-     * @param {string} content - Message content
-     * @param {string} conversationContext - Full conversation context
-     * @returns {number} Human-likeness score (0-10)
+     * Calculate Human-Likeness Score (HLS) for AGENT RESPONSE using LLM-powered evaluation
+     * Leverages the AI companion's LLM model to perform sophisticated human-likeness analysis
+     * with structured breakdown and detailed explanations
+     * 
+     * @param {string} content - AGENT response content to evaluate for human-likeness
+     * @param {string} conversationContext - User messages and conversation history for context reference
+     * @returns {number} Human-likeness score (0-10) with LLM-generated analysis
      * @private
      */
-    calculateHumanLikenessWithContext(content, conversationContext) {
+    async calculateHumanLikenessWithContext(content, conversationContext) {
         if (!content) return 5.0;
 
-        let score = 5.0;
-        const lowerContent = content.toLowerCase();
+        console.log(`[AI Companion] Starting LLM-powered Human-Likeness Score (HLS) evaluation`);
 
-        // Base human-likeness analysis
-        const naturalness = this.analyzeLanguageNaturalness(lowerContent);
-        const empathy = this.analyzeEmpathy(lowerContent);
-        const contextAwareness = this.analyzeContextAwareness(content);
+        try {
+            // Prepare the evaluation prompt for the LLM
+            const evaluationPrompt = this.buildHLSEvaluationPrompt(content, conversationContext);
+            
+            // Get LLM evaluation
+            const llmEvaluation = await this.getLLMEvaluation(evaluationPrompt);
+            
+            // Parse and validate the LLM response
+            const evaluation = this.parseHLSEvaluation(llmEvaluation);
+            
+            // Store evaluation for modal display
+            this.lastHLSEvaluation = evaluation;
+            
+            // Log detailed breakdown
+            this.logHLSBreakdown(evaluation);
+            
+            return Math.max(0, Math.min(10, evaluation.finalScore));
+            
+        } catch (error) {
+            console.error('[AI Companion] Error in LLM-powered HLS evaluation:', error);
+            // Fallback to basic scoring if LLM evaluation fails
+            return this.calculateBasicHumanLikeness(content);
+        }
+    }
 
-        // Context-aware enhancements
-        const conversationLength = (conversationContext.match(/\n(User|Agent):/g) || []).length;
+    /**
+     * Build comprehensive evaluation prompt for LLM HLS analysis
+     * @param {string} content - Agent response to evaluate
+     * @param {string} conversationContext - Full conversation context
+     * @returns {string} Structured evaluation prompt
+     * @private
+     */
+    buildHLSEvaluationPrompt(content, conversationContext) {
+        return `You are a conversation quality analyst specializing in Human-Likeness Score (HLS) evaluation. 
+
+TASK: Evaluate how human-like this AI agent response appears, using the conversation context for reference.
+
+CONVERSATION CONTEXT:
+${conversationContext}
+
+AGENT RESPONSE TO EVALUATE:
+"${content}"
+
+EVALUATION FRAMEWORK:
+Analyze the agent response across these 5 dimensions and provide scores (0-100):
+
+1. RELEVANCE & COHERENCE (30% weight)
+- Does it directly address the user's question/request?
+- Is the response logically structured and easy to follow?
+- Does it stay on topic without tangential digressions?
+
+2. DEPTH OF UNDERSTANDING & NUANCE (25% weight)
+- Goes beyond simple factual information?
+- Shows contextual understanding of implications?
+- Demonstrates nuanced thinking and avoids oversimplification?
+- References conversation history appropriately?
+
+3. ADAPTABILITY & ITERATION (20% weight)
+- Adapts to the conversation flow and user's communication style?
+- Builds on previous exchanges showing conversational memory?
+- Shows learning or refinement from the interaction?
+
+4. EXPRESSIVENESS & NATURAL LANGUAGE (15% weight)
+- Uses natural, fluid language patterns?
+- Appropriate tone for the context?
+- Avoids robotic or overly formal phrasing?
+- Shows personality and warmth?
+
+5. ENGAGEMENT & RESPONSIVENESS (10% weight)
+- Demonstrates active engagement with the user?
+- Responsive to user's emotional tone and communication style?
+- Shows genuine helpfulness and support?
+
+REQUIRED OUTPUT FORMAT (JSON):
+{
+  "relevanceCoherence": {
+    "score": [0-100],
+    "explanation": "Detailed analysis of how well the response addresses the user's needs and maintains logical flow",
+    "strengths": ["specific strength 1", "specific strength 2"],
+    "improvements": ["specific improvement 1", "specific improvement 2"]
+  },
+  "depthUnderstanding": {
+    "score": [0-100],
+    "explanation": "Analysis of contextual understanding and nuanced thinking",
+    "strengths": ["strength 1", "strength 2"],
+    "improvements": ["improvement 1", "improvement 2"]
+  },
+  "adaptability": {
+    "score": [0-100],
+    "explanation": "Evaluation of conversation flow adaptation and learning",
+    "strengths": ["strength 1", "strength 2"],
+    "improvements": ["improvement 1", "improvement 2"]
+  },
+  "expressiveness": {
+    "score": [0-100],
+    "explanation": "Assessment of natural language use and tone",
+    "strengths": ["strength 1", "strength 2"],
+    "improvements": ["improvement 1", "improvement 2"]
+  },
+  "engagement": {
+    "score": [0-100],
+    "explanation": "Analysis of user engagement and responsiveness",
+    "strengths": ["strength 1", "strength 2"],
+    "improvements": ["improvement 1", "improvement 2"]
+  },
+  "overallAssessment": {
+    "finalScore": [0-100],
+    "summary": "Overall human-likeness assessment with key insights",
+    "standoutQualities": ["notable human-like quality 1", "quality 2"],
+    "mainWeaknesses": ["main weakness 1", "weakness 2"],
+    "recommendations": ["specific recommendation 1", "recommendation 2"]
+  }
+}
+
+Provide your analysis in the exact JSON format above. Be thorough but concise in explanations.`;
+    }
+
+    /**
+     * Get LLM evaluation using the current provider
+     * @param {string} prompt - Evaluation prompt
+     * @returns {string} LLM response with evaluation
+     * @private
+     */
+    async getLLMEvaluation(prompt) {
+        console.log('[AI Companion] Sending HLS evaluation request to LLM');
         
-        // Adjust for conversation progression
-        if (conversationLength > 5) {
-            // Longer conversations should show more familiarity
-            if (lowerContent.includes('as we discussed') || lowerContent.includes('from our conversation')) {
-                score += 1.0;
+        try {
+            if (this.currentProvider === 'ollama') {
+                return await this.getOllamaEvaluation(prompt);
+            } else {
+                return await this.getAPIEvaluation(prompt);
+            }
+        } catch (error) {
+            console.error('[AI Companion] LLM evaluation request failed:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get evaluation from Ollama
+     * @param {string} prompt - Evaluation prompt
+     * @returns {string} Ollama response
+     * @private
+     */
+    async getOllamaEvaluation(prompt) {
+        const ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
+        const selectedModel = localStorage.getItem('ollamaSelectedModel');
+
+        if (!selectedModel) {
+            throw new Error('No Ollama model selected for HLS evaluation');
+        }
+
+        const response = await fetch(`${ollamaUrl}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: selectedModel,
+                prompt: prompt,
+                stream: false,
+                options: {
+                    temperature: 0.3, // Lower temperature for more consistent analysis
+                    top_p: 0.9
+                }
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Ollama HLS evaluation failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.response;
+    }
+
+    /**
+     * Get evaluation from API providers (OpenAI, Anthropic, Azure)
+     * @param {string} prompt - Evaluation prompt
+     * @returns {string} API response
+     * @private
+     */
+    async getAPIEvaluation(prompt) {
+        const apiKey = await SecureStorage.retrieve(`${this.currentProvider}ApiKey`);
+        if (!apiKey) {
+            throw new Error(`No API key found for ${this.currentProvider}`);
+        }
+
+        let requestBody, url, headers;
+
+        if (this.currentProvider === 'azure') {
+            const endpoint = localStorage.getItem('azureEndpoint');
+            const deployment = localStorage.getItem('azureDeployment');
+            const apiVersion = localStorage.getItem('azureApiVersion') || '2024-02-01';
+            
+            url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+            headers = {
+                'Content-Type': 'application/json',
+                'api-key': apiKey
+            };
+            requestBody = {
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 2000,
+                temperature: 0.3
+            };
+        } else if (this.currentProvider === 'openai') {
+            url = 'https://api.openai.com/v1/chat/completions';
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            };
+            requestBody = {
+                model: 'gpt-3.5-turbo',
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 2000,
+                temperature: 0.3
+            };
+        } else if (this.currentProvider === 'anthropic') {
+            url = 'https://api.anthropic.com/v1/messages';
+            headers = {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01'
+            };
+            requestBody = {
+                model: 'claude-3-haiku-20240307',
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 2000
+            };
+        }
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            throw new Error(`${this.currentProvider} HLS evaluation failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (this.currentProvider === 'anthropic') {
+            return data.content[0].text;
+        } else {
+            return data.choices[0].message.content;
+        }
+    }
+
+    /**
+     * Parse and validate LLM evaluation response
+     * @param {string} llmResponse - Raw LLM response
+     * @returns {Object} Parsed evaluation object
+     * @private
+     */
+    parseHLSEvaluation(llmResponse) {
+        try {
+            // Extract JSON from response (LLM might include extra text)
+            const jsonMatch = llmResponse.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+                throw new Error('No JSON found in LLM response');
+            }
+
+            const evaluation = JSON.parse(jsonMatch[0]);
+            
+            // Validate required structure
+            const requiredDimensions = ['relevanceCoherence', 'depthUnderstanding', 'adaptability', 'expressiveness', 'engagement'];
+            for (const dimension of requiredDimensions) {
+                if (!evaluation[dimension] || typeof evaluation[dimension].score !== 'number') {
+                    throw new Error(`Missing or invalid ${dimension} in evaluation`);
+                }
+            }
+
+            // Calculate weighted final score
+            const weightedScore = (evaluation.relevanceCoherence.score * 0.30) +
+                                (evaluation.depthUnderstanding.score * 0.25) +
+                                (evaluation.adaptability.score * 0.20) +
+                                (evaluation.expressiveness.score * 0.15) +
+                                (evaluation.engagement.score * 0.10);
+
+            // Convert from 0-100 to 0-10 scale
+            evaluation.finalScore = weightedScore / 10;
+            
+            // Store individual scores for display
+            evaluation.breakdown = {
+                relevance: evaluation.relevanceCoherence.score,
+                depth: evaluation.depthUnderstanding.score,
+                adaptability: evaluation.adaptability.score,
+                expressiveness: evaluation.expressiveness.score,
+                engagement: evaluation.engagement.score
+            };
+
+            return evaluation;
+
+        } catch (error) {
+            console.error('[AI Companion] Failed to parse LLM evaluation:', error);
+            throw new Error(`Invalid LLM evaluation format: ${error.message}`);
+        }
+    }
+
+    /**
+     * Log detailed HLS breakdown from LLM evaluation
+     * @param {Object} evaluation - Parsed evaluation object
+     * @private
+     */
+    logHLSBreakdown(evaluation) {
+        console.log(`[AI Companion] LLM-Powered HLS Analysis Complete:`);
+        console.log(`  🎯 Relevance & Coherence (30%): ${evaluation.breakdown.relevance.toFixed(1)}/100`);
+        console.log(`     ${evaluation.relevanceCoherence.explanation}`);
+        console.log(`  🧠 Depth & Understanding (25%): ${evaluation.breakdown.depth.toFixed(1)}/100`);
+        console.log(`     ${evaluation.depthUnderstanding.explanation}`);
+        console.log(`  🔄 Adaptability & Iteration (20%): ${evaluation.breakdown.adaptability.toFixed(1)}/100`);
+        console.log(`     ${evaluation.adaptability.explanation}`);
+        console.log(`  💬 Expressiveness & Natural Language (15%): ${evaluation.breakdown.expressiveness.toFixed(1)}/100`);
+        console.log(`     ${evaluation.expressiveness.explanation}`);
+        console.log(`  🤝 Engagement & Responsiveness (10%): ${evaluation.breakdown.engagement.toFixed(1)}/100`);
+        console.log(`     ${evaluation.engagement.explanation}`);
+        console.log(`  📊 Final HLS Score: ${evaluation.finalScore.toFixed(1)}/10`);
+        
+        if (evaluation.overallAssessment) {
+            console.log(`  📝 Overall Assessment: ${evaluation.overallAssessment.summary}`);
+            if (evaluation.overallAssessment.standoutQualities?.length > 0) {
+                console.log(`  ✨ Standout Qualities: ${evaluation.overallAssessment.standoutQualities.join(', ')}`);
+            }
+            if (evaluation.overallAssessment.recommendations?.length > 0) {
+                console.log(`  💡 Recommendations: ${evaluation.overallAssessment.recommendations.join(', ')}`);
             }
         }
-        
-        // Check for appropriate conversation flow
-        if (conversationLength > 2) {
-            const showsFlow = this.checkConversationFlow(content, conversationContext);
-            if (showsFlow) score += 0.5;
-        }
 
-        // Weighted combination with context awareness
-        score = (naturalness * 0.25) + (empathy * 0.35) + (contextAwareness * 0.25) + (score * 0.15);
+        // Store detailed evaluation for modal display
+        this.lastHLSEvaluation = evaluation;
+    }
+
+    /**
+     * Fallback basic human-likeness calculation when LLM evaluation fails
+     * @param {string} content - Agent response content
+     * @returns {number} Basic human-likeness score (0-10)
+     * @private
+     */
+    calculateBasicHumanLikeness(content) {
+        console.log('[AI Companion] Using fallback basic human-likeness calculation');
         
+        let score = 6.0; // Default baseline
+        const lowerContent = content.toLowerCase();
+        const wordCount = content.split(' ').length;
+
+        // Basic natural language indicators
+        if (/\b(i\s|you\s|we\s)/g.test(lowerContent)) score += 0.5;
+        if (/[.!?]+/.test(content)) score += 0.3;
+        if (wordCount > 10 && wordCount < 150) score += 0.5;
+        
+        // Penalties for obvious AI patterns
+        if (lowerContent.includes('as an ai') || lowerContent.includes('i am programmed')) score -= 2.0;
+        if (lowerContent.includes('i cannot') && lowerContent.includes('feel')) score -= 1.0;
+
         return Math.max(0, Math.min(10, score));
     }
 
@@ -2113,6 +2338,77 @@ export class AICompanion {
         ];
         
         return transitions.some(transition => lowerContent.includes(transition));
+    }
+
+    /**
+     * Detect the tone/style of user message for human-likeness evaluation
+     * @param {string} userMessage - User's message content
+     * @returns {string} Detected tone (formal, casual, technical, emotional, etc.)
+     * @private
+     */
+    detectUserTone(userMessage) {
+        const lowerMessage = userMessage.toLowerCase();
+        
+        // Emotional/urgent
+        if (lowerMessage.includes('!') || lowerMessage.includes('urgent') || lowerMessage.includes('asap')) {
+            return 'urgent';
+        }
+        
+        // Technical/formal
+        if (lowerMessage.includes('implement') || lowerMessage.includes('configure') || 
+            lowerMessage.includes('documentation') || lowerMessage.includes('api')) {
+            return 'technical';
+        }
+        
+        // Casual/friendly
+        if (lowerMessage.includes('hey') || lowerMessage.includes('thanks') || 
+            lowerMessage.includes('please') || lowerMessage.includes('could you')) {
+            return 'casual';
+        }
+        
+        // Question-seeking
+        if (lowerMessage.includes('?') || lowerMessage.includes('how') || 
+            lowerMessage.includes('what') || lowerMessage.includes('why')) {
+            return 'inquisitive';
+        }
+        
+        return 'neutral';
+    }
+
+    /**
+     * Evaluate if agent response appropriately matches user's communication tone
+     * @param {string} agentResponse - Agent's response content
+     * @param {string} userTone - Detected user tone
+     * @returns {boolean} True if response tone is appropriate
+     * @private
+     */
+    evaluateResponseAppropriatenessToUserTone(agentResponse, userTone) {
+        const lowerResponse = agentResponse.toLowerCase();
+        
+        switch (userTone) {
+            case 'urgent':
+                // Should be direct and acknowledge urgency
+                return lowerResponse.includes('right away') || lowerResponse.includes('immediately') || 
+                       lowerResponse.includes('urgent') || lowerResponse.length < 200; // Concise for urgency
+                       
+            case 'technical':
+                // Should use technical language and be detailed
+                return lowerResponse.includes('implement') || lowerResponse.includes('configure') || 
+                       lowerResponse.includes('code') || lowerResponse.includes('system');
+                       
+            case 'casual':
+                // Should be friendly and approachable
+                return lowerResponse.includes('sure') || lowerResponse.includes('of course') || 
+                       lowerResponse.includes('happy to') || lowerResponse.includes('glad to');
+                       
+            case 'inquisitive':
+                // Should be informative and educational
+                return lowerResponse.includes('here\'s how') || lowerResponse.includes('here\'s what') || 
+                       lowerResponse.includes('let me explain') || lowerResponse.includes('to answer');
+                       
+            default:
+                return true; // Neutral tone is generally appropriate
+        }
     }
 
     /**
@@ -2628,99 +2924,143 @@ export class AICompanion {
         if (type === 'accuracy') {
             html = `
                 <div class="calculation-item">
-                    <span class="calculation-label">Base Score:</span>
-                    <span class="calculation-value">7.0/10</span>
+                    <span class="calculation-label">🎯 Evaluation Method:</span>
+                    <span class="calculation-value">LLM-powered intelligent analysis</span>
                 </div>
                 <div class="calculation-item">
-                    <span class="calculation-label">Certainty Indicators:</span>
-                    <span class="calculation-value positive">+1.5 (definitive language)</span>
+                    <span class="calculation-label">📊 Analysis Criteria:</span>
+                    <span class="calculation-value">Factual correctness, source reliability, information precision</span>
                 </div>
                 <div class="calculation-item">
-                    <span class="calculation-label">Uncertainty Phrases:</span>
-                    <span class="calculation-value negative">-1.5 ("maybe", "I think")</span>
+                    <span class="calculation-label">🤖 AI Provider:</span>
+                    <span class="calculation-value">${this.currentProvider} (${this.isEnabled ? 'Active' : 'Inactive'})</span>
                 </div>
                 <div class="calculation-item">
-                    <span class="calculation-label">Error References:</span>
-                    <span class="calculation-value negative">-2.0 (mentions errors)</span>
+                    <span class="calculation-label">📝 Context Window:</span>
+                    <span class="calculation-value">Full conversation history for comprehensive assessment</span>
                 </div>
                 <div class="calculation-item">
-                    <span class="calculation-label"><strong>Final Score:</strong></span>
+                    <span class="calculation-label"><strong>🏆 Final Score:</strong></span>
                     <span class="calculation-value"><strong>${this.kpiData.accuracy.toFixed(1)}/10</strong></span>
                 </div>
             `;
         } else if (type === 'helpfulness') {
             html = `
                 <div class="calculation-item">
-                    <span class="calculation-label">Base Score:</span>
-                    <span class="calculation-value">6.5/10</span>
+                    <span class="calculation-label">🎯 Evaluation Method:</span>
+                    <span class="calculation-value">LLM-powered intelligent analysis</span>
                 </div>
                 <div class="calculation-item">
-                    <span class="calculation-label">Actionable Content:</span>
-                    <span class="calculation-value positive">+2.0 ("here's how", "you can")</span>
+                    <span class="calculation-label">📊 Analysis Criteria:</span>
+                    <span class="calculation-value">Actionable insights, practical guidance, problem-solving value</span>
                 </div>
                 <div class="calculation-item">
-                    <span class="calculation-label">Step-by-step Guidance:</span>
-                    <span class="calculation-value positive">+1.5 (numbered steps)</span>
+                    <span class="calculation-label">🤖 AI Provider:</span>
+                    <span class="calculation-value">${this.currentProvider} (${this.isEnabled ? 'Active' : 'Inactive'})</span>
                 </div>
                 <div class="calculation-item">
-                    <span class="calculation-label">Non-helpful Responses:</span>
-                    <span class="calculation-value negative">-1.5 ("can't help", "don't know")</span>
+                    <span class="calculation-label">📝 Context Window:</span>
+                    <span class="calculation-value">User needs analysis with conversation context</span>
                 </div>
                 <div class="calculation-item">
-                    <span class="calculation-label"><strong>Final Score:</strong></span>
+                    <span class="calculation-label"><strong>🏆 Final Score:</strong></span>
                     <span class="calculation-value"><strong>${this.kpiData.helpfulness.toFixed(1)}/10</strong></span>
                 </div>
             `;
         } else if (type === 'completeness') {
             html = `
                 <div class="calculation-item">
-                    <span class="calculation-label">Word Count Factor:</span>
-                    <span class="calculation-value">${(this.lastWordCount || 0)} words × 0.2</span>
+                    <span class="calculation-label">🎯 Evaluation Method:</span>
+                    <span class="calculation-value">LLM-powered intelligent analysis</span>
                 </div>
                 <div class="calculation-item">
-                    <span class="calculation-label">Examples Provided:</span>
-                    <span class="calculation-value positive">+1.0 (includes examples)</span>
+                    <span class="calculation-label">📊 Analysis Criteria:</span>
+                    <span class="calculation-value">Comprehensive coverage, depth of information, thoroughness</span>
                 </div>
                 <div class="calculation-item">
-                    <span class="calculation-label">Brief Responses:</span>
-                    <span class="calculation-value negative">-1.5 (brief/quick mentions)</span>
+                    <span class="calculation-label">🤖 AI Provider:</span>
+                    <span class="calculation-value">${this.currentProvider} (${this.isEnabled ? 'Active' : 'Inactive'})</span>
                 </div>
                 <div class="calculation-item">
-                    <span class="calculation-label">Range:</span>
-                    <span class="calculation-value">3.0 - 10.0 points</span>
+                    <span class="calculation-label">📝 Context Window:</span>
+                    <span class="calculation-value">Topic scope assessment with conversation history</span>
                 </div>
                 <div class="calculation-item">
-                    <span class="calculation-label"><strong>Final Score:</strong></span>
+                    <span class="calculation-label"><strong>🏆 Final Score:</strong></span>
                     <span class="calculation-value"><strong>${this.kpiData.completeness.toFixed(1)}/10</strong></span>
                 </div>
             `;
         } else if (type === 'humanlikeness') {
-            html = `
-                <div class="calculation-item">
-                    <span class="calculation-label">Language Naturalness (30%):</span>
-                    <span class="calculation-value">Contractions, casual phrases, personal language</span>
-                </div>
-                <div class="calculation-item">
-                    <span class="calculation-label">Empathy & Emotion (40%):</span>
-                    <span class="calculation-value">Emotional recognition, supportive language</span>
-                </div>
-                <div class="calculation-item">
-                    <span class="calculation-label">Context Awareness (30%):</span>
-                    <span class="calculation-value">References to earlier conversation, engagement</span>
-                </div>
-                <div class="calculation-item">
-                    <span class="calculation-label">Positive Indicators:</span>
-                    <span class="calculation-value positive">Natural contractions, empathy, context references</span>
-                </div>
-                <div class="calculation-item">
-                    <span class="calculation-label">Negative Indicators:</span>
-                    <span class="calculation-value negative">Robot phrases ("As an AI"), overly formal tone</span>
-                </div>
-                <div class="calculation-item">
-                    <span class="calculation-label"><strong>Final Score:</strong></span>
-                    <span class="calculation-value"><strong>${this.kpiData.humanlikeness.toFixed(1)}/10</strong></span>
-                </div>
-            `;
+            // Show detailed LLM evaluation breakdown if available
+            const hasLLMEvaluation = this.lastHLSEvaluation && typeof this.lastHLSEvaluation === 'object';
+            
+            if (hasLLMEvaluation) {
+                html = `
+                    <div class="calculation-item">
+                        <span class="calculation-label">🎯 Evaluation Method:</span>
+                        <span class="calculation-value">Advanced LLM-powered 5-dimension analysis</span>
+                    </div>
+                    <div class="calculation-item">
+                        <span class="calculation-label">📊 Relevance & Coherence (30%):</span>
+                        <span class="calculation-value">${this.lastHLSEvaluation.breakdown?.relevance || 'N/A'}/100</span>
+                    </div>
+                    <div class="calculation-item">
+                        <span class="calculation-label">🧠 Depth & Understanding (25%):</span>
+                        <span class="calculation-value">${this.lastHLSEvaluation.breakdown?.depth || 'N/A'}/100</span>
+                    </div>
+                    <div class="calculation-item">
+                        <span class="calculation-label">🔄 Adaptability & Iteration (20%):</span>
+                        <span class="calculation-value">${this.lastHLSEvaluation.breakdown?.adaptability || 'N/A'}/100</span>
+                    </div>
+                    <div class="calculation-item">
+                        <span class="calculation-label">💬 Expressiveness & Natural Language (15%):</span>
+                        <span class="calculation-value">${this.lastHLSEvaluation.breakdown?.expressiveness || 'N/A'}/100</span>
+                    </div>
+                    <div class="calculation-item">
+                        <span class="calculation-label">🤝 Engagement & Responsiveness (10%):</span>
+                        <span class="calculation-value">${this.lastHLSEvaluation.breakdown?.engagement || 'N/A'}/100</span>
+                    </div>
+                    <div class="calculation-item">
+                        <span class="calculation-label">🤖 AI Provider:</span>
+                        <span class="calculation-value">${this.currentProvider} (${this.isEnabled ? 'Active' : 'Inactive'})</span>
+                    </div>
+                    <div class="calculation-item">
+                        <span class="calculation-label">📝 LLM Explanation:</span>
+                        <span class="calculation-value" style="font-size: 0.9em; line-height: 1.4;">${this.lastHLSEvaluation.overallAssessment?.summary?.substring(0, 200) || 'No detailed explanation available'}${this.lastHLSEvaluation.overallAssessment?.summary?.length > 200 ? '...' : ''}</span>
+                    </div>
+                    <div class="calculation-item">
+                        <span class="calculation-label"><strong>🏆 Weighted Final Score:</strong></span>
+                        <span class="calculation-value"><strong>${this.kpiData.humanlikeness.toFixed(1)}/10</strong></span>
+                    </div>
+                `;
+            } else {
+                html = `
+                    <div class="calculation-item">
+                        <span class="calculation-label">🎯 Evaluation Method:</span>
+                        <span class="calculation-value">LLM-powered 5-dimension human-likeness analysis</span>
+                    </div>
+                    <div class="calculation-item">
+                        <span class="calculation-label">📊 Analysis Dimensions:</span>
+                        <span class="calculation-value">Relevance, Depth, Adaptability, Expressiveness, Engagement</span>
+                    </div>
+                    <div class="calculation-item">
+                        <span class="calculation-label">⚖️ Weighted Scoring:</span>
+                        <span class="calculation-value">25% + 25% + 20% + 20% + 10% = 100%</span>
+                    </div>
+                    <div class="calculation-item">
+                        <span class="calculation-label">🤖 AI Provider:</span>
+                        <span class="calculation-value">${this.currentProvider} (${this.isEnabled ? 'Active' : 'Inactive'})</span>
+                    </div>
+                    <div class="calculation-item">
+                        <span class="calculation-label">📝 Context Window:</span>
+                        <span class="calculation-value">Full conversation for contextual human-like assessment</span>
+                    </div>
+                    <div class="calculation-item">
+                        <span class="calculation-label"><strong>🏆 Final Score:</strong></span>
+                        <span class="calculation-value"><strong>${this.kpiData.humanlikeness.toFixed(1)}/10</strong></span>
+                    </div>
+                `;
+            }
         } else if (type === 'efficiency') {
             const avgResponseTimeFormatted = this.timeTracking.avgResponseTime > 0 ?
                 `${(this.timeTracking.avgResponseTime / 1000).toFixed(1)}s` : 'N/A';
@@ -2861,62 +3201,35 @@ export class AICompanion {
         
         switch (kpiType) {
             case 'accuracy':
-                const accuracyIndicators = [];
-                if (lowerContent.includes('definitely') || lowerContent.includes('certainly')) {
-                    accuracyIndicators.push('High certainty language (+)');
-                }
-                if (lowerContent.includes('maybe') || lowerContent.includes('probably')) {
-                    accuracyIndicators.push('Uncertain language (-)');
-                }
-                if (lowerContent.includes('error') || lowerContent.includes('incorrect')) {
-                    accuracyIndicators.push('Error acknowledgment (-)');
-                }
-                return accuracyIndicators.length > 0 ? accuracyIndicators.join(', ') : 'Neutral accuracy indicators';
+                return '🎯 Evaluated by LLM for factual correctness and information precision';
 
             case 'helpfulness':
-                const helpfulnessIndicators = [];
-                if (lowerContent.includes('here\'s how') || lowerContent.includes('you can')) {
-                    helpfulnessIndicators.push('Actionable guidance (+)');
-                }
-                if (lowerContent.includes('step') || lowerContent.includes('first')) {
-                    helpfulnessIndicators.push('Structured approach (+)');
-                }
-                if (lowerContent.includes('sorry') || lowerContent.includes('can\'t help')) {
-                    helpfulnessIndicators.push('Limited assistance (-)');
-                }
-                return helpfulnessIndicators.length > 0 ? helpfulnessIndicators.join(', ') : 'Standard helpfulness level';
+                return '🤝 Analyzed for actionable guidance and practical problem-solving value';
 
             case 'completeness':
-                const wordCount = lowerContent.split(' ').length;
-                const completenessIndicators = [];
-                if (lowerContent.includes('example') || lowerContent.includes('for instance')) {
-                    completenessIndicators.push('Includes examples (+)');
-                }
-                if (wordCount > 50) {
-                    completenessIndicators.push('Detailed response (+)');
-                } else if (wordCount < 10) {
-                    completenessIndicators.push('Brief response (-)');
-                }
-                return completenessIndicators.length > 0 ? completenessIndicators.join(', ') : `${wordCount} words - standard length`;
+                return '📋 Assessed for comprehensive coverage and thoroughness by AI analysis';
 
             case 'humanlikeness':
-                const humanIndicators = [];
-                if (/(i'll|don't|can't|won't)/.test(lowerContent)) {
-                    humanIndicators.push('Natural contractions (+)');
+                if (this.lastHLSEvaluation && this.lastHLSEvaluation.overallAssessment) {
+                    const standoutQualities = this.lastHLSEvaluation.overallAssessment.standoutQualities || [];
+                    const mainWeaknesses = this.lastHLSEvaluation.overallAssessment.mainWeaknesses || [];
+                    
+                    let analysis = '🤖 LLM-evaluated human-likeness: ';
+                    if (standoutQualities.length > 0) {
+                        analysis += `Strengths: ${standoutQualities.slice(0, 2).join(', ')}`;
+                    }
+                    if (mainWeaknesses.length > 0) {
+                        analysis += standoutQualities.length > 0 ? ` | Improvements: ${mainWeaknesses[0]}` : `Areas for improvement: ${mainWeaknesses[0]}`;
+                    }
+                    return analysis || '🤖 Comprehensive 5-dimension human-likeness analysis';
                 }
-                if (/(i think|actually|basically)/.test(lowerContent)) {
-                    humanIndicators.push('Casual language (+)');
-                }
-                if (/(as an ai|i am programmed)/.test(lowerContent)) {
-                    humanIndicators.push('AI self-reference (-)');
-                }
-                return humanIndicators.length > 0 ? humanIndicators.join(', ') : 'Neutral human-like qualities';
+                return '🤖 LLM-powered human-likeness analysis across 5 dimensions';
 
             case 'efficiency':
-                return `Response time analysis - see efficiency metrics`;
+                return '⚡ Response timing and conversation flow analysis';
 
             default:
-                return 'Analysis data not available';
+                return '📊 LLM-powered intelligent analysis';
         }
     }
 }

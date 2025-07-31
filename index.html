@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MCSChat - Advanced Chatbot Interface</title>
+    <title>Copilot Studio Companion - Test your Copilot Agent</title>
     <meta name="description"
         content="Sophisticated chatbot interface with multi-agent support, AI companion features, and real-time streaming capabilities">
 
@@ -82,8 +82,40 @@
 <body>
     <!-- Main Application Container -->
     <div id="container">
+        <!-- Mobile Header with Hamburger Menu -->
+        <div id="mobileHeader">
+            <button id="mobileMenuToggle" class="mobile-menu-btn" aria-label="Toggle menu">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </button>
+            <h3 id="mobileTitle">MCSChat</h3>
+            <button id="mobileNewChatBtn" class="mobile-action-btn" title="New chat">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20,2H4A2,2 0 0,0 2,4V22L6,18H20A2,2 0 0,0 22,16V4C22,2.89 21.1,2 20,2M13,14H11V12H13M13,10H11V6H13M7,14H9V12H7M7,10H9V6H7M17,14H15V12H17M17,10H15V6H17" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Mobile Overlay for Sidebar -->
+        <div id="mobileOverlay" class="mobile-overlay"></div>
+
+        <!-- Mobile AI Companion Toggle -->
+        <button id="mobileAiToggle" class="mobile-ai-toggle" style="display: none;" aria-label="AI Companion">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12,2A2,2 0 0,1 14,4C14,4.74 13.6,5.39 13,5.73V7H14A7,7 0 0,1 21,14H22A1,1 0 0,1 23,15V18A1,1 0 0,1 22,19H21V20A2,2 0 0,1 19,22H5A2,2 0 0,1 3,20V19H2A1,1 0 0,1 1,18V15A1,1 0 0,1 2,14H3A7,7 0 0,1 10,7H11V5.73C10.4,5.39 10,4.74 10,4A2,2 0 0,1 12,2Z" />
+            </svg>
+        </button>
+
         <!-- Left Sidebar Panel -->
         <div id="leftPanel">
+            <!-- Close button for mobile -->
+            <button id="mobileSidebarClose" class="mobile-close-btn" aria-label="Close menu">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" />
+                </svg>
+            </button>
+            
             <!-- History Header -->
             <div id="historyHeader">
                 <h3>Conversations</h3>

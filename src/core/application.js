@@ -11,6 +11,8 @@ import { aiCompanion } from '../ai/aiCompanion.js';
 import { DOMUtils } from '../utils/domUtils.js';
 import { Utils } from '../utils/helpers.js';
 import { SecureStorage } from '../utils/secureStorage.js';
+import { EnhancedTypingIndicator } from '../ui/enhancedTypingIndicator.js';
+import { mobileUtils } from '../utils/mobileUtils.js';
 
 export class Application {
     constructor() {
@@ -22,6 +24,12 @@ export class Application {
             currentSession: null,
             currentAgent: null
         };
+        
+        // Initialize enhanced typing indicator
+        this.enhancedTypingIndicator = new EnhancedTypingIndicator();
+        
+        // Initialize mobile utilities
+        this.mobileUtils = mobileUtils;
     }
 
     /**
@@ -52,6 +60,12 @@ export class Application {
             // Initialize AI companion
             this.updateInitializationIndicator('Initializing AI companion...');
             aiCompanion.initialize();
+
+            // Initialize mobile utilities
+            this.updateInitializationIndicator('Setting up mobile interface...');
+            if (this.mobileUtils) {
+                this.mobileUtils.initializeMobileFeatures();
+            }
 
             // Load agents and try to connect (moved to after agentManager is initialized)
             this.updateInitializationIndicator('Connecting to agent...');
@@ -645,8 +659,10 @@ export class Application {
         });
 
         // DirectLine events
-        window.addEventListener('showTypingIndicator', () => {
-            this.showProgressIndicator();
+        window.addEventListener('showTypingIndicator', (event) => {
+            // Extract context from event detail for enhanced typing indicator
+            const context = event.detail || null;
+            this.showProgressIndicator(context);
         });
 
         window.addEventListener('hideTypingIndicator', () => {
@@ -754,8 +770,14 @@ export class Application {
                 await directLineManager.sendMessage(messageText);
             }
 
-            // Show progress indicator
-            this.showProgressIndicator();
+            // Show progress indicator with detected context
+            const messageContext = this.detectMessageContext(messageText);
+            this.showProgressIndicator({
+                source: 'user-message',
+                messageText: messageText,
+                hasFile: !!this.selectedFile,
+                detectedContext: messageContext
+            });
 
         } catch (error) {
             console.error('Error sending message:', error);
@@ -1253,6 +1275,11 @@ export class Application {
 
             messageRenderer.renderCompleteMessage(activity);
         });
+
+        // Close mobile sidebar when session is loaded
+        if (this.mobileUtils && this.mobileUtils.isMobileLayout() && this.mobileUtils.isSidebarOpen()) {
+            this.mobileUtils.forceCloseSidebar();
+        }
     }
 
     /**
@@ -1451,7 +1478,7 @@ export class Application {
     /**
      * Show progress indicator (enhanced with legacy's typing indicator implementation)
      */
-    showProgressIndicator() {
+    showProgressIndicator(context = null) {
         // Check if an indicator already exists to prevent duplicates
         const existingIndicator = this.elements.chatWindow?.querySelector('#progressIndicator');
         if (existingIndicator) {
@@ -1462,6 +1489,10 @@ export class Application {
         const chatWindow = this.elements.chatWindow;
         if (!chatWindow) return;
 
+        // Create the enhanced typing indicator with context
+        const indicatorElement = this.enhancedTypingIndicator.createIndicator(context);
+        
+        // Create the message container
         const messageContainer = DOMUtils.createElement('div', {
             className: 'messageContainer botMessage',
             id: 'progressIndicator'
@@ -1472,32 +1503,22 @@ export class Application {
         });
         messageIcon.style.backgroundImage = 'url("images/Microsoft-Copilot-Logo-30.png")';
 
-        const typingIndicator = DOMUtils.createElement('div', {
-            className: 'typingIndicator'
-        });
-
-        // Create the three dots for typing animation
-        for (let i = 0; i < 3; i++) {
-            const dot = DOMUtils.createElement('span');
-            typingIndicator.appendChild(dot);
-        }
-
         messageContainer.appendChild(messageIcon);
-        messageContainer.appendChild(typingIndicator);
+        messageContainer.appendChild(indicatorElement);
         chatWindow.appendChild(messageContainer);
         chatWindow.scrollTop = chatWindow.scrollHeight;
 
-        console.log('Typing indicator created');
+        console.log('Enhanced typing indicator created with context:', context);
 
-        // Safety timeout to remove indicator if it gets stuck (30 seconds)
+        // Safety timeout to remove indicator if it gets stuck (60 seconds for enhanced experience)
         setTimeout(() => {
-            // Use a more direct approach to avoid getElementById warnings
             const stuckIndicator = chatWindow.querySelector('#progressIndicator');
             if (stuckIndicator) {
-                console.log('Removing stuck progress indicator after 30 seconds');
+                console.log('Removing stuck progress indicator after 60 seconds');
+                this.enhancedTypingIndicator.hide();
                 stuckIndicator.remove();
             }
-        }, 30000);
+        }, 60000);
     }
 
     /**
@@ -1507,11 +1528,86 @@ export class Application {
         // Use querySelector to avoid warnings when element doesn't exist
         const progressIndicator = this.elements.chatWindow?.querySelector('#progressIndicator');
         if (progressIndicator) {
-            progressIndicator.remove();
-            console.log('Typing indicator removed');
+            // Stop the enhanced typing indicator immediately
+            this.enhancedTypingIndicator.hide();
+            
+            // Immediately hide the container to prevent any delay
+            progressIndicator.style.display = 'none';
+            
+            // Remove after a short delay to ensure smooth transition
+            setTimeout(() => {
+                if (progressIndicator.parentNode) {
+                    progressIndicator.remove();
+                }
+            }, 100);
+            
+            console.log('Enhanced typing indicator removed');
         } else {
             console.log('No typing indicator found to remove');
         }
+    }
+
+    /**
+     * Detect context from user message for enhanced typing indicator
+     * @param {string} messageText - The user's message
+     * @returns {string} Context type
+     */
+    detectMessageContext(messageText) {
+        if (!messageText) return 'general';
+        
+        const message = messageText.toLowerCase();
+        
+        // Code-related keywords
+        const codeKeywords = [
+            'function', 'class', 'method', 'variable', 'array', 'object',
+            'javascript', 'python', 'java', 'html', 'css', 'sql', 'api',
+            'code', 'script', 'programming', 'debug', 'error', 'syntax',
+            'algorithm', 'logic', 'loop', 'condition', 'import', 'export'
+        ];
+        
+        // Research-related keywords
+        const researchKeywords = [
+            'research', 'find information', 'search for', 'look up', 'investigate',
+            'analyze', 'compare', 'study', 'examine', 'explore', 'discover',
+            'what is', 'how does', 'why is', 'when did', 'where is',
+            'explain', 'definition', 'meaning', 'background', 'history'
+        ];
+        
+        // Creative-related keywords
+        const creativeKeywords = [
+            'write', 'create', 'generate', 'compose', 'draft', 'design',
+            'story', 'poem', 'article', 'blog', 'content', 'creative',
+            'imagine', 'brainstorm', 'ideas', 'innovative', 'original'
+        ];
+        
+        // Complex analysis keywords
+        const complexKeywords = [
+            'analyze deeply', 'comprehensive', 'detailed analysis', 'in-depth',
+            'complex', 'sophisticated', 'advanced', 'thorough', 'extensive',
+            'multi-step', 'elaborate', 'comprehensive review', 'full analysis'
+        ];
+        
+        // Check for complex queries first (most specific)
+        if (complexKeywords.some(keyword => message.includes(keyword))) {
+            return 'complex';
+        }
+        
+        // Check for code-related content
+        if (codeKeywords.some(keyword => message.includes(keyword))) {
+            return 'code';
+        }
+        
+        // Check for research content
+        if (researchKeywords.some(keyword => message.includes(keyword))) {
+            return 'research';
+        }
+        
+        // Check for creative content
+        if (creativeKeywords.some(keyword => message.includes(keyword))) {
+            return 'creative';
+        }
+        
+        return 'general';
     }
 
     /**
@@ -1622,7 +1718,13 @@ export class Application {
         }
 
         if (agentTitleEl && agentName) {
-            agentTitleEl.textContent = `${agentName} Conversation`;
+            const conversationTitle = `${agentName} Conversation`;
+            agentTitleEl.textContent = conversationTitle;
+            
+            // Update mobile title if in mobile layout
+            if (this.mobileUtils && this.mobileUtils.isMobileLayout()) {
+                this.mobileUtils.updateMobileTitle(agentName);
+            }
         }
 
         // Update status in setup modal if visible

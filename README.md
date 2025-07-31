@@ -31,6 +31,7 @@ Ready to get started? Follow our quick setup guide:
 
 ### ✨ Features & Capabilities
 - **[Core Features](docs/features/core-features.md)** - Multi-agent management, streaming, file uploads
+- **[Mobile Responsive](docs/features/mobile-responsive.md)** - Touch-optimized mobile interface and navigation
 - **[AI Companion](docs/features/ai-companion.md)** - Performance analytics and insights
 - **[User Interface](docs/features/user-interface.md)** - Customization and appearance options
 - **[Advanced Features](docs/features/advanced-features.md)** - Professional mode, citations, and more
@@ -64,6 +65,9 @@ Ready to get started? Follow our quick setup guide:
 - Adaptive card rendering for rich bot responses
 - File upload support with drag-and-drop functionality
 - Professional full-width mode for document-like interface
+- **Mobile-responsive design** with touch-optimized interface
+- **Collapsible sidebar** with swipe gestures for mobile navigation
+- **Mobile AI companion access** via floating action button
 
 ### 🔒 Security & Privacy
 - Client-side AES-256-GCM encryption for sensitive data
@@ -77,13 +81,16 @@ Ready to get started? Follow our quick setup guide:
 - **[Release Notes](docs/CHANGELOG.md)** - Latest updates and features
 - **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute to the project
 
-## 🆕 Latest Updates (v3.4.0)
+## 🆕 Latest Updates (v3.5.0)
 
+- ✨ **Mobile Responsive Design**: Touch-optimized interface for smartphones and tablets
+- ✨ **Mobile AI Companion**: Floating action button for easy AI companion access on mobile
+- ✨ **Swipe Gestures**: Intuitive navigation with swipe-to-open/close panels
+- ✨ **Adaptive Layout**: Intelligent panel management for different screen sizes
+- ✨ **Touch Optimization**: 44px minimum touch targets and iOS-friendly inputs
 - ✨ **Professional System Mode**: Document-like interface for professional use
 - ✨ **Compact Layout**: Maximized information density
 - ✨ **Enhanced Font Controls**: Real-time font size customization
-- ✨ **CSS Optimization**: Unified styling system with 30% performance improvement
-- ✨ **Auto Title Generation**: AI-powered conversation titles
 
 [→ Full Changelog](docs/CHANGELOG.md)
 

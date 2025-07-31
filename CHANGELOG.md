@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Mobile Responsive Design**: Complete mobile-friendly interface with touch optimization
+- **Mobile AI Companion**: Floating action button for easy AI companion access on mobile devices
+- **Swipe Gestures**: Intuitive navigation with swipe-to-open/close panel functionality
+- **Mobile Utilities Class**: Comprehensive mobile state management and event handling
+- **Touch-Optimized Controls**: 44px minimum touch targets and iOS-friendly input handling
+- **Adaptive Layout System**: Intelligent panel management across different screen sizes
+- **Mobile Documentation**: Comprehensive guides for mobile features and troubleshooting
 - Comprehensive documentation restructure with organized sections
 - AI Companion system with auto title generation and suggested actions
 - User icon selection system with 10 pre-built avatars
@@ -16,11 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved localStorage management with consistent key naming
 
 ### Changed
+- Updated mobile breakpoints for better responsive behavior (768px tablet, 480px mobile)
+- Enhanced CSS media queries with landscape mode optimizations  
+- Improved mobile panel animations with hardware acceleration
 - Restructured documentation from single README to modular doc system
 - Updated icon positioning CSS for better visual alignment
 - Improved user icon application logic with automatic persistence
 
 ### Fixed
+- AI companion panel completely hidden on mobile devices
+- Mobile layout conflicts and overlapping UI elements
+- Touch gesture detection and panel management issues
+- Responsive design inconsistencies across different devices
 - User icon selection not applying automatically to messages
 - Inconsistent localStorage key handling between components
 - Message icon alignment issues with message content

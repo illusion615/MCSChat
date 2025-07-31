@@ -984,6 +984,77 @@ class DOMUtils {
 }
 ```
 
+### Mobile Utilities (`src/utils/mobileUtils.js`)
+
+A specialized utility class that handles all mobile-specific functionality, including responsive layout management, touch gestures, and mobile panel controls.
+
+#### Class Definition
+
+```javascript
+export class MobileUtils {
+  constructor() {
+    this.isMobile = false;
+    this.sidebarOpen = false;
+    this.aiPanelOpen = false;
+    this.elements = {};
+    this.initialize();
+  }
+}
+```
+
+#### Key Features
+
+**Responsive State Management**
+- Automatically detects mobile/desktop state changes
+- Manages panel visibility and behavior based on screen size
+- Handles orientation changes gracefully
+
+**Touch Gesture Support**
+- Swipe-to-open sidebar from left edge
+- Swipe-left to close panels
+- Touch-optimized interactions
+
+**Panel Management**
+- Collapsible sidebar with smooth animations
+- Mobile AI companion toggle
+- Mutual exclusion between panels
+- Proper z-index and overlay management
+
+#### API Reference
+
+```javascript
+// Initialize mobile utilities
+const mobileUtils = new MobileUtils();
+
+// Check mobile state
+mobileUtils.isMobileLayout(); // Returns boolean
+
+// Panel management
+mobileUtils.openSidebar();
+mobileUtils.closeSidebar();
+mobileUtils.toggleAiPanel();
+
+// State checking
+mobileUtils.isSidebarOpen(); // Returns boolean
+mobileUtils.isAiPanelOpen(); // Returns boolean
+```
+
+#### Event Handling
+
+The class sets up comprehensive event handling for:
+- Window resize and orientation change
+- Touch events for gesture recognition
+- Keyboard events (Escape key)
+- Element click events for mobile controls
+
+#### CSS Integration
+
+Works closely with CSS media queries and classes:
+- `.mobile-open` for panel visibility
+- `.mobile-header` for mobile navigation
+- `.mobile-ai-toggle` for floating action button
+- Responsive breakpoints at 768px and 480px
+
 ---
 
 Each component is designed to be modular, testable, and maintainable, with clear interfaces and well-defined responsibilities. The event-driven architecture ensures loose coupling between components while maintaining effective communication.

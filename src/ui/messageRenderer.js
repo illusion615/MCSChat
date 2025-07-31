@@ -125,6 +125,11 @@ export class MessageRenderer {
             attachments: activity.attachments
         });
 
+        // Immediately hide typing indicator when message rendering starts
+        window.dispatchEvent(new CustomEvent('hideTypingIndicator', {
+            detail: { reason: 'complete-message-rendering-started' }
+        }));
+
         const messageContainer = this.createMessageContainer(activity);
         const messageDiv = this.createMessageDiv(activity);
         const isUser = activity.from && activity.from.id === 'user';
@@ -287,6 +292,11 @@ export class MessageRenderer {
      */
     handleStreamingMessage(activity) {
         console.log('Handling streaming message:', activity.text?.length || 0, 'chars');
+
+        // Immediately hide typing indicator when message rendering starts
+        window.dispatchEvent(new CustomEvent('hideTypingIndicator', {
+            detail: { reason: 'message-rendering-started' }
+        }));
 
         if (!this.streamingState.messageContainer) {
             // Set start time for duration calculation

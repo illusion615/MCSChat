@@ -2728,6 +2728,224 @@ input[type="range"]::-moz-range-thumb:hover {
     background: linear-gradient(135deg, #69c0ff 0%, #40a9ff 100%);
 }
 
+/* Enhanced Typing Indicator */
+.enhanced-typing-indicator {
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.enhanced-typing-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.typing-main-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.enhanced-dots {
+    padding: 12px 16px;
+    margin: 0;
+}
+
+.typing-status-area {
+    font-size: 13px;
+    font-style: italic;
+    padding: 4px 8px;
+    border-radius: 12px;
+    opacity: 0;
+    transition: all 0.15s ease; /* Much faster transitions */
+    max-width: 100%;
+    word-wrap: break-word;
+    transform: translateY(2px); /* Add subtle movement */
+}
+
+.typing-status-area.visible {
+    opacity: 1;
+    transform: translateY(0); /* Slide into place */
+}
+
+/* Phase-specific status styling with enhanced responsiveness */
+.typing-status-area.phase-immediate {
+    background: rgba(40, 167, 69, 0.1);
+    color: #28a745;
+    border: 1px solid rgba(40, 167, 69, 0.2);
+    animation: pulse-immediate 0.8s ease-in-out infinite alternate;
+}
+
+.typing-status-area.phase-processing {
+    background: rgba(0, 123, 255, 0.1);
+    color: #0056b3;
+    border: 1px solid rgba(0, 123, 255, 0.2);
+    animation: pulse-processing 1.2s ease-in-out infinite alternate;
+}
+
+.typing-status-area.phase-thinking {
+    background: rgba(111, 66, 193, 0.1);
+    color: #6f42c1;
+    border: 1px solid rgba(111, 66, 193, 0.2);
+    animation: pulse-thinking 1.5s ease-in-out infinite alternate;
+}
+
+.typing-status-area.phase-complex {
+    background: rgba(255, 126, 20, 0.1);
+    color: #e55a00;
+    border: 1px solid rgba(255, 126, 20, 0.2);
+    animation: pulse-complex 1.8s ease-in-out infinite alternate;
+}
+
+.typing-status-area.phase-extended {
+    background: rgba(220, 53, 69, 0.1);
+    color: #c82333;
+    border: 1px solid rgba(220, 53, 69, 0.2);
+    animation: pulse-extended 2s ease-in-out infinite alternate;
+}
+
+/* Responsive pulse animations */
+@keyframes pulse-immediate {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.02); opacity: 0.9; }
+}
+
+@keyframes pulse-processing {
+    0% { transform: scale(1) translateY(0); opacity: 1; }
+    100% { transform: scale(1.01) translateY(-1px); opacity: 0.95; }
+}
+
+@keyframes pulse-thinking {
+    0% { transform: scale(1); box-shadow: 0 0 0 rgba(111, 66, 193, 0.3); }
+    100% { transform: scale(1.015); box-shadow: 0 0 8px rgba(111, 66, 193, 0.2); }
+}
+
+@keyframes pulse-complex {
+    0% { transform: scale(1); filter: brightness(1); }
+    100% { transform: scale(1.02); filter: brightness(1.1); }
+}
+
+@keyframes pulse-extended {
+    0% { transform: scale(1); border-color: rgba(220, 53, 69, 0.2); }
+    100% { transform: scale(1.025); border-color: rgba(220, 53, 69, 0.4); }
+}
+
+/* Progress Bar Styling */
+.typing-progress-container {
+    width: 100%;
+    margin-top: 4px;
+}
+
+.typing-progress-bar {
+    width: 100%;
+    height: 3px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+}
+
+.typing-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #007bff 0%, #6f42c1 50%, #007bff 100%);
+    background-size: 200% 100%;
+    width: 0%;
+    transition: width 0.5s ease;
+    border-radius: 2px;
+    animation: progressGradient 3s ease-in-out infinite;
+}
+
+/* Progress bar animations */
+@keyframes progressGradient {
+    0%, 100% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+/* Enhanced shimmer effect */
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* Enhanced typing bounce animation */
+@keyframes typingBounce {
+    0%, 80%, 100% {
+        transform: scale(0.8) translateY(0);
+        opacity: 0.7;
+    }
+    40% {
+        transform: scale(1.2) translateY(-8px);
+        opacity: 1;
+    }
+}
+
+/* Accessibility and mobile optimizations */
+@media (max-width: 768px) {
+    .enhanced-typing-content {
+        gap: 6px;
+    }
+    
+    .typing-status-area {
+        font-size: 12px;
+        padding: 3px 6px;
+    }
+    
+    .typing-progress-bar {
+        height: 2px;
+    }
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .typingIndicator span {
+        animation: none;
+    }
+    
+    .typing-progress-fill {
+        animation: none;
+    }
+    
+    .typingIndicator::before {
+        animation: none;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .typing-status-area.phase-processing {
+        background: #e6f3ff;
+        color: #003d82;
+        border: 2px solid #0056b3;
+    }
+    
+    .typing-status-area.phase-thinking {
+        background: #f0e6ff;
+        color: #4a2c6b;
+        border: 2px solid #6f42c1;
+    }
+    
+    .typing-status-area.phase-complex {
+        background: #fff2e6;
+        color: #b84000;
+        border: 2px solid #fd7e14;
+    }
+    
+    .typing-status-area.phase-extended {
+        background: #ffe6e6;
+        color: #a02030;
+        border: 2px solid #dc3545;
+    }
+}
+
 /* Initialization Status Indicator */
 .initialization-status {
     background: linear-gradient(135deg, #e8f4fd 0%, #d1ecf1 100%) !important;
@@ -2837,7 +3055,7 @@ input[type="range"]::-moz-range-thumb:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
+    padding: 16px 16px;
     cursor: pointer;
     border-radius: 12px;
     margin-bottom: 4px;
@@ -3618,29 +3836,477 @@ input[type="range"]::-moz-range-thumb:hover {
 }
 
 /* Responsive adjustments */
-@media (max-width: 768px) {
+
+/* Mobile Header - Hidden on desktop */
+#mobileHeader {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    z-index: 1001;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+#mobileTitle {
+    font-size: 18px;
+    font-weight: 600;
+    color: #323130;
+    margin: 0;
+    text-align: center;
+    flex: 1;
+}
+
+.mobile-menu-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+
+.mobile-menu-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.hamburger-line {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background-color: #323130;
+    margin: 2px 0;
+    transition: 0.3s;
+    border-radius: 1px;
+}
+
+.mobile-menu-btn.active .hamburger-line:nth-child(1) {
+    transform: rotate(-45deg) translate(-4px, 4px);
+}
+
+.mobile-menu-btn.active .hamburger-line:nth-child(2) {
+    opacity: 0;
+}
+
+.mobile-menu-btn.active .hamburger-line:nth-child(3) {
+    transform: rotate(45deg) translate(-4px, -4px);
+}
+
+.mobile-action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+    color: #605e5c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+
+.mobile-action-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    color: #323130;
+}
+
+/* Mobile Overlay */
+.mobile-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.mobile-overlay.active {
+    opacity: 1;
+}
+
+/* Mobile Close Button for Sidebar */
+.mobile-close-btn {
+    display: none;
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+    color: #605e5c;
+    z-index: 1002;
+}
+
+.mobile-close-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    color: #323130;
+}
+
+/* Tablet and Small Desktop */
+@media (max-width: 1024px) {
     #container {
         margin: 4px;
         border-radius: 12px;
     }
 
     #leftPanel {
-        width: 240px;
-        padding: 16px;
-    }
-
-    #chatPanel {
-        padding: 16px;
+        width: 260px;
+        padding: 20px;
     }
 
     .messageContent {
+        max-width: 90%;
+    }
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+    /* Show mobile header */
+    #mobileHeader {
+        display: flex;
+    }
+
+    /* Adjust main container for mobile header */
+    #container {
+        margin: 0;
+        border-radius: 0;
+        margin-top: 60px;
+        height: calc(100vh - 60px);
+    }
+
+    /* Transform left panel to mobile sidebar */
+    #leftPanel {
+        position: fixed;
+        top: 0;
+        left: -100%;
+        width: 280px;
+        height: 100vh;
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(15px);
+        border-right: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 0;
+        padding: 70px 24px 24px 24px;
+        transition: left 0.3s ease;
+        box-shadow: 2px 0 15px rgba(0, 0, 0, 0.1);
+    }
+
+    #leftPanel.mobile-open {
+        left: 0;
+    }
+
+    /* Show mobile close button in sidebar */
+    .mobile-close-btn {
+        display: block;
+    }
+
+    /* Main chat area takes full width */
+    #mainChatArea {
+        flex: 1;
+        width: 100%;
+        padding: 0;
+    }
+
+    /* Adjust chat panels for mobile */
+    .chat-panel {
+        border-radius: 0;
+        margin: 0;
+        height: 100%;
+    }
+
+    #agentChatPanel {
+        padding: 16px;
+    }
+
+    /* Mobile message adjustments */
+    .messageContent {
         max-width: 85%;
         padding: 12px 16px;
+        font-size: 15px;
+        line-height: 1.5;
+    }
+
+    /* Mobile input adjustments */
+    #userInput {
+        font-size: 16px; /* Prevent zoom on iOS */
+        padding: 12px 16px;
+    }
+
+    #inputContainer {
+        padding: 12px 16px;
+        border-radius: 0;
+    }
+
+    /* Welcome message mobile adjustments */
+    .welcome-message {
+        padding: 24px 16px;
+        text-align: center;
+    }
+
+    .welcome-message h4 {
+        font-size: 20px;
+        margin: 16px 0 12px 0;
+    }
+
+    .welcome-message p {
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    /* Session list mobile adjustments */
+    .sessionItem {
+        padding: 12px 16px;
+        margin-bottom: 8px;
+        border-radius: 8px;
+    }
+
+    .sessionItem:hover {
+        transform: none; /* Disable hover transform on mobile */
+    }
+
+    /* AI companion panel mobile - make visible but keep basic styling */
+    #llmAnalysisPanel {
+        position: fixed;
+        top: 60px;
+        right: -100%;
+        width: 90%;
+        max-width: 400px;
+        height: calc(100vh - 60px);
+        z-index: 998;
+        transition: right 0.3s ease;
+    }
+
+    #llmAnalysisPanel.mobile-open {
+        right: 0;
+    }
+
+    /* Simple mobile AI toggle button */
+    .mobile-ai-toggle {
+        position: fixed;
+        bottom: 80px;
+        right: 16px;
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 50%;
+        color: white;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        cursor: pointer;
+    }
+
+    /* KPI panel mobile adjustments */
+    .kpi-panel {
+        padding: 12px;
+        margin: 8px;
+        border-radius: 8px;
+    }
+
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .kpi-item {
+        padding: 12px;
+    }
+
+    .kpi-value {
+        font-size: 18px;
+    }
+
+    .kpi-label {
+        font-size: 11px;
+    }
+}
+
+/* Small Mobile Devices */
+@media (max-width: 480px) {
+    /* Smaller sidebar on very small screens */
+    #leftPanel {
+        width: 260px;
+        padding: 70px 16px 16px 16px;
+    }
+
+    /* Tighter spacing */
+    #agentChatPanel {
+        padding: 12px;
+    }
+
+    .messageContent {
+        max-width: 90%;
+        padding: 10px 14px;
+        font-size: 14px;
     }
 
     #userInput {
         font-size: 16px;
-        /* Prevent zoom on iOS */
+        padding: 10px 14px;
+    }
+
+    #inputContainer {
+        padding: 10px 12px;
+    }
+
+    .welcome-message {
+        padding: 20px 12px;
+    }
+
+    .welcome-message h4 {
+        font-size: 18px;
+    }
+
+    .welcome-message p {
+        font-size: 13px;
+    }
+
+    /* Single column KPI grid */
+    .kpi-grid {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+
+    .kpi-item {
+        padding: 10px;
+    }
+
+    /* History header mobile adjustments */
+    #historyHeader {
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    #historyHeader h3 {
+        font-size: 16px;
+        width: 100%;
+        margin-bottom: 8px;
+    }
+
+    .icon-button {
+        padding: 4px;
+    }
+}
+
+/* Landscape mobile orientation */
+@media (max-width: 768px) and (orientation: landscape) {
+    #container {
+        margin-top: 50px;
+        height: calc(100vh - 50px);
+    }
+
+    #mobileHeader {
+        height: 50px;
+        padding: 0 12px;
+    }
+
+    #leftPanel {
+        padding: 60px 20px 20px 20px;
+    }
+
+    .welcome-message {
+        padding: 16px;
+    }
+}
+
+/* Touch-friendly adjustments */
+@media (hover: none) and (pointer: coarse) {
+    .sessionItem {
+        min-height: 44px; /* Minimum touch target size */
+    }
+
+    .icon-button {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 10px;
+    }
+
+    .mobile-menu-btn,
+    .mobile-action-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    /* Larger touch targets for buttons */
+    #sendButton,
+    #attachButton {
+        min-width: 44px;
+        min-height: 44px;
+    }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2),
+       (min-resolution: 192dpi) {
+    .hamburger-line {
+        height: 1.5px;
+    }
+}
+
+/* Accessibility: Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    #leftPanel,
+    .mobile-overlay,
+    .hamburger-line {
+        transition: none;
+    }
+}
+
+/* Dark mode support for mobile elements */
+@media (prefers-color-scheme: dark) {
+    #mobileHeader {
+        background: rgba(30, 30, 30, 0.95);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    #mobileTitle {
+        color: #ffffff;
+    }
+
+    .hamburger-line {
+        background-color: #ffffff;
+    }
+
+    .mobile-action-btn,
+    .mobile-close-btn {
+        color: #ffffff;
+    }
+
+    .mobile-action-btn:hover,
+    .mobile-close-btn:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    #leftPanel {
+        background: rgba(30, 30, 30, 0.98);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .mobile-overlay {
+        background: rgba(0, 0, 0, 0.7);
     }
 }
 

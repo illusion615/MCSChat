@@ -4,6 +4,14 @@ Comprehensive overview of MCS Chat's features and capabilities.
 
 ## Core Features
 
+### 📱 Mobile Responsive Design
+- **Touch-optimized interface** for smartphones and tablets
+- **Collapsible sidebar** with hamburger menu navigation
+- **Swipe gestures** for intuitive panel management
+- **Mobile AI companion** accessible via floating action button
+- **Adaptive layouts** that work across all screen sizes
+- **Touch-friendly controls** with minimum 44px tap targets
+
 ### 🤖 Multi-Agent AI Chat System
 
 #### Agent Management
