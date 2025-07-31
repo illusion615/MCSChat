@@ -651,18 +651,25 @@ export class MessageRenderer {
 
                 // Enhance inline references
                 const enhancedContent = this.enhanceInlineReferences(sanitizedContent);
-                messageDiv.innerHTML = enhancedContent;
+                
+                // Ensure agent messages are properly wrapped in paragraphs
+                const finalContent = this.ensureParagraphStructure(enhancedContent, messageDiv);
+                messageDiv.innerHTML = finalContent;
             } catch (error) {
                 console.warn('Error processing markdown:', error);
                 console.warn('Marked version check:', typeof marked.parse);
-                messageDiv.textContent = text;
+                // For fallback, still ensure paragraph structure
+                const paragraphText = this.ensureParagraphStructure(text, messageDiv, true);
+                messageDiv.innerHTML = paragraphText;
             }
         } else {
             console.warn('Markdown libraries not available:', {
                 marked: typeof marked,
                 DOMPurify: typeof DOMPurify
             });
-            messageDiv.textContent = text;
+            // Even without markdown, ensure paragraph structure for agent messages
+            const paragraphText = this.ensureParagraphStructure(text, messageDiv, true);
+            messageDiv.innerHTML = paragraphText;
         }
 
         // Make images clickable for enlargement - exactly like legacy
@@ -681,6 +688,61 @@ export class MessageRenderer {
                 this.showEnlargedImage(img.src, img.alt || 'Image');
             });
         });
+    }
+
+    /**
+     * Ensure content has proper paragraph structure for agent messages
+     * @param {string} content - HTML or text content
+     * @param {HTMLElement} messageDiv - Message div element to check message type
+     * @param {boolean} isPlainText - Whether content is plain text (no HTML)
+     * @returns {string} Content with proper paragraph structure
+     * @private
+     */
+    ensureParagraphStructure(content, messageDiv, isPlainText = false) {
+        // Check if this is an agent message (not user message)
+        const messageContainer = messageDiv.closest('.messageContainer');
+        const isUserMessage = messageContainer && messageContainer.classList.contains('userMessage');
+        
+        // Only apply paragraph structure to agent messages
+        if (isUserMessage) {
+            return content;
+        }
+
+        // If it's plain text, wrap in paragraph
+        if (isPlainText) {
+            // Handle line breaks in plain text
+            const lines = content.split('\n').filter(line => line.trim());
+            if (lines.length === 1) {
+                return `<p>${content.trim()}</p>`;
+            } else {
+                return lines.map(line => `<p>${line.trim()}</p>`).join('');
+            }
+        }
+
+        // For HTML content, check if it already has proper paragraph structure
+        const trimmedContent = content.trim();
+        
+        // If content already starts with a block element, leave it as is
+        if (trimmedContent.match(/^<(p|div|h[1-6]|ul|ol|blockquote|pre|table)/i)) {
+            return content;
+        }
+
+        // If content has no block elements, wrap the entire content in a paragraph
+        if (!trimmedContent.match(/<(p|div|h[1-6]|ul|ol|blockquote|pre|table|br)[^>]*>/i)) {
+            return `<p>${trimmedContent}</p>`;
+        }
+
+        // If content has some structure but doesn't start with a block element,
+        // check if the first non-tag content should be wrapped
+        const firstTextMatch = trimmedContent.match(/^([^<]+)(<|$)/);
+        if (firstTextMatch && firstTextMatch[1].trim()) {
+            // Wrap the initial text in a paragraph
+            const initialText = firstTextMatch[1].trim();
+            const restOfContent = trimmedContent.substring(firstTextMatch[1].length);
+            return `<p>${initialText}</p>${restOfContent}`;
+        }
+
+        return content;
     }
 
     /**
@@ -714,13 +776,20 @@ export class MessageRenderer {
 
                 // Enhance inline references during streaming like in complete messages
                 const enhancedContent = this.enhanceInlineReferences(sanitizedContent);
-                messageDiv.innerHTML = enhancedContent;
+                
+                // Ensure agent messages have proper paragraph structure during streaming
+                const finalContent = this.ensureParagraphStructure(enhancedContent, messageDiv);
+                messageDiv.innerHTML = finalContent;
             } catch (error) {
                 console.warn('Error processing streaming markdown:', error);
-                messageDiv.innerHTML = content;
+                // For fallback, still ensure paragraph structure
+                const paragraphContent = this.ensureParagraphStructure(content, messageDiv, true);
+                messageDiv.innerHTML = paragraphContent;
             }
         } else {
-            messageDiv.innerHTML = content;
+            // Even without markdown, ensure paragraph structure for agent messages
+            const paragraphContent = this.ensureParagraphStructure(content, messageDiv, true);
+            messageDiv.innerHTML = paragraphContent;
         }
 
         // Make images clickable for enlargement

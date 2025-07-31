@@ -1316,12 +1316,12 @@ body {
 }
 
 #sendButton {
-    padding: 14px 24px;
+    padding: 11px 24px;
     border: none;
     border-radius: 24px;
     background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
     color: #ffffff;
-    font-size: 15px;
+    font-size: 10px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1388,7 +1388,7 @@ body {
     height: 28px;
     /* Reduced from 32px */
     margin: 4px;
-    /* Reduced from 8px */
+    /* Base margin for all sides */
     margin-top: 12px;
     /* Adjusted to align with first line of text content */
     border-radius: 50%;
@@ -1398,6 +1398,15 @@ body {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     flex-shrink: 0;
     /* Prevent icon from shrinking */
+}
+
+/* Add extra spacing between icon and message content */
+.botMessage .messageIcon {
+    margin-right: 12px; /* Extra space for bot messages (icon on left) */
+}
+
+.userMessage .messageIcon {
+    margin-left: 12px; /* Extra space for user messages (icon on right) */
 }
 
 .messageContent {
@@ -3925,6 +3934,12 @@ input[type="range"]::-moz-range-thumb:hover {
     color: #323130;
 }
 
+.mobile-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 /* Mobile Overlay */
 .mobile-overlay {
     display: none;
@@ -3981,19 +3996,20 @@ input[type="range"]::-moz-range-thumb:hover {
     }
 }
 
-/* Mobile Styles */
-@media (max-width: 768px) {
+/* Mobile Styles - Updated for better mobile support */
+@media screen and (max-width: 768px) {
     /* Show mobile header */
     #mobileHeader {
-        display: flex;
+        display: flex !important;
     }
 
     /* Adjust main container for mobile header */
     #container {
         margin: 0;
         border-radius: 0;
-        margin-top: 60px;
-        height: calc(100vh - 60px);
+        margin-top: 0px;
+        height: 100vh;
+        padding-top: 0; /* Remove any default padding */
     }
 
     /* Transform left panel to mobile sidebar */
@@ -4027,6 +4043,7 @@ input[type="range"]::-moz-range-thumb:hover {
         flex: 1;
         width: 100%;
         padding: 0;
+        margin: 0;
     }
 
     /* Adjust chat panels for mobile */
@@ -4034,10 +4051,37 @@ input[type="range"]::-moz-range-thumb:hover {
         border-radius: 0;
         margin: 0;
         height: 100%;
+        padding-top: 0; /* Remove top padding that creates space */
+    }
+
+    /* Fix panel header positioning to avoid overlap with mobile header */
+    .panel-header {
+        position: relative;
+        z-index: 1;
+        padding: 16px 20px;
+        margin-top: 0;
     }
 
     #agentChatPanel {
-        padding: 16px;
+        padding: 0 !important; /* Remove panel padding that creates blue space */
+    }
+
+    /* Ensure chat window starts right after panel header */
+    #chatWindow {
+        margin-top: 0 !important;
+        padding-top: 8px !important;
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    /* Remove any container padding that creates blue space */
+    #container {
+        margin: 0;
+        border-radius: 0;
+        margin-top: 0px;
+        height: 100vh;
+        padding-top: 0 !important;
+        background: white !important; /* Ensure no blue background */
     }
 
     /* Mobile message adjustments */
@@ -4046,6 +4090,26 @@ input[type="range"]::-moz-range-thumb:hover {
         padding: 12px 16px;
         font-size: 15px;
         line-height: 1.5;
+    }
+
+    /* Hide message icons on mobile to save space */
+    .messageIcon {
+        display: none;
+    }
+
+    /* Adjust message container layout without icons */
+    .messageContainer.userMessage,
+    .messageContainer.botMessage {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .messageContainer.userMessage .messageContent {
+        max-width: 90%; /* Increase max-width since icon is hidden */
+    }
+
+    .messageContainer.botMessage .messageContent {
+        max-width: 90%; /* Increase max-width since icon is hidden */
     }
 
     /* Mobile input adjustments */
@@ -4057,6 +4121,18 @@ input[type="range"]::-moz-range-thumb:hover {
     #inputContainer {
         padding: 12px 16px;
         border-radius: 0;
+        margin: 0; /* Remove any margin that creates space */
+        position: sticky;
+        bottom: 0;
+        background: white;
+    }
+
+    /* Remove any extra spacing from chat window */
+    #chatWindow {
+        margin-top: 0;
+        padding-top: 8px;
+        flex: 1;
+        overflow-y: auto;
     }
 
     /* Welcome message mobile adjustments */
@@ -4102,21 +4178,7 @@ input[type="range"]::-moz-range-thumb:hover {
         right: 0;
     }
 
-    /* Simple mobile AI toggle button */
-    .mobile-ai-toggle {
-        position: fixed;
-        bottom: 80px;
-        right: 16px;
-        width: 48px;
-        height: 48px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border: none;
-        border-radius: 50%;
-        color: white;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        z-index: 1000;
-        cursor: pointer;
-    }
+    /* Mobile AI toggle button now in header - remove floating styles */
 
     /* KPI panel mobile adjustments */
     .kpi-panel {
@@ -4248,6 +4310,10 @@ input[type="range"]::-moz-range-thumb:hover {
     .mobile-action-btn {
         min-width: 44px;
         min-height: 44px;
+    }
+
+    .mobile-actions {
+        gap: 4px; /* Reduce gap on smaller screens */
     }
 
     /* Larger touch targets for buttons */
