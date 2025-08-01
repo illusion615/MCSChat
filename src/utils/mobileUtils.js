@@ -3,6 +3,8 @@
  * Handles mobile-specific functionality including sidebar toggle and responsive behavior
  */
 
+import { DOMUtils } from './domUtils.js';
+
 export class MobileUtils {
     constructor() {
         this.isMobile = false;
@@ -47,14 +49,14 @@ export class MobileUtils {
     setupEventListeners() {
         // Mobile menu toggle
         if (this.elements.mobileMenuToggle) {
-            this.elements.mobileMenuToggle.addEventListener('click', () => {
+            DOMUtils.addEventListener(this.elements.mobileMenuToggle, 'click', () => {
                 this.toggleMobileSidebar();
             });
         }
 
         // Mobile new chat button
         if (this.elements.mobileNewChatBtn) {
-            this.elements.mobileNewChatBtn.addEventListener('click', () => {
+            DOMUtils.addEventListener(this.elements.mobileNewChatBtn, 'click', () => {
                 this.handleMobileNewChat();
             });
         }
@@ -320,8 +322,7 @@ export class MobileUtils {
     setupViewport() {
         let viewport = document.querySelector('meta[name="viewport"]');
         if (!viewport) {
-            viewport = document.createElement('meta');
-            viewport.name = 'viewport';
+            viewport = DOMUtils.createElement('meta', { name: 'viewport' });
             document.head.appendChild(viewport);
         }
         viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';

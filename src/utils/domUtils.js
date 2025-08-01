@@ -157,5 +157,15 @@ export const DOMUtils = {
             return element.classList.toggle(className);
         }
         return false;
+    },
+
+    /**
+     * Scroll element to bottom
+     * @param {HTMLElement} element - Element to scroll
+     */
+    scrollToBottom(element) {
+        if (element) {
+            element.scrollTop = element.scrollHeight;
+        }
     }
 };

@@ -6,6 +6,7 @@
 import { DOMUtils } from '../utils/domUtils.js';
 import { Utils } from '../utils/helpers.js';
 import { SecureStorage } from '../utils/secureStorage.js';
+import { statusIndicator } from '../utils/statusIndicator.js';
 
 export class AICompanion {
     constructor() {
@@ -17,6 +18,9 @@ export class AICompanion {
         
         // Store the actual context used for KPI analysis
         this.lastKPIAnalysisContext = '';
+        
+        // Flag to prevent multiple quick action requests
+        this.isQuickActionInProgress = false;
         
         this.kpiData = {
             accuracy: 0,
@@ -498,7 +502,20 @@ export class AICompanion {
      */
     async handleQuickAction(event) {
         const action = event.target.dataset.action;
+        const button = event.target;
         console.log('Quick action clicked:', action);
+
+        // Check if any request is already in progress
+        if (this.isQuickActionInProgress) {
+            console.log('Quick action already in progress, ignoring click');
+            return;
+        }
+
+        // Set flag to prevent multiple requests
+        this.isQuickActionInProgress = true;
+
+        // Disable ALL quick action buttons to prevent multiple requests
+        this.disableAllQuickActionButtons();
 
         // Debug conversation context when analysis is requested
         if (action === 'analyze') {
@@ -519,15 +536,54 @@ export class AICompanion {
         }
 
         if (prompt) {
-            this.showTypingIndicator();
             try {
+                this.showTypingIndicator();
                 await this.sendQuickActionRequest(prompt);
+                
+                // Re-enable all buttons after successful completion
+                this.enableAllQuickActionButtons();
+                this.isQuickActionInProgress = false;
             } catch (error) {
                 console.error('Error sending quick action request:', error);
                 this.hideTypingIndicator();
+                
+                // Re-enable all buttons after error
+                this.enableAllQuickActionButtons();
+                this.isQuickActionInProgress = false;
+                
                 this.renderMessage('error', `Error: ${error.message}`);
             }
+        } else {
+            // Re-enable all buttons if no prompt was generated
+            this.enableAllQuickActionButtons();
+            this.isQuickActionInProgress = false;
         }
+    }
+
+    /**
+     * Disable all quick action buttons
+     * @private
+     */
+    disableAllQuickActionButtons() {
+        this.elements.quickActionButtons.forEach(btn => {
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
+        });
+        console.log('[AI Companion] All quick action buttons disabled');
+    }
+
+    /**
+     * Enable all quick action buttons
+     * @private
+     */
+    enableAllQuickActionButtons() {
+        this.elements.quickActionButtons.forEach(btn => {
+            btn.disabled = false;
+            btn.style.opacity = '';
+            btn.style.cursor = '';
+        });
+        console.log('[AI Companion] All quick action buttons enabled');
     }
 
     /**
@@ -1094,6 +1150,13 @@ export class AICompanion {
 
         // Check for citations in the content and add them
         this.addCitationsIfPresent(messageDiv, content);
+        
+        // Re-enable quick action buttons when message is complete
+        if (this.isQuickActionInProgress) {
+            this.enableAllQuickActionButtons();
+            this.isQuickActionInProgress = false;
+            console.log('[AI Companion] Quick action completed, buttons re-enabled');
+        }
     }
 
     /**
@@ -1290,20 +1353,11 @@ export class AICompanion {
      */
     showTypingIndicator() {
         if (this.elements.llmChatWindow) {
-            const existingIndicator = this.elements.llmChatWindow.querySelector('.llm-typing-indicator');
-            if (existingIndicator) return;
-
-            const indicator = DOMUtils.createElement('div', {
-                className: 'llm-typing-indicator'
-            }, `
-                <div class="typing-dots">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
-            `);
-
-            this.elements.llmChatWindow.appendChild(indicator);
+            // Use unified status indicator system
+            this.currentTypingIndicatorId = statusIndicator.showTypingIndicator(
+                this.elements.llmChatWindow, 
+                'companion'
+            );
             this.scrollToBottom();
         }
     }
@@ -1312,11 +1366,24 @@ export class AICompanion {
      * Hide typing indicator
      */
     hideTypingIndicator() {
+        if (this.currentTypingIndicatorId) {
+            statusIndicator.hide(this.currentTypingIndicatorId);
+            this.currentTypingIndicatorId = null;
+        }
+        
+        // Fallback: remove any legacy indicators
         if (this.elements.llmChatWindow) {
             const indicator = this.elements.llmChatWindow.querySelector('.llm-typing-indicator');
             if (indicator) {
                 indicator.remove();
             }
+        }
+        
+        // Re-enable quick action buttons when typing ends (for error cases)
+        if (this.isQuickActionInProgress) {
+            this.enableAllQuickActionButtons();
+            this.isQuickActionInProgress = false;
+            console.log('[AI Companion] Typing ended, quick action buttons re-enabled');
         }
     }
 
@@ -2752,9 +2819,7 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
      * @private
      */
     scrollToBottom() {
-        if (this.elements.llmChatWindow) {
-            this.elements.llmChatWindow.scrollTop = this.elements.llmChatWindow.scrollHeight;
-        }
+        DOMUtils.scrollToBottom(this.elements.llmChatWindow);
     }
 
     /**
@@ -2814,7 +2879,7 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
         // Add click handlers to KPI items
         const kpiItems = document.querySelectorAll('.kpi-item');
         kpiItems.forEach((item, index) => {
-            item.addEventListener('click', () => {
+            DOMUtils.addEventListener(item, 'click', () => {
                 const kpiTypes = ['accuracy', 'helpfulness', 'completeness', 'humanlikeness', 'changes'];
                 this.showKPIModal(kpiTypes[index]);
             });
@@ -2822,13 +2887,13 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
 
         // Modal close handlers
         if (this.elements.kpiModalClose) {
-            this.elements.kpiModalClose.addEventListener('click', () => {
+            DOMUtils.addEventListener(this.elements.kpiModalClose, 'click', () => {
                 this.hideKPIModal();
             });
         }
 
         if (this.elements.kpiModal) {
-            this.elements.kpiModal.addEventListener('click', (e) => {
+            DOMUtils.addEventListener(this.elements.kpiModal, 'click', (e) => {
                 if (e.target === this.elements.kpiModal) {
                     this.hideKPIModal();
                 }

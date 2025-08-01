@@ -244,7 +244,7 @@ body {
 }
 
 .agent-name:hover {
-    background: rgba(255, 255, 255, 1);
+    /*background: rgba(255, 255, 255, 1);*/
     color: #323130;
 }
 
@@ -2764,7 +2764,8 @@ input[type="range"]::-moz-range-thumb:hover {
 .typing-status-area {
     font-size: 13px;
     font-style: italic;
-    padding: 4px 8px;
+    /*padding: 4px 8px;*/
+    border: none;
     border-radius: 12px;
     opacity: 0;
     transition: all 0.15s ease; /* Much faster transitions */
@@ -3680,125 +3681,6 @@ input[type="range"]::-moz-range-thumb:hover {
     border-radius: 2px;
     transition: width 0.3s ease;
     width: 0%;
-}
-
-/* Streaming progress styles */
-.streaming-progress {
-    margin: 12px 0;
-    padding: 12px 16px;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 12px;
-    border-left: 4px solid #0078d4;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    animation: streamingAppear 0.3s ease-out;
-}
-
-.streaming-progress-bar {
-    width: 100%;
-    height: 6px;
-    background: rgba(0, 120, 212, 0.1);
-    border-radius: 3px;
-    overflow: hidden;
-    margin-bottom: 8px;
-}
-
-.streaming-progress-fill {
-    height: 100%;
-    background: linear-gradient(135deg, #0078d4 0%, #106ebe 50%, #005a9e 100%);
-    border-radius: 3px;
-    transition: width 0.2s ease-out;
-    position: relative;
-    overflow: hidden;
-}
-
-.streaming-progress-fill::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-    animation: streamingShimmer 1.5s ease-in-out infinite;
-}
-
-.streaming-progress-text {
-    font-size: 13px;
-    color: #605e5c;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.streaming-progress-text::before {
-    content: '';
-    width: 16px;
-    height: 16px;
-    border: 2px solid #0078d4;
-    border-top: 2px solid transparent;
-    border-radius: 50%;
-    animation: streamingSpin 1s linear infinite;
-    flex-shrink: 0;
-}
-
-@keyframes streamingAppear {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes streamingShimmer {
-    0% {
-        left: -100%;
-    }
-
-    100% {
-        left: 100%;
-    }
-}
-
-@keyframes streamingSpin {
-    from {
-        transform: rotate(0deg);
-    }
-
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* Enhanced streaming progress for realtime vs simulated */
-.streaming-progress.realtime {
-    border-left-color: #107c10;
-}
-
-.streaming-progress.realtime .streaming-progress-fill {
-    background: linear-gradient(135deg, #107c10 0%, #0e6e0e 50%, #0c5d0c 100%);
-}
-
-.streaming-progress.realtime .streaming-progress-text::before {
-    border-color: #107c10;
-    border-top-color: transparent;
-}
-
-.streaming-progress.simulated {
-    border-left-color: #8764b8;
-}
-
-.streaming-progress.simulated .streaming-progress-fill {
-    background: linear-gradient(135deg, #8764b8 0%, #7558a3 50%, #634c8e 100%);
-}
-
-.streaming-progress.simulated .streaming-progress-text::before {
-    border-color: #8764b8;
-    border-top-color: transparent;
 }
 
 /* Drag and drop styles */
@@ -5249,6 +5131,21 @@ button,
     transform: translateY(-1px);
 }
 
+.quick-action-btn:disabled {
+    background: rgba(96, 94, 92, 0.1) !important;
+    color: rgba(96, 94, 92, 0.6) !important;
+    border-color: rgba(96, 94, 92, 0.3) !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    opacity: 0.6 !important;
+}
+
+.quick-action-btn:disabled:hover {
+    background: rgba(96, 94, 92, 0.1) !important;
+    color: rgba(96, 94, 92, 0.6) !important;
+    transform: none !important;
+}
+
 .context-indicator {
     display: flex;
     align-items: center;
@@ -5682,6 +5579,190 @@ button,
     to {
         opacity: 1;
         transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+/* ===============================================
+   UNIFIED STATUS INDICATOR SYSTEM
+   =============================================== */
+
+/* Base status indicator styles */
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    /*padding: var(--spacing-md) var(--spacing-lg);*/
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    line-height: 1.4;
+    transition: all 0.2s ease;
+    animation: statusFadeIn 0.3s ease;
+}
+
+/* Status indicator animations */
+@keyframes statusFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes statusFadeOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+}
+
+/* Status spinner */
+.status-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: statusSpin 1s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes statusSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Style variants */
+.status-indicator.default {
+    background: var(--gradient-light);
+    border: 1px solid #dee2e6;
+    color: #495057;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.status-indicator.minimal {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0;
+    color: var(--color-neutral);
+    font-size: 0; /* Hide any text */
+    font-weight: 400;
+    min-height: auto;
+    gap: 0; /* Remove gap since we only show spinner */
+    cursor: default !important; /* Remove help cursor */
+}
+
+.status-indicator.minimal:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.status-indicator.prominent {
+    background: var(--gradient-info);
+    color: white;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+    padding: var(--spacing-lg) var(--spacing-xl);
+    font-weight: 600;
+}
+
+.status-indicator.success {
+    background: var(--gradient-success);
+    color: #1f2937;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-indicator.warning {
+    background: var(--gradient-warning);
+    color: #1f2937;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.status-indicator.error {
+    background: var(--gradient-error);
+    color: white;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Quick action specific styling */
+.quick-action-status {
+    margin-top: var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.quick-action-status .status-spinner {
+    width: 12px;
+    height: 12px;
+    border-width: 1.5px;
+}
+
+/* Typing indicator specific styling */
+.typing-indicator {
+    margin: var(--spacing-md) 0;
+    border-radius: var(--radius-md);
+}
+
+.typing-indicator.agent-typing {
+    background: var(--gradient-neutral);
+    border: 1px solid #e2e8f0;
+}
+
+.typing-indicator.companion-typing {
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    color: #667eea;
+}
+
+/* Animation for typing dots (alternative to spinner) */
+.typing-dots {
+    display: flex;
+    gap: 3px;
+}
+
+.typing-dots .dot {
+    width: 4px;
+    height: 4px;
+    background: currentColor;
+    border-radius: 50%;
+    animation: typingDots 1.4s ease-in-out infinite both;
+}
+
+.typing-dots .dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dots .dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typingDots {
+    0%, 80%, 100% {
+        opacity: 0.3;
+        transform: scale(0.8);
+    }
+    40% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .status-indicator.prominent {
+        padding: var(--spacing-md) var(--spacing-lg);
+        font-size: var(--font-size-xs);
+    }
+    
+    .quick-action-status {
+        font-size: 10px;
+        padding: 2px var(--spacing-xs);
     }
 }
 

@@ -13,6 +13,7 @@ import { Utils } from '../utils/helpers.js';
 import { SecureStorage } from '../utils/secureStorage.js';
 import { EnhancedTypingIndicator } from '../ui/enhancedTypingIndicator.js';
 import { mobileUtils } from '../utils/mobileUtils.js';
+import { statusIndicator } from '../utils/statusIndicator.js';
 
 export class Application {
     constructor() {
@@ -733,6 +734,9 @@ export class Application {
             return;
         }
 
+        // Temporarily disable send button to prevent multiple sends
+        this.elements.sendButton.disabled = true;
+
         try {
             // Start timing for efficiency tracking (AI Companion)
             if (window.aiCompanion && window.aiCompanion.isEnabled) {
@@ -779,8 +783,15 @@ export class Application {
                 detectedContext: messageContext
             });
 
+            // Re-enable send button after message is processed
+            this.elements.sendButton.disabled = false;
+
         } catch (error) {
             console.error('Error sending message:', error);
+            
+            // Re-enable send button on error
+            this.elements.sendButton.disabled = false;
+            
             this.showErrorMessage('Failed to send message. Please try again.');
             this.hideProgressIndicator();
         }
@@ -908,11 +919,6 @@ export class Application {
     handleStreamingActivity(activity) {
         this.hideProgressIndicator();
 
-        // Process streaming metadata for improved UX
-        if (activity.streamingMetadata) {
-            this.updateStreamingMetrics(activity.streamingMetadata);
-        }
-
         // For streaming messages, we'll add to session when streaming ends
         // Just handle the rendering here
         messageRenderer.handleStreamingMessage(activity);
@@ -943,30 +949,6 @@ export class Application {
     }
 
     /**
-     * Update streaming metrics for performance monitoring
-     * @param {Object} metadata - Streaming metadata
-     * @private
-     */
-    updateStreamingMetrics(metadata) {
-        if (!this.streamingSession) {
-            this.streamingSession = {
-                startTime: metadata.timestamp || Date.now(),
-                chunksReceived: 0,
-                isRealtime: metadata.isRealtime || false,
-                isSimulated: metadata.isSimulated || false
-            };
-        }
-
-        this.streamingSession.chunksReceived++;
-
-        // Update streaming progress indicator if available
-        if (metadata.chunkNumber && metadata.totalChunks) {
-            const progress = (metadata.chunkNumber / metadata.totalChunks) * 100;
-            this.updateStreamingProgress(progress, metadata);
-        }
-    }
-
-    /**
      * Finalize streaming metrics and log performance
      * @param {Object} metadata - Final streaming metadata
      * @private
@@ -993,65 +975,6 @@ export class Application {
             }));
 
             this.streamingSession = null;
-        }
-    }
-
-    /**
-     * Update streaming progress indicator
-     * @param {number} progress - Progress percentage (0-100)
-     * @param {Object} metadata - Streaming metadata
-     * @private
-     */
-    updateStreamingProgress(progress, metadata) {
-        // Find existing progress indicator or create one
-        let progressIndicator = this.elements.chatWindow.querySelector('.streaming-progress');
-
-        if (!progressIndicator && progress < 100) {
-            progressIndicator = document.createElement('div');
-            progressIndicator.className = 'streaming-progress';
-
-            // Add specific class based on streaming type
-            if (metadata.isRealtime) {
-                progressIndicator.classList.add('realtime');
-            } else if (metadata.isSimulated) {
-                progressIndicator.classList.add('simulated');
-            }
-
-            progressIndicator.innerHTML = `
-                <div class="streaming-progress-bar">
-                    <div class="streaming-progress-fill" style="width: 0%"></div>
-                </div>
-                <div class="streaming-progress-text">Receiving response...</div>
-            `;
-            this.elements.chatWindow.appendChild(progressIndicator);
-        }
-
-        if (progressIndicator) {
-            const progressFill = progressIndicator.querySelector('.streaming-progress-fill');
-            const progressText = progressIndicator.querySelector('.streaming-progress-text');
-
-            if (progressFill) {
-                progressFill.style.width = `${Math.min(progress, 100)}%`;
-            }
-
-            if (progressText) {
-                if (metadata.isRealtime) {
-                    progressText.textContent = `Receiving live response... (${Math.round(progress)}%)`;
-                } else if (metadata.isSimulated) {
-                    progressText.textContent = `Processing response... (${Math.round(progress)}%)`;
-                } else {
-                    progressText.textContent = `Receiving response... (${Math.round(progress)}%)`;
-                }
-            }
-
-            // Remove progress indicator when complete
-            if (progress >= 100) {
-                setTimeout(() => {
-                    if (progressIndicator && progressIndicator.parentNode) {
-                        progressIndicator.parentNode.removeChild(progressIndicator);
-                    }
-                }, 500);
-            }
         }
     }
 
@@ -1663,7 +1586,7 @@ export class Application {
         console.error('Error:', message);
 
         // Create error toast
-        const errorDiv = document.createElement('div');
+        const errorDiv = DOMUtils.createElement('div');
         errorDiv.style.cssText = `
             position: fixed;
             top: 20px;

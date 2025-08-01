@@ -4,6 +4,7 @@
  */
 
 import { app } from './core/application.js';
+import { DOMUtils } from './utils/domUtils.js';
 
 // Initialize application when DOM is loaded
 if (document.readyState === 'loading') {
@@ -28,7 +29,7 @@ async function initializeApplication() {
         console.error('Failed to initialize MCSChat application:', error);
 
         // Show user-friendly error message
-        const errorDiv = document.createElement('div');
+        const errorDiv = DOMUtils.createElement('div');
         errorDiv.style.cssText = `
             position: fixed;
             top: 50%;
@@ -108,8 +109,7 @@ function showCSPNotification(message) {
         return;
     }
 
-    const notification = document.createElement('div');
-    notification.className = 'csp-notification';
+    const notification = DOMUtils.createElement('div', { className: 'csp-notification' });
     notification.style.cssText = `
         position: fixed;
         top: 20px;
@@ -138,8 +138,7 @@ function showCSPNotification(message) {
 
     // Add animation styles if not already present
     if (!document.querySelector('#csp-notification-styles')) {
-        const style = document.createElement('style');
-        style.id = 'csp-notification-styles';
+        const style = DOMUtils.createElement('style', { id: 'csp-notification-styles' });
         style.textContent = `
             @keyframes slideInFromRight {
                 from {

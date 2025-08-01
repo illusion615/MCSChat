@@ -1987,7 +1987,7 @@ export class MessageRenderer {
         // Direct listeners as backup
         if (closeSideBrowser && !closeSideBrowser.dataset.listenerAdded) {
             console.log('[SideBrowser] Adding direct close button listener');
-            closeSideBrowser.addEventListener('click', (e) => {
+            DOMUtils.addEventListener(closeSideBrowser, 'click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('[SideBrowser] Close button clicked directly');
@@ -1998,7 +1998,7 @@ export class MessageRenderer {
 
         if (openExternalBtn && !openExternalBtn.dataset.listenerAdded) {
             console.log('[SideBrowser] Adding direct external button listener');
-            openExternalBtn.addEventListener('click', (e) => {
+            DOMUtils.addEventListener(openExternalBtn, 'click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('[SideBrowser] External button clicked directly');
@@ -2142,9 +2142,7 @@ export class MessageRenderer {
      * @private
      */
     scrollToBottom() {
-        if (this.elements.chatWindow) {
-            this.elements.chatWindow.scrollTop = this.elements.chatWindow.scrollHeight;
-        }
+        DOMUtils.scrollToBottom(this.elements.chatWindow);
     }
 
     /**

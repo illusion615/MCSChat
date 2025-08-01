@@ -416,111 +416,21 @@ export class DirectLineManager {
     }
 
     /**
-     * Handle complete message with intelligent streaming simulation
+     * Handle complete message with immediate display
      * @param {Object} activity - Complete message activity
      * @private
      */
     handleCompleteMessage(activity) {
-        // For better UX, simulate streaming for long messages
-        if (this.shouldSimulateStreaming(activity)) {
-            this.simulateStreamingForMessage(activity);
-        } else {
-            // Immediate display for short messages
-            window.dispatchEvent(new CustomEvent('completeMessage', {
-                detail: {
-                    ...activity,
-                    streamingMetadata: {
-                        timestamp: Date.now(),
-                        isImmediate: true
-                    }
+        // Always use immediate display - removed simulated streaming to avoid confusion
+        window.dispatchEvent(new CustomEvent('completeMessage', {
+            detail: {
+                ...activity,
+                streamingMetadata: {
+                    timestamp: Date.now(),
+                    isImmediate: true
                 }
-            }));
-        }
-    }
-
-    /**
-     * Determine if message should be streamed for better UX
-     * @param {Object} activity - Message activity
-     * @returns {boolean} True if should simulate streaming
-     * @private
-     */
-    shouldSimulateStreaming(activity) {
-        if (!activity.text) return false;
-
-        // Stream long messages for better perceived performance
-        const textLength = activity.text.length;
-        if (textLength > 200) return true;
-
-        // Stream messages with citations for progressive reveal
-        if (activity.entities && activity.entities.length > 0) return true;
-
-        // Stream messages with attachments
-        if (activity.attachments && activity.attachments.length > 0) return true;
-
-        return false;
-    }
-
-    /**
-     * Simulate streaming for complete messages to improve UX
-     * @param {Object} activity - Complete message activity
-     * @private
-     */
-    simulateStreamingForMessage(activity) {
-        const text = activity.text || '';
-        const words = text.split(' ');
-        const chunks = [];
-
-        // Create progressive chunks (optimal for reading)
-        let currentChunk = '';
-        const wordsPerChunk = Math.min(5, Math.max(2, Math.floor(words.length / 12))); // Smaller chunks for faster streaming
-
-        for (let i = 0; i < words.length; i++) {
-            currentChunk += (i > 0 ? ' ' : '') + words[i];
-
-            if ((i + 1) % wordsPerChunk === 0 || i === words.length - 1) {
-                chunks.push(currentChunk);
-                currentChunk = '';
             }
-        }
-
-        // Start streaming simulation
-        this.streamChunks(activity, chunks);
-    }
-
-    /**
-     * Stream message chunks progressively
-     * @param {Object} baseActivity - Base activity
-     * @param {Array} chunks - Text chunks to stream
-     * @private
-     */
-    streamChunks(baseActivity, chunks) {
-        const baseDelay = 25; // Much faster base delay for powerful AI feel
-        let cumulativeText = '';
-
-        chunks.forEach((chunk, index) => {
-            setTimeout(() => {
-                cumulativeText = chunks.slice(0, index + 1).join(' ');
-
-                const chunkActivity = {
-                    ...baseActivity,
-                    text: cumulativeText,
-                    streamingMetadata: {
-                        chunkNumber: index + 1,
-                        totalChunks: chunks.length,
-                        isSimulated: true,
-                        isComplete: index === chunks.length - 1
-                    }
-                };
-
-                if (index === chunks.length - 1) {
-                    // Final chunk - include all original data
-                    window.dispatchEvent(new CustomEvent('streamingEnd', { detail: chunkActivity }));
-                } else {
-                    // Progressive chunk
-                    window.dispatchEvent(new CustomEvent('streamingActivity', { detail: chunkActivity }));
-                }
-            }, index * (baseDelay + Math.random() * 15)); // Reduced variance for consistent speed
-        });
+        }));
     }
 
     /**
