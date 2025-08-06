@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Speech Test - MCSChat</title>
+    <link rel="stylesheet" href="../styles.css">
+    <style>
+        .test-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: var(--surface-color);
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+        }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: var(--chat-background);
+            border-radius: 6px;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .control-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .control-button {
+            padding: 8px 16px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .control-button:hover {
+            background: var(--primary-hover);
+        }
+        
+        .control-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .test-output {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .speech-settings {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .setting-group label {
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        .streaming-demo {
+            margin: 15px 0;
+            padding: 15px;
+            background: var(--message-background);
+            border-radius: 6px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            margin: 2px;
+        }
+        
+        .status-ready { background: #d4edda; color: #155724; }
+        .status-processing { background: #fff3cd; color: #856404; }
+        .status-error { background: #f8d7da; color: #721c24; }
+        .status-speaking { background: #cce7ff; color: #004085; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎙️ Streaming Speech Test</h1>
+        <p>Test the enhanced streaming speech functionality that speaks text while it's being typed/streamed.</p>
+        
+        <div class="test-section">
+            <h2>🔧 Speech Engine Status</h2>
+            <div id="engineStatus" class="test-output">Initializing speech engine...</div>
+            
+            <h3>Speech Provider Settings</h3>
+            <div class="speech-settings">
+                <div class="setting-group">
+                    <label for="speechProvider">Speech Provider:</label>
+                    <select id="speechProvider">
+                        <option value="web_speech">Enhanced Web Speech API</option>
+                        <option value="local_ai">Local AI Models</option>
+                        <option value="azure">Azure Speech Services</option>
+                    </select>
+                </div>
+                
+                <div class="setting-group">
+                    <label for="speechVoice">Voice:</label>
+                    <select id="speechVoice"></select>
+                </div>
+                
+                <div class="setting-group">
+                    <label for="speechRate">Speech Rate: <span id="rateValue">1.0</span></label>
+                    <input type="range" id="speechRate" min="0.5" max="2.0" step="0.1" value="1.0">
+                </div>
+                
+                <div class="setting-group">
+                    <label for="speechVolume">Volume: <span id="volumeValue">1.0</span></label>
+                    <input type="range" id="speechVolume" min="0.1" max="1.0" step="0.1" value="1.0">
+                </div>
+                
+                <div class="setting-group">
+                    <label for="autoSpeak">
+                        <input type="checkbox" id="autoSpeak" checked> Auto-speak messages
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎯 Streaming Speech Demo</h2>
+            <p>This demo simulates streaming text and tests real-time speech synthesis.</p>
+            
+            <div class="control-panel">
+                <button id="startStreamingDemo" class="control-button">Start Streaming Demo</button>
+                <button id="stopSpeech" class="control-button">Stop Speech</button>
+                <button id="clearOutput" class="control-button">Clear Output</button>
+            </div>
+            
+            <div class="streaming-demo">
+                <h4>Speech Status: <span id="speechStatus" class="status-indicator status-ready">Ready</span></h4>
+                <div id="streamingContent" style="min-height: 100px; border: 1px solid #ddd; padding: 10px; background: white; border-radius: 4px;"></div>
+            </div>
+            
+            <h4>Speech Processing Log:</h4>
+            <div id="speechLog" class="test-output"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🧪 Manual Tests</h2>
+            <div class="control-panel">
+                <button id="testBasicSpeech" class="control-button">Test Basic Speech</button>
+                <button id="testLongText" class="control-button">Test Long Text</button>
+                <button id="testMarkdown" class="control-button">Test Markdown Content</button>
+                <button id="testSpecialChars" class="control-button">Test Special Characters</button>
+            </div>
+            
+            <div class="setting-group" style="margin-top: 15px;">
+                <label for="customText">Custom Text to Speak:</label>
+                <textarea id="customText" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter text to test speech..."></textarea>
+                <button id="speakCustom" class="control-button" style="margin-top: 5px;">Speak Custom Text</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load required libraries -->
+    <script src="lib/marked.min.js"></script>
+    <script src="lib/purify.min.js"></script>
+    
+    <!-- Load application modules -->
+    <script type="module">
+        import { SpeechEngine } from './src/services/speechEngine.js';
+        import { MessageRenderer } from './src/ui/messageRenderer.js';
+        
+        let speechEngine;
+        let messageRenderer;
+        let streamingDemo = {
+            isRunning: false,
+            currentIndex: 0,
+            intervalId: null
+        };
+        
+        // Test content for streaming
+        const testContent = `
+        Welcome to the enhanced streaming speech demonstration! This is a comprehensive test of our real-time speech synthesis system.
+        
+        The system can handle various types of content including **markdown formatting**, *italic text*, and \`code snippets\`.
+        
+        Here are some key features we're testing:
+        1. Real-time sentence boundary detection
+        2. Speech queue management for sequential processing
+        3. Clean text extraction from markdown and HTML
+        4. Multiple speech provider support
+        5. Graceful error handling and fallbacks
+        
+        The speech engine supports three quality levels:
+        - Enhanced Web Speech API: High compatibility, good quality
+        - Local AI Models: High quality, offline capability (experimental)
+        - Azure Speech Services: Premium quality, cloud-based
+        
+        This streaming speech feature allows users to hear responses immediately as they're being generated, creating a more responsive and engaging conversational experience.
+        `;
+        
+        // Initialize the test interface
+        async function initializeTest() {
+            try {
+                updateStatus('Initializing speech engine...');
+                
+                // Initialize speech engine
+                speechEngine = new SpeechEngine();
+                await speechEngine.initialize();
+                
+                // Initialize message renderer
+                const elements = {
+                    chatWindow: document.getElementById('streamingContent')
+                };
+                messageRenderer = new MessageRenderer(elements, { speechEngine });
+                
+                updateStatus('Speech engine initialized successfully!');
+                updateEngineStatus();
+                populateVoiceDropdown();
+                setupEventListeners();
+                
+                // Listen for speech provider fallback notifications
+                window.addEventListener('speechProviderFallback', (event) => {
+                    logSpeech(`⚠️ Provider fallback: ${event.detail.message}`, 'warning');
+                });
+                
+            } catch (error) {
+                updateStatus(`Failed to initialize: ${error.message}`, 'error');
+                console.error('Initialization error:', error);
+            }
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('speechStatus');
+            statusEl.textContent = message;
+            statusEl.className = `status-indicator status-${type === 'error' ? 'error' : type === 'warning' ? 'processing' : type === 'speaking' ? 'speaking' : 'ready'}`;
+        }
+        
+        function updateEngineStatus() {
+            const statusEl = document.getElementById('engineStatus');
+            if (speechEngine) {
+                const status = speechEngine.getStatus();
+                statusEl.innerHTML = `
+                    <strong>Provider:</strong> ${status.currentProvider}<br>
+                    <strong>Available Voices:</strong> ${status.availableVoices}<br>
+                    <strong>Selected Voice:</strong> ${status.selectedVoice}<br>
+                    <strong>Auto Speak:</strong> ${status.autoSpeak ? 'Enabled' : 'Disabled'}<br>
+                    <strong>Speech Rate:</strong> ${status.speechRate}<br>
+                    <strong>Volume:</strong> ${status.speechVolume}
+                `;
+            }
+        }
+        
+        function populateVoiceDropdown() {
+            const voiceSelect = document.getElementById('speechVoice');
+            if (speechEngine && speechEngine.state.availableVoices) {
+                voiceSelect.innerHTML = '';
+                speechEngine.state.availableVoices.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.name;
+                    option.textContent = `${voice.name} (${voice.lang})`;
+                    if (voice.name === speechEngine.settings.selectedVoice) {
+                        option.selected = true;
+                    }
+                    voiceSelect.appendChild(option);
+                });
+            }
+        }
+        
+        function setupEventListeners() {
+            // Speech settings
+            document.getElementById('speechProvider').addEventListener('change', async (e) => {
+                await speechEngine.setProvider(e.target.value);
+                updateEngineStatus();
+                populateVoiceDropdown();
+            });
+            
+            document.getElementById('speechVoice').addEventListener('change', (e) => {
+                speechEngine.setVoice(e.target.value);
+                updateEngineStatus();
+            });
+            
+            document.getElementById('speechRate').addEventListener('input', (e) => {
+                speechEngine.setSpeechRate(parseFloat(e.target.value));
+                document.getElementById('rateValue').textContent = e.target.value;
+                updateEngineStatus();
+            });
+            
+            document.getElementById('speechVolume').addEventListener('input', (e) => {
+                speechEngine.setSpeechVolume(parseFloat(e.target.value));
+                document.getElementById('volumeValue').textContent = e.target.value;
+                updateEngineStatus();
+            });
+            
+            document.getElementById('autoSpeak').addEventListener('change', (e) => {
+                speechEngine.setAutoSpeak(e.target.checked);
+                updateEngineStatus();
+            });
+            
+            // Demo controls
+            document.getElementById('startStreamingDemo').addEventListener('click', startStreamingDemo);
+            document.getElementById('stopSpeech').addEventListener('click', () => {
+                speechEngine.stopSpeaking();
+                stopStreamingDemo();
+                updateStatus('Speech stopped');
+            });
+            document.getElementById('clearOutput').addEventListener('click', () => {
+                document.getElementById('streamingContent').innerHTML = '';
+                document.getElementById('speechLog').innerHTML = '';
+            });
+            
+            // Manual tests
+            document.getElementById('testBasicSpeech').addEventListener('click', () => testSpeech('Hello! This is a basic speech test.'));
+            document.getElementById('testLongText').addEventListener('click', () => testSpeech(testContent));
+            document.getElementById('testMarkdown').addEventListener('click', () => testSpeech('This text has **bold formatting**, *italic text*, and `code snippets` for testing markdown processing.'));
+            document.getElementById('testSpecialChars').addEventListener('click', () => testSpeech('Testing special characters: $100, 50%, @username, #hashtag, & more symbols!'));
+            document.getElementById('speakCustom').addEventListener('click', () => {
+                const text = document.getElementById('customText').value;
+                if (text.trim()) testSpeech(text);
+            });
+        }
+        
+        async function startStreamingDemo() {
+            if (streamingDemo.isRunning) return;
+            
+            streamingDemo.isRunning = true;
+            streamingDemo.currentIndex = 0;
+            
+            const button = document.getElementById('startStreamingDemo');
+            button.disabled = true;
+            button.textContent = 'Streaming...';
+            
+            updateStatus('Starting streaming demo...', 'processing');
+            
+            // Clear previous content
+            document.getElementById('streamingContent').innerHTML = '';
+            document.getElementById('speechLog').innerHTML = '';
+            
+            // Simulate streaming by adding text progressively
+            streamingDemo.intervalId = setInterval(() => {
+                if (!streamingDemo.isRunning) return;
+                
+                const chunkSize = Math.random() * 10 + 5; // Random chunk size
+                const endIndex = Math.min(streamingDemo.currentIndex + chunkSize, testContent.length);
+                const currentContent = testContent.substring(0, endIndex);
+                
+                // Update the content
+                messageRenderer.updateStreamingContent(
+                    document.getElementById('streamingContent'),
+                    currentContent
+                );
+                
+                streamingDemo.currentIndex = endIndex;
+                
+                if (endIndex >= testContent.length) {
+                    stopStreamingDemo();
+                    updateStatus('Streaming demo completed', 'ready');
+                } else {
+                    updateStatus(`Streaming... (${Math.round((endIndex / testContent.length) * 100)}%)`, 'speaking');
+                }
+            }, 200); // Update every 200ms
+        }
+        
+        function stopStreamingDemo() {
+            streamingDemo.isRunning = false;
+            if (streamingDemo.intervalId) {
+                clearInterval(streamingDemo.intervalId);
+                streamingDemo.intervalId = null;
+            }
+            
+            const button = document.getElementById('startStreamingDemo');
+            button.disabled = false;
+            button.textContent = 'Start Streaming Demo';
+        }
+        
+        async function testSpeech(text) {
+            try {
+                updateStatus('Speaking...', 'speaking');
+                logSpeech(`🎤 Speaking: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
+                
+                await speechEngine.speakText(text);
+                
+                updateStatus('Speech completed', 'ready');
+                logSpeech('✅ Speech completed');
+            } catch (error) {
+                updateStatus(`Speech error: ${error.message}`, 'error');
+                logSpeech(`❌ Speech error: ${error.message}`, 'error');
+            }
+        }
+        
+        function logSpeech(message, type = 'info') {
+            const logEl = document.getElementById('speechLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            logEntry.style.color = type === 'error' ? '#d32f2f' : type === 'warning' ? '#f57c00' : '#333';
+            logEl.appendChild(logEntry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        // Start initialization
+        document.addEventListener('DOMContentLoaded', initializeTest);
+    </script>
+</body>
+</html>

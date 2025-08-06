@@ -12,13 +12,17 @@ export class MessageRenderer {
             chatWindow: DOMUtils.getElementById('chatWindow'),
             suggestedActionsContainer: DOMUtils.getElementById('suggestedActionsContainer')
         };
-        this.streamingState = {
-            currentMessage: null,
-            messageContainer: null,
-            messageDiv: null,
-            content: '',
-            startTime: null
-        };
+        
+        // Use Map to track multiple streaming messages by ID to prevent race conditions
+        this.streamingStates = new Map();
+        
+        // Track messages being rendered to prevent duplicates
+        this.renderingInProgress = new Set();
+
+        // Message queue system for sequential rendering
+        this.messageQueue = [];
+        this.isProcessingQueue = false;
+        this.currentlyStreamingMessageId = null;
 
         // Global response time tracking for accurate request-to-response timing
         this.responseTimeTracking = {
@@ -29,11 +33,27 @@ export class MessageRenderer {
         // Initialize side browser state
         this.escapeListenerAdded = false;
 
+        // Enhanced streaming speech system - simple immediate speech processing
+        this.streamingSpeechState = {
+            isEnabled: false
+        };
+
+        // Global speech state tracking
+        this.globalSpeechState = {
+            isPlaying: false,
+            currentSpeakerButton: null,
+            currentProgressContainer: null,
+            currentProgressFill: null
+        };
+
         // Debug markdown libraries on initialization
         this.debugMarkdownLibraries();
         
         // Initialize side browser immediately
         this.initializeSideBrowser();
+        
+        // Initialize streaming speech
+        this.initializeStreamingSpeech();
     }
 
     /**
@@ -74,6 +94,189 @@ export class MessageRenderer {
     }
 
     /**
+     * Initialize streaming speech functionality
+     * @private
+     */
+    initializeStreamingSpeech() {
+        console.log('[MessageRenderer] Initializing streaming speech...');
+        
+        // Check if streaming speech is enabled
+        this.streamingSpeechState.isEnabled = localStorage.getItem('speechAutoSpeak') === 'true';
+        
+        console.log('[MessageRenderer] Streaming speech enabled:', this.streamingSpeechState.isEnabled);
+    }
+
+    /**
+     * Reset streaming speech state for new message
+     * @private
+     */
+    resetStreamingSpeechState() {
+        // No complex state to reset in the new simplified architecture
+        console.log('[MessageRenderer] Reset streaming speech state');
+    }
+
+    /**
+     * Start speech with complete content immediately - separate from streaming
+     * @param {string} completeText - The complete text content to speak
+     * @param {string} messageId - Message identifier
+     * @private
+     */
+    async startSpeechWithCompleteContent(completeText, messageId) {
+        try {
+            // Import dependencies dynamically
+            const [{ aiCompanion }, { languageDetector }] = await Promise.all([
+                import('../ai/aiCompanion.js'),
+                import('../utils/languageDetector.js')
+            ]);
+            
+            // Clean the text for speech
+            const cleanText = this.cleanTextForSpeech(completeText);
+            
+            if (cleanText.trim().length > 0) {
+                console.log(`[Speech] Processing complete content immediately: ${cleanText.length} characters`);
+                
+                // Detect language and log information
+                const languageInfo = languageDetector.detectLanguageAndGetVoice?.(cleanText);
+                if (languageInfo) {
+                    console.log(`[Speech] Detected language: ${languageInfo.language} (${languageInfo.displayName}), using voice: ${languageInfo.voice}`);
+                }
+                
+                // Start speaking the complete content immediately - not connected to streaming
+                await aiCompanion.speakText(cleanText, { 
+                    autoDetectLanguage: true,
+                    forceSpeak: false 
+                });
+                
+                console.log(`[Speech] Successfully started speech for message ${messageId}`);
+            }
+        } catch (error) {
+            console.error('[Speech] Error starting speech with complete content:', error);
+        }
+    }
+
+    /**
+     * Clean text for speech synthesis
+     * @private
+     */
+    cleanTextForSpeech(text) {
+        return text
+            .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold markdown
+            .replace(/\*(.*?)\*/g, '$1')     // Remove italic markdown
+            .replace(/`(.*?)`/g, '$1')       // Remove code markdown
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Convert links to text
+            .replace(/#{1,6}\s*/g, '')       // Remove heading markers
+            .replace(/^\s*[-*+]\s+/gm, '')   // Remove list markers
+            .replace(/^\s*\d+\.\s+/gm, '')   // Remove numbered list markers
+            // Remove standalone URLs (http/https/ftp)
+            .replace(/https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi, '')
+            .replace(/ftp:\/\/[^\s<>"{}|\\^`\[\]]+/gi, '')
+            // Remove www URLs
+            .replace(/www\.[^\s<>"{}|\\^`\[\]]+/gi, '')
+            // Remove email addresses
+            .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi, '')
+            .replace(/\n{2,}/g, '. ')        // Convert multiple newlines to periods
+            .replace(/\n/g, ' ')             // Convert single newlines to spaces
+            .replace(/\s{2,}/g, ' ')         // Normalize multiple spaces
+            .trim();
+    }
+
+    /**
+     * Stop streaming speech processing
+     * @private
+     */
+    async stopStreamingSpeech() {
+        console.log('🔴 [MESSAGERENDERER-STOP] =================================');
+        console.log('🔴 [MESSAGERENDERER-STOP] stopStreamingSpeech() called');
+        console.log('🔴 [MESSAGERENDERER-STOP] =================================');
+        
+        try {
+            // Use the new comprehensive disposal and reinitialization method
+            if (window.speechEngine && window.speechEngine.disposeAndReinitialize) {
+                console.log('🟡 [MESSAGERENDERER-STOP] Calling speechEngine.disposeAndReinitialize()');
+                const startTime = performance.now();
+                await window.speechEngine.disposeAndReinitialize();
+                const endTime = performance.now();
+                console.log(`🟢 [MESSAGERENDERER-STOP] speechEngine.disposeAndReinitialize() completed in ${(endTime - startTime).toFixed(2)}ms`);
+                return; // Exit early if disposal worked
+            }
+            
+            // Fallback to legacy methods if disposal method is not available
+            console.log('🟡 [MESSAGERENDERER-STOP] Fallback: Using legacy stopping methods');
+            
+            let speechStopAttempts = 0;
+            let speechStopSuccess = false;
+            
+            // Method 1: Use global aiCompanion for immediate access
+            if (window.aiCompanion && window.aiCompanion.stopSpeaking) {
+                console.log('🟡 [MESSAGERENDERER-STOP] Method 1: calling window.aiCompanion.stopSpeaking()');
+                speechStopAttempts++;
+                const startTime = performance.now();
+                window.aiCompanion.stopSpeaking();
+                const endTime = performance.now();
+                speechStopSuccess = true;
+                console.log(`🟢 [MESSAGERENDERER-STOP] Method 1: completed in ${(endTime - startTime).toFixed(2)}ms`);
+            } else {
+                console.log('🔴 [MESSAGERENDERER-STOP] Method 1: aiCompanion not available');
+            }
+            
+            // Method 2: Try speechEngine if available (check for Azure provider)
+            if (window.speechEngine) {
+                console.log('🟡 [MESSAGERENDERER-STOP] Method 2: speechEngine available');
+                const currentProvider = window.speechEngine.state?.currentProvider;
+                const isAzureProvider = currentProvider && currentProvider.constructor.name === 'AzureSpeechProvider';
+                console.log(`🟡 [MESSAGERENDERER-STOP] Current provider: ${currentProvider ? currentProvider.constructor.name : 'none'}`);
+                console.log(`🟡 [MESSAGERENDERER-STOP] Is Azure provider: ${isAzureProvider}`);
+                
+                if (window.speechEngine.stopSpeaking) {
+                    speechStopAttempts++;
+                    const startTime = performance.now();
+                    window.speechEngine.stopSpeaking();
+                    const endTime = performance.now();
+                    speechStopSuccess = true;
+                    console.log(`🟢 [MESSAGERENDERER-STOP] Method 2: speechEngine.stopSpeaking() completed in ${(endTime - startTime).toFixed(2)}ms`);
+                }
+            } else {
+                console.log('🔴 [MESSAGERENDERER-STOP] Method 2: speechEngine not available');
+            }
+            
+            // Method 3: Direct browser speech synthesis cancellation
+            if (typeof window.speechSynthesis !== 'undefined') {
+                console.log('🟡 [MESSAGERENDERER-STOP] Method 3: browser speechSynthesis available');
+                const speaking = window.speechSynthesis.speaking;
+                const pending = window.speechSynthesis.pending;
+                console.log(`🟡 [MESSAGERENDERER-STOP] Speech state before cancel: speaking=${speaking}, pending=${pending}`);
+                speechStopAttempts++;
+                window.speechSynthesis.cancel();
+                speechStopSuccess = true;
+                const speakingAfter = window.speechSynthesis.speaking;
+                const pendingAfter = window.speechSynthesis.pending;
+                console.log(`🟢 [MESSAGERENDERER-STOP] Speech state after cancel: speaking=${speakingAfter}, pending=${pendingAfter}`);
+            } else {
+                console.log('🔴 [MESSAGERENDERER-STOP] Method 3: speechSynthesis not available');
+            }
+            
+            console.log('🔴 [MESSAGERENDERER-STOP] =================================');
+            console.log(`🔴 [MESSAGERENDERER-STOP] SUMMARY: ${speechStopAttempts} methods attempted, success: ${speechStopSuccess}`);
+            console.log('🔴 [MESSAGERENDERER-STOP] =================================');
+            
+            if (!speechStopSuccess) {
+                console.warn('🔴 [MESSAGERENDERER-STOP] No immediate speech stopping method worked, trying async fallback');
+                // Fallback: try async import as backup
+                import('../ai/aiCompanion.js').then(({ aiCompanion }) => {
+                    console.log('🟡 [MESSAGERENDERER-STOP] Fallback: Using async import to stop speech');
+                    aiCompanion.stopSpeaking();
+                    console.log('🟢 [MESSAGERENDERER-STOP] Fallback: async aiCompanion.stopSpeaking() called');
+                }).catch(error => {
+                    console.error('🔴 [MESSAGERENDERER-STOP] Fallback: Failed to stop speech via async import:', error);
+                });
+            }
+        } catch (error) {
+            console.error('🔴 [MESSAGERENDERER-STOP] CRITICAL ERROR during speech stopping:', error);
+            console.error('🔴 [MESSAGERENDERER-STOP] Error stack:', error.stack);
+        }
+    }
+
+    /**
      * Debug markdown libraries availability
      * @private
      */
@@ -81,6 +284,7 @@ export class MessageRenderer {
         console.log('MessageRenderer: Checking markdown libraries...');
         console.log('marked available:', typeof marked !== 'undefined');
         console.log('DOMPurify available:', typeof DOMPurify !== 'undefined');
+        console.log('KaTeX available:', typeof katex !== 'undefined');
 
         if (typeof marked !== 'undefined') {
             console.log('marked.parse function:', typeof marked.parse);
@@ -109,80 +313,320 @@ export class MessageRenderer {
                 console.error('DOMPurify test failed:', error);
             }
         }
+
+        if (typeof katex !== 'undefined') {
+            console.log('KaTeX.render function:', typeof katex.render);
+            console.log('KaTeX.renderToString function:', typeof katex.renderToString);
+
+            // Test basic LaTeX rendering
+            try {
+                const testLatex = 'E = mc^2';
+                const result = katex.renderToString(testLatex, { displayMode: false });
+                console.log('KaTeX test successful:', result.length > 0);
+            } catch (error) {
+                console.error('KaTeX test failed:', error);
+            }
+        }
+    }
+
+    /**
+     * Analyzes if a string represents a mathematical expression vs regular text
+     * @param {string} text - The text to analyze
+     * @returns {boolean} - True if likely mathematical, false otherwise
+     * @private
+     */
+    isMathematicalExpression(text) {
+        const trimmed = text.trim();
+        
+        // Mathematical indicators (strong positive signals)
+        const mathIndicators = [
+            // Mathematical operators
+            /[+\-*/=<>≤≥≠≈∞]/,
+            // Greek letters (common in math)
+            /\\[a-zA-Z]+/,
+            // Mathematical functions
+            /\\(sin|cos|tan|log|ln|exp|sqrt|sum|int|lim|frac|binom)/,
+            // Superscripts/subscripts
+            /[\^_]/,
+            // Mathematical symbols and structures
+            /[{}()[\]]/,
+            // Fractions
+            /\//,
+            // Mathematical relations with variables
+            /[a-zA-Z]\s*[=<>≤≥≠≈]\s*[a-zA-Z0-9]/,
+            // Variables with operators
+            /[a-zA-Z]\s*[+\-*/]\s*[a-zA-Z0-9]/
+        ];
+        
+        // Non-mathematical patterns (strong negative signals)
+        const nonMathPatterns = [
+            // Pure currency patterns
+            /^\d+(\.\d+)?\s*[a-zA-Z]{1,3}$/,  // $3bn, $4.1bn, $38m
+            // Numbers with common units
+            /^\d+(\.\d+)?\s*(bn|million|billion|trillion|thousand|k|m|b|t)$/i,
+            // Percentages
+            /^\d+(\.\d+)?%$/,
+            // Pure numbers
+            /^\d+(\.\d+)?$/,
+            // Simple words
+            /^[a-zA-Z]+$/,
+            // Time/date patterns
+            /^\d{1,2}:\d{2}$/,
+            /^\d{1,2}\/\d{1,2}\/\d{2,4}$/,
+            // Common abbreviations and units
+            /^\d+\s*(kg|lb|ft|in|cm|mm|mph|km\/h|°[CF]?)$/i
+        ];
+        
+        // Context analysis weights
+        let mathScore = 0;
+        let nonMathScore = 0;
+        
+        // Check for mathematical indicators
+        for (const pattern of mathIndicators) {
+            if (pattern.test(trimmed)) {
+                mathScore += 1;
+            }
+        }
+        
+        // Check for non-mathematical patterns
+        for (const pattern of nonMathPatterns) {
+            if (pattern.test(trimmed)) {
+                nonMathScore += 2; // Higher weight for non-math patterns
+            }
+        }
+        
+        // Additional contextual analysis
+        
+        // If it's very short and alphanumeric only, likely not math
+        if (trimmed.length <= 5 && /^[a-zA-Z0-9]+$/.test(trimmed)) {
+            nonMathScore += 1;
+        }
+        
+        // If it contains multiple consecutive letters without operators, likely text
+        if (/[a-zA-Z]{3,}/.test(trimmed) && !/[+\-*/=^_{}\\]/.test(trimmed)) {
+            nonMathScore += 1;
+        }
+        
+        // If it starts with a digit and ends with letters (like currency), likely not math
+        if (/^\d/.test(trimmed) && /[a-zA-Z]$/.test(trimmed)) {
+            nonMathScore += 1;
+        }
+        
+        // Mathematical expressions usually have structure
+        if (mathScore > 0 && /[a-zA-Z]/.test(trimmed)) {
+            mathScore += 0.5; // Bonus for having variables
+        }
+        
+        // Decision logic: require clear mathematical intent
+        return mathScore > nonMathScore && mathScore > 0;
+    }
+
+    /**
+     * Process LaTeX math expressions in content
+     * @param {string} content - Content that may contain LaTeX
+     * @returns {string} - Content with LaTeX rendered as HTML
+     * @private
+     */
+    processLatex(content) {
+        if (typeof katex === 'undefined') {
+            return content; // Return original content if KaTeX is not available
+        }
+
+        try {
+            // Process display math first: $$...$$
+            content = content.replace(/\$\$([^$]+?)\$\$/g, (match, math) => {
+                try {
+                    return katex.renderToString(math.trim(), { 
+                        displayMode: true,
+                        throwOnError: false,
+                        errorColor: '#cc0000'
+                    });
+                } catch (error) {
+                    console.warn('KaTeX display math error:', error.message, 'for:', math);
+                    return match; // Return original if rendering fails
+                }
+            });
+
+            // Process inline math: $...$ with semantic analysis
+            content = content.replace(/\$([^$\n]+?)\$/g, (match, math) => {
+                const trimmed = math.trim();
+                
+                // Use comprehensive semantic analysis
+                if (!this.isMathematicalExpression(trimmed)) {
+                    return match; // Return original if not mathematical
+                }
+
+                try {
+                    return katex.renderToString(trimmed, { 
+                        displayMode: false,
+                        throwOnError: false,
+                        errorColor: '#cc0000'
+                    });
+                } catch (error) {
+                    console.warn('KaTeX inline math error:', error.message, 'for:', math);
+                    return match; // Return original if rendering fails
+                }
+            });
+
+            // Process LaTeX environments: \begin{...}\end{...}
+            content = content.replace(/\\begin\{([^}]+)\}([\s\S]*?)\\end\{\1\}/g, (match, env, math) => {
+                try {
+                    const latexCode = `\\begin{${env}}${math}\\end{${env}}`;
+                    return katex.renderToString(latexCode, { 
+                        displayMode: true,
+                        throwOnError: false,
+                        errorColor: '#cc0000'
+                    });
+                } catch (error) {
+                    console.warn('KaTeX environment error:', error.message, 'for:', env);
+                    return match; // Return original if rendering fails
+                }
+            });
+
+        } catch (error) {
+            console.error('Error processing LaTeX:', error);
+        }
+
+        return content;
     }
 
     /**
      * Render a complete message
      * @param {Object} activity - DirectLine activity
      */
-    renderCompleteMessage(activity) {
-        console.log('Rendering complete message:', {
-            id: activity.id,
-            from: activity.from?.id,
-            textLength: activity.text?.length,
-            hasAttachments: !!(activity.attachments && activity.attachments.length > 0),
-            attachmentCount: activity.attachments?.length || 0,
-            attachments: activity.attachments
-        });
-
-        // Immediately hide typing indicator when message rendering starts
-        window.dispatchEvent(new CustomEvent('hideTypingIndicator', {
-            detail: { reason: 'complete-message-rendering-started' }
-        }));
-
-        const messageContainer = this.createMessageContainer(activity);
-        const messageDiv = this.createMessageDiv(activity);
-        const isUser = activity.from && activity.from.id === 'user';
-        const messageIcon = this.createMessageIcon(isUser);
-
-        // Add text content
-        if (activity.text) {
-            this.addTextContent(messageDiv, activity.text);
+    async renderCompleteMessage(activity) {
+        // Use queue for sequential processing with fallback
+        try {
+            this.queueMessage(activity, 'complete');
+        } catch (error) {
+            console.error('Error queueing message, rendering directly:', error);
+            await this.renderCompleteMessageDirect(activity);
         }
+    }
 
-        // Add attachments
-        if (activity.attachments && activity.attachments.length > 0) {
-            console.log('MessageRenderer: Processing', activity.attachments.length, 'attachments');
-            this.addAttachments(messageDiv, activity.attachments);
-        } else {
-            console.log('MessageRenderer: No attachments to process');
+    /**
+     * Render complete message directly (internal method)
+     * @param {Object} activity - Message activity
+     */
+    async renderCompleteMessageDirect(activity) {
+        // Prevent duplicate rendering of the same message
+        const messageId = activity.id || `${activity.from?.id}-${activity.timestamp}-${Date.now()}`;
+        
+        if (this.renderingInProgress.has(messageId)) {
+            console.log('Message already being rendered, skipping duplicate:', messageId);
+            return;
         }
+        
+        this.renderingInProgress.add(messageId);
+        
+        try {
+            console.log('Rendering complete message:', {
+                id: messageId,
+                from: activity.from?.id,
+                textLength: activity.text?.length,
+                hasAttachments: !!(activity.attachments && activity.attachments.length > 0),
+                attachmentCount: activity.attachments?.length || 0,
+                attachments: activity.attachments
+            });
 
-        // Add elements in correct order based on message type
-        const isCompanionResponse = messageContainer.classList.contains('companion-response');
+            // Immediately hide typing indicator when message rendering starts
+            window.dispatchEvent(new CustomEvent('hideTypingIndicator', {
+                detail: { reason: 'complete-message-rendering-started' }
+            }));
 
-        if (isUser) {
-            // User messages: content first, then icon (icon on right)
-            messageContainer.appendChild(messageDiv);
-            messageContainer.appendChild(messageIcon);
-        } else if (isCompanionResponse) {
-            // Companion responses: only content, no icon (professor-like)
-            messageContainer.appendChild(messageDiv);
-        } else {
-            // Regular bot messages: icon first, then content (icon on left)
-            messageContainer.appendChild(messageIcon);
-            messageContainer.appendChild(messageDiv);
+            // *** Stop any ongoing speech for user messages ***
+            const isUserMessage = activity.from && activity.from.id === 'user';
+            if (isUserMessage) {
+                console.log('[MessageRenderer] Stopping ongoing speech due to user message rendering');
+                await this.stopStreamingSpeech();
+            }
+
+            // *** Start speech immediately with complete content if this is an agent message ***
+            if (!isUserMessage && activity.text && this.streamingSpeechState.isEnabled) {
+                console.log(`[Speech] Starting speech immediately for complete message (${activity.text.length} chars)`);
+                this.startSpeechWithCompleteContent(activity.text, messageId);
+            }
+
+            const messageContainer = this.createMessageContainer(activity);
+            const messageDiv = this.createMessageDiv(activity);
+            const isUser = activity.from && activity.from.id === 'user';
+            
+            // Check if message icons are enabled
+            const messageIconsEnabled = localStorage.getItem('messageIconsEnabled') !== 'false';
+            const messageIcon = messageIconsEnabled ? this.createMessageIcon(isUser) : null;
+
+            // Add text content
+            if (activity.text) {
+                this.addTextContent(messageDiv, activity.text);
+            }
+
+            // Add attachments
+            if (activity.attachments && activity.attachments.length > 0) {
+                console.log('MessageRenderer: Processing', activity.attachments.length, 'attachments');
+                this.addAttachments(messageDiv, activity.attachments);
+            } else {
+                console.log('MessageRenderer: No attachments to process');
+            }
+
+            // Add elements in correct order based on message type
+            const isCompanionResponse = messageContainer.classList.contains('companion-response');
+
+            if (isUser) {
+                // User messages: content first, then icon (icon on right)
+                messageContainer.appendChild(messageDiv);
+                if (messageIcon) {
+                    messageContainer.appendChild(messageIcon);
+                }
+            } else if (isCompanionResponse) {
+                // Companion responses: only content, no icon (professor-like)
+                messageContainer.appendChild(messageDiv);
+            } else {
+                // Regular bot messages: icon first, then content (icon on left)
+                if (messageIcon) {
+                    messageContainer.appendChild(messageIcon);
+                }
+                
+                // Create a content wrapper for message content only
+                const contentWrapper = DOMUtils.createElement('div', {
+                    className: 'message-content-wrapper',
+                    style: 'display: flex; align-items: flex-start; flex: 1;'
+                });
+                
+                contentWrapper.appendChild(messageDiv);
+                
+                messageContainer.appendChild(contentWrapper);
+            }
+
+            // Insert at end to avoid reordering issues that cause flickering
+            this.elements.chatWindow.appendChild(messageContainer);
+
+            // Handle suggested actions
+            if (activity.suggestedActions && activity.suggestedActions.actions.length > 0) {
+                console.log('Rendering suggested actions:', activity.suggestedActions.actions);
+                this.renderSuggestedActions(activity.suggestedActions.actions);
+            }
+
+            // Add response metadata
+            this.addResponseMetadata(messageContainer, activity);
+
+            // No additional speech processing needed here - handled at the beginning
+            console.log(`[Complete] Finished rendering complete message ${messageId} (speech handled separately)`);
+
+            // Scroll to bottom
+            this.scrollToBottom();
+        } finally {
+            // Always clean up tracking regardless of success/failure
+            this.renderingInProgress.delete(messageId);
+            
+            // Dispatch messageRendered event for AI companion title updates
+            window.dispatchEvent(new CustomEvent('messageRendered', {
+                detail: { 
+                    messageId: messageId,
+                    activity: activity 
+                }
+            }));
+            console.log('[MessageRenderer] Dispatched messageRendered event for complete message:', messageId);
         }
-
-        // Ensure correct chronological order by checking existing messages
-        this.insertMessageInOrder(messageContainer, activity);
-
-        // Handle suggested actions
-        if (activity.suggestedActions && activity.suggestedActions.actions.length > 0) {
-            console.log('Rendering suggested actions:', activity.suggestedActions.actions);
-            this.renderSuggestedActions(activity.suggestedActions.actions);
-        }
-
-        // Add response metadata
-        this.addResponseMetadata(messageContainer, activity);
-
-        // Scroll to bottom
-        this.scrollToBottom();
-
-        // Dispatch event
-        window.dispatchEvent(new CustomEvent('messageRendered', {
-            detail: { activity, element: messageContainer }
-        }));
     }
 
     /**
@@ -291,58 +735,107 @@ export class MessageRenderer {
      * @param {Object} activity - DirectLine activity
      */
     handleStreamingMessage(activity) {
-        console.log('Handling streaming message:', activity.text?.length || 0, 'chars');
+        // Use queue for sequential processing with fallback
+        try {
+            this.queueMessage(activity, 'streaming');
+        } catch (error) {
+            console.error('Error queueing streaming message, handling directly:', error);
+            this.handleStreamingMessageDirect(activity);
+        }
+    }
+
+    /**
+     * Handle streaming message directly (internal method)
+     * @param {Object} activity - DirectLine activity
+     */
+    async handleStreamingMessageDirect(activity) {
+        const messageId = activity.id || `${activity.from?.id}-${activity.timestamp}-${Date.now()}`;
+        let streamingState = this.streamingStates.get(messageId);
+
+        console.log('Handling streaming message:', messageId, activity.text?.length || 0, 'chars');
 
         // Immediately hide typing indicator when message rendering starts
         window.dispatchEvent(new CustomEvent('hideTypingIndicator', {
             detail: { reason: 'message-rendering-started' }
         }));
 
-        if (!this.streamingState.messageContainer) {
-            // Set start time for duration calculation
-            this.streamingState.startTime = Date.now();
+        if (!streamingState) {
+            // Initialize streaming speech for new message
+            this.initializeStreamingSpeech();
+            this.resetStreamingSpeechState();
+            
+            // Stop any ongoing speech from previous messages OR if this is a user message
+            const isUserMessage = activity.from && activity.from.id === 'user';
+            if (isUserMessage) {
+                console.log('[MessageRenderer] Stopping ongoing speech due to user message in streaming');
+            }
+            await this.stopStreamingSpeech();
+            
+            // Create new streaming state for this message
+            streamingState = {
+                startTime: Date.now(),
+                messageContainer: this.createMessageContainer(activity),
+                messageDiv: this.createMessageDiv(activity),
+                content: '',
+                isStreaming: true,
+                lastUpdate: Date.now()
+            };
 
-            // Create initial message container like legacy
-            this.streamingState.messageContainer = this.createMessageContainer(activity);
-            this.streamingState.messageDiv = this.createMessageDiv(activity);
             const isUser = activity.from && activity.from.id === 'user';
-            const messageIcon = this.createMessageIcon(isUser);
+            const messageIconsEnabled = localStorage.getItem('messageIconsEnabled') !== 'false';
+            const messageIcon = messageIconsEnabled ? this.createMessageIcon(isUser) : null;
 
             // Add elements in correct order based on message type
-            const isCompanionResponse = this.streamingState.messageContainer.classList.contains('companion-response');
+            const isCompanionResponse = streamingState.messageContainer.classList.contains('companion-response');
 
             if (isUser) {
                 // User messages: content first, then icon (icon on right)
-                this.streamingState.messageContainer.appendChild(this.streamingState.messageDiv);
-                this.streamingState.messageContainer.appendChild(messageIcon);
+                streamingState.messageContainer.appendChild(streamingState.messageDiv);
+                if (messageIcon) {
+                    streamingState.messageContainer.appendChild(messageIcon);
+                }
             } else if (isCompanionResponse) {
                 // Companion responses: only content, no icon (professor-like)
-                this.streamingState.messageContainer.appendChild(this.streamingState.messageDiv);
+                streamingState.messageContainer.appendChild(streamingState.messageDiv);
             } else {
                 // Regular bot messages: icon first, then content (icon on left)
-                this.streamingState.messageContainer.appendChild(messageIcon);
-                this.streamingState.messageContainer.appendChild(this.streamingState.messageDiv);
+                if (messageIcon) {
+                    streamingState.messageContainer.appendChild(messageIcon);
+                }
+                
+                // Create a content wrapper for message content only
+                const contentWrapper = DOMUtils.createElement('div', {
+                    className: 'message-content-wrapper',
+                    style: 'display: flex; align-items: flex-start; flex: 1;'
+                });
+                
+                contentWrapper.appendChild(streamingState.messageDiv);
+                
+                streamingState.messageContainer.appendChild(contentWrapper);
             }
 
-            // Insert message in correct order
-            this.insertMessageInOrder(this.streamingState.messageContainer, activity);
-            this.streamingState.content = '';
+            // Insert at end to avoid reordering issues that cause flickering
+            this.elements.chatWindow.appendChild(streamingState.messageContainer);
+            
+            // Store the streaming state
+            this.streamingStates.set(messageId, streamingState);
 
-            console.log('Streaming container created');
+            console.log('Streaming container created for message:', messageId);
         }
 
         // Handle streaming content update
         if (activity.text) {
             // For real streaming, append new content
             if (activity.streamingMetadata?.isRealtime) {
-                this.streamingState.content += activity.text;
+                streamingState.content += activity.text;
             } else {
                 // For simulated streaming, use the cumulative text directly
-                this.streamingState.content = activity.text;
+                streamingState.content = activity.text;
             }
 
-            this.updateStreamingContent(this.streamingState.messageDiv, this.streamingState.content);
-            console.log('Updated streaming content:', this.streamingState.content.length, 'chars');
+            this.updateStreamingContent(streamingState.messageDiv, streamingState.content);
+            streamingState.lastUpdate = Date.now();
+            console.log('Updated streaming content for', messageId, ':', streamingState.content.length, 'chars');
         }
 
         // Scroll to bottom
@@ -354,17 +847,22 @@ export class MessageRenderer {
      * @param {Object} activity - Final activity
      */
     finalizeStreamingMessage(activity) {
-        if (this.streamingState.messageDiv) {
+        const messageId = activity.id || `${activity.from?.id}-${activity.timestamp}-${Date.now()}`;
+        const streamingState = this.streamingStates.get(messageId);
+
+        if (streamingState && streamingState.messageDiv) {
+            console.log('Finalizing streaming message:', messageId);
+            
             // Ensure final content is properly rendered with full activity text
-            if (activity.text && activity.text !== this.streamingState.content) {
+            if (activity.text && activity.text !== streamingState.content) {
                 console.log('Finalizing streaming with complete content:', activity.text.length, 'chars');
                 // Update with the complete final content
-                this.addTextContent(this.streamingState.messageDiv, activity.text);
+                this.addTextContent(streamingState.messageDiv, activity.text);
             }
 
             // Add attachments if any
             if (activity.attachments && activity.attachments.length > 0) {
-                this.addAttachments(this.streamingState.messageDiv, activity.attachments);
+                this.addAttachments(streamingState.messageDiv, activity.attachments);
             }
 
             // Handle suggested actions
@@ -372,18 +870,30 @@ export class MessageRenderer {
                 this.renderSuggestedActions(activity.suggestedActions.actions);
             }
 
-            // Add response metadata
-            this.addResponseMetadata(this.streamingState.messageContainer, activity);
+            // Add response metadata with timing from streaming state
+            this.addResponseMetadata(streamingState.messageContainer, activity, streamingState.startTime);
 
-            // Clear streaming state
-            this.clearStreamingState();
+            // Clear this specific streaming state
+            this.streamingStates.delete(messageId);
+
+            // No speech processing here - speech is handled separately at the beginning
+            console.log(`[Streaming] Finalized streaming for message ${messageId} (speech handled separately)`);
 
             // Scroll to bottom
             this.scrollToBottom();
 
-            console.log('Streaming message finalized successfully');
+            // Dispatch messageRendered event for AI companion title updates
+            window.dispatchEvent(new CustomEvent('messageRendered', {
+                detail: { 
+                    messageId: messageId,
+                    activity: activity 
+                }
+            }));
+            console.log('[MessageRenderer] Dispatched messageRendered event for streaming message:', messageId);
+
+            console.log('Streaming message finalized successfully for:', messageId);
         } else {
-            console.warn('No streaming message to finalize, falling back to complete render');
+            console.warn('No streaming message to finalize for:', messageId, ', falling back to complete render');
             // Fallback: render as complete message if streaming state is lost
             this.renderCompleteMessage(activity);
         }
@@ -391,15 +901,40 @@ export class MessageRenderer {
 
     /**
      * Simulate streaming for non-streaming messages
+     * Enhanced with race condition prevention and smooth rendering
      * @param {Object} activity - DirectLine activity
      */
     async simulateStreaming(activity) {
+        // Use queue for sequential processing with fallback
         try {
-            console.log('simulateStreaming called with:', activity.text?.length || 0, 'chars');
+            this.queueMessage(activity, 'simulate');
+        } catch (error) {
+            console.error('Error queueing simulate streaming, handling directly:', error);
+            await this.simulateStreamingDirect(activity);
+        }
+    }
+
+    /**
+     * Simulate streaming directly (internal method)
+     * @param {Object} activity - DirectLine activity
+     */
+    async simulateStreamingDirect(activity) {
+        try {
+            const messageId = activity.id || `${activity.from?.id}-${activity.timestamp}-${Date.now()}`;
+            
+            // Prevent duplicate streaming of the same message
+            if (this.renderingInProgress.has(messageId)) {
+                console.log('Message already being rendered, skipping streaming:', messageId);
+                return;
+            }
+            
+            this.renderingInProgress.add(messageId);
+            
+            console.log('Starting enhanced streaming simulation for:', messageId);
 
             if (!activity.text) {
                 console.log('No text content, rendering complete message');
-                this.renderCompleteMessage(activity);
+                await this.renderCompleteMessageDirect(activity);
                 return;
             }
 
@@ -407,69 +942,126 @@ export class MessageRenderer {
             const streamingEnabled = localStorage.getItem('enableStreaming') === 'true';
             if (!streamingEnabled) {
                 console.log('Streaming disabled, rendering complete message');
-                this.renderCompleteMessage(activity);
+                await this.renderCompleteMessageDirect(activity);
                 return;
             }
 
-            console.log('Starting streaming simulation for message:', activity.text.substring(0, 100) + '...');
-
-            // Clear any existing streaming state to avoid conflicts
-            this.clearStreamingState();
-
-            // Set start time for duration calculation
-            this.streamingState.startTime = Date.now();
-
-            // Create message container and elements like legacy
-            this.streamingState.messageContainer = this.createMessageContainer(activity);
-            this.streamingState.messageDiv = this.createMessageDiv(activity);
-            const isUser = activity.from && activity.from.id === 'user';
-            const messageIcon = this.createMessageIcon(isUser);
-
-            // Add elements in correct order based on message type
-            const isCompanionResponse = this.streamingState.messageContainer.classList.contains('companion-response');
-
-            if (isUser) {
-                // User messages: content first, then icon (icon on right)
-                this.streamingState.messageContainer.appendChild(this.streamingState.messageDiv);
-                this.streamingState.messageContainer.appendChild(messageIcon);
-            } else if (isCompanionResponse) {
-                // Companion responses: only content, no icon (professor-like)
-                this.streamingState.messageContainer.appendChild(this.streamingState.messageDiv);
-            } else {
-                // Regular bot messages: icon first, then content (icon on left)
-                this.streamingState.messageContainer.appendChild(messageIcon);
-                this.streamingState.messageContainer.appendChild(this.streamingState.messageDiv);
+            // *** STEP 1: Stop speech if user message, or start speech if agent message ***
+            const isUserMessage = activity.from && activity.from.id === 'user';
+            if (isUserMessage) {
+                console.log('[MessageRenderer] Stopping ongoing speech due to user message in simulated streaming');
+                await this.stopStreamingSpeech();
+            } else if (activity.text && this.streamingSpeechState.isEnabled) {
+                console.log(`[Speech] Starting speech immediately with complete content (${activity.text.length} chars)`);
+                // Start speech with complete content immediately - separate from streaming
+                this.startSpeechWithCompleteContent(activity.text, messageId);
             }
 
-            // Insert message in correct order
-            this.insertMessageInOrder(this.streamingState.messageContainer, activity);
+            // *** STEP 2: Start streaming display with the same complete content ***
+            console.log(`[Streaming] Starting streaming display with complete content (${activity.text.length} chars)`);
+
+            // Create isolated streaming state for this message
+            const streamingState = {
+                startTime: Date.now(),
+                messageContainer: this.createMessageContainer(activity),
+                messageDiv: this.createMessageDiv(activity),
+                content: '',
+                isStreaming: true,
+                lastUpdate: Date.now()
+            };
+
+            // Store the streaming state
+            this.streamingStates.set(messageId, streamingState);
+
+            // Immediately hide typing indicator
+            window.dispatchEvent(new CustomEvent('hideTypingIndicator', {
+                detail: { reason: 'streaming-started' }
+            }));
+
+            const isUser = activity.from && activity.from.id === 'user';
+            const messageIconsEnabled = localStorage.getItem('messageIconsEnabled') !== 'false';
+            const messageIcon = messageIconsEnabled ? this.createMessageIcon(isUser) : null;
+            const isCompanionResponse = streamingState.messageContainer.classList.contains('companion-response');
+
+            // Build message structure
+            if (isUser) {
+                streamingState.messageContainer.appendChild(streamingState.messageDiv);
+                if (messageIcon) {
+                    streamingState.messageContainer.appendChild(messageIcon);
+                }
+            } else if (isCompanionResponse) {
+                streamingState.messageContainer.appendChild(streamingState.messageDiv);
+            } else {
+                if (messageIcon) {
+                    streamingState.messageContainer.appendChild(messageIcon);
+                }
+                
+                // Create a content wrapper for message content only
+                const contentWrapper = DOMUtils.createElement('div', {
+                    className: 'message-content-wrapper',
+                    style: 'display: flex; align-items: flex-start; flex: 1;'
+                });
+                
+                contentWrapper.appendChild(streamingState.messageDiv);
+                
+                streamingState.messageContainer.appendChild(contentWrapper);
+            }
+
+            // Insert at end to avoid reordering flicker
+            this.elements.chatWindow.appendChild(streamingState.messageContainer);
 
             console.log('Streaming container created, starting character-by-character simulation');
 
-            // Stream text character by character
+            // Stream text character by character with improved timing
             const text = activity.text;
             let currentText = '';
 
             for (let i = 0; i < text.length; i++) {
+                // Check if streaming was interrupted or queue processing stopped
+                if (!this.streamingStates.has(messageId) || this.currentlyStreamingMessageId !== messageId) {
+                    console.log('Streaming interrupted for message:', messageId);
+                    break;
+                }
+
                 currentText += text[i];
-                this.updateStreamingContent(this.streamingState.messageDiv, currentText);
+                this.updateStreamingContent(streamingState.messageDiv, currentText);
+                streamingState.content = currentText;
+                streamingState.lastUpdate = Date.now();
+                
                 this.scrollToBottom();
 
-                // Much faster delays for powerful AI feel
-                const delay = text[i] === ' ' ? 15 : Math.random() * 4 + 1; // 3-11ms per character
+                // Improved timing: faster overall to prevent timeouts
+                const char = text[i];
+                let delay;
+                if (char === ' ') {
+                    delay = 8; // Faster spaces
+                } else if (char === '\n') {
+                    delay = 20; // Faster line breaks
+                } else if (/[.!?]/.test(char)) {
+                    delay = 50; // Shorter sentence pauses
+                } else {
+                    delay = Math.random() * 3 + 1; // 1-4ms per character (faster)
+                }
+                
                 await Utils.sleep(delay);
             }
 
             console.log('Streaming simulation complete, finalizing message');
 
-            // Finalize message
-            this.finalizeStreamingMessage(activity);
+            // Finalize the message with metadata
+            await this.finalizeStreamingMessage(activity);
+
         } catch (error) {
-            console.error('Error in simulateStreaming:', error);
-            // Fallback to complete message render if streaming fails
-            console.log('Falling back to complete message render due to error');
-            this.clearStreamingState();
-            this.renderCompleteMessage(activity);
+            console.error('Error in streaming simulation:', error);
+            // Clean up and fallback
+            const messageId = activity.id || `${activity.from?.id}-${activity.timestamp}-${Date.now()}`;
+            this.streamingStates.delete(messageId);
+            this.renderingInProgress.delete(messageId);
+            await this.renderCompleteMessageDirect(activity);
+        } finally {
+            // Always clean up tracking
+            const messageId = activity.id || `${activity.from?.id}-${activity.timestamp}-${Date.now()}`;
+            this.renderingInProgress.delete(messageId);
         }
     }
 
@@ -618,6 +1210,61 @@ export class MessageRenderer {
     }
 
     /**
+     * Set speaker button icon based on state
+     * @param {HTMLElement} speakerButton - Speaker button element
+     * @param {string} state - Icon state: 'speaker', 'pause', 'stop'
+     * @private
+     */
+    setSpeakerIcon(speakerButton, state) {
+        let iconSvg = '';
+        let title = '';
+        let ariaLabel = '';
+
+        switch (state) {
+            case 'speaker':
+                iconSvg = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                    </svg>
+                `;
+                title = 'Read message aloud';
+                ariaLabel = 'Read message aloud';
+                speakerButton.classList.remove('speaking');
+                break;
+                
+            case 'pause':
+                iconSvg = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                `;
+                title = 'Pause speaking';
+                ariaLabel = 'Pause speaking';
+                speakerButton.classList.add('speaking');
+                break;
+                
+            case 'stop':
+                iconSvg = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 6h12v12H6z"/>
+                    </svg>
+                `;
+                title = 'Stop speaking';
+                ariaLabel = 'Stop speaking';
+                speakerButton.classList.add('speaking');
+                break;
+                
+            default:
+                // Default to speaker icon
+                return this.setSpeakerIcon(speakerButton, 'speaker');
+        }
+
+        speakerButton.innerHTML = iconSvg;
+        speakerButton.title = title;
+        speakerButton.ariaLabel = ariaLabel;
+    }
+
+    /**
      * Create message div
      * @param {Object} activity - DirectLine activity
      * @returns {HTMLElement} Message div
@@ -630,6 +1277,264 @@ export class MessageRenderer {
     }
 
     /**
+     * Create enhanced speaker button with progress tracking for metadata section
+     * @param {Object} activity - DirectLine activity
+     * @param {HTMLElement} progressContainer - Progress bar container
+     * @param {HTMLElement} progressFill - Progress bar fill element
+     * @returns {HTMLElement} Enhanced speaker button
+     * @private
+     */
+    createEnhancedSpeakerButton(activity, progressContainer, progressFill) {
+        const speakerButton = DOMUtils.createElement('button', {
+            className: 'message-speaker-btn metadata-speaker-btn',
+            title: 'Read message aloud',
+            ariaLabel: 'Read message aloud'
+        });
+
+        // Set initial speaker icon (clean SVG with transparent background)
+        this.setSpeakerIcon(speakerButton, 'speaker');
+
+        // Add click handler to speak the message with progress tracking
+        DOMUtils.addEventListener(speakerButton, 'click', async () => {
+            const messageText = activity.text || '';
+            if (!messageText.trim()) return;
+
+            // Check global speech state
+            if (this.globalSpeechState.isPlaying) {
+                // Stop currently playing speech
+                console.log('[Enhanced Speaker] Stopping currently playing speech');
+                try {
+                    // Stop speech using the new disposal method
+                    if (window.speechEngine && window.speechEngine.disposeAndReinitialize) {
+                        await window.speechEngine.disposeAndReinitialize();
+                    } else {
+                        const { aiCompanion } = await import('../ai/aiCompanion.js');
+                        aiCompanion.stopSpeaking();
+                    }
+                    
+                    // Reset all speaker button states
+                    this.resetAllSpeakerButtons();
+                    
+                } catch (error) {
+                    console.warn('Failed to stop speech:', error);
+                    this.resetAllSpeakerButtons();
+                }
+                return;
+            }
+
+            // Start speaking with progress tracking
+            console.log('[Enhanced Speaker] Starting new speech synthesis');
+            this.globalSpeechState.isPlaying = true;
+            this.globalSpeechState.currentSpeakerButton = speakerButton;
+            this.globalSpeechState.currentProgressContainer = progressContainer;
+            this.globalSpeechState.currentProgressFill = progressFill;
+            
+            this.startSpeechProgress(speakerButton, progressContainer, progressFill, messageText);
+
+            try {
+                const { aiCompanion } = await import('../ai/aiCompanion.js');
+                
+                // Create progress callback
+                const onProgress = (progress) => {
+                    // Only update if this is still the current speech
+                    if (this.globalSpeechState.currentProgressFill === progressFill) {
+                        // Convert 0.0-1.0 progress to 0-100 percentage
+                        const percentage = progress * 100;
+                        console.log(`[Enhanced Speaker] Progress: ${Math.round(percentage)}%`);
+                        this.updateSpeechProgress(progressFill, percentage);
+                    }
+                };
+
+                // Create completion callback
+                const onComplete = () => {
+                    console.log('[Enhanced Speaker] Speech synthesis completed');
+                    this.resetAllSpeakerButtons();
+                };
+
+                // Create error callback
+                const onError = (error) => {
+                    console.warn('[Enhanced Speaker] Speech synthesis error:', error);
+                    this.resetAllSpeakerButtons();
+                };
+
+                // Start speaking with callbacks
+                await aiCompanion.speakTextWithProgress(messageText, {
+                    onProgress,
+                    onComplete,
+                    onError,
+                    forceSpeak: true
+                });
+            } catch (error) {
+                console.warn('Failed to speak message:', error);
+                this.resetAllSpeakerButtons();
+            }
+        });
+
+        return speakerButton;
+    }
+
+    /**
+     * Start speech progress indication
+     * @param {HTMLElement} speakerButton - Speaker button element
+     * @param {HTMLElement} progressContainer - Progress container element
+     * @param {HTMLElement} progressFill - Progress fill element
+     * @param {string} text - Text being spoken
+     * @private
+     */
+    startSpeechProgress(speakerButton, progressContainer, progressFill, text) {
+        console.log('[MessageRenderer] Starting speech progress...');
+        
+        // Update button to pause icon with speaking state
+        this.setSpeakerIcon(speakerButton, 'pause');
+
+        // Show progress bar
+        progressContainer.style.display = 'block';
+        progressFill.style.width = '0%';
+        
+        console.log('[MessageRenderer] Progress container displayed, initial width set to 0%');
+    }
+
+    /**
+     * Update speech progress
+     * @param {HTMLElement} progressFill - Progress fill element
+     * @param {number} progress - Progress percentage (0-100)
+     * @private
+     */
+    updateSpeechProgress(progressFill, progress) {
+        const clampedProgress = Math.max(0, Math.min(100, progress));
+        console.log(`[MessageRenderer] Updating progress: ${progress}% -> ${clampedProgress}%`);
+        
+        if (progressFill) {
+            const oldWidth = progressFill.style.width;
+            progressFill.style.width = `${clampedProgress}%`;
+            console.log(`[MessageRenderer] Progress bar width: ${oldWidth} -> ${progressFill.style.width}`);
+        } else {
+            console.warn('[MessageRenderer] Progress fill element is null!');
+        }
+    }
+
+    /**
+     * Reset speaker button to initial state
+     * @param {HTMLElement} speakerButton - Speaker button element
+     * @param {HTMLElement} progressContainer - Progress container element
+     * @param {HTMLElement} progressFill - Progress fill element
+     * @private
+     */
+    resetSpeakerButton(speakerButton, progressContainer, progressFill) {
+        // Reset button to speaker icon
+        this.setSpeakerIcon(speakerButton, 'speaker');
+
+        // Hide progress bar
+        progressContainer.style.display = 'none';
+        progressFill.style.width = '0%';
+    }
+
+    /**
+     * Reset all speaker buttons to initial state using global state tracking
+     * @private
+     */
+    resetAllSpeakerButtons() {
+        // Reset global state
+        this.globalSpeechState.isPlaying = false;
+        
+        // Reset the current speaker button if it exists
+        if (this.globalSpeechState.currentSpeakerButton) {
+            this.setSpeakerIcon(this.globalSpeechState.currentSpeakerButton, 'speaker');
+        }
+        
+        // Reset the current progress elements if they exist
+        if (this.globalSpeechState.currentProgressContainer) {
+            this.globalSpeechState.currentProgressContainer.style.display = 'none';
+        }
+        
+        if (this.globalSpeechState.currentProgressFill) {
+            this.globalSpeechState.currentProgressFill.style.width = '0%';
+        }
+        
+        // Clear current references
+        this.globalSpeechState.currentSpeakerButton = null;
+        this.globalSpeechState.currentProgressContainer = null;
+        this.globalSpeechState.currentProgressFill = null;
+        
+        console.log('[Speaker] All speaker buttons reset to initial state');
+    }
+
+    /**
+     * Create speaker button for agent messages
+     * @param {Object} activity - DirectLine activity
+     * @returns {HTMLElement} Speaker button
+     * @private
+     */
+    createSpeakerButton(activity) {
+        const speakerButton = DOMUtils.createElement('button', {
+            className: 'message-speaker-btn',
+            title: 'Read message aloud',
+            ariaLabel: 'Read message aloud'
+        });
+
+        // Set initial speaker icon (clean SVG with transparent background)
+        this.setSpeakerIcon(speakerButton, 'speaker');
+
+        // Add click handler to speak the message
+        DOMUtils.addEventListener(speakerButton, 'click', async () => {
+            const messageText = activity.text || '';
+            if (!messageText.trim()) return;
+
+            // Check global speech state
+            if (this.globalSpeechState.isPlaying) {
+                // Stop currently playing speech
+                console.log('[Speaker] Stopping currently playing speech');
+                try {
+                    // Stop speech using the new disposal method
+                    if (window.speechEngine && window.speechEngine.disposeAndReinitialize) {
+                        await window.speechEngine.disposeAndReinitialize();
+                    } else {
+                        const { aiCompanion } = await import('../ai/aiCompanion.js');
+                        aiCompanion.stopSpeaking();
+                    }
+                    
+                    // Reset all speaker button states
+                    this.resetAllSpeakerButtons();
+                    
+                } catch (error) {
+                    console.warn('Failed to stop speech:', error);
+                    this.resetAllSpeakerButtons();
+                }
+                return;
+            }
+
+            // Start speaking
+            console.log('[Speaker] Starting new speech synthesis');
+            this.globalSpeechState.isPlaying = true;
+            this.globalSpeechState.currentSpeakerButton = speakerButton;
+            
+            // Update current button to pause state
+            this.setSpeakerIcon(speakerButton, 'pause');
+
+            try {
+                const { aiCompanion } = await import('../ai/aiCompanion.js');
+                
+                await aiCompanion.speakText(messageText, {
+                    forceSpeak: true,
+                    onComplete: () => {
+                        console.log('[Speaker] Speech synthesis completed');
+                        this.resetAllSpeakerButtons();
+                    },
+                    onError: (error) => {
+                        console.warn('[Speaker] Speech synthesis error:', error);
+                        this.resetAllSpeakerButtons();
+                    }
+                });
+            } catch (error) {
+                console.warn('Failed to speak message:', error);
+                this.resetAllSpeakerButtons();
+            }
+        });
+
+        return speakerButton;
+    }
+
+    /**
      * Add text content to message
      * @param {HTMLElement} messageDiv - Message div element
      * @param {string} text - Text content
@@ -638,13 +1543,16 @@ export class MessageRenderer {
     addTextContent(messageDiv, text) {
         console.log('MessageRenderer: addTextContent called with text length:', text?.length);
         
+        // Process LaTeX math expressions first (before markdown)
+        const latexProcessedText = this.processLatex(text);
+        
         // Process markdown if available - exactly like legacy
         if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
             try {
                 // Check if marked.parse exists (v4+) or use marked() (v3 and below)
                 const htmlContent = typeof marked.parse === 'function' ?
-                    marked.parse(text) :
-                    marked(text);
+                    marked.parse(latexProcessedText) :
+                    marked(latexProcessedText);
                 const sanitizedContent = DOMPurify.sanitize(htmlContent);
 
                 console.log('MessageRenderer: Processed markdown, checking for images in HTML:', sanitizedContent.includes('<img'));
@@ -658,8 +1566,8 @@ export class MessageRenderer {
             } catch (error) {
                 console.warn('Error processing markdown:', error);
                 console.warn('Marked version check:', typeof marked.parse);
-                // For fallback, still ensure paragraph structure
-                const paragraphText = this.ensureParagraphStructure(text, messageDiv, true);
+                // For fallback, still ensure paragraph structure and LaTeX
+                const paragraphText = this.ensureParagraphStructure(latexProcessedText, messageDiv, true);
                 messageDiv.innerHTML = paragraphText;
             }
         } else {
@@ -667,8 +1575,8 @@ export class MessageRenderer {
                 marked: typeof marked,
                 DOMPurify: typeof DOMPurify
             });
-            // Even without markdown, ensure paragraph structure for agent messages
-            const paragraphText = this.ensureParagraphStructure(text, messageDiv, true);
+            // Even without markdown, ensure paragraph structure and process LaTeX
+            const paragraphText = this.ensureParagraphStructure(latexProcessedText, messageDiv, true);
             messageDiv.innerHTML = paragraphText;
         }
 
@@ -765,13 +1673,19 @@ export class MessageRenderer {
      * @private
      */
     updateStreamingContent(messageDiv, content) {
+        // Handle URLs and markdown links specially during streaming
+        const processedContent = this.handleStreamingUrls(content);
+        
+        // Process LaTeX math expressions first (before markdown)
+        const latexProcessedContent = this.processLatex(processedContent);
+        
         // Process markdown if available - removed typing cursor
         if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
             try {
                 // Check if marked.parse exists (v4+) or use marked() (v3 and below)
                 const htmlContent = typeof marked.parse === 'function' ?
-                    marked.parse(content) :
-                    marked(content);
+                    marked.parse(latexProcessedContent) :
+                    marked(latexProcessedContent);
                 const sanitizedContent = DOMPurify.sanitize(htmlContent);
 
                 // Enhance inline references during streaming like in complete messages
@@ -782,13 +1696,13 @@ export class MessageRenderer {
                 messageDiv.innerHTML = finalContent;
             } catch (error) {
                 console.warn('Error processing streaming markdown:', error);
-                // For fallback, still ensure paragraph structure
-                const paragraphContent = this.ensureParagraphStructure(content, messageDiv, true);
+                // For fallback, still ensure paragraph structure and process LaTeX
+                const paragraphContent = this.ensureParagraphStructure(latexProcessedContent, messageDiv, true);
                 messageDiv.innerHTML = paragraphContent;
             }
         } else {
-            // Even without markdown, ensure paragraph structure for agent messages
-            const paragraphContent = this.ensureParagraphStructure(content, messageDiv, true);
+            // Even without markdown, ensure paragraph structure and process LaTeX
+            const paragraphContent = this.ensureParagraphStructure(latexProcessedContent, messageDiv, true);
             messageDiv.innerHTML = paragraphContent;
         }
 
@@ -801,6 +1715,58 @@ export class MessageRenderer {
                 this.showEnlargedImage(img.src, img.alt || 'Image');
             });
         });
+
+        // Process streaming speech for new content
+        // Extract text content for speech processing (remove HTML tags)
+        const textContent = messageDiv.textContent || messageDiv.innerText || '';
+        const messageId = messageDiv.getAttribute('data-message-id') || `message-${Date.now()}`;
+        
+        // Speech is handled separately by the new architecture - no need to process here
+    }
+
+    /**
+     * Handle URLs and markdown links during streaming to prevent broken rendering
+     * @param {string} content - The streaming content
+     * @returns {string} - Processed content with URLs handled appropriately
+     * @private
+     */
+    handleStreamingUrls(content) {
+        // Patterns for detecting incomplete markdown links and URLs
+        const incompleteMarkdownLink = /\[[^\]]*$/; // [text without closing ]
+        const incompleteMarkdownLinkWithParen = /\[[^\]]*\]\([^)]*$/; // [text](incomplete-url
+        const incompleteUrl = /(^|\s)(https?:\/\/[^\s\])]*)$/; // URL at end without proper termination
+        
+        // If content ends with incomplete markdown link syntax, render as plain text
+        if (incompleteMarkdownLink.test(content) || incompleteMarkdownLinkWithParen.test(content)) {
+            // Replace incomplete markdown with escaped version to prevent markdown processing
+            return content.replace(/\[([^\]]*)$/, '\\[$1')
+                         .replace(/\[([^\]]*)\]\(([^)]*)$/, '\\[$1\\]\\($2');
+        }
+        
+        // If content ends with incomplete URL, don't process it as markdown yet
+        if (incompleteUrl.test(content)) {
+            const match = content.match(incompleteUrl);
+            if (match && match[2]) {
+                const url = match[2];
+                // Only treat as incomplete if it doesn't end with common URL endings
+                const commonEndings = ['.com', '.org', '.net', '.edu', '.gov', '.io', '.co', '.html', '.htm', '.php', '.asp', '.jsp'];
+                const hasValidEnding = commonEndings.some(ending => url.toLowerCase().endsWith(ending));
+                
+                if (!hasValidEnding && url.length > 10) {
+                    // Escape the URL to prevent auto-linking until complete
+                    return content.replace(incompleteUrl, `$1\\${url}`);
+                }
+            }
+        }
+        
+        return content;
+    }
+
+    /**
+     * @deprecated - Replaced by handleStreamingUrls for better URL handling
+     */
+    preprocessStreamingContent(content) {
+        return this.handleStreamingUrls(content);
     }
 
     /**
@@ -993,9 +1959,10 @@ export class MessageRenderer {
      * Add response metadata outside the message bubble
      * @param {HTMLElement} messageContainer - Message container element  
      * @param {Object} activity - Activity object that might contain entities/citations
+     * @param {number} streamingStartTime - Start time for streaming calculation (optional)
      * @private
      */
-    addResponseMetadata(messageContainer, activity = null) {
+    addResponseMetadata(messageContainer, activity = null, streamingStartTime = null) {
         // Create wrapper for message and metadata
         const messageWrapper = DOMUtils.createElement('div', {
             className: 'message-wrapper'
@@ -1016,7 +1983,7 @@ export class MessageRenderer {
         // Calculate time spent only for assistant messages
         const messageTime = activity?.timestamp ? new Date(activity.timestamp) : new Date();
         const isUserMessage = activity.from && activity.from.id === 'user';
-        const timeSpent = isUserMessage ? null : 'Response time: ' + this.calculateTimeSpent(activity);
+        const timeSpent = isUserMessage ? null : 'Response time: ' + this.calculateTimeSpent(activity, streamingStartTime);
 
         const timeSpan = DOMUtils.createElement('span', {
             className: 'metadata-time'
@@ -1038,6 +2005,43 @@ export class MessageRenderer {
             metadata.appendChild(timeSpentSpan);
         }
 
+        // Add speaker button and progress bar for non-user messages
+        if (!isUserMessage && activity) {
+            // Add separator before speaker controls
+            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • '));
+            
+            // Create speaker controls container
+            const speakerControls = DOMUtils.createElement('div', {
+                className: 'speaker-controls'
+            });
+            
+            // Create progress bar container (initially hidden)
+            const progressContainer = DOMUtils.createElement('div', {
+                className: 'speech-progress-container',
+                style: 'display: none;'
+            });
+            
+            const progressBar = DOMUtils.createElement('div', {
+                className: 'speech-progress-bar'
+            });
+            
+            const progressFill = DOMUtils.createElement('div', {
+                className: 'speech-progress-fill',
+                style: 'width: 0%;'
+            });
+            
+            progressBar.appendChild(progressFill);
+            progressContainer.appendChild(progressBar);
+            
+            // Create enhanced speaker button
+            const speakerButton = this.createEnhancedSpeakerButton(activity, progressContainer, progressFill);
+            
+            speakerControls.appendChild(speakerButton);
+            speakerControls.appendChild(progressContainer);
+            
+            metadata.appendChild(speakerControls);
+        }
+
         // Add metadata after the message container
         messageWrapper.appendChild(metadata);
 
@@ -1054,13 +2058,21 @@ export class MessageRenderer {
     /**
      * Calculate time spent for assistant response (not applicable for user messages)
      * @param {Object} activity - Activity object
+     * @param {number} streamingStartTime - Optional streaming start time
      * @returns {string|null} Formatted time spent or null for user messages
      * @private
      */
-    calculateTimeSpent(activity) {
+    calculateTimeSpent(activity, streamingStartTime = null) {
         // User messages don't have response times since they're manually input
         if (activity.from && activity.from.id === 'user') {
             return null;
+        }
+
+        // Use streaming start time if provided (for streaming messages)
+        if (streamingStartTime) {
+            const duration = Date.now() - streamingStartTime;
+            console.log(`[MessageRenderer] Streaming response time: ${duration}ms`);
+            return this.formatDuration(duration);
         }
 
         // Use global response time tracking for accurate request-to-response timing
@@ -1076,15 +2088,8 @@ export class MessageRenderer {
             return this.formatDuration(duration);
         }
 
-        // Fallback: If we have streaming state and this is the end of a streaming message
-        if (this.streamingState.startTime) {
-            const duration = Date.now() - this.streamingState.startTime;
-            this.streamingState.startTime = null; // Reset for next message
-            console.log(`[MessageRenderer] Streaming render time: ${duration}ms (fallback)`);
-            return this.formatDuration(duration);
-        }
-
-        // For assistant messages when timing isn't available
+        // Fallback: Use default timing when streaming state isn't available
+        console.log(`[MessageRenderer] Using fallback response time`);
         return '~1s';
     }
 
@@ -2116,25 +3121,167 @@ export class MessageRenderer {
     }
 
     /**
+     * Add message to queue for sequential rendering
+     * @param {Object} activity - Message activity
+     * @param {string} renderType - 'complete', 'streaming', or 'simulate'
+     */
+    queueMessage(activity, renderType = 'complete') {
+        const messageId = activity.id || `${activity.from?.id}-${activity.timestamp}-${Date.now()}`;
+        
+        // Add timestamp for proper ordering if not present
+        if (!activity.timestamp) {
+            activity.timestamp = new Date().toISOString();
+        }
+
+        const queueItem = {
+            messageId,
+            activity,
+            renderType,
+            queueTime: Date.now()
+        };
+
+        console.log('Queueing message:', messageId, 'Type:', renderType);
+        this.messageQueue.push(queueItem);
+        
+        // Sort queue by timestamp to ensure proper order
+        this.messageQueue.sort((a, b) => new Date(a.activity.timestamp) - new Date(b.activity.timestamp));
+        
+        // Start processing if not already running
+        if (!this.isProcessingQueue) {
+            this.processMessageQueue();
+        }
+    }
+
+    /**
+     * Process messages in queue sequentially
+     */
+    async processMessageQueue() {
+        if (this.isProcessingQueue || this.messageQueue.length === 0) {
+            return;
+        }
+
+        this.isProcessingQueue = true;
+        console.log('Starting queue processing. Queue length:', this.messageQueue.length);
+
+        const maxProcessingTime = 60000; // 60 seconds max for entire queue
+        const startTime = Date.now();
+
+        while (this.messageQueue.length > 0) {
+            // Safety check to prevent infinite processing
+            if (Date.now() - startTime > maxProcessingTime) {
+                console.warn('Queue processing timeout, clearing remaining messages');
+                this.messageQueue = [];
+                break;
+            }
+
+            const queueItem = this.messageQueue.shift();
+            const { messageId, activity, renderType } = queueItem;
+
+            console.log('Processing queued message:', messageId, 'Type:', renderType);
+            
+            try {
+                // Set current streaming message
+                this.currentlyStreamingMessageId = messageId;
+
+                // Render based on type - no timeout for individual messages
+                // Let streaming complete naturally
+                await this.renderQueuedMessage(renderType, activity);
+
+                // For streaming messages, wait for completion but with reasonable timeout
+                if (renderType === 'simulate') {
+                    const messageLength = activity.text?.length || 0;
+                    const estimatedTime = Math.min(messageLength * 10, 30000); // 10ms per char, max 30s
+                    
+                    const waitPromise = this.waitForStreamingComplete(messageId);
+                    const waitTimeoutPromise = new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Streaming completion timeout')), estimatedTime)
+                    );
+                    
+                    try {
+                        await Promise.race([waitPromise, waitTimeoutPromise]);
+                    } catch (timeoutError) {
+                        console.warn(`Streaming completion timeout for message ${messageId}, continuing with next message`);
+                        this.streamingStates.delete(messageId);
+                        this.renderingInProgress.delete(messageId);
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error processing queued message:', messageId, error);
+                // Remove from tracking and continue
+                this.streamingStates.delete(messageId);
+                this.renderingInProgress.delete(messageId);
+            }
+
+            // Clear current streaming message
+            this.currentlyStreamingMessageId = null;
+        }
+
+        this.isProcessingQueue = false;
+        console.log('Queue processing completed');
+    }
+
+    /**
+     * Render a queued message based on type
+     * @param {string} renderType - Type of rendering
+     * @param {Object} activity - Activity to render
+     */
+    async renderQueuedMessage(renderType, activity) {
+        switch (renderType) {
+            case 'streaming':
+                await this.handleStreamingMessageDirect(activity);
+                break;
+            case 'simulate':
+                await this.simulateStreamingDirect(activity);
+                break;
+            case 'complete':
+            default:
+                await this.renderCompleteMessageDirect(activity);
+                break;
+        }
+    }
+
+    /**
+     * Wait for streaming message to complete
+     * @param {string} messageId - Message ID to wait for
+     */
+    async waitForStreamingComplete(messageId) {
+        return new Promise((resolve) => {
+            const checkComplete = () => {
+                if (!this.streamingStates.has(messageId) && !this.renderingInProgress.has(messageId)) {
+                    resolve();
+                } else {
+                    setTimeout(checkComplete, 50); // Check every 50ms
+                }
+            };
+            checkComplete();
+        });
+    }
+
+    /**
      * Clear streaming state
      * @private
      */
     clearStreamingState() {
-        console.log('Clearing streaming state:', {
-            wasStreaming: this.streamingState.isStreaming,
-            hadContainer: !!this.streamingState.messageContainer,
-            hadContent: this.streamingState.content?.length || 0
+        console.log('Clearing all streaming states. Count:', this.streamingStates.size);
+        
+        this.streamingStates.forEach((state, messageId) => {
+            console.log('Clearing streaming state for message:', messageId);
         });
+        
+        this.streamingStates.clear();
+        this.renderingInProgress.clear();
+    }
 
-        this.streamingState = {
-            currentMessage: null,
-            messageContainer: null,
-            messageDiv: null,
-            content: '',
-            startTime: null,
-            isStreaming: false,
-            lastUpdate: null
-        };
+    /**
+     * Clear message queue and reset processing state
+     */
+    clearMessageQueue() {
+        console.log('Clearing message queue. Pending messages:', this.messageQueue.length);
+        this.messageQueue = [];
+        this.isProcessingQueue = false;
+        this.currentlyStreamingMessageId = null;
+        this.clearStreamingState();
     }
 
     /**
@@ -2153,7 +3300,7 @@ export class MessageRenderer {
             this.elements.chatWindow.innerHTML = '';
         }
         this.clearSuggestedActions();
-        this.clearStreamingState();
+        this.clearMessageQueue(); // Clear queue and streaming state
     }
 
     /**

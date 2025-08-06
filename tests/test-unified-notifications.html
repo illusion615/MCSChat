@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Notification System - Test</title>
+    <link rel="stylesheet" href="../styles.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        
+        .test-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .test-btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        .test-btn:hover {
+            background: #0056b3;
+        }
+        
+        .test-btn.danger {
+            background: #dc3545;
+        }
+        
+        .test-btn.danger:hover {
+            background: #c82333;
+        }
+        
+        .test-btn.success {
+            background: #28a745;
+        }
+        
+        .test-btn.success:hover {
+            background: #218838;
+        }
+        
+        .test-btn.warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .test-btn.warning:hover {
+            background: #e0a800;
+        }
+        
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        /* Mock loading indicator for testing */
+        #loadingIndicator {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            display: none;
+        }
+        
+        .loading-text {
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔔 Unified Notification System Test</h1>
+        
+        <div class="info">
+            <strong>Test Instructions:</strong> Click the buttons below to test different notification types. 
+            Notifications will appear in their designated zones:
+            <ul>
+                <li><strong>Initialization:</strong> Bottom center (using existing loading indicator area)</li>
+                <li><strong>Connection:</strong> Top right (floating)</li>
+                <li><strong>Logging:</strong> Bottom right (floating)</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>📡 Connection Notifications</h3>
+            <p>Test connection status notifications (appear in top-right)</p>
+            <div class="test-buttons">
+                <button class="test-btn" onclick="testNotification('connection-connecting', 'Connecting to agent...')">
+                    Connecting
+                </button>
+                <button class="test-btn success" onclick="testNotification('connection-connected', 'Successfully connected to agent')">
+                    Connected
+                </button>
+                <button class="test-btn danger" onclick="testNotification('connection-failed', 'Failed to connect to agent')">
+                    Failed
+                </button>
+                <button class="test-btn warning" onclick="testNotification('connection-expired', 'Connection token expired')">
+                    Expired
+                </button>
+                <button class="test-btn" onclick="testNotification('connection-ended', 'Connection ended by server')">
+                    Ended
+                </button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>⚙️ Initialization Notifications</h3>
+            <p>Test initialization messages (appear in bottom-center)</p>
+            <div class="test-buttons">
+                <button class="test-btn" onclick="testNotification('init-loading', 'Initializing application...')">
+                    Loading
+                </button>
+                <button class="test-btn success" onclick="testNotification('init-ready', 'Application ready!')">
+                    Ready
+                </button>
+                <button class="test-btn danger" onclick="testNotification('init-error', 'Initialization failed')">
+                    Error
+                </button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Logging Notifications</h3>
+            <p>Test system log notifications (appear in bottom-right)</p>
+            <div class="test-buttons">
+                <button class="test-btn" onclick="testNotification('log-info', 'System information logged')">
+                    Info
+                </button>
+                <button class="test-btn warning" onclick="testNotification('log-warning', 'Warning: Resource usage high')">
+                    Warning
+                </button>
+                <button class="test-btn danger" onclick="testNotification('log-error', 'Error: Operation failed')">
+                    Error
+                </button>
+                <button class="test-btn success" onclick="testNotification('log-success', 'Operation completed successfully')">
+                    Success
+                </button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧹 Management</h3>
+            <p>Test notification management functions</p>
+            <div class="test-buttons">
+                <button class="test-btn danger" onclick="clearZone('connection')">
+                    Clear Connection
+                </button>
+                <button class="test-btn danger" onclick="clearZone('logging')">
+                    Clear Logging
+                </button>
+                <button class="test-btn danger" onclick="clearZone('initialization')">
+                    Clear Initialization
+                </button>
+                <button class="test-btn danger" onclick="clearAll()">
+                    Clear All
+                </button>
+                <button class="test-btn" onclick="showStats()">
+                    Show Stats
+                </button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 Stress Tests</h3>
+            <p>Test multiple notifications and edge cases</p>
+            <div class="test-buttons">
+                <button class="test-btn" onclick="spamNotifications()">
+                    Spam Notifications
+                </button>
+                <button class="test-btn" onclick="testLongMessage()">
+                    Long Message
+                </button>
+                <button class="test-btn" onclick="testPersistent()">
+                    Persistent Notification
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mock loading indicator for testing -->
+    <div id="loadingIndicator" style="display: none;">
+        <div class="loading-spinner">⟳</div>
+        <span class="loading-text">Initializing...</span>
+    </div>
+
+    <script type="module">
+        import { getUnifiedNotificationManager } from '../src/services/unifiedNotificationManager.js';
+        
+        // Initialize the notification manager
+        const notificationManager = getUnifiedNotificationManager();
+        console.log('Unified Notification Manager initialized for testing');
+        
+        // Make functions available globally for testing
+        window.testNotification = function(type, message, options = {}) {
+            const id = notificationManager.show(type, message, options);
+            console.log(`Showed notification: ${type} with ID: ${id}`);
+        };
+        
+        window.clearZone = function(zoneId) {
+            notificationManager.clearZone(zoneId);
+            console.log(`Cleared zone: ${zoneId}`);
+        };
+        
+        window.clearAll = function() {
+            notificationManager.clearAll();
+            console.log('Cleared all notifications');
+        };
+        
+        window.showStats = function() {
+            const totalCount = notificationManager.getActiveCount();
+            const connectionCount = notificationManager.getActiveCount('connection');
+            const loggingCount = notificationManager.getActiveCount('logging');
+            const initCount = notificationManager.getActiveCount('initialization');
+            
+            const message = `Active notifications: ${totalCount} total (Connection: ${connectionCount}, Logging: ${loggingCount}, Init: ${initCount})`;
+            notificationManager.show('log-info', message, { duration: 8000 });
+            console.log(message);
+        };
+        
+        window.spamNotifications = function() {
+            const types = [
+                'connection-connecting',
+                'connection-connected', 
+                'log-info',
+                'log-warning',
+                'connection-failed',
+                'log-success'
+            ];
+            
+            types.forEach((type, index) => {
+                setTimeout(() => {
+                    notificationManager.show(type, `Spam notification ${index + 1}`, { duration: 3000 });
+                }, index * 200);
+            });
+        };
+        
+        window.testLongMessage = function() {
+            const longMessage = 'This is a very long notification message to test how the system handles text wrapping and layout when the content exceeds the normal width expectations. It should gracefully wrap and maintain readability.';
+            notificationManager.show('log-info', longMessage, { duration: 10000 });
+        };
+        
+        window.testPersistent = function() {
+            notificationManager.show('connection-failed', 'This is a persistent notification that requires manual dismissal', { 
+                persistent: true,
+                duration: 0 
+            });
+        };
+    </script>
+</body>
+</html>

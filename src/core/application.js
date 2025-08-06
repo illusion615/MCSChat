@@ -14,6 +14,11 @@ import { SecureStorage } from '../utils/secureStorage.js';
 import { EnhancedTypingIndicator } from '../ui/enhancedTypingIndicator.js';
 import { mobileUtils } from '../utils/mobileUtils.js';
 import { statusIndicator } from '../utils/statusIndicator.js';
+// Using simpler logging manager to fix the issue
+import LoggingManager from '../services/simpleLoggingManager.js';
+// import LoggingUIManager from '../ui/loggingUIManager.js';
+// Temporarily comment out speech engine import to isolate the issue
+// import { speechEngine, setLoggingManager as setSpeechLoggingManager } from '../services/speechEngine.js';
 
 export class Application {
     constructor() {
@@ -26,11 +31,29 @@ export class Application {
             currentAgent: null
         };
         
+        // Track notification IDs for cleanup
+        this.currentInitNotificationId = null;
+        
         // Initialize enhanced typing indicator
         this.enhancedTypingIndicator = new EnhancedTypingIndicator();
         
         // Initialize mobile utilities
         this.mobileUtils = mobileUtils;
+        
+        // Initialize logging system - using simpler version
+        this.loggingManager = new LoggingManager();
+        // this.loggingUIManager = null; // Will be initialized after DOM is ready
+        
+        // Set up global logging manager for other modules
+        window.globalLoggingManager = this.loggingManager;
+        // Temporarily comment out speech engine logging setup
+        // setSpeechLoggingManager(this.loggingManager);
+        
+        // Track UI state
+        this.uiState = {
+            leftPanelCollapsed: localStorage.getItem('leftPanelCollapsed') === 'true',
+            messageIconsEnabled: localStorage.getItem('messageIconsEnabled') !== 'false' // Default to true
+        };
     }
 
     /**
@@ -43,7 +66,15 @@ export class Application {
         }
 
         try {
+            this.initStartTime = Date.now();
             console.log('Initializing MCSChat application...');
+            // Re-enable basic logging
+            this.loggingManager.info('system', 'Application initialization started', {
+                version: '2.0',
+                userAgent: navigator.userAgent,
+                timestamp: new Date().toISOString()
+            });
+            
             this.showInitializationIndicator('Starting application...');
 
             // Initialize DOM elements
@@ -61,6 +92,7 @@ export class Application {
             // Initialize AI companion
             this.updateInitializationIndicator('Initializing AI companion...');
             aiCompanion.initialize();
+            this.aiCompanion = aiCompanion; // Assign to instance for access throughout the class
 
             // Initialize mobile utilities
             this.updateInitializationIndicator('Setting up mobile interface...');
@@ -68,12 +100,37 @@ export class Application {
                 this.mobileUtils.initializeMobileFeatures();
             }
 
+            // Load UI state and user preferences
+            this.updateInitializationIndicator('Loading user preferences...');
+            this.loadUIState();
+
             // Load agents and try to connect (moved to after agentManager is initialized)
             this.updateInitializationIndicator('Connecting to agent...');
             await this.loadAndConnectAgent();
 
             this.isInitialized = true;
             console.log('Application initialized successfully');
+            
+            // Add some demo log entries for testing
+            this.loggingManager.info('system', 'Application initialization completed successfully', {
+                initializationTime: Date.now() - this.initStartTime,
+                modulesLoaded: ['agentManager', 'sessionManager', 'directLineManager', 'messageRenderer', 'aiCompanion'],
+                uiState: this.uiState
+            });
+            
+            this.loggingManager.debug('system', 'Debug log example', {
+                debugInfo: 'This is a debug message for testing purposes'
+            });
+            
+            this.loggingManager.warn('system', 'Warning log example', {
+                warningType: 'demo',
+                message: 'This is a sample warning for testing the logging system'
+            });
+
+            this.loggingManager.error('system', 'Error log example', {
+                errorType: 'demo',
+                message: 'This is a sample error for testing the logging system'
+            });
 
             // Show success briefly then hide
             this.updateInitializationIndicator('Application ready!');
@@ -100,11 +157,18 @@ export class Application {
             // Input elements
             userInput: DOMUtils.getElementById('userInput'),
             sendButton: DOMUtils.getElementById('sendButton'),
+            voiceInputBtn: DOMUtils.getElementById('voiceInputBtn'),
 
             // Navigation elements
             clearButton: DOMUtils.getElementById('clearButton'),
             setupButton: DOMUtils.getElementById('setupButton'),
+            settingsButton: DOMUtils.getElementById('settingsButton'),
+            conversationsButton: DOMUtils.getElementById('conversationsButton'),
             clearAllHistoryButton: DOMUtils.getElementById('clearAllHistoryButton'),
+            documentationButton: DOMUtils.getElementById('documentationButton'),
+            loggingButton: DOMUtils.getElementById('loggingButton'),
+            leftPanelToggle: DOMUtils.getElementById('leftPanelToggle'),
+            hidePanelButton: DOMUtils.getElementById('hidePanelButton'),
 
             // File upload elements
             fileInput: DOMUtils.getElementById('fileInput'),
@@ -160,7 +224,12 @@ export class Application {
             customIconInput: DOMUtils.getElementById('customIconInput'),
 
             // Side browser elements
-            sideBrowser: DOMUtils.getElementById('sideBrowser')
+            sideBrowser: DOMUtils.getElementById('sideBrowser'),
+
+            // New UI elements for UX improvements
+            leftPanel: DOMUtils.getElementById('leftPanel'),
+            messageIconToggle: DOMUtils.getElementById('messageIconToggle'),
+            leftPanelToggle: DOMUtils.getElementById('leftPanelToggle')
         };
 
         // Debug: Check if Azure elements were found
@@ -215,7 +284,12 @@ export class Application {
             onError: (error) => this.handleConnectionError(error)
         });
 
+        // Initialize logging UI manager - temporarily disabled
+        // this.loggingUIManager = new LoggingUIManager(this.loggingManager);
+
         console.log('Managers and services initialized');
+        // Re-enable basic logging
+        this.loggingManager.info('system', 'Application managers initialized successfully');
     }
 
     /**
@@ -288,7 +362,7 @@ export class Application {
                 }
 
                 console.log('Connected to agent successfully');
-                this.updateInitializationIndicator('Bot connected! Waiting for response...');
+                // Skip showing connection message to reduce UI noise
 
                 // Update agent status display
                 const agentName = this.state.currentAgent?.name || 'Unknown Agent';
@@ -349,6 +423,11 @@ export class Application {
             this.sendMessage();
         });
 
+        // Voice input
+        DOMUtils.addEventListener(this.elements.voiceInputBtn, 'click', () => {
+            this.aiCompanion.startVoiceInput();
+        });
+
         DOMUtils.addEventListener(this.elements.userInput, 'keydown', (e) => {
             if (e.key === 'Enter') {
                 this.sendMessage();
@@ -365,6 +444,16 @@ export class Application {
             this.showSetupModal();
         });
 
+        // Settings button (alternative to setup button)
+        DOMUtils.addEventListener(this.elements.settingsButton, 'click', () => {
+            this.showSetupModal();
+        });
+
+        // Conversations button (toggle left panel)
+        DOMUtils.addEventListener(this.elements.conversationsButton, 'click', () => {
+            this.toggleLeftPanel(!this.uiState.leftPanelCollapsed);
+        });
+
         // Clear all history
         DOMUtils.addEventListener(this.elements.clearAllHistoryButton, 'click', () => {
             if (confirm('Are you sure you want to clear all chat history? This action cannot be undone.')) {
@@ -372,10 +461,180 @@ export class Application {
             }
         });
 
+        // Documentation button - open GitHub README
+        DOMUtils.addEventListener(this.elements.documentationButton, 'click', () => {
+            this.openDocumentation();
+        });
+
+        // Logging button - open logging panel (if available)
+        if (this.elements.loggingButton) {
+            DOMUtils.addEventListener(this.elements.loggingButton, 'click', () => {
+                this.openLoggingPanel();
+            });
+        } else {
+            console.log('Logging button not found - using unified notification system');
+        }
+
+        // Close logging panel
+        const closeLoggingPanel = document.getElementById('closeLoggingPanel');
+        if (closeLoggingPanel) {
+            DOMUtils.addEventListener(closeLoggingPanel, 'click', () => {
+                const panel = document.getElementById('loggingPanel');
+                if (panel) {
+                    panel.classList.remove('visible');
+                }
+            });
+        }
+
+        // Refresh logs button
+        const refreshLogsBtn = document.getElementById('refreshLogsBtn');
+        if (refreshLogsBtn) {
+            DOMUtils.addEventListener(refreshLogsBtn, 'click', () => {
+                console.log('Refresh logs button clicked');
+                this.loggingManager.info('ui', 'Logs refreshed manually by user');
+                if (this.isLoggingPanelExpanded) {
+                    this.renderTableView();
+                } else {
+                    this.populateSimpleLoggingPanel();
+                }
+            });
+        }
+
+        // Debug logs button
+        const debugLogsBtn = document.getElementById('debugLogsBtn');
+        if (debugLogsBtn) {
+            DOMUtils.addEventListener(debugLogsBtn, 'click', () => {
+                console.log('Debug logs button clicked');
+                
+                // Run comprehensive debug
+                if (this.loggingManager.debugState) {
+                    const debugInfo = this.loggingManager.debugState();
+                    console.log('Debug info:', debugInfo);
+                }
+                
+                // Force add new logs
+                this.loggingManager.info('debug', 'Debug button test log', { timestamp: new Date().toISOString() });
+                this.loggingManager.warn('debug', 'Debug button warning', { timestamp: new Date().toISOString() });
+                this.loggingManager.error('debug', 'Debug button error', { timestamp: new Date().toISOString() });
+                
+                // Force refresh panel
+                this.populateSimpleLoggingPanel();
+            });
+        }
+
+        // Add filter event listeners
+        this.attachLoggingFilterListeners();
+
         // Close right panel
         DOMUtils.addEventListener(this.elements.closeButton, 'click', () => {
             this.closeRightPanel();
         });
+
+        // New UX features
+        this.attachUXEnhancementListeners();
+    }
+
+    /**
+     * Attach logging filter event listeners
+     * @private
+     */
+    attachLoggingFilterListeners() {
+        // Search filter
+        const logSearch = document.getElementById('logSearch');
+        if (logSearch) {
+            DOMUtils.addEventListener(logSearch, 'input', () => {
+                this.applyLoggingFilters();
+            });
+        }
+
+        // Level filter
+        const logLevelFilter = document.getElementById('logLevelFilter');
+        if (logLevelFilter) {
+            DOMUtils.addEventListener(logLevelFilter, 'change', () => {
+                this.applyLoggingFilters();
+            });
+        }
+
+        // Category filter
+        const logCategoryFilter = document.getElementById('logCategoryFilter');
+        if (logCategoryFilter) {
+            DOMUtils.addEventListener(logCategoryFilter, 'change', () => {
+                this.applyLoggingFilters();
+            });
+        }
+
+        // Time range filter
+        const logTimeFilter = document.getElementById('logTimeFilter');
+        if (logTimeFilter) {
+            DOMUtils.addEventListener(logTimeFilter, 'change', () => {
+                this.applyLoggingFilters();
+            });
+        }
+
+        console.log('Logging filter listeners attached');
+    }
+
+    /**
+     * Apply current filter settings to the displayed logs
+     */
+    applyLoggingFilters() {
+        if (this.isLoggingPanelExpanded) {
+            this.renderTableView();
+        } else {
+            this.populateSimpleLoggingPanel();
+        }
+    }
+
+    /**
+     * Get current filter settings
+     */
+    getCurrentFilters() {
+        const logSearch = document.getElementById('logSearch');
+        const logLevelFilter = document.getElementById('logLevelFilter');
+        const logCategoryFilter = document.getElementById('logCategoryFilter');
+        const logTimeFilter = document.getElementById('logTimeFilter');
+
+        const filters = {
+            search: logSearch?.value.trim() || '',
+            level: logLevelFilter?.value || 'all',
+            category: logCategoryFilter?.value || 'all',
+            timeRange: logTimeFilter?.value || 'all'
+        };
+
+        // Apply time range filtering
+        if (filters.timeRange !== 'all') {
+            const now = new Date();
+            let timeLimit;
+            
+            switch (filters.timeRange) {
+                case '1h':
+                    timeLimit = new Date(now.getTime() - 60 * 60 * 1000);
+                    break;
+                case '24h':
+                    timeLimit = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                    break;
+                case '7d':
+                    timeLimit = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    break;
+                case '30d':
+                    timeLimit = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    break;
+            }
+            
+            if (timeLimit) {
+                filters.timeLimit = timeLimit.toISOString();
+            }
+        }
+
+        return filters;
+    }
+    attachUXEnhancementListeners() {
+        // Message icon toggle
+        if (this.elements.messageIconToggle) {
+            DOMUtils.addEventListener(this.elements.messageIconToggle, 'change', (e) => {
+                this.toggleMessageIcons(e.target.checked);
+            });
+        }
     }
 
     /**
@@ -729,10 +988,71 @@ export class Application {
         const messageText = this.elements.userInput.value.trim();
         if (!messageText && !this.selectedFile) return;
 
+        // Temporarily comment out logging call
+        // this.loggingManager.info('ui', 'User sending message', {
+        //     messageLength: messageText.length,
+        //     hasFile: !!this.selectedFile,
+        //     fileName: this.selectedFile?.name,
+        //     isConnected: this.state.isConnected
+        // });
+
         if (!this.state.isConnected) {
             this.showErrorMessage('Not connected to bot. Please check your configuration.');
+            // Temporarily comment out logging call
+            // this.loggingManager.warn('ui', 'Message send blocked - not connected', {
+            //     messageText: messageText.substring(0, 100) + (messageText.length > 100 ? '...' : '')
+            // });
             return;
         }
+
+        // Stop and completely reinitialize all speech services when user sends a new message
+        console.log('🔴 [SPEECH-DISPOSE] =================================');
+        console.log('🔴 [SPEECH-DISPOSE] NEW MESSAGE SENT - DISPOSING AND REINITIALIZING ALL SPEECH SERVICES');
+        console.log('🔴 [SPEECH-DISPOSE] =================================');
+        try {
+            // Use the new comprehensive disposal and reinitialization method
+            if (window.speechEngine && window.speechEngine.disposeAndReinitialize) {
+                console.log('🟡 [SPEECH-DISPOSE] Calling speechEngine.disposeAndReinitialize()');
+                const startTime = performance.now();
+                await window.speechEngine.disposeAndReinitialize();
+                const endTime = performance.now();
+                console.log(`🟢 [SPEECH-DISPOSE] speechEngine.disposeAndReinitialize() completed in ${(endTime - startTime).toFixed(2)}ms`);
+            } else if (window.speechEngine && window.speechEngine.stopSpeaking) {
+                // Fallback to old method if new method is not available
+                console.log('🟡 [SPEECH-DISPOSE] Fallback: Using old stopSpeaking() method');
+                window.speechEngine.stopSpeaking();
+            } else {
+                console.log('� [SPEECH-DISPOSE] No speech engine available');
+            }
+            
+            // Also stop AI Companion speech as additional safety measure
+            if (window.aiCompanion && window.aiCompanion.stopSpeaking) {
+                console.log('🟡 [SPEECH-DISPOSE] Also stopping AI Companion speech as safety measure');
+                window.aiCompanion.stopSpeaking();
+            }
+            
+        } catch (error) {
+            console.error('� [SPEECH-DISPOSE] Error during disposal and reinitialization:', error);
+            console.error('� [SPEECH-DISPOSE] Error stack:', error.stack);
+            
+            // Fallback to old stopping methods if disposal fails
+            console.log('� [SPEECH-DISPOSE] Attempting fallback speech stopping methods...');
+            try {
+                if (window.speechEngine && window.speechEngine.stopSpeaking) {
+                    window.speechEngine.stopSpeaking();
+                }
+                if (window.aiCompanion && window.aiCompanion.stopSpeaking) {
+                    window.aiCompanion.stopSpeaking();
+                }
+                if (typeof window.speechSynthesis !== 'undefined') {
+                    window.speechSynthesis.cancel();
+                }
+            } catch (fallbackError) {
+                console.error('🔴 [SPEECH-DISPOSE] Even fallback methods failed:', fallbackError);
+            }
+        }
+
+        console.log('🔴 [SPEECH-DISPOSE] =================================');
 
         // Temporarily disable send button to prevent multiple sends
         this.elements.sendButton.disabled = true;
@@ -1042,11 +1362,23 @@ export class Application {
                 case 1: // Connecting
                     this.elements.agentStatus.className = 'status-indicator connecting';
                     this.elements.agentStatus.setAttribute('data-tooltip', `Agent: ${agentName} - Connecting`);
+                    // Temporarily comment out logging
+                    // this.loggingManager.info('directline', 'Connection status: Connecting', { 
+                    //     status, 
+                    //     agentName,
+                    //     timestamp: new Date().toISOString()
+                    // });
                     break;
                 case 2: // Online
                     this.elements.agentStatus.className = 'status-indicator connected';
                     this.elements.agentStatus.setAttribute('data-tooltip', `Agent: ${agentName} - Connected`);
                     this.state.isConnected = true;
+                    // Temporarily comment out logging
+                    // this.loggingManager.info('directline', 'Connection status: Connected', { 
+                    //     status, 
+                    //     agentName,
+                    //     timestamp: new Date().toISOString()
+                    // });
                     break;
                 case 3: // Expired
                 case 4: // Failed
@@ -1054,6 +1386,13 @@ export class Application {
                     this.elements.agentStatus.className = 'status-indicator disconnected';
                     this.elements.agentStatus.setAttribute('data-tooltip', `Agent: ${agentName} - Disconnected`);
                     this.state.isConnected = false;
+                    // Temporarily comment out logging
+                    // this.loggingManager.warn('directline', 'Connection status: Disconnected', { 
+                    //     status, 
+                    //     statusText: status === 3 ? 'Expired' : status === 4 ? 'Failed' : 'Ended',
+                    //     agentName,
+                    //     timestamp: new Date().toISOString()
+                    // });
                     break;
             }
         }
@@ -1067,39 +1406,110 @@ export class Application {
     handleConnectionStatusUI(detail) {
         switch (detail.status) {
             case 'connecting':
-                this.updateInitializationIndicator(detail.message);
+                // Use unified notification system for connection status
+                if (window.unifiedNotificationManager) {
+                    window.unifiedNotificationManager.show({
+                        id: 'connection-status',
+                        message: detail.message,
+                        type: 'loading',
+                        zone: 'connection',
+                        persistent: true
+                    });
+                } else {
+                    // Fallback to old method
+                    this.updateInitializationIndicator(detail.message);
+                }
                 break;
             case 'online':
-                this.updateInitializationIndicator(detail.message);
-                // Wait longer for bot response before hiding, like legacy
-                setTimeout(() => {
-                    // Check if we've received any messages yet
-                    const chatWindow = this.elements.chatWindow;
-                    const hasMessages = chatWindow && chatWindow.children.length > 0;
+                // Use unified notification system for connection status
+                if (window.unifiedNotificationManager) {
+                    window.unifiedNotificationManager.show({
+                        id: 'connection-status',
+                        message: detail.message,
+                        type: 'success',
+                        zone: 'connection',
+                        persistent: true
+                    });
+                    
+                    // Wait longer for bot response before transitioning, like legacy
+                    setTimeout(() => {
+                        // Check if we've received any messages yet
+                        const chatWindow = this.elements.chatWindow;
+                        const hasMessages = chatWindow && chatWindow.children.length > 0;
 
-                    if (hasMessages) {
-                        this.updateInitializationIndicator('Bot conversation ready!');
-                        setTimeout(() => this.hideInitializationIndicator(), 1000);
-                    } else {
-                        this.updateInitializationIndicator('Waiting for bot greeting...');
-                        // Keep waiting for greeting message
-                        setTimeout(() => {
-                            this.updateInitializationIndicator('Bot connected - ready to chat');
-                            setTimeout(() => this.hideInitializationIndicator(), 2000);
-                        }, 3000);
-                    }
-                }, 2000);
+                        if (hasMessages) {
+                            window.unifiedNotificationManager.show({
+                                id: 'connection-status',
+                                message: 'Bot conversation ready!',
+                                type: 'success',
+                                zone: 'connection',
+                                autoHide: 1000
+                            });
+                        } else {
+                            window.unifiedNotificationManager.show({
+                                id: 'connection-status',
+                                message: 'Waiting for bot greeting...',
+                                type: 'info',
+                                zone: 'connection',
+                                persistent: true
+                            });
+                            // Keep waiting for greeting message
+                            setTimeout(() => {
+                                window.unifiedNotificationManager.show({
+                                    id: 'connection-status',
+                                    message: 'Bot connected - ready to chat',
+                                    type: 'success',
+                                    zone: 'connection',
+                                    autoHide: 2000
+                                });
+                            }, 3000);
+                        }
+                    }, 2000);
+                } else {
+                    // Fallback to old method
+                    this.updateInitializationIndicator(detail.message);
+                    setTimeout(() => {
+                        const chatWindow = this.elements.chatWindow;
+                        const hasMessages = chatWindow && chatWindow.children.length > 0;
+
+                        if (hasMessages) {
+                            this.updateInitializationIndicator('Bot conversation ready!');
+                            setTimeout(() => this.hideInitializationIndicator(), 1000);
+                        } else {
+                            this.updateInitializationIndicator('Waiting for bot greeting...');
+                            setTimeout(() => {
+                                this.updateInitializationIndicator('Bot connected - ready to chat');
+                                setTimeout(() => this.hideInitializationIndicator(), 2000);
+                            }, 3000);
+                        }
+                    }, 2000);
+                }
                 break;
             case 'expired':
-                this.hideInitializationIndicator();
+                // Clear connection status and show error
+                if (window.unifiedNotificationManager) {
+                    window.unifiedNotificationManager.hide('connection-status');
+                } else {
+                    this.hideInitializationIndicator();
+                }
                 this.showErrorMessage('Authentication token has expired. Please check your DirectLine secret.');
                 break;
             case 'failed':
-                this.hideInitializationIndicator();
+                // Clear connection status and show error
+                if (window.unifiedNotificationManager) {
+                    window.unifiedNotificationManager.hide('connection-status');
+                } else {
+                    this.hideInitializationIndicator();
+                }
                 this.showErrorMessage('Failed to connect to the bot service. Please check your DirectLine secret and internet connection.');
                 break;
             case 'ended':
-                this.hideInitializationIndicator();
+                // Clear connection status and show error
+                if (window.unifiedNotificationManager) {
+                    window.unifiedNotificationManager.hide('connection-status');
+                } else {
+                    this.hideInitializationIndicator();
+                }
                 this.showErrorMessage('Connection to the bot has ended unexpectedly. Please try refreshing the page.');
                 break;
         }
@@ -1113,7 +1523,13 @@ export class Application {
     handleConnectionError(error) {
         console.error('Connection error:', error);
         this.state.isConnected = false;
-        this.hideInitializationIndicator();
+        
+        // Clear connection status using unified notification system
+        if (window.unifiedNotificationManager) {
+            window.unifiedNotificationManager.hide('connection-status');
+        } else {
+            this.hideInitializationIndicator();
+        }
         this.hideProgressIndicator();
 
         // Update status
@@ -1255,6 +1671,339 @@ export class Application {
         } else {
             console.error('Setup modal element not found!');
         }
+    }
+
+    /**
+     * Open documentation in side browser
+     */
+    openDocumentation() {
+        console.log('Opening documentation in side browser...');
+        const githubReadmeUrl = 'https://github.com/illusion615/MCSChat/blob/main/README.md';
+        
+        // Always open in side browser, regardless of the "open citations in side browser" setting
+        if (this.messageRenderer && typeof this.messageRenderer.openSideBrowser === 'function') {
+            this.messageRenderer.openSideBrowser(githubReadmeUrl);
+        } else {
+            console.warn('MessageRenderer not available, falling back to new tab');
+            window.open(githubReadmeUrl, '_blank');
+        }
+        
+        // Temporarily comment out logging
+        // this.loggingManager.info('ui', 'Documentation opened', { url: githubReadmeUrl });
+    }
+
+    /**
+     * Open the logging panel
+     */
+    openLoggingPanel() {
+        console.log('Opening logging panel...');
+        
+        // Simple logging panel implementation
+        if (this.loggingManager && this.loggingManager.isInitialized) {
+            this.showSimpleLoggingPanel();
+        } else {
+            console.warn('Logging Manager not available');
+            alert('Logging system is not available.');
+        }
+    }
+
+    /**
+     * Show a simple logging panel
+     */
+    showSimpleLoggingPanel() {
+        const panel = document.getElementById('loggingPanel');
+        if (panel) {
+            panel.classList.add('visible');
+            this.isLoggingPanelExpanded = false; // Initialize as collapsed
+            
+            // Add expand button functionality
+            const expandBtn = document.getElementById('expandPanelBtn');
+            if (expandBtn) {
+                expandBtn.onclick = () => this.togglePanelView();
+            }
+            
+            this.populateSimpleLoggingPanel();
+        } else {
+            console.warn('Logging panel element not found');
+        }
+    }
+
+    /**
+     * Toggle between card view and table view
+     */
+    togglePanelView() {
+        const panel = document.getElementById('loggingPanel');
+        const expandBtn = document.getElementById('expandPanelBtn');
+        const expandIcon = expandBtn?.querySelector('i');
+        
+        this.isLoggingPanelExpanded = !this.isLoggingPanelExpanded;
+        
+        if (this.isLoggingPanelExpanded) {
+            panel.classList.add('expanded');
+            if (expandIcon) {
+                expandIcon.className = 'fas fa-compress-alt';
+            }
+            expandBtn.title = 'Collapse View';
+            this.renderTableView();
+        } else {
+            panel.classList.remove('expanded');
+            if (expandIcon) {
+                expandIcon.className = 'fas fa-expand-alt';
+            }
+            expandBtn.title = 'Expand to Table View';
+            this.populateSimpleLoggingPanel(); // Back to card view
+        }
+    }
+
+    /**
+     * Render table view for expanded panel
+     */
+    renderTableView() {
+        const container = document.getElementById('logGroupContainer');
+        if (!container || !this.loggingManager) return;
+
+        const filters = this.getCurrentFilters();
+        const logs = this.loggingManager.getLogs(filters);
+        
+        container.innerHTML = `
+            <div class="table-container">
+                <table class="log-table">
+                    <thead>
+                        <tr>
+                            <th width="15%">Time</th>
+                            <th width="8%">Level</th>
+                            <th width="12%">Category</th>
+                            <th width="40%">Message</th>
+                            <th width="25%">Metadata</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${logs.slice(0, 100).map(log => this.renderTableRow(log)).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    /**
+     * Render a single table row
+     */
+    renderTableRow(log) {
+        const time = new Date(log.timestamp).toLocaleTimeString();
+        const metadata = (log.metadata && Object.keys(log.metadata).length > 0) ? JSON.stringify(log.metadata) : '';
+        const truncatedMetadata = metadata.length > 100 ? metadata.substring(0, 100) + '...' : metadata;
+        
+        return `
+            <tr class="log-row" data-level="${log.level}">
+                <td class="time-cell">${time}</td>
+                <td class="level-cell">
+                    <span class="level-badge level-${log.level}">${log.level.toUpperCase()}</span>
+                </td>
+                <td class="category-cell">
+                    <span class="category-badge">${log.category || 'general'}</span>
+                </td>
+                <td class="message-cell">${this.escapeHtml(log.message)}</td>
+                <td class="metadata-cell">
+                    ${metadata ? `
+                        <div class="metadata-preview" title="${this.escapeHtml(metadata)}">
+                            ${this.escapeHtml(truncatedMetadata)}
+                        </div>
+                    ` : '-'}
+                </td>
+            </tr>
+        `;
+    }
+
+    /**
+     * Populate the simple logging panel with current logs
+     */
+    populateSimpleLoggingPanel() {
+        const container = document.getElementById('logGroupContainer');
+        if (!container || !this.loggingManager) {
+            console.warn('Container or logging manager not found:', { container: !!container, loggingManager: !!this.loggingManager });
+            return;
+        }
+
+        // Force a fresh retrieval of logs with current filters
+        const filters = this.getCurrentFilters();
+        let logs = this.loggingManager.getLogs(filters);
+        const stats = this.loggingManager.getLogStats();
+
+        console.log('Populating logs:', { logsCount: logs.length, stats, isInitialized: this.loggingManager.isInitialized });
+        console.log('Raw logs array:', this.loggingManager.logs); // Direct access to logs array
+        
+        // Add comprehensive debug information
+        if (this.loggingManager.debugState) {
+            this.loggingManager.debugState();
+        }
+
+        // Failsafe: If stats show logs but array is empty, try to reload from storage
+        if (logs.length === 0 && stats.total > 0) {
+            console.warn('Stats show logs but array is empty. Attempting to reload from storage...');
+            this.loggingManager.loadLogsFromStorage();
+            const reloadedLogs = this.loggingManager.getLogs();
+            console.log('After reload attempt:', { logsCount: reloadedLogs.length });
+            
+            // If still empty, let's use the direct logs array or add some test logs manually
+            if (reloadedLogs.length === 0) {
+                console.warn('Still no logs after reload. Checking direct logs array...');
+                const directLogs = this.loggingManager.logs || [];
+                console.log('Direct logs array length:', directLogs.length);
+                
+                if (directLogs.length > 0) {
+                    logs = directLogs;
+                    console.log('Using direct logs array');
+                } else {
+                    console.warn('Adding test logs manually...');
+                    this.loggingManager.info('system', 'Test log entry 1', { source: 'manual_test' });
+                    this.loggingManager.warn('system', 'Test warning entry', { source: 'manual_test' });
+                    this.loggingManager.error('system', 'Test error entry', { source: 'manual_test' });
+                    logs = this.loggingManager.getLogs();
+                    console.log('After adding test logs:', { logsCount: logs.length });
+                }
+            } else {
+                logs = reloadedLogs;
+            }
+        }
+
+        // Update stats
+        const totalCount = document.getElementById('totalLogsCount');
+        const errorCount = document.getElementById('errorLogsCount');
+        const warnCount = document.getElementById('warnLogsCount');
+        const infoCount = document.getElementById('infoLogsCount');
+        const debugCount = document.getElementById('debugLogsCount');
+
+        if (totalCount) totalCount.textContent = stats.total;
+        if (errorCount) errorCount.textContent = stats.error;
+        if (warnCount) warnCount.textContent = stats.warn;
+        if (infoCount) infoCount.textContent = stats.info;
+        if (debugCount) debugCount.textContent = stats.debug;
+
+        // Clear container
+        container.innerHTML = '';
+
+        if (logs.length === 0) {
+            console.warn('No logs found, but stats show:', stats);
+            
+            // Force create some visible logs for testing
+            console.log('Force creating visible test logs...');
+            const testLogs = [
+                {
+                    id: 'test_1',
+                    timestamp: new Date().toISOString(),
+                    category: 'system',
+                    level: 'info',
+                    message: 'Forced test log entry 1',
+                    metadata: { source: 'force_test' }
+                },
+                {
+                    id: 'test_2', 
+                    timestamp: new Date().toISOString(),
+                    category: 'system',
+                    level: 'warn',
+                    message: 'Forced test warning entry',
+                    metadata: { source: 'force_test' }
+                },
+                {
+                    id: 'test_3',
+                    timestamp: new Date().toISOString(), 
+                    category: 'system',
+                    level: 'error',
+                    message: 'Forced test error entry',
+                    metadata: { source: 'force_test' }
+                }
+            ];
+            
+            // Render these test logs directly
+            testLogs.forEach(log => {
+                const logElement = document.createElement('div');
+                logElement.className = `log-entry compact log-${log.level}`;
+                
+                const timestamp = new Date(log.timestamp).toLocaleTimeString();
+                
+                logElement.innerHTML = `
+                    <div class="log-entry-header compact">
+                        <div class="compact-info">
+                            <span class="level-badge level-${log.level}">${log.level.toUpperCase()}</span>
+                            <span class="category-badge">${log.category || 'general'}</span>
+                            <span class="log-timestamp">${timestamp}</span>
+                            <span class="compact-message">${this.escapeHtml(log.message)}</span>
+                        </div>
+                        <button class="metadata-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('i').classList.toggle('fa-chevron-down'); this.querySelector('i').classList.toggle('fa-chevron-up');">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="metadata-preview" style="display: none;">
+                            <pre>${this.escapeHtml(JSON.stringify(log.metadata, null, 2))}</pre>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(logElement);
+            });
+            
+            console.log('Force rendered test logs');
+            return;
+        }
+
+        // Create log entries (compact style for default view)
+        logs.slice(0, 50).forEach(log => { // Show only first 50 logs
+            const logElement = document.createElement('div');
+            logElement.className = `log-entry compact log-${log.level}`;
+            
+            const timestamp = new Date(log.timestamp).toLocaleTimeString();
+            
+            logElement.innerHTML = `
+                <div class="log-entry-header compact">
+                    <div class="compact-info">
+                        <span class="level-badge level-${log.level}">${log.level.toUpperCase()}</span>
+                        <span class="category-badge">${log.category || 'general'}</span>
+                        <span class="log-timestamp">${timestamp}</span>
+                        <span class="compact-message">${this.escapeHtml(log.message)}</span>
+                    </div>
+                    ${(log.metadata && Object.keys(log.metadata).length > 0) ? `
+                        <button class="metadata-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('i').classList.toggle('fa-chevron-down'); this.querySelector('i').classList.toggle('fa-chevron-up');">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="metadata-preview" style="display: none;">
+                            <pre>${this.escapeHtml(JSON.stringify(log.metadata, null, 2))}</pre>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            container.appendChild(logElement);
+        });
+
+        this.loggingManager.info('ui', 'Simple logging panel opened', { logsShown: Math.min(logs.length, 50) });
+        
+        // Add global debug function for troubleshooting
+        window.debugLogging = () => {
+            console.log('=== Logging Debug ===');
+            if (this.loggingManager.debugState) {
+                return this.loggingManager.debugState();
+            } else {
+                console.log('No debug state method available');
+                return {
+                    logs: this.loggingManager.logs,
+                    getLogs: this.loggingManager.getLogs(),
+                    stats: this.loggingManager.getLogStats()
+                };
+            }
+        };
+        
+        window.refreshLoggingPanel = () => {
+            console.log('Manually refreshing logging panel...');
+            this.populateSimpleLoggingPanel();
+        };
+    }
+
+    /**
+     * Escape HTML for safe display
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     /**
@@ -1402,6 +2151,12 @@ export class Application {
      * Show progress indicator (enhanced with legacy's typing indicator implementation)
      */
     showProgressIndicator(context = null) {
+        // Check if streaming is currently active - don't show typing indicator during streaming
+        if (messageRenderer.currentlyStreamingMessageId) {
+            console.log('Message streaming is active, skipping typing indicator');
+            return;
+        }
+
         // Check if an indicator already exists to prevent duplicates
         const existingIndicator = this.elements.chatWindow?.querySelector('#progressIndicator');
         if (existingIndicator) {
@@ -1538,16 +2293,17 @@ export class Application {
      * @param {string} message - Indicator message
      */
     showInitializationIndicator(message = 'Initializing...') {
-        console.log('Initialization indicator:', message);
+        console.log('Initialization indicator (fallback):', message);
 
         const loadingIndicator = DOMUtils.getElementById('loadingIndicator');
-        const loadingText = loadingIndicator?.querySelector('.loading-text');
-
         if (loadingIndicator) {
+            const loadingText = loadingIndicator.querySelector('.loading-text');
             DOMUtils.show(loadingIndicator);
             if (loadingText) {
                 loadingText.textContent = message;
             }
+        } else {
+            console.log('Loading indicator element not found - using unified notification system');
         }
     }
 
@@ -1558,11 +2314,46 @@ export class Application {
     updateInitializationIndicator(message) {
         console.log('Initialization update:', message);
 
-        const loadingIndicator = DOMUtils.getElementById('loadingIndicator');
-        const loadingText = loadingIndicator?.querySelector('.loading-text');
-
-        if (loadingText) {
-            loadingText.textContent = message;
+        // Use unified notification system for initialization messages
+        if (window.unifiedNotificationManager) {
+            // Clear any existing initialization notifications first
+            window.unifiedNotificationManager.clearZone('initialization');
+            
+            // Determine notification type based on message content
+            let notificationType = 'init-loading';
+            if (message.toLowerCase().includes('ready') || message.toLowerCase().includes('complete')) {
+                notificationType = 'init-ready';
+            } else if (message.toLowerCase().includes('error') || message.toLowerCase().includes('failed')) {
+                notificationType = 'init-error';
+            }
+            
+            // Show new initialization notification
+            const notificationId = window.unifiedNotificationManager.show(notificationType, message, {
+                persistent: true, // Keep visible until explicitly hidden
+                duration: 0 // Don't auto-hide
+            });
+            
+            // Store the notification ID for later cleanup
+            this.currentInitNotificationId = notificationId;
+            
+            console.log(`[Application] Initialization notification shown: ${notificationType} - ${message}`);
+        } else {
+            // Fallback to original method if unified system not available
+            console.warn('[Application] Unified notification system not available, using fallback');
+            const loadingIndicator = DOMUtils.getElementById('loadingIndicator');
+            if (loadingIndicator) {
+                const loadingText = loadingIndicator.querySelector('.loading-text');
+                if (loadingText) {
+                    loadingText.textContent = message;
+                }
+                
+                // Show the loading indicator if it's hidden
+                if (loadingIndicator.style.display === 'none') {
+                    DOMUtils.show(loadingIndicator);
+                }
+            } else {
+                console.log('Loading indicator element not found - old elements removed');
+            }
         }
     }
 
@@ -1572,9 +2363,20 @@ export class Application {
     hideInitializationIndicator() {
         console.log('Hiding initialization indicator');
 
-        const loadingIndicator = DOMUtils.getElementById('loadingIndicator');
-        if (loadingIndicator) {
-            DOMUtils.hide(loadingIndicator);
+        // Use unified notification system to clear initialization zone
+        if (window.unifiedNotificationManager) {
+            window.unifiedNotificationManager.clearZone('initialization');
+            this.currentInitNotificationId = null;
+            console.log('[Application] Initialization notifications cleared via unified system');
+        } else {
+            // Fallback to original method if unified system not available
+            console.warn('[Application] Unified notification system not available, using fallback');
+            const loadingIndicator = DOMUtils.getElementById('loadingIndicator');
+            if (loadingIndicator) {
+                DOMUtils.hide(loadingIndicator);
+            } else {
+                console.log('Loading indicator element not found - old elements removed');
+            }
         }
     }
 
@@ -1585,7 +2387,28 @@ export class Application {
     showErrorMessage(message) {
         console.error('Error:', message);
 
-        // Create error toast
+        // Use unified notification system directly if available
+        if (window.unifiedNotificationManager) {
+            window.unifiedNotificationManager.show({
+                id: `error-${Date.now()}`,
+                message: message,
+                type: 'error',
+                zone: 'logging',
+                autoHide: 8000
+            });
+            console.log('[Application] Error message shown via unified notification system');
+            return;
+        }
+
+        // Fallback to AI companion if unified system not available but AI companion is
+        if (this.aiCompanion) {
+            this.aiCompanion.showNotification('error', message, 8000);
+            console.log('[Application] Error message shown via AI companion fallback');
+            return;
+        }
+
+        // Final fallback to old toast system if neither unified system nor AI companion available
+        console.warn('[Application] Using legacy error message fallback');
         const errorDiv = DOMUtils.createElement('div');
         errorDiv.style.cssText = `
             position: fixed;
@@ -1641,8 +2464,19 @@ export class Application {
         }
 
         if (agentTitleEl && agentName) {
-            const conversationTitle = `${agentName} Conversation`;
-            agentTitleEl.textContent = conversationTitle;
+            // Check if AI companion has set a custom title
+            const hasCustomTitle = aiCompanion && 
+                                  aiCompanion.currentConversationTitle && 
+                                  aiCompanion.currentConversationTitle !== 'Agent Conversation';
+            
+            // Only update title if no custom AI-generated title exists
+            if (!hasCustomTitle) {
+                const conversationTitle = `${agentName} Conversation`;
+                agentTitleEl.textContent = conversationTitle;
+                console.log('[Application] Set default title:', conversationTitle);
+            } else {
+                console.log('[Application] Preserving AI-generated title:', aiCompanion.currentConversationTitle);
+            }
             
             // Update mobile title if in mobile layout
             if (this.mobileUtils && this.mobileUtils.isMobileLayout()) {
@@ -1759,6 +2593,18 @@ export class Application {
                 // Restore the previously selected model if it still exists
                 if (currentlySelected && data.models.some(model => model.name === currentlySelected)) {
                     this.elements.ollamaModelSelect.value = currentlySelected;
+                } else {
+                    // If no current selection, try to load the saved model from localStorage
+                    const savedModel = localStorage.getItem('ollamaSelectedModel');
+                    if (savedModel && data.models.some(model => model.name === savedModel)) {
+                        this.elements.ollamaModelSelect.value = savedModel;
+                        console.log('Restored saved Ollama model:', savedModel);
+                    }
+                }
+
+                // Notify AI Companion to sync its dropdown if panel is open
+                if (this.aiCompanion) {
+                    this.aiCompanion.syncModelDropdownSelection?.();
                 }
             } else {
                 this.elements.ollamaModelSelect.innerHTML = '<option value="">No models found</option>';
@@ -2439,6 +3285,89 @@ export class Application {
         this.applyUserIcon(iconType);
         
         console.log('User icon setting loaded');
+    }
+
+    /**
+     * Toggle message icons visibility
+     * @param {boolean} enabled - Whether to show message icons
+     */
+    toggleMessageIcons(enabled) {
+        this.uiState.messageIconsEnabled = enabled;
+        localStorage.setItem('messageIconsEnabled', enabled.toString());
+        
+        // Apply to all message icons immediately
+        const allIcons = document.querySelectorAll('.messageIcon');
+        allIcons.forEach(icon => {
+            icon.style.display = enabled ? '' : 'none';
+        });
+        
+        // Update checkbox state if settings panel is open
+        const iconToggle = document.getElementById('messageIconToggle');
+        if (iconToggle) {
+            iconToggle.checked = enabled;
+        }
+        
+        // Show/hide user icon setting section based on message icons enabled state
+        const userIconGroup = document.getElementById('userIconGroup');
+        if (userIconGroup) {
+            userIconGroup.style.display = enabled ? '' : 'none';
+        }
+        
+        console.log('Message icons', enabled ? 'enabled' : 'disabled');
+        console.log('User icon section', enabled ? 'shown' : 'hidden');
+    }
+
+    /**
+     * Toggle left panel collapsed state
+     * @param {boolean} collapsed - Whether to collapse the panel
+     */
+    toggleLeftPanel(collapsed) {
+        this.uiState.leftPanelCollapsed = collapsed;
+        localStorage.setItem('leftPanelCollapsed', collapsed.toString());
+        
+        const body = document.body;
+        
+        if (body) {
+            if (collapsed) {
+                DOMUtils.addClass(body, 'leftPanelCollapsed');
+            } else {
+                DOMUtils.removeClass(body, 'leftPanelCollapsed');
+            }
+        }
+        
+        // Update side command bar state
+        this.updateSideCommandBarState();
+        
+        console.log('Left panel', collapsed ? 'collapsed' : 'expanded');
+    }
+
+    /**
+     * Update side command bar button states
+     * @private
+     */
+    updateSideCommandBarState() {
+        const conversationsBtn = this.elements.conversationsButton;
+        if (conversationsBtn) {
+            if (this.uiState.leftPanelCollapsed) {
+                DOMUtils.removeClass(conversationsBtn, 'active');
+            } else {
+                DOMUtils.addClass(conversationsBtn, 'active');
+            }
+        }
+    }
+
+    /**
+     * Load and apply UI state from localStorage
+     */
+    loadUIState() {
+        // Apply left panel state
+        this.toggleLeftPanel(this.uiState.leftPanelCollapsed);
+        
+        // Apply message icons state
+        this.toggleMessageIcons(this.uiState.messageIconsEnabled);
+        
+        // Initialize side command bar state
+        this.updateSideCommandBarState();
     }
 }
 

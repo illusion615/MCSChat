@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test AI Companion Expand Feature</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .test-button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #005a9e;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 3px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .feature-demo {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .demo-box {
+            flex: 1;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .demo-box.default {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+        .demo-box.expanded {
+            background: #f3e5f5;
+            border-color: #9c27b0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔄 AI Companion Expand Feature Test</h1>
+    
+    <div class="test-section">
+        <h2>📋 Feature Overview</h2>
+        <p>This page tests the AI companion panel expand/collapse functionality:</p>
+        <ul>
+            <li>✅ Expand button in AI companion panel header</li>
+            <li>✅ Toggle between default width and 50/50 layout</li>
+            <li>✅ Smooth CSS transitions</li>
+            <li>✅ User preference persistence</li>
+            <li>✅ Proper icon state changes</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>🎯 Layout States Demo</h2>
+        <div class="feature-demo">
+            <div class="demo-box default">
+                <h3>Default Layout</h3>
+                <p><strong>Agent Chat:</strong> ~70% width</p>
+                <p><strong>AI Companion:</strong> 400px fixed width</p>
+                <p>💡 Traditional sidebar layout</p>
+            </div>
+            <div class="demo-box expanded">
+                <h3>Expanded Layout (50/50)</h3>
+                <p><strong>Agent Chat:</strong> 50% width</p>
+                <p><strong>AI Companion:</strong> 50% width</p>
+                <p>💡 Equal panel layout</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 Test Instructions</h2>
+        <ol>
+            <li>Open the main chat application: <a href="http://localhost:8000" target="_blank">http://localhost:8000</a></li>
+            <li>Enable AI Companion (click the toggle button next to agent name)</li>
+            <li>Look for the expand button (double arrow ») in the AI companion header</li>
+            <li>Click the expand button to test the functionality:</li>
+            <ul>
+                <li>Panel should expand to 50% width</li>
+                <li>Agent chat panel should adjust to 50% width</li>
+                <li>Icon should rotate to show collapse state (« double arrow left)</li>
+                <li>Button tooltip should update</li>
+            </ul>
+            <li>Click again to restore default layout</li>
+            <li>Refresh page to verify preference persistence</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>✅ Expected Behavior</h2>
+        <div class="status info">
+            <strong>Expand Button Interactions:</strong>
+            <ul>
+                <li>Hover: Button background changes to blue tint</li>
+                <li>Click: Smooth transition between layout states</li>
+                <li>Icon: Rotates 180° to indicate current state</li>
+                <li>Tooltip: Updates to reflect next action</li>
+            </ul>
+        </div>
+        
+        <div class="status success">
+            <strong>Layout Transitions:</strong>
+            <ul>
+                <li>Default → Expanded: AI companion grows to 50%, agent chat shrinks to 50%</li>
+                <li>Expanded → Default: AI companion returns to 400px, agent chat regains flex space</li>
+                <li>Smooth CSS transitions (0.3s ease)</li>
+                <li>No layout jumping or visual glitches</li>
+            </ul>
+        </div>
+        
+        <div class="status success">
+            <strong>Persistence & State:</strong>
+            <ul>
+                <li>User preference saved to localStorage</li>
+                <li>State restored on page refresh</li>
+                <li>State maintained when toggling panel visibility</li>
+                <li>Proper accessibility attributes (ARIA labels)</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎨 Technical Implementation</h2>
+        <p><strong>CSS Classes:</strong></p>
+        <ul>
+            <li><code>.expanded</code> - Applied to AI companion panel for 50/50 layout</li>
+            <li><code>.companion-expanded</code> - Applied to agent chat panel for width constraint</li>
+        </ul>
+        
+        <p><strong>JavaScript Methods:</strong></p>
+        <ul>
+            <li><code>toggleExpandPanel()</code> - Main toggle functionality</li>
+            <li><code>initializePanel()</code> - Restores user preference on load</li>
+        </ul>
+        
+        <p><strong>Storage:</strong></p>
+        <ul>
+            <li><code>localStorage.aiCompanionExpanded</code> - Stores user preference</li>
+        </ul>
+    </div>
+
+    <script>
+        // Add some interactivity for testing
+        console.log('🧪 AI Companion Expand Feature Test Page Loaded');
+        console.log('📖 Instructions:');
+        console.log('1. Open main app: http://localhost:8000');
+        console.log('2. Enable AI Companion');
+        console.log('3. Look for expand button (») in AI companion header');
+        console.log('4. Test expand/collapse functionality');
+        console.log('5. Verify state persistence after refresh');
+        
+        // Demo button for local testing
+        function simulateExpandToggle() {
+            const demoBoxes = document.querySelectorAll('.demo-box');
+            demoBoxes.forEach(box => {
+                if (box.classList.contains('default')) {
+                    box.style.opacity = box.style.opacity === '0.5' ? '1' : '0.5';
+                } else {
+                    box.style.opacity = box.style.opacity === '1' ? '0.5' : '1';
+                }
+            });
+        }
+        
+        // Add demo interaction
+        document.querySelectorAll('.demo-box').forEach(box => {
+            box.addEventListener('click', simulateExpandToggle);
+            box.style.cursor = 'pointer';
+            box.title = 'Click to simulate state change';
+        });
+    </script>
+</body>
+</html>

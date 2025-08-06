@@ -32,6 +32,7 @@ export class SessionManager {
      * @private
      */
     initialize() {
+        this.setupEventListeners();
         this.loadCurrentSession();
         this.loadSessionList();
     }
@@ -57,6 +58,17 @@ export class SessionManager {
             window.dispatchEvent(new CustomEvent('conversationContextResponse', {
                 detail: { context, maxMessages }
             }));
+        });
+
+        // Listen for title update requests from AI companion
+        window.addEventListener('updateSessionTitle', (e) => {
+            const title = e.detail?.title;
+            if (title) {
+                console.log(`[Session Manager] Title update request received: "${title}"`);
+                this.updateSessionTitle(title);
+            } else {
+                console.warn('[Session Manager] Title update request received but no title provided');
+            }
         });
     }
 
@@ -161,6 +173,72 @@ export class SessionManager {
         this.saveChatHistory(chatHistory);
 
         console.log('Added message to session:', sessionId, messageEntry);
+
+        // If this is the first user message in a session, update the session list
+        // to show the now-meaningful conversation
+        if (message.from === 'user') {
+            const sessionMessages = chatHistory.filter(msg => msg.session === sessionId);
+            const userMessages = sessionMessages.filter(msg => msg.from === 'user');
+            
+            if (userMessages.length === 1) {
+                // This is the first user message, session is now meaningful
+                console.log('Session now has user interaction, refreshing session list');
+                setTimeout(() => this.loadSessionList(), 100); // Small delay to ensure UI updates
+            }
+        }
+    }
+
+    /**
+     * Check if a session has meaningful content (at least one user message)
+     * @param {string} sessionId - Session ID
+     * @returns {boolean} True if session has user messages
+     */
+    sessionHasMeaningfulContent(sessionId) {
+        const sessionMessages = this.getSessionMessages(sessionId);
+        return sessionMessages.some(message => message.from === 'user');
+    }
+
+    /**
+     * Clean up greeting-only sessions (sessions with no user messages)
+     * Can be called periodically to remove empty sessions
+     * TEMPORARILY DISABLED FOR TESTING
+     */
+    cleanupGreetingOnlySessions() {
+        console.log('[SessionManager] cleanupGreetingOnlySessions() TEMPORARILY DISABLED - No cleanup performed');
+        return; // Exit early without doing any cleanup
+        
+        const chatHistory = this.getChatHistory();
+        const sessions = {};
+
+        // Group messages by session
+        chatHistory.forEach(message => {
+            if (!sessions[message.session]) {
+                sessions[message.session] = [];
+            }
+            sessions[message.session].push(message);
+        });
+
+        // Find sessions with no user messages
+        const greetingOnlySessions = [];
+        Object.keys(sessions).forEach(sessionId => {
+            const hasUserMessages = sessions[sessionId].some(msg => msg.from === 'user');
+            if (!hasUserMessages) {
+                greetingOnlySessions.push(sessionId);
+            }
+        });
+
+        if (greetingOnlySessions.length > 0) {
+            // Remove messages from greeting-only sessions
+            const filteredHistory = chatHistory.filter(message => 
+                !greetingOnlySessions.includes(message.session)
+            );
+            
+            this.saveChatHistory(filteredHistory);
+            console.log(`Cleaned up ${greetingOnlySessions.length} greeting-only sessions:`, greetingOnlySessions);
+            
+            // Refresh session list
+            this.loadSessionList();
+        }
     }
 
     /**
@@ -202,6 +280,43 @@ export class SessionManager {
     }
 
     /**
+     * Update session title for the current session
+     * @param {string} title - New title for the session
+     */
+    updateSessionTitle(title) {
+        if (!this.currentSession || !title) {
+            console.warn('Cannot update session title: no current session or title provided');
+            return;
+        }
+
+        try {
+            const chatHistory = this.getChatHistory();
+            const sessions = this.groupMessagesBySession(chatHistory);
+            
+            if (sessions[this.currentSession]) {
+                sessions[this.currentSession].title = title;
+                
+                // Update all messages in this session to include title reference
+                chatHistory.forEach(message => {
+                    if (message.session === this.currentSession) {
+                        message.sessionTitle = title;
+                    }
+                });
+                
+                // Save updated history
+                this.saveChatHistory(chatHistory);
+                
+                // Refresh session list to show new title
+                this.loadSessionList();
+                
+                console.log(`[Session Manager] Updated session title: "${title}"`);
+            }
+        } catch (error) {
+            console.error('Error updating session title:', error);
+        }
+    }
+
+    /**
      * Load session list and update UI
      */
     loadSessionList() {
@@ -231,9 +346,9 @@ export class SessionManager {
     }
 
     /**
-     * Group messages by session
+     * Group messages by session and filter out greeting-only sessions
      * @param {Array} messages - All messages
-     * @returns {Object} Grouped sessions
+     * @returns {Object} Grouped sessions (excluding greeting-only sessions)
      * @private
      */
     groupMessagesBySession(messages) {
@@ -244,12 +359,24 @@ export class SessionManager {
                 sessions[message.session] = {
                     messages: [],
                     lastActivity: message.timestamp,
-                    messageCount: 0
+                    messageCount: 0,
+                    userMessageCount: 0, // Track user messages specifically
+                    title: message.sessionTitle || null // Preserve session title if available
                 };
             }
 
             sessions[message.session].messages.push(message);
             sessions[message.session].messageCount++;
+
+            // Count user messages specifically
+            if (message.from === 'user') {
+                sessions[message.session].userMessageCount++;
+            }
+
+            // Update session title if message has one
+            if (message.sessionTitle && !sessions[message.session].title) {
+                sessions[message.session].title = message.sessionTitle;
+            }
 
             // Update last activity time
             if (new Date(message.timestamp) > new Date(sessions[message.session].lastActivity)) {
@@ -257,6 +384,20 @@ export class SessionManager {
             }
         });
 
+        // TEMPORARILY DISABLED: Filter out sessions with no user messages (greeting-only sessions)
+        // const filteredSessions = {};
+        // Object.keys(sessions).forEach(sessionId => {
+        //     const session = sessions[sessionId];
+        //     // Only include sessions where the user has sent at least one message
+        //     if (session.userMessageCount > 0) {
+        //         filteredSessions[sessionId] = session;
+        //     } else {
+        //         console.log(`Filtering out greeting-only session: ${sessionId} (${session.messageCount} bot messages, 0 user messages)`);
+        //     }
+        // });
+
+        // TEMPORARY: Return all sessions without filtering
+        console.log('[SessionManager] GREETING-ONLY FILTERING TEMPORARILY DISABLED - Returning all sessions');
         return sessions;
     }
 
@@ -269,8 +410,8 @@ export class SessionManager {
      */
     createSessionItem(sessionId, sessionData) {
         const isCurrentSession = sessionId === this.currentSession;
-        const lastMessage = sessionData.messages[sessionData.messages.length - 1];
-        const preview = this.getMessagePreview(lastMessage);
+        // Use session title if available, otherwise fallback to message preview
+        const preview = sessionData.title || this.getMessagePreview(sessionData.messages[sessionData.messages.length - 1]);
         const timeAgo = this.getTimeAgo(sessionData.lastActivity);
 
         const sessionItem = DOMUtils.createElement('div', {
@@ -317,7 +458,9 @@ export class SessionManager {
      */
     getMessagePreview(message) {
         if (message.text) {
-            return Utils.truncate(message.text, 50);
+            // Strip markdown formatting and truncate for fallback preview
+            const plainText = Utils.stripMarkdown(message.text);
+            return Utils.truncate(plainText, 50);
         } else if (message.attachments && message.attachments.length > 0) {
             return `📎 ${message.attachments.length} attachment(s)`;
         } else {

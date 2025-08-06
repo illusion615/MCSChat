@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logging and Notification Migration Test</title>
+    <link rel="stylesheet" href="../styles.css">
+    <style>
+        .test-container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .test-button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            background: #0078d4;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        .test-button:hover {
+            background: #106ebe;
+        }
+        
+        .test-button.secondary {
+            background: #6c757d;
+        }
+        
+        .test-button.secondary:hover {
+            background: #5a6268;
+        }
+        
+        .test-button.danger {
+            background: #dc3545;
+        }
+        
+        .test-button.danger:hover {
+            background: #c82333;
+        }
+        
+        .test-button.success {
+            background: #28a745;
+        }
+        
+        .test-button.success:hover {
+            background: #218838;
+        }
+        
+        .test-button.warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .test-button.warning:hover {
+            background: #e0a800;
+        }
+        
+        .status-display {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #0078d4;
+        }
+        
+        .notification-zones {
+            position: relative;
+            height: 200px;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            background: #fafafa;
+            margin: 20px 0;
+        }
+        
+        .zone-label {
+            position: absolute;
+            background: #0078d4;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .zone-label.connection {
+            top: 10px;
+            right: 10px;
+        }
+        
+        .zone-label.ai-companion {
+            bottom: 10px;
+            left: 10px;
+        }
+        
+        .zone-label.initialization {
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .zone-label.logging {
+            bottom: 10px;
+            right: 10px;
+        }
+        
+        .notification-type-demo {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .type-demo-box {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .type-demo-box.error { background: #dc3545; }
+        .type-demo-box.warning { background: #ffc107; color: #212529; }
+        .type-demo-box.success { background: #28a745; }
+        .type-demo-box.info { background: #17a2b8; }
+        .type-demo-box.progress { background: #6f42c1; }
+        .type-demo-box.timeout { background: #fd7e14; }
+        .type-demo-box.system { background: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>📝 Logging and Notification Migration Test</h1>
+        <p>Testing the migration of AI companion notifications and logging messages to the unified notification system.</p>
+        
+        <div class="test-section">
+            <h2>📍 Notification Zones</h2>
+            <p>Different types of notifications appear in their designated zones:</p>
+            <div class="notification-zones">
+                <div class="zone-label connection">Connection Zone</div>
+                <div class="zone-label ai-companion">AI Companion Zone</div>
+                <div class="zone-label initialization">Initialization Zone</div>
+                <div class="zone-label logging">Logging Zone</div>
+            </div>
+            <div style="margin-top: 15px;">
+                <p><strong>🔗 Connection Zone (top-right):</strong> DirectLine connection status</p>
+                <p><strong>🤖 AI Companion Zone (bottom-left):</strong> AI notifications, progress, timeouts</p>
+                <p><strong>🔄 Initialization Zone (bottom-center):</strong> App startup messages</p>
+                <p><strong>📝 Logging Zone (bottom-right):</strong> System logs and error messages</p>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎨 Notification Types</h2>
+            <p>Different notification types that the system supports:</p>
+            <div class="notification-type-demo">
+                <div class="type-demo-box error">Error</div>
+                <div class="type-demo-box warning">Warning</div>
+                <div class="type-demo-box success">Success</div>
+                <div class="type-demo-box info">Info</div>
+                <div class="type-demo-box progress">Progress</div>
+                <div class="type-demo-box timeout">Timeout</div>
+                <div class="type-demo-box system">System</div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🧪 AI Companion Notification Tests</h2>
+            <p>Test different types of AI companion notifications:</p>
+            
+            <div class="test-controls">
+                <button class="test-button danger" onclick="testErrorNotification()">❌ Error Notification</button>
+                <button class="test-button warning" onclick="testWarningNotification()">⚠️ Warning Notification</button>
+                <button class="test-button success" onclick="testSuccessNotification()">✅ Success Notification</button>
+                <button class="test-button" onclick="testInfoNotification()">ℹ️ Info Notification</button>
+                <button class="test-button" onclick="testProgressNotification()">🔄 Progress Notification</button>
+                <button class="test-button warning" onclick="testTimeoutNotification()">⏰ Timeout Notification</button>
+                <button class="test-button secondary" onclick="testSystemNotification()">⚙️ System Notification</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🚨 Error Message Tests</h2>
+            <p>Test application error messages:</p>
+            
+            <div class="test-controls">
+                <button class="test-button danger" onclick="testConnectionError()">🔌 Connection Error</button>
+                <button class="test-button danger" onclick="testAuthError()">🔐 Authentication Error</button>
+                <button class="test-button danger" onclick="testNetworkError()">🌐 Network Error</button>
+                <button class="test-button danger" onclick="testGenericError()">💥 Generic Error</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔄 Real-world Scenarios</h2>
+            <p>Simulate real application scenarios:</p>
+            
+            <div class="test-controls">
+                <button class="test-button" onclick="simulateAIProcessing()">🤖 AI Processing Flow</button>
+                <button class="test-button" onclick="simulateSpeechFlow()">🎤 Speech Processing Flow</button>
+                <button class="test-button" onclick="simulateErrorFlow()">💥 Error Recovery Flow</button>
+                <button class="test-button secondary" onclick="clearAll()">🧹 Clear All</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📊 System Status</h2>
+            <div class="status-display" id="systemStatus">
+                <strong>Unified Notification Manager:</strong> <span id="notificationStatus">Checking...</span><br>
+                <strong>Logging Zone:</strong> <span id="loggingZoneStatus">Ready</span><br>
+                <strong>Last Test:</strong> <span id="lastTest">None</span>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📝 Test Log</h2>
+            <div id="testLog" style="background: #000; color: #0f0; padding: 15px; border-radius: 4px; font-family: monospace; height: 200px; overflow-y: auto;">
+                <div>Logging and Notification Migration Test initialized...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include the unified notification manager -->
+    <script src="../src/services/unifiedNotificationManager.js"></script>
+    
+    <script>
+        // Initialize notification manager
+        let unifiedNotificationManager;
+        
+        function initializeSystem() {
+            try {
+                unifiedNotificationManager = new UnifiedNotificationManager();
+                window.unifiedNotificationManager = unifiedNotificationManager;
+                
+                updateStatus('notificationStatus', 'Loaded ✅');
+                log('✅ Unified Notification Manager initialized');
+                
+                // Test basic functionality
+                setTimeout(() => {
+                    unifiedNotificationManager.show({
+                        id: 'system-ready',
+                        message: 'AI Companion migration test system ready',
+                        type: 'success',
+                        zone: 'ai-companion',
+                        autoHide: 3000
+                    });
+                }, 500);
+                
+            } catch (error) {
+                updateStatus('notificationStatus', 'Failed ❌');
+                log('❌ Failed to initialize: ' + error.message);
+            }
+        }
+        
+        function updateStatus(elementId, text) {
+            const element = document.getElementById(elementId);
+            if (element) element.textContent = text;
+        }
+        
+        function log(message) {
+            const logElement = document.getElementById('testLog');
+            if (logElement) {
+                const timestamp = new Date().toLocaleTimeString();
+                logElement.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+        }
+        
+        // AI Companion Notification Tests
+        function testErrorNotification() {
+            log('❌ Testing error notification...');
+            updateStatus('lastTest', 'Error Notification');
+            
+            if (window.unifiedNotificationManager) {
+                window.unifiedNotificationManager.show({
+                    id: 'test-error',
+                    message: 'Failed to connect to the bot service. Please check your DirectLine secret and internet connection.',
+                    type: 'error',
+                    zone: 'ai-companion',
+                    autoHide: 8000
+                });
+                log('✅ Error notification shown in AI companion zone');
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        function testWarningNotification() {
+            log('⚠️ Testing warning notification...');
+            updateStatus('lastTest', 'Warning Notification');
+            
+            if (window.unifiedNotificationManager) {
+                window.unifiedNotificationManager.show({
+                    id: 'test-warning',
+                    message: 'Model loading timeout. Retrying... (2/3)',
+                    type: 'warning',
+                    zone: 'ai-companion',
+                    autoHide: 8000
+                });
+                log('✅ Warning notification shown in AI companion zone');
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        function testSuccessNotification() {
+            log('✅ Testing success notification...');
+            updateStatus('lastTest', 'Success Notification');
+            
+            if (window.unifiedNotificationManager) {
+                window.unifiedNotificationManager.show({
+                    id: 'test-success',
+                    message: 'Speech synthesis completed successfully',
+                    type: 'success',
+                    zone: 'ai-companion',
+                    autoHide: 5000
+                });
+                log('✅ Success notification shown in AI companion zone');
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        function testInfoNotification() {
+            log('ℹ️ Testing info notification...');
+            updateStatus('lastTest', 'Info Notification');
+            
+            if (window.unifiedNotificationManager) {
+                window.unifiedNotificationManager.show({
+                    id: 'test-info',
+                    message: 'Using GPT-4 model for enhanced responses',
+                    type: 'info',
+                    zone: 'ai-companion',
+                    autoHide: 5000
+                });
+                log('✅ Info notification shown in AI companion zone');
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        function testProgressNotification() {
+            log('🔄 Testing progress notification...');
+            updateStatus('lastTest', 'Progress Notification');
+            
+            if (window.unifiedNotificationManager) {
+                window.unifiedNotificationManager.show({
+                    id: 'test-progress',
+                    message: 'Processing response from llama3.1:8b...',
+                    type: 'loading',
+                    zone: 'ai-companion',
+                    persistent: true
+                });
+                log('✅ Progress notification shown in AI companion zone');
+                
+                // Simulate progress completion
+                setTimeout(() => {
+                    window.unifiedNotificationManager.show({
+                        id: 'test-progress',
+                        message: 'Response processing completed',
+                        type: 'success',
+                        zone: 'ai-companion',
+                        autoHide: 3000
+                    });
+                    log('✅ Progress notification updated to completed');
+                }, 3000);
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        function testTimeoutNotification() {
+            log('⏰ Testing timeout notification...');
+            updateStatus('lastTest', 'Timeout Notification');
+            
+            if (window.unifiedNotificationManager) {
+                window.unifiedNotificationManager.show({
+                    id: 'test-timeout',
+                    message: 'Request is taking longer than expected. This may be due to model loading or high server load.',
+                    type: 'warning',
+                    zone: 'ai-companion',
+                    autoHide: 10000
+                });
+                log('✅ Timeout notification shown in AI companion zone');
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        function testSystemNotification() {
+            log('⚙️ Testing system notification...');
+            updateStatus('lastTest', 'System Notification');
+            
+            if (window.unifiedNotificationManager) {
+                window.unifiedNotificationManager.show({
+                    id: 'test-system',
+                    message: 'Audio requires user interaction. Please click anywhere on the page and try speaking again.',
+                    type: 'info',
+                    zone: 'ai-companion',
+                    autoHide: 5000
+                });
+                log('✅ System notification shown in AI companion zone');
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        // Error Message Tests
+        function testConnectionError() {
+            log('🔌 Testing connection error...');
+            updateStatus('lastTest', 'Connection Error');
+            
+            if (window.unifiedNotificationManager) {
+                window.unifiedNotificationManager.show({
+                    id: 'test-conn-error',
+                    message: 'Failed to connect to the bot service. Please check your DirectLine secret and internet connection.',
+                    type: 'error',
+                    zone: 'logging',
+                    autoHide: 8000
+                });
+                log('✅ Connection error shown in logging zone');
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        function testAuthError() {
+            log('🔐 Testing authentication error...');
+            updateStatus('lastTest', 'Authentication Error');
+            
+            if (window.unifiedNotificationManager) {
+                window.unifiedNotificationManager.show({
+                    id: 'test-auth-error',
+                    message: 'Authentication token has expired. Please check your DirectLine secret.',
+                    type: 'error',
+                    zone: 'logging',
+                    autoHide: 8000
+                });
+                log('✅ Authentication error shown in logging zone');
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        function testNetworkError() {
+            log('🌐 Testing network error...');
+            updateStatus('lastTest', 'Network Error');
+            
+            if (window.unifiedNotificationManager) {
+                window.unifiedNotificationManager.show({
+                    id: 'test-network-error',
+                    message: 'Network error. Please check your internet connection.',
+                    type: 'error',
+                    zone: 'logging',
+                    autoHide: 8000
+                });
+                log('✅ Network error shown in logging zone');
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        function testGenericError() {
+            log('💥 Testing generic error...');
+            updateStatus('lastTest', 'Generic Error');
+            
+            if (window.unifiedNotificationManager) {
+                window.unifiedNotificationManager.show({
+                    id: 'test-generic-error',
+                    message: 'An unexpected error occurred. Please try again.',
+                    type: 'error',
+                    zone: 'logging',
+                    autoHide: 8000
+                });
+                log('✅ Generic error shown in logging zone');
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        // Real-world Scenarios
+        function simulateAIProcessing() {
+            log('🤖 Starting AI processing flow simulation...');
+            updateStatus('lastTest', 'AI Processing Flow');
+            
+            if (window.unifiedNotificationManager) {
+                // Step 1: Start processing
+                window.unifiedNotificationManager.show({
+                    id: 'ai-flow',
+                    message: 'Sending request to llama3.1:8b...',
+                    type: 'loading',
+                    zone: 'ai-companion',
+                    persistent: true
+                });
+                log('🤖 Step 1: Request sent');
+                
+                // Step 2: Processing
+                setTimeout(() => {
+                    window.unifiedNotificationManager.show({
+                        id: 'ai-flow',
+                        message: 'Processing response from llama3.1:8b...',
+                        type: 'loading',
+                        zone: 'ai-companion',
+                        persistent: true
+                    });
+                    log('🤖 Step 2: Processing response');
+                }, 2000);
+                
+                // Step 3: Completion
+                setTimeout(() => {
+                    window.unifiedNotificationManager.show({
+                        id: 'ai-flow',
+                        message: 'Response generated successfully',
+                        type: 'success',
+                        zone: 'ai-companion',
+                        autoHide: 3000
+                    });
+                    log('🤖 Step 3: Processing completed');
+                }, 5000);
+                
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        function simulateSpeechFlow() {
+            log('🎤 Starting speech processing flow simulation...');
+            updateStatus('lastTest', 'Speech Processing Flow');
+            
+            if (window.unifiedNotificationManager) {
+                // Step 1: Audio permission
+                window.unifiedNotificationManager.show({
+                    id: 'speech-flow',
+                    message: 'Audio requires user interaction. Please click anywhere on the page and try speaking again.',
+                    type: 'info',
+                    zone: 'ai-companion',
+                    autoHide: 5000
+                });
+                log('🎤 Step 1: Audio permission request');
+                
+                // Step 2: Synthesis
+                setTimeout(() => {
+                    window.unifiedNotificationManager.show({
+                        id: 'speech-flow',
+                        message: 'Synthesizing speech response...',
+                        type: 'loading',
+                        zone: 'ai-companion',
+                        persistent: true
+                    });
+                    log('🎤 Step 2: Speech synthesis');
+                }, 2000);
+                
+                // Step 3: Success
+                setTimeout(() => {
+                    window.unifiedNotificationManager.show({
+                        id: 'speech-flow',
+                        message: 'Speech synthesis completed successfully',
+                        type: 'success',
+                        zone: 'ai-companion',
+                        autoHide: 3000
+                    });
+                    log('🎤 Step 3: Speech synthesis completed');
+                }, 4000);
+                
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        function simulateErrorFlow() {
+            log('💥 Starting error recovery flow simulation...');
+            updateStatus('lastTest', 'Error Recovery Flow');
+            
+            if (window.unifiedNotificationManager) {
+                // Step 1: Initial error
+                window.unifiedNotificationManager.show({
+                    id: 'error-flow',
+                    message: 'Connection to the bot has ended unexpectedly.',
+                    type: 'error',
+                    zone: 'logging',
+                    autoHide: 5000
+                });
+                log('💥 Step 1: Initial error occurred');
+                
+                // Step 2: Retry attempt
+                setTimeout(() => {
+                    window.unifiedNotificationManager.show({
+                        id: 'error-flow',
+                        message: 'Attempting to reconnect...',
+                        type: 'loading',
+                        zone: 'logging',
+                        persistent: true
+                    });
+                    log('💥 Step 2: Attempting recovery');
+                }, 3000);
+                
+                // Step 3: Recovery success
+                setTimeout(() => {
+                    window.unifiedNotificationManager.show({
+                        id: 'error-flow',
+                        message: 'Connection restored successfully',
+                        type: 'success',
+                        zone: 'logging',
+                        autoHide: 3000
+                    });
+                    log('💥 Step 3: Recovery successful');
+                }, 6000);
+                
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        function clearAll() {
+            log('🧹 Clearing all notifications...');
+            updateStatus('lastTest', 'Clear All');
+            
+            if (window.unifiedNotificationManager) {
+                window.unifiedNotificationManager.clearZone('ai-companion');
+                window.unifiedNotificationManager.clearZone('logging');
+                log('✅ AI companion and logging zones cleared');
+            } else {
+                log('❌ Unified notification manager not available');
+            }
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializeSystem);
+    </script>
+</body>
+</html>

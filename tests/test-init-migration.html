@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Initialization System Migration Test</title>
+    <link rel="stylesheet" href="../styles.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        
+        .test-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .test-btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        .test-btn:hover {
+            background: #0056b3;
+        }
+        
+        .test-btn.danger {
+            background: #dc3545;
+        }
+        
+        .test-btn.danger:hover {
+            background: #c82333;
+        }
+        
+        .test-btn.success {
+            background: #28a745;
+        }
+        
+        .test-btn.success:hover {
+            background: #218838;
+        }
+        
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .console-output {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔄 Initialization System Migration Test</h1>
+        
+        <div class="info">
+            <strong>Migration Test:</strong> This page tests the migration of the initialization indicator system 
+            from the old loading indicator to the new unified notification system. 
+            The initialization messages should now appear as bottom-center floating notifications.
+        </div>
+
+        <div class="test-section">
+            <h3>🚀 Initialization Sequence Test</h3>
+            <p>Test the typical application initialization sequence</p>
+            <div class="test-buttons">
+                <button class="test-btn" onclick="testInitSequence()">
+                    Run Full Init Sequence
+                </button>
+                <button class="test-btn" onclick="testSingleInit('Initializing components...')">
+                    Test Loading Message
+                </button>
+                <button class="test-btn success" onclick="testSingleInit('Application ready!')">
+                    Test Ready Message
+                </button>
+                <button class="test-btn danger" onclick="testSingleInit('Initialization failed')">
+                    Test Error Message
+                </button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Manual Testing</h3>
+            <p>Test individual initialization functions</p>
+            <div class="test-buttons">
+                <button class="test-btn" onclick="testUpdateIndicator()">
+                    updateInitializationIndicator()
+                </button>
+                <button class="test-btn danger" onclick="testHideIndicator()">
+                    hideInitializationIndicator()
+                </button>
+                <button class="test-btn" onclick="checkUnifiedSystem()">
+                    Check Unified System Status
+                </button>
+                <button class="test-btn" onclick="clearConsole()">
+                    Clear Console Output
+                </button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 System Status</h3>
+            <div id="systemStatus"></div>
+            <div class="console-output" id="consoleOutput">
+                Console output will appear here...
+            </div>
+        </div>
+    </div>
+
+    <!-- Mock loading indicator for fallback testing -->
+    <div id="loadingIndicator" class="loading-indicator" style="display: none;">
+        <div class="loading-spinner">⟳</div>
+        <span class="loading-text">Initializing...</span>
+    </div>
+
+    <script type="module">
+        import { getUnifiedNotificationManager } from '../src/services/unifiedNotificationManager.js';
+        import { DOMUtils } from '../src/utils/domUtils.js';
+        
+        // Initialize the notification manager
+        const notificationManager = getUnifiedNotificationManager();
+        window.unifiedNotificationManager = notificationManager;
+        
+        // Mock application object with the migrated methods
+        const mockApp = {
+            currentInitNotificationId: null,
+            
+            updateInitializationIndicator(message) {
+                logToConsole(`updateInitializationIndicator("${message}")`);
+                
+                if (window.unifiedNotificationManager) {
+                    window.unifiedNotificationManager.clearZone('initialization');
+                    
+                    let notificationType = 'init-loading';
+                    if (message.toLowerCase().includes('ready') || message.toLowerCase().includes('complete')) {
+                        notificationType = 'init-ready';
+                    } else if (message.toLowerCase().includes('error') || message.toLowerCase().includes('failed')) {
+                        notificationType = 'init-error';
+                    }
+                    
+                    const notificationId = window.unifiedNotificationManager.show(notificationType, message, {
+                        persistent: true,
+                        duration: 0
+                    });
+                    
+                    this.currentInitNotificationId = notificationId;
+                    logToConsole(`→ Shown as ${notificationType} notification: ${notificationId}`);
+                } else {
+                    logToConsole('→ Unified system not available, using fallback');
+                    const loadingIndicator = DOMUtils.getElementById('loadingIndicator');
+                    const loadingText = loadingIndicator?.querySelector('.loading-text');
+                    if (loadingText) {
+                        loadingText.textContent = message;
+                    }
+                    if (loadingIndicator && loadingIndicator.style.display === 'none') {
+                        DOMUtils.show(loadingIndicator);
+                    }
+                }
+            },
+            
+            hideInitializationIndicator() {
+                logToConsole('hideInitializationIndicator()');
+                
+                if (window.unifiedNotificationManager) {
+                    window.unifiedNotificationManager.clearZone('initialization');
+                    this.currentInitNotificationId = null;
+                    logToConsole('→ Initialization zone cleared');
+                } else {
+                    logToConsole('→ Unified system not available, using fallback');
+                    const loadingIndicator = DOMUtils.getElementById('loadingIndicator');
+                    if (loadingIndicator) {
+                        DOMUtils.hide(loadingIndicator);
+                    }
+                }
+            }
+        };
+        
+        window.mockApp = mockApp;
+        
+        // Test functions
+        window.testInitSequence = function() {
+            logToConsole('=== Starting Full Initialization Sequence ===');
+            const messages = [
+                'Initializing components...',
+                'Setting up event handlers...',
+                'Loading agent configurations...',
+                'Initializing AI companion...',
+                'Setting up mobile interface...',
+                'Loading user preferences...',
+                'Connecting to agent...',
+                'Application ready!'
+            ];
+            
+            messages.forEach((message, index) => {
+                setTimeout(() => {
+                    mockApp.updateInitializationIndicator(message);
+                }, index * 1000);
+            });
+            
+            // Hide after completion
+            setTimeout(() => {
+                mockApp.hideInitializationIndicator();
+                logToConsole('=== Initialization Sequence Complete ===');
+            }, messages.length * 1000 + 2000);
+        };
+        
+        window.testSingleInit = function(message) {
+            mockApp.updateInitializationIndicator(message);
+        };
+        
+        window.testUpdateIndicator = function() {
+            const message = `Test message ${Date.now()}`;
+            mockApp.updateInitializationIndicator(message);
+        };
+        
+        window.testHideIndicator = function() {
+            mockApp.hideInitializationIndicator();
+        };
+        
+        window.checkUnifiedSystem = function() {
+            const status = document.getElementById('systemStatus');
+            const available = window.unifiedNotificationManager ? 'Available' : 'Not Available';
+            const activeCount = window.unifiedNotificationManager ? 
+                window.unifiedNotificationManager.getActiveCount('initialization') : 'N/A';
+            
+            status.innerHTML = `
+                <p><strong>Unified Notification System:</strong> ${available}</p>
+                <p><strong>Active Init Notifications:</strong> ${activeCount}</p>
+                <p><strong>Current Notification ID:</strong> ${mockApp.currentInitNotificationId || 'None'}</p>
+            `;
+            
+            logToConsole(`System Check: ${available}, Active: ${activeCount}`);
+        };
+        
+        function logToConsole(message) {
+            const output = document.getElementById('consoleOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            output.innerHTML += `[${timestamp}] ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        window.clearConsole = function() {
+            document.getElementById('consoleOutput').innerHTML = 'Console cleared...\n';
+        };
+        
+        // Initial status check
+        setTimeout(() => {
+            checkUnifiedSystem();
+            logToConsole('Migration test page loaded successfully');
+        }, 100);
+    </script>
+</body>
+</html>

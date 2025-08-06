@@ -5,6 +5,7 @@
 
 import { app } from './core/application.js';
 import { DOMUtils } from './utils/domUtils.js';
+import { getUnifiedNotificationManager } from './services/unifiedNotificationManager.js';
 
 // Initialize application when DOM is loaded
 if (document.readyState === 'loading') {
@@ -18,10 +19,19 @@ if (document.readyState === 'loading') {
  */
 async function initializeApplication() {
     try {
+        // Initialize unified notification system early
+        const notificationManager = getUnifiedNotificationManager();
+        console.log('[Main] Unified notification system initialized');
+        
+        // Make notification manager globally available for testing and debugging
+        window.unifiedNotificationManager = notificationManager;
         console.log('Starting MCSChat application...');
         
         // Set up global CSP violation handler
         setupCSPViolationHandler();
+        
+        // Set up global user gesture handler for AudioContext
+        setupAudioContextInitialization();
         
         await app.initialize();
         console.log('MCSChat application started successfully');
@@ -58,46 +68,59 @@ async function initializeApplication() {
 }
 
 /**
- * Set up global handler for CSP violations and iframe loading issues
+ * Setup CSP violation handler
  */
 function setupCSPViolationHandler() {
-    // Listen for security policy violations
     document.addEventListener('securitypolicyviolation', (event) => {
-        console.warn('CSP Violation detected:', {
-            directive: event.violatedDirective,
-            policy: event.originalPolicy,
-            source: event.sourceFile,
-            line: event.lineNumber,
-            column: event.columnNumber,
-            blockedURI: event.blockedURI
+        console.warn('CSP Violation:', {
+            violatedDirective: event.violatedDirective,
+            blockedURI: event.blockedURI,
+            originalPolicy: event.originalPolicy
         });
-
-        // Handle frame-ancestors violations specifically
-        if (event.violatedDirective === 'frame-ancestors') {
-            console.warn('Frame-ancestors CSP violation - content cannot be embedded in iframe');
-            showCSPNotification('Content cannot be displayed due to security policies. Opening in external browser...');
-            
-            // Try to extract the blocked URL and open externally
-            if (event.blockedURI && event.blockedURI !== 'self') {
-                setTimeout(() => {
-                    window.open(event.blockedURI, '_blank', 'noopener,noreferrer');
-                }, 1000);
-            }
-        }
     });
-
-    // Also listen for console errors that might indicate CSP issues
-    const originalConsoleError = console.error;
-    console.error = function(...args) {
-        const message = args.join(' ').toLowerCase();
-        if (message.includes('refused to frame') || 
-            message.includes('frame-ancestors') || 
-            message.includes('x-frame-options')) {
-            showCSPNotification('Content blocked by security policy. Opening in external browser...');
-        }
-        originalConsoleError.apply(console, args);
-    };
 }
+
+/**
+ * Setup global AudioContext initialization on first user interaction
+ * This ensures Local AI speech will work without AudioContext errors
+ */
+function setupAudioContextInitialization() {
+    let audioContextInitialized = false;
+    
+    const initializeAudioContext = async () => {
+        if (audioContextInitialized) return;
+        
+        try {
+            // Import speech engine and initialize audio context if it's Local AI
+            const { speechEngine } = await import('./services/speechEngine.js');
+            
+            if (speechEngine.settings.provider === 'local_ai' && 
+                speechEngine.localAIProvider && 
+                speechEngine.localAIProvider.initializeAudioContext) {
+                
+                await speechEngine.localAIProvider.initializeAudioContext();
+                console.log('[Main] AudioContext initialized for Local AI speech');
+            }
+            
+            audioContextInitialized = true;
+            
+            // Remove listeners after first initialization
+            document.removeEventListener('click', initializeAudioContext);
+            document.removeEventListener('keydown', initializeAudioContext);
+            document.removeEventListener('touchstart', initializeAudioContext);
+            
+        } catch (error) {
+            console.warn('[Main] Failed to initialize AudioContext:', error);
+        }
+    };
+    
+    // Listen for first user interaction
+    document.addEventListener('click', initializeAudioContext, { once: true });
+    document.addEventListener('keydown', initializeAudioContext, { once: true });
+    document.addEventListener('touchstart', initializeAudioContext, { once: true });
+}
+
+// Global error handlers
 
 /**
  * Show user-friendly notification for CSP violations

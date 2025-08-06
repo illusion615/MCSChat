@@ -2,6 +2,14 @@
 
 Comprehensive overview of MCS Chat's features and capabilities.
 
+## 🆕 Latest Improvements
+
+### Enhanced UI & Performance (Latest Update)
+- **Optimized KPI Grid Layout**: Improved from 4 to 3 columns in default mode for better visual balance
+- **Robust Speech Recognition**: Fixed voice input errors across all speech providers 
+- **Enhanced Azure Speech Support**: Improved language detection and error handling
+- **Better Visual Hierarchy**: Cleaner metric display with improved information density
+
 ## Core Features
 
 ### 📱 Mobile Responsive Design
@@ -156,6 +164,12 @@ Comprehensive overview of MCS Chat's features and capabilities.
 - **Suggested Actions**: Context-aware suggestions for next steps
 - **Smart Responses**: AI-powered response recommendations
 - **Proactive Help**: Identifies when additional assistance might be helpful
+
+#### Flexible Layout Options
+- **Expandable Panel**: Toggle between default sidebar and 50/50 split layout
+- **User Preference Persistence**: Remembers your preferred layout setting
+- **Smooth Transitions**: Professional animations between layout states
+- **Responsive Design**: Adapts gracefully to different screen sizes
 
 #### Context Awareness
 - **Conversation Memory**: Remembers context across sessions

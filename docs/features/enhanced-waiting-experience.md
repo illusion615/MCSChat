@@ -1,6 +1,6 @@
 # Enhanced Waiting Experience System
 
-Advanced dynamic status indicators and process simulation for better user experience during AI response delays.
+Advanced dynamic status indicators and user-friendly notifications for better experience during AI response delays.
 
 ## Overview
 
@@ -9,12 +9,114 @@ This system provides an intelligent, adaptive waiting experience that:
 - **Creates transparency** through simulated backend process indicators
 - **Adapts messaging** based on wait duration and context
 - **Manages expectations** with realistic progress simulation
+- **Provides helpful guidance** without constraining user model choices
 
 ## Core Components
 
 ### 1. Intelligent Status Manager (`src/ui/intelligentStatusManager.js`)
 
 Manages dynamic status transitions and context-aware messaging.
+
+### 2. AI Companion Notification System (`src/ai/aiCompanion.js`)
+
+Provides progressive notifications during model processing without imposing hard timeouts.
+
+#### Key Features:
+- **State-aware timeout management**: Only shows timeout notifications while waiting for LLM response
+- **Immediate cleanup**: Clears timeout notifications as soon as content streaming starts
+- **Smart lifecycle management**: Prevents notification pollution during active operations
+- **Respectful approach**: Never forces timeouts on user-selected models
+- **Progressive notifications**: Helpful messages at 15s, 30s, 60s, 120s intervals during waiting phase
+- **Model recommendations**: Suggests faster alternatives for quick tasks
+- **First-use awareness**: Recognizes initial model loading delays
+- **Deep thinking support**: Allows unlimited time for complex reasoning models
+
+#### Notification Phases:
+```javascript
+// Progressive notification system for AI Companion
+setupResponseTimeNotifications() {
+  const notifications = [
+    { delay: 15000, message: "Processing your request..." },
+    { delay: 30000, message: "Still working on your request. For faster responses, consider using a smaller model like 'phi4' for quick tasks." },
+    { delay: 60000, message: "This is taking longer than usual. If you need a quick response, you might want to try a lighter model." },
+    { delay: 120000, message: "Your model is taking significant time - this is normal for complex reasoning or first-time model loading." }
+  ];
+  // ... implementation
+}
+```
+
+### 3. Model Performance State Management
+
+Tracks model usage without interfering with processing:
+
+```javascript
+getModelPerformanceState() {
+  return {
+    model: selectedModel,
+    hasBeenUsed: hasBeenUsed,
+    nextInvocation: hasBeenUsed ? 'Standard response time expected' : 'First use - may take longer for model loading',
+    notificationsEnabled: true,
+    approachType: 'User-friendly notifications (no hard timeouts)'
+  };
+}
+```
+
+### 3. Smart Timeout Notification System
+
+#### Intelligent State Management
+
+The timeout notification system uses state-aware logic to provide contextual feedback:
+
+```javascript
+// State tracking during LLM requests
+this.responseTimeNotifications = {
+    startTime,
+    modelName,
+    isFirstUse,
+    notificationTimeouts: [],
+    isWaitingForResponse: true,  // Only show timeouts during this phase
+    hasReceivedContent: false    // Track streaming start
+};
+```
+
+#### Timeout Behavior Phases
+
+**Phase 1: Waiting for LLM Response**
+- Progressive timeout notifications at 15s, 30s, 60s, 120s intervals
+- Helpful suggestions for faster models
+- Elapsed time tracking for transparency
+
+**Phase 2: Content Streaming Started**
+- Immediate timeout notification cleanup via `markContentStreamingStarted()`
+- Switch to processing notifications
+- No further timeout notifications during streaming
+
+**Phase 3: Response Complete**
+- All notifications cleared
+- Clean state for next request
+
+#### Implementation Example
+
+```javascript
+// Only show timeout if still waiting for response
+showResponseTimeNotification(message, startTime) {
+    if (!this.responseTimeNotifications || !this.responseTimeNotifications.isWaitingForResponse) {
+        return; // Skip timeout notification if streaming started
+    }
+    
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    const fullMessage = `${message} (${elapsed}s elapsed)`;
+    this.showNotification('timeout', fullMessage, 10000);
+}
+
+// Clear timeouts when streaming starts
+markContentStreamingStarted() {
+    if (this.responseTimeNotifications) {
+        this.responseTimeNotifications.isWaitingForResponse = false;
+        this.clearTimeoutNotifications(); // Remove existing timeout notifications
+    }
+}
+```
 
 #### Key Features:
 - **Time-based transitions**: Different messages for different wait durations

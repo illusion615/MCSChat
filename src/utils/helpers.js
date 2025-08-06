@@ -169,5 +169,47 @@ export const Utils = {
         } catch {
             return false;
         }
+    },
+
+    /**
+     * Strip markdown formatting from text
+     * @param {string} text - Text with markdown formatting
+     * @returns {string} Plain text without markdown
+     */
+    stripMarkdown(text) {
+        if (!text || typeof text !== 'string') {
+            return '';
+        }
+
+        return text
+            // Remove headers (# ## ### ...)
+            .replace(/^#{1,6}\s+/gm, '')
+            // Remove bold (**text** or __text__)
+            .replace(/(\*\*|__)(.*?)\1/g, '$2')
+            // Remove italic (*text* or _text_)
+            .replace(/(\*|_)(.*?)\1/g, '$2')
+            // Remove strikethrough (~~text~~)
+            .replace(/~~(.*?)~~/g, '$1')
+            // Remove inline code (`text`)
+            .replace(/`([^`]+)`/g, '$1')
+            // Remove code blocks (```text```)
+            .replace(/```[\s\S]*?```/g, '')
+            // Remove links [text](url)
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+            // Remove images ![alt](url)
+            .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+            // Remove reference links [text][ref]
+            .replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1')
+            // Remove horizontal rules (--- or ***)
+            .replace(/^(-{3,}|\*{3,}|_{3,})$/gm, '')
+            // Remove blockquotes (> text)
+            .replace(/^>\s*/gm, '')
+            // Remove list markers (* + - or 1.)
+            .replace(/^[\s]*[-*+]\s+/gm, '')
+            .replace(/^[\s]*\d+\.\s+/gm, '')
+            // Remove line breaks and normalize whitespace
+            .replace(/\n+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
     }
 };

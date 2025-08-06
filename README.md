@@ -575,7 +575,7 @@ Enable detailed logging by opening browser developer tools. All operations are l
 ### Version 3.2.0 (AI Companion & Enhanced UX)
 **Major Features Added:**
 - 🆕 **AI Companion Panel**: Complete conversation analysis system with real-time KPI tracking
-- 🆕 **Performance Analytics**: Accuracy, Helpfulness, Completeness, Human-likeness, and Efficiency metrics
+- 🆕 **Performance Analytics**: Accuracy, Helpfulness, Completeness, and Efficiency metrics
 - 🆕 **Enhanced Settings Panel**: Organized navigation with Agent Management, AI Companion, and Appearance sections
 - 🆕 **Font Customization**: User-configurable font sizes for agent chat and AI companion messages
 - 🆕 **Consolidated Initialization**: Unified startup process for "New Chat" and page refresh

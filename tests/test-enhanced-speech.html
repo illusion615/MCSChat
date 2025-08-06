@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Speech Engine Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        
+        .test-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .provider-status {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-ready { background: #dcfce7; color: #166534; }
+        .status-loading { background: #fef3c7; color: #92400e; }
+        .status-error { background: #fecaca; color: #991b1b; }
+        
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #2563eb;
+        }
+        
+        .test-text {
+            width: 100%;
+            height: 80px;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-family: inherit;
+        }
+        
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Enhanced Speech Engine Test</h1>
+    
+    <div class="test-panel">
+        <h3>Provider Status</h3>
+        <div class="provider-status">
+            <div id="web-speech-status" class="status-badge status-loading">Web Speech: Loading...</div>
+            <div id="local-ai-status" class="status-badge status-loading">Local AI: Loading...</div>
+            <div id="azure-status" class="status-badge status-loading">Azure: Loading...</div>
+        </div>
+    </div>
+    
+    <div class="test-panel">
+        <h3>Speech Synthesis Test</h3>
+        <textarea class="test-text" id="testText" placeholder="Enter text to speak...">
+This is a test of the enhanced speech engine. It supports multiple providers including enhanced Web Speech API, local AI models, and Azure Speech Services for premium quality.
+        </textarea>
+        <div>
+            <button onclick="testWebSpeech()">Test Web Speech</button>
+            <button onclick="testLocalAI()">Test Local AI</button>
+            <button onclick="testAzure()">Test Azure</button>
+            <button onclick="stopSpeech()">Stop</button>
+        </div>
+    </div>
+    
+    <div class="test-panel">
+        <h3>Speech Recognition Test</h3>
+        <div>
+            <button onclick="testRecognition()">Start Voice Input</button>
+            <button onclick="stopRecognition()">Stop Recognition</button>
+        </div>
+        <div>
+            <strong>Recognized Text:</strong>
+            <div id="recognizedText" style="padding: 10px; background: #f8f9fa; border-radius: 6px; margin-top: 10px; min-height: 40px;"></div>
+        </div>
+    </div>
+    
+    <div class="test-panel">
+        <h3>Debug Log</h3>
+        <div id="log" class="log"></div>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <script type="module">
+        import { speechEngine } from './src/services/speechEngine.js';
+        
+        let isInitialized = false;
+        
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+        
+        function updateStatus(provider, status, message = '') {
+            const element = document.getElementById(`${provider}-status`);
+            element.className = `status-badge status-${status}`;
+            element.textContent = `${provider.replace('-', ' ')}: ${message || status}`;
+        }
+        
+        async function initializeSpeechEngine() {
+            try {
+                log('Initializing enhanced speech engine...');
+                
+                await speechEngine.initialize();
+                isInitialized = true;
+                
+                log('Speech engine initialized successfully');
+                
+                // Check provider statuses
+                updateStatus('web-speech', 'ready', 'Ready');
+                
+                // Test local AI availability
+                try {
+                    await speechEngine.switchProvider('local_ai');
+                    updateStatus('local-ai', 'ready', 'Models loaded');
+                } catch (error) {
+                    updateStatus('local-ai', 'error', 'Not available');
+                    log(`Local AI not available: ${error.message}`);
+                }
+                
+                // Test Azure availability
+                try {
+                    await speechEngine.switchProvider('azure');
+                    updateStatus('azure', 'ready', 'Service ready');
+                } catch (error) {
+                    updateStatus('azure', 'error', 'Not configured');
+                    log(`Azure not available: ${error.message}`);
+                }
+                
+                // Switch back to web speech
+                await speechEngine.switchProvider('web_speech');
+                
+                log('All providers tested');
+                
+            } catch (error) {
+                log(`Failed to initialize speech engine: ${error.message}`);
+                updateStatus('web-speech', 'error', 'Failed');
+                updateStatus('local-ai', 'error', 'Failed');
+                updateStatus('azure', 'error', 'Failed');
+            }
+        }
+        
+        window.testWebSpeech = async function() {
+            if (!isInitialized) {
+                log('Speech engine not initialized');
+                return;
+            }
+            
+            try {
+                log('Testing Web Speech API...');
+                await speechEngine.switchProvider('web_speech');
+                const text = document.getElementById('testText').value;
+                const success = await speechEngine.speakText(text);
+                log(`Web Speech test ${success ? 'successful' : 'failed'}`);
+            } catch (error) {
+                log(`Web Speech test failed: ${error.message}`);
+            }
+        };
+        
+        window.testLocalAI = async function() {
+            if (!isInitialized) {
+                log('Speech engine not initialized');
+                return;
+            }
+            
+            try {
+                log('Testing Local AI speech...');
+                await speechEngine.switchProvider('local_ai');
+                const text = document.getElementById('testText').value;
+                const success = await speechEngine.speakText(text);
+                log(`Local AI test ${success ? 'successful' : 'failed'}`);
+            } catch (error) {
+                log(`Local AI test failed: ${error.message}`);
+            }
+        };
+        
+        window.testAzure = async function() {
+            if (!isInitialized) {
+                log('Speech engine not initialized');
+                return;
+            }
+            
+            try {
+                log('Testing Azure Speech Services...');
+                await speechEngine.switchProvider('azure');
+                const text = document.getElementById('testText').value;
+                const success = await speechEngine.speakText(text);
+                log(`Azure test ${success ? 'successful' : 'failed'}`);
+            } catch (error) {
+                log(`Azure test failed: ${error.message}`);
+            }
+        };
+        
+        window.stopSpeech = function() {
+            speechEngine.stopSpeaking();
+            log('Speech stopped');
+        };
+        
+        window.testRecognition = async function() {
+            if (!isInitialized) {
+                log('Speech engine not initialized');
+                return;
+            }
+            
+            try {
+                log('Starting speech recognition...');
+                const transcript = await speechEngine.startSpeechRecognition();
+                if (transcript) {
+                    document.getElementById('recognizedText').textContent = transcript;
+                    log(`Recognition successful: "${transcript}"`);
+                } else {
+                    log('No speech recognized');
+                }
+            } catch (error) {
+                log(`Speech recognition failed: ${error.message}`);
+            }
+        };
+        
+        window.stopRecognition = function() {
+            speechEngine.stopRecognition();
+            log('Speech recognition stopped');
+        };
+        
+        window.clearLog = function() {
+            document.getElementById('log').innerHTML = '';
+        };
+        
+        // Initialize on page load
+        initializeSpeechEngine();
+    </script>
+</body>
+</html>
