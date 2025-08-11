@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DirectLine Library Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .code {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>DirectLine Library Loading Test</h1>
+
+    <div id="status">Testing DirectLine library loading...</div>
+
+    <h2>Library Information</h2>
+    <div id="libraryInfo" class="code">Loading...</div>
+
+    <h2>Test Results</h2>
+    <div id="results"></div>
+
+    <!-- Try multiple CDN sources -->
+    <script src="https://cdn.botframework.com/botframework-directline/3.0.3/directline.js"></script>
+
+    <script>
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+
+        function addResult(test, passed, details = '') {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `status ${passed ? 'success' : 'error'}`;
+            resultDiv.innerHTML = `<strong>${test}:</strong> ${passed ? 'PASS' : 'FAIL'} ${details}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function runTests() {
+            console.log('Starting DirectLine library tests...');
+
+            // Test 1: Check if DirectLine is defined
+            const directLineExists = typeof DirectLine !== 'undefined';
+            addResult('DirectLine Library Loaded', directLineExists);
+
+            if (directLineExists) {
+                updateStatus('DirectLine library loaded successfully!', 'success');
+
+                // Test 2: Check DirectLine.DirectLine constructor
+                const hasConstructor = typeof DirectLine.DirectLine === 'function';
+                addResult('DirectLine.DirectLine Constructor', hasConstructor);
+
+                // Test 3: Check DirectLine properties
+                const libraryInfo = {
+                    DirectLine: typeof DirectLine,
+                    'DirectLine.DirectLine': typeof DirectLine.DirectLine,
+                    'DirectLine.ConnectionStatus': typeof DirectLine.ConnectionStatus
+                };
+
+                document.getElementById('libraryInfo').textContent = JSON.stringify(libraryInfo, null, 2);
+
+                // Test 4: Try to create instance with dummy secret
+                try {
+                    const testInstance = new DirectLine.DirectLine({
+                        secret: 'test-secret'
+                    });
+                    addResult('DirectLine Instance Creation', true);
+
+                    // Clean up
+                    if (testInstance && testInstance.end) {
+                        testInstance.end();
+                    }
+                } catch (error) {
+                    addResult('DirectLine Instance Creation', false, error.message);
+                }
+
+            } else {
+                updateStatus('DirectLine library failed to load!', 'error');
+
+                // Try alternative loading
+                const fallbackScript = document.createElement('script');
+                fallbackScript.src = 'https://unpkg.com/botframework-directline@3.0.3/built/directline.js';
+                fallbackScript.onload = function () {
+                    if (typeof DirectLine !== 'undefined') {
+                        updateStatus('DirectLine loaded from fallback CDN!', 'success');
+                        runTests();
+                    } else {
+                        updateStatus('All CDN sources failed!', 'error');
+                    }
+                };
+                fallbackScript.onerror = function () {
+                    updateStatus('Fallback CDN also failed!', 'error');
+                };
+                document.head.appendChild(fallbackScript);
+            }
+        }
+
+        // Run tests when page loads
+        window.addEventListener('load', function () {
+            setTimeout(runTests, 100); // Small delay to ensure script is fully loaded
+        });
+
+        // Also run tests immediately
+        if (document.readyState === 'complete') {
+            setTimeout(runTests, 100);
+        }
+    </script>
+</body>
+
+</html>

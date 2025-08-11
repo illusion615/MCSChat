@@ -5,20 +5,28 @@
 
 import { agentManager } from '../managers/agentManager.js';
 import { sessionManager } from '../managers/sessionManager.js';
-import { directLineManager } from '../services/directLineManager.js';
+// OLD: Legacy DirectLine service (commented for rollback)
+// import { directLineManager } from '../services/directLineManager.js';
+// NEW: Using new DirectLine component (simplified compatible version)
+import { DirectLineManager } from '../components/directline/DirectLineManagerSimple.js';
 import { messageRenderer } from '../ui/messageRenderer.js';
 import { aiCompanion } from '../ai/aiCompanion.js';
+import { getKnowledgeHub } from '../services/knowledgeHub.js';
 import { DOMUtils } from '../utils/domUtils.js';
 import { Utils } from '../utils/helpers.js';
 import { SecureStorage } from '../utils/secureStorage.js';
 import { EnhancedTypingIndicator } from '../ui/enhancedTypingIndicator.js';
 import { mobileUtils } from '../utils/mobileUtils.js';
 import { statusIndicator } from '../utils/statusIndicator.js';
+import { getSVGDataUri } from '../utils/svgIcons.js';
 // Using simpler logging manager to fix the issue
 import LoggingManager from '../services/simpleLoggingManager.js';
 // import LoggingUIManager from '../ui/loggingUIManager.js';
 // Temporarily comment out speech engine import to isolate the issue
 // import { speechEngine, setLoggingManager as setSpeechLoggingManager } from '../services/speechEngine.js';
+
+// UNIFIED MESSAGE SYSTEM: Import the new unified message system
+import { MessageIntegration } from '../ui/messageIntegration.js';
 
 export class Application {
     constructor() {
@@ -28,32 +36,50 @@ export class Application {
         this.state = {
             isConnected: false,
             currentSession: null,
-            currentAgent: null
+            currentAgent: null,
+            aiCompanionMode: false,
+            currentTheme: 'default'
         };
-        
+
         // Track notification IDs for cleanup
         this.currentInitNotificationId = null;
-        
+
+        // Track thinking simulation evaluation period
+        this.isEvaluatingThinkingSimulation = false;
+
         // Initialize enhanced typing indicator
         this.enhancedTypingIndicator = new EnhancedTypingIndicator();
-        
+
         // Initialize mobile utilities
         this.mobileUtils = mobileUtils;
-        
+
+        // UNIFIED MESSAGE SYSTEM: Initialize the unified message system
+        this.messageIntegration = new MessageIntegration();
+        this.mobileUtils = mobileUtils;
+
+        // Initialize DirectLine Manager (NEW component)
+        // OLD: Was using singleton from services/directLineManager.js
+        this.directLineManager = new DirectLineManager();
+
         // Initialize logging system - using simpler version
         this.loggingManager = new LoggingManager();
         // this.loggingUIManager = null; // Will be initialized after DOM is ready
-        
+
         // Set up global logging manager for other modules
         window.globalLoggingManager = this.loggingManager;
         // Temporarily comment out speech engine logging setup
         // setSpeechLoggingManager(this.loggingManager);
-        
+
         // Track UI state
         this.uiState = {
             leftPanelCollapsed: localStorage.getItem('leftPanelCollapsed') === 'true',
             messageIconsEnabled: localStorage.getItem('messageIconsEnabled') !== 'false' // Default to true
         };
+
+        // Create global reference for backward compatibility
+        // OLD: directLineManager was a singleton export from services
+        // NEW: Making instance globally available to maintain compatibility
+        window.directLineManager = this.directLineManager;
     }
 
     /**
@@ -74,7 +100,7 @@ export class Application {
                 userAgent: navigator.userAgent,
                 timestamp: new Date().toISOString()
             });
-            
+
             this.showInitializationIndicator('Starting application...');
 
             // Initialize DOM elements
@@ -94,6 +120,19 @@ export class Application {
             aiCompanion.initialize();
             this.aiCompanion = aiCompanion; // Assign to instance for access throughout the class
 
+            // UNIFIED MESSAGE SYSTEM: Initialize the unified message system
+            this.updateInitializationIndicator('Setting up unified message system...');
+            await this.initializeUnifiedMessageSystem();
+
+            // Update AI companion toggle visibility after initialization
+            setTimeout(() => {
+                this.updateAICompanionToggleVisibility();
+            }, 100); // Small delay to ensure AI companion is fully initialized
+
+            // Initialize Knowledge Hub
+            this.updateInitializationIndicator('Initializing Knowledge Hub...');
+            this.knowledgeHub = getKnowledgeHub();
+
             // Initialize mobile utilities
             this.updateInitializationIndicator('Setting up mobile interface...');
             if (this.mobileUtils) {
@@ -110,26 +149,12 @@ export class Application {
 
             this.isInitialized = true;
             console.log('Application initialized successfully');
-            
-            // Add some demo log entries for testing
+
+            // Log successful initialization
             this.loggingManager.info('system', 'Application initialization completed successfully', {
                 initializationTime: Date.now() - this.initStartTime,
-                modulesLoaded: ['agentManager', 'sessionManager', 'directLineManager', 'messageRenderer', 'aiCompanion'],
+                modulesLoaded: ['agentManager', 'sessionManager', 'directLineManager (NEW component)', 'messageRenderer', 'aiCompanion'],
                 uiState: this.uiState
-            });
-            
-            this.loggingManager.debug('system', 'Debug log example', {
-                debugInfo: 'This is a debug message for testing purposes'
-            });
-            
-            this.loggingManager.warn('system', 'Warning log example', {
-                warningType: 'demo',
-                message: 'This is a sample warning for testing the logging system'
-            });
-
-            this.loggingManager.error('system', 'Error log example', {
-                errorType: 'demo',
-                message: 'This is a sample error for testing the logging system'
             });
 
             // Show success briefly then hide
@@ -158,9 +183,12 @@ export class Application {
             userInput: DOMUtils.getElementById('userInput'),
             sendButton: DOMUtils.getElementById('sendButton'),
             voiceInputBtn: DOMUtils.getElementById('voiceInputBtn'),
+            aiCompanionToggleBtn: DOMUtils.getElementById('aiCompanionToggleBtn'),
+            llmQuickActionsContainer: DOMUtils.getElementById('llmQuickActionsContainer'),
 
             // Navigation elements
             clearButton: DOMUtils.getElementById('clearButton'),
+            knowledgeHubButton: DOMUtils.getElementById('knowledgeHubButton'),
             setupButton: DOMUtils.getElementById('setupButton'),
             settingsButton: DOMUtils.getElementById('settingsButton'),
             conversationsButton: DOMUtils.getElementById('conversationsButton'),
@@ -290,6 +318,80 @@ export class Application {
         console.log('Managers and services initialized');
         // Re-enable basic logging
         this.loggingManager.info('system', 'Application managers initialized successfully');
+    }
+
+    /**
+     * Initialize the unified message system
+     * @private
+     */
+    async initializeUnifiedMessageSystem() {
+        try {
+            console.log('Initializing unified message system...');
+
+            // Get the chat windows
+            const agentChatWindow = DOMUtils.getElementById('chatWindow');
+            const aiCompanionChatWindow = DOMUtils.getElementById('llmChatWindow');
+
+            if (!agentChatWindow && !aiCompanionChatWindow) {
+                console.warn('No chat windows found, unified message system not initialized');
+                return;
+            }
+
+            // Configuration for the unified system
+            const config = {
+                enableQueue: true,
+                enableMetadata: true,
+                professionalMode: this.state.professionalMode || false,
+                migrationMode: false, // Disable migration mode to use unified system by default
+                fontSize: {
+                    agent: this.uiState?.agentChatFontSize || 15,
+                    companion: this.uiState?.companionChatFontSize || 14
+                }
+            };
+
+            // Initialize the unified message system
+            const success = await this.messageIntegration.initialize(
+                agentChatWindow,
+                aiCompanionChatWindow,
+                config
+            );
+
+            if (success) {
+                console.log('Unified message system initialized successfully');
+
+                // Set up legacy compatibility bridges
+                this.messageIntegration.setupLegacyBridge();
+
+                // Store reference to the API for easy access
+                this.unifiedMessageAPI = this.messageIntegration.getAPI();
+
+                // Log initialization
+                this.loggingManager.info('system', 'Unified message system initialized', {
+                    config,
+                    agentChatWindow: !!agentChatWindow,
+                    aiCompanionChatWindow: !!aiCompanionChatWindow
+                });
+
+                // Migrate existing messages if any
+                if (agentChatWindow && agentChatWindow.children.length > 0) {
+                    const migrated = this.messageIntegration.migrateLegacyMessages(agentChatWindow);
+                    console.log(`Migrated ${migrated} legacy agent messages`);
+                }
+
+                if (aiCompanionChatWindow && aiCompanionChatWindow.children.length > 0) {
+                    const migrated = this.messageIntegration.migrateLegacyMessages(aiCompanionChatWindow);
+                    console.log(`Migrated ${migrated} legacy AI companion messages`);
+                }
+
+            } else {
+                console.warn('Failed to initialize unified message system, using legacy renderers');
+                this.loggingManager.warn('system', 'Unified message system initialization failed, falling back to legacy');
+            }
+
+        } catch (error) {
+            console.error('Error initializing unified message system:', error);
+            this.loggingManager.error('system', 'Unified message system initialization error', { error: error.message });
+        }
     }
 
     /**
@@ -428,6 +530,31 @@ export class Application {
             this.aiCompanion.startVoiceInput();
         });
 
+        // AI Companion toggle
+        DOMUtils.addEventListener(this.elements.aiCompanionToggleBtn, 'click', () => {
+            console.log('AI Companion toggle button clicked');
+            this.toggleAICompanionMode();
+        });
+
+        // Quick action buttons
+        const quickActionButtons = document.querySelectorAll('.quick-action-btn');
+        quickActionButtons.forEach(btn => {
+            DOMUtils.addEventListener(btn, 'click', async (e) => {
+                const action = e.target.dataset.action;
+                console.log('Quick action clicked:', action);
+
+                if (window.aiCompanion && window.aiCompanion.isEnabled) {
+                    try {
+                        await window.aiCompanion.handleQuickAction(action);
+                    } catch (error) {
+                        console.error('Error handling quick action:', error);
+                    }
+                } else {
+                    console.warn('AI Companion not enabled or available');
+                }
+            });
+        });
+
         DOMUtils.addEventListener(this.elements.userInput, 'keydown', (e) => {
             if (e.key === 'Enter') {
                 this.sendMessage();
@@ -437,6 +564,11 @@ export class Application {
         // Clear chat / start new session
         DOMUtils.addEventListener(this.elements.clearButton, 'click', () => {
             this.startNewChat();
+        });
+
+        // Knowledge Hub button
+        DOMUtils.addEventListener(this.elements.knowledgeHubButton, 'click', () => {
+            this.openKnowledgeHub();
         });
 
         // Open setup modal
@@ -505,18 +637,13 @@ export class Application {
         if (debugLogsBtn) {
             DOMUtils.addEventListener(debugLogsBtn, 'click', () => {
                 console.log('Debug logs button clicked');
-                
+
                 // Run comprehensive debug
                 if (this.loggingManager.debugState) {
                     const debugInfo = this.loggingManager.debugState();
                     console.log('Debug info:', debugInfo);
                 }
-                
-                // Force add new logs
-                this.loggingManager.info('debug', 'Debug button test log', { timestamp: new Date().toISOString() });
-                this.loggingManager.warn('debug', 'Debug button warning', { timestamp: new Date().toISOString() });
-                this.loggingManager.error('debug', 'Debug button error', { timestamp: new Date().toISOString() });
-                
+
                 // Force refresh panel
                 this.populateSimpleLoggingPanel();
             });
@@ -605,7 +732,7 @@ export class Application {
         if (filters.timeRange !== 'all') {
             const now = new Date();
             let timeLimit;
-            
+
             switch (filters.timeRange) {
                 case '1h':
                     timeLimit = new Date(now.getTime() - 60 * 60 * 1000);
@@ -620,7 +747,7 @@ export class Application {
                     timeLimit = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
                     break;
             }
-            
+
             if (timeLimit) {
                 filters.timeLimit = timeLimit.toISOString();
             }
@@ -745,6 +872,8 @@ export class Application {
                     } else {
                         this.aiCompanion.disable();
                     }
+                    // Update AI companion toggle visibility
+                    this.updateAICompanionToggleVisibility();
                 }
             });
         }
@@ -792,6 +921,8 @@ export class Application {
                 // Update AI companion status to show new model
                 if (this.aiCompanion) {
                     this.aiCompanion.updateStatus();
+                    // Update AI companion toggle visibility
+                    this.updateAICompanionToggleVisibility();
                 }
             });
         }
@@ -817,6 +948,8 @@ export class Application {
                     // Update AI companion status
                     if (this.aiCompanion) {
                         this.aiCompanion.updateStatus();
+                        // Update AI companion toggle visibility
+                        this.updateAICompanionToggleVisibility();
                     }
                 }
             });
@@ -831,6 +964,8 @@ export class Application {
                 // Update AI companion status if Azure is selected
                 if (this.aiCompanion && this.elements.apiProviderSelect?.value === 'azure') {
                     this.aiCompanion.updateStatus();
+                    // Update AI companion toggle visibility
+                    this.updateAICompanionToggleVisibility();
                 }
             });
         }
@@ -843,6 +978,8 @@ export class Application {
                 // Update AI companion status if Azure is selected
                 if (this.aiCompanion && this.elements.apiProviderSelect?.value === 'azure') {
                     this.aiCompanion.updateStatus();
+                    // Update AI companion toggle visibility
+                    this.updateAICompanionToggleVisibility();
                 }
             });
         }
@@ -855,6 +992,8 @@ export class Application {
                 // Update AI companion status if Azure is selected
                 if (this.aiCompanion && this.elements.apiProviderSelect?.value === 'azure') {
                     this.aiCompanion.updateStatus();
+                    // Update AI companion toggle visibility
+                    this.updateAICompanionToggleVisibility();
                 }
             });
         }
@@ -920,6 +1059,12 @@ export class Application {
 
         // DirectLine events
         window.addEventListener('showTypingIndicator', (event) => {
+            // Don't show typing indicator if AI companion is enabled - thinking simulation handles visual feedback
+            if (window.aiCompanion && window.aiCompanion.isEnabled === true) {
+                console.log('AI companion enabled, ignoring showTypingIndicator event');
+                return;
+            }
+
             // Extract context from event detail for enhanced typing indicator
             const context = event.detail || null;
             this.showProgressIndicator(context);
@@ -1024,17 +1169,17 @@ export class Application {
             } else {
                 console.log('� [SPEECH-DISPOSE] No speech engine available');
             }
-            
+
             // Also stop AI Companion speech as additional safety measure
             if (window.aiCompanion && window.aiCompanion.stopSpeaking) {
                 console.log('🟡 [SPEECH-DISPOSE] Also stopping AI Companion speech as safety measure');
                 window.aiCompanion.stopSpeaking();
             }
-            
+
         } catch (error) {
             console.error('� [SPEECH-DISPOSE] Error during disposal and reinitialization:', error);
             console.error('� [SPEECH-DISPOSE] Error stack:', error.stack);
-            
+
             // Fallback to old stopping methods if disposal fails
             console.log('� [SPEECH-DISPOSE] Attempting fallback speech stopping methods...');
             try {
@@ -1086,32 +1231,51 @@ export class Application {
             // Render user message with explicit timestamp
             this.renderUserMessage(messageText, userMessageTimestamp);
 
-            // Send to DirectLine
-            if (this.selectedFile) {
-                await this.sendMessageWithFile(messageText, this.selectedFile);
-                this.removeSelectedFile();
+            // Send to DirectLine immediately - don't wait for thinking simulation
+            let messagePromise;
+
+            // Check if AI Companion mode is active and route message accordingly
+            if (this.state.aiCompanionMode && window.aiCompanion && window.aiCompanion.isEnabled) {
+                console.log('AI Companion mode active - routing message to LLM');
+
+                // Send to AI Companion instead of DirectLine
+                messagePromise = this.sendMessageToAICompanion(messageText);
             } else {
-                await directLineManager.sendMessage(messageText);
+                // Normal flow - send to DirectLine
+                if (this.selectedFile) {
+                    messagePromise = this.sendMessageWithFile(messageText, this.selectedFile);
+                    this.removeSelectedFile();
+                } else {
+                    messagePromise = directLineManager.sendMessage(messageText);
+                }
             }
 
-            // Show progress indicator with detected context
-            const messageContext = this.detectMessageContext(messageText);
-            this.showProgressIndicator({
-                source: 'user-message',
-                messageText: messageText,
-                hasFile: !!this.selectedFile,
-                detectedContext: messageContext
-            });
+            // Start intelligent thinking simulation after DirectLine send
+            this.startIntelligentThinkingSimulation(messageText, messagePromise);
+
+            // Show progress indicator with detected context (only if AI companion is not enabled for thinking simulation)
+            if (!window.aiCompanion || window.aiCompanion.isEnabled !== true) {
+                const messageContext = this.detectMessageContext(messageText);
+                this.showProgressIndicator({
+                    source: 'user-message',
+                    messageText: messageText,
+                    hasFile: !!this.selectedFile,
+                    detectedContext: messageContext
+                });
+            } else {
+                // Set evaluation flag to prevent typing indicators during the 2-second evaluation period
+                this.isEvaluatingThinkingSimulation = true;
+            }
 
             // Re-enable send button after message is processed
             this.elements.sendButton.disabled = false;
 
         } catch (error) {
             console.error('Error sending message:', error);
-            
+
             // Re-enable send button on error
             this.elements.sendButton.disabled = false;
-            
+
             this.showErrorMessage('Failed to send message. Please try again.');
             this.hideProgressIndicator();
         }
@@ -1187,12 +1351,139 @@ export class Application {
     }
 
     /**
+     * Toggle AI Companion mode
+     */
+    toggleAICompanionMode() {
+        console.log('toggleAICompanionMode called, current state:', this.state.aiCompanionMode);
+
+        this.state.aiCompanionMode = !this.state.aiCompanionMode;
+
+        // Apply visual changes
+        this.applyAICompanionVisualState();
+
+        console.log('AI Companion mode:', this.state.aiCompanionMode ? 'ON' : 'OFF');
+    }
+
+    /**
+     * Apply visual state for AI companion mode
+     * @private
+     */
+    applyAICompanionVisualState() {
+        const toggleBtn = this.elements.aiCompanionToggleBtn;
+        const quickActionsContainer = this.elements.llmQuickActionsContainer;
+
+        if (this.state.aiCompanionMode) {
+            toggleBtn.classList.add('active');
+            quickActionsContainer.classList.add('expanded');
+            document.body.classList.add('ai-companion-active');
+            this.elements.userInput.placeholder = "Ask AI Companion...";
+        } else {
+            toggleBtn.classList.remove('active');
+            quickActionsContainer.classList.remove('expanded');
+            document.body.classList.remove('ai-companion-active');
+            this.elements.userInput.placeholder = "Type your message...";
+        }
+    }
+
+    /**
+     * Send message to AI Companion LLM
+     * @param {string} messageText - The message to send
+     * @returns {Promise} Promise that resolves when the message is processed
+     */
+    async sendMessageToAICompanion(messageText) {
+        if (!window.aiCompanion || !window.aiCompanion.isEnabled) {
+            throw new Error('AI Companion is not available or enabled');
+        }
+
+        try {
+            // Add conversation context like the AI companion does
+            const conversationContext = window.aiCompanion.getAdaptiveConversationContext('general');
+            const messageWithContext = `${conversationContext}\n\nUser Question: ${messageText}`;
+
+            // Estimate token usage
+            window.aiCompanion.estimateTokenUsage(messageWithContext, true);
+
+            // Show typing indicator
+            window.aiCompanion.showTypingIndicator();
+
+            // Send to AI companion's LLM processing
+            await window.aiCompanion.sendQuickActionRequest(messageWithContext);
+
+            return Promise.resolve();
+        } catch (error) {
+            console.error('Error sending message to AI Companion:', error);
+            window.aiCompanion.hideTypingIndicator();
+            throw error;
+        }
+    }
+
+    /**
+     * Update AI Companion toggle button visibility based on AI Companion enabled status
+     */
+    updateAICompanionToggleVisibility() {
+        console.log('updateAICompanionToggleVisibility called');
+        console.log('Elements found:', {
+            aiCompanionToggleBtn: !!this.elements.aiCompanionToggleBtn,
+            llmQuickActionsContainer: !!this.elements.llmQuickActionsContainer
+        });
+
+        if (this.elements.aiCompanionToggleBtn && this.elements.llmQuickActionsContainer) {
+            // Check both the AI companion instance and localStorage as fallback
+            const isEnabled = (window.aiCompanion && window.aiCompanion.isEnabled) ||
+                (localStorage.getItem('enableLLM') === 'true');
+
+            console.log('AI Companion enabled check:', {
+                aiCompanionExists: !!window.aiCompanion,
+                aiCompanionEnabled: window.aiCompanion?.isEnabled,
+                localStorageValue: localStorage.getItem('enableLLM'),
+                finalIsEnabled: isEnabled
+            });
+
+            // Show/hide toggle button based on AI companion enabled status
+            this.elements.aiCompanionToggleBtn.style.display = isEnabled ? 'inline-flex' : 'none';
+
+            // If AI companion is disabled, also hide the quick actions and reset the mode
+            if (!isEnabled) {
+                this.state.aiCompanionMode = false;
+                this.elements.aiCompanionToggleBtn.classList.remove('active');
+                this.elements.llmQuickActionsContainer.classList.remove('expanded');
+            }
+
+            console.log('AI Companion toggle visibility updated:', isEnabled ? 'visible' : 'hidden');
+        } else {
+            console.log('Missing elements for AI Companion toggle visibility update');
+        }
+    }
+
+    /**
      * Handle complete message (enhanced to include session management)
      * @param {Object} activity - Message activity
      * @private
      */
-    handleCompleteMessage(activity) {
+    async handleCompleteMessage(activity) {
         this.hideProgressIndicator();
+
+        // Wait for thinking simulation to complete before starting agent message rendering
+        if (window.aiCompanion && window.aiCompanion.isEnabled && activity.from && activity.from.id !== 'user') {
+            try {
+                // Check if thinking simulation is active
+                if (window.aiCompanion.isThinkingActive()) {
+                    console.log('[Application] Thinking simulation active, waiting for natural completion before rendering complete agent message...');
+
+                    // Signal thinking to end naturally
+                    window.aiCompanion.endThinkingSimulationNaturally();
+
+                    // Wait for thinking completion
+                    const thinkingPromise = window.aiCompanion.getThinkingCompletionPromise();
+                    if (thinkingPromise) {
+                        await thinkingPromise;
+                        console.log('[Application] Thinking simulation completed, now starting complete agent message rendering');
+                    }
+                }
+            } catch (error) {
+                console.error('[Application] Error waiting for thinking completion:', error);
+            }
+        }
 
         // Add to session (only for bot messages, user messages are handled in sendMessage)
         if (activity.from && activity.from.id !== 'user') {
@@ -1236,8 +1527,30 @@ export class Application {
      * @param {Object} activity - Streaming activity with metadata
      * @private
      */
-    handleStreamingActivity(activity) {
+    async handleStreamingActivity(activity) {
         this.hideProgressIndicator();
+
+        // Wait for thinking simulation to complete before starting agent message rendering
+        if (window.aiCompanion && window.aiCompanion.isEnabled && activity.from && activity.from.id !== 'user') {
+            try {
+                // Check if thinking simulation is active
+                if (window.aiCompanion.isThinkingActive()) {
+                    console.log('[Application] Thinking simulation active, waiting for natural completion before rendering agent message...');
+
+                    // Signal thinking to end naturally
+                    window.aiCompanion.endThinkingSimulationNaturally();
+
+                    // Wait for thinking completion
+                    const thinkingPromise = window.aiCompanion.getThinkingCompletionPromise();
+                    if (thinkingPromise) {
+                        await thinkingPromise;
+                        console.log('[Application] Thinking simulation completed, now starting agent message rendering');
+                    }
+                }
+            } catch (error) {
+                console.error('[Application] Error waiting for thinking completion:', error);
+            }
+        }
 
         // For streaming messages, we'll add to session when streaming ends
         // Just handle the rendering here
@@ -1430,7 +1743,7 @@ export class Application {
                         zone: 'connection',
                         persistent: true
                     });
-                    
+
                     // Wait longer for bot response before transitioning, like legacy
                     setTimeout(() => {
                         // Check if we've received any messages yet
@@ -1523,7 +1836,7 @@ export class Application {
     handleConnectionError(error) {
         console.error('Connection error:', error);
         this.state.isConnected = false;
-        
+
         // Clear connection status using unified notification system
         if (window.unifiedNotificationManager) {
             window.unifiedNotificationManager.hide('connection-status');
@@ -1679,7 +1992,7 @@ export class Application {
     openDocumentation() {
         console.log('Opening documentation in side browser...');
         const githubReadmeUrl = 'https://github.com/illusion615/MCSChat/blob/main/README.md';
-        
+
         // Always open in side browser, regardless of the "open citations in side browser" setting
         if (this.messageRenderer && typeof this.messageRenderer.openSideBrowser === 'function') {
             this.messageRenderer.openSideBrowser(githubReadmeUrl);
@@ -1687,9 +2000,31 @@ export class Application {
             console.warn('MessageRenderer not available, falling back to new tab');
             window.open(githubReadmeUrl, '_blank');
         }
-        
+
         // Temporarily comment out logging
         // this.loggingManager.info('ui', 'Documentation opened', { url: githubReadmeUrl });
+    }
+
+    /**
+     * Open Knowledge Hub modal
+     */
+    openKnowledgeHub() {
+        try {
+            console.log('Opening Knowledge Hub...');
+            const knowledgeHub = getKnowledgeHub();
+            knowledgeHub.showModal();
+
+            // Log the action
+            this.loggingManager.info('ui', 'Knowledge Hub opened', {
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error('Error opening Knowledge Hub:', error);
+            // Show error notification if available
+            if (window.unifiedNotificationManager) {
+                window.unifiedNotificationManager.show('error', 'Failed to open Knowledge Hub. Please try again.');
+            }
+        }
     }
 
     /**
@@ -1697,7 +2032,7 @@ export class Application {
      */
     openLoggingPanel() {
         console.log('Opening logging panel...');
-        
+
         // Simple logging panel implementation
         if (this.loggingManager && this.loggingManager.isInitialized) {
             this.showSimpleLoggingPanel();
@@ -1715,13 +2050,13 @@ export class Application {
         if (panel) {
             panel.classList.add('visible');
             this.isLoggingPanelExpanded = false; // Initialize as collapsed
-            
+
             // Add expand button functionality
             const expandBtn = document.getElementById('expandPanelBtn');
             if (expandBtn) {
                 expandBtn.onclick = () => this.togglePanelView();
             }
-            
+
             this.populateSimpleLoggingPanel();
         } else {
             console.warn('Logging panel element not found');
@@ -1735,9 +2070,9 @@ export class Application {
         const panel = document.getElementById('loggingPanel');
         const expandBtn = document.getElementById('expandPanelBtn');
         const expandIcon = expandBtn?.querySelector('i');
-        
+
         this.isLoggingPanelExpanded = !this.isLoggingPanelExpanded;
-        
+
         if (this.isLoggingPanelExpanded) {
             panel.classList.add('expanded');
             if (expandIcon) {
@@ -1764,7 +2099,7 @@ export class Application {
 
         const filters = this.getCurrentFilters();
         const logs = this.loggingManager.getLogs(filters);
-        
+
         container.innerHTML = `
             <div class="table-container">
                 <table class="log-table">
@@ -1792,7 +2127,7 @@ export class Application {
         const time = new Date(log.timestamp).toLocaleTimeString();
         const metadata = (log.metadata && Object.keys(log.metadata).length > 0) ? JSON.stringify(log.metadata) : '';
         const truncatedMetadata = metadata.length > 100 ? metadata.substring(0, 100) + '...' : metadata;
-        
+
         return `
             <tr class="log-row" data-level="${log.level}">
                 <td class="time-cell">${time}</td>
@@ -1831,7 +2166,7 @@ export class Application {
 
         console.log('Populating logs:', { logsCount: logs.length, stats, isInitialized: this.loggingManager.isInitialized });
         console.log('Raw logs array:', this.loggingManager.logs); // Direct access to logs array
-        
+
         // Add comprehensive debug information
         if (this.loggingManager.debugState) {
             this.loggingManager.debugState();
@@ -1843,23 +2178,19 @@ export class Application {
             this.loggingManager.loadLogsFromStorage();
             const reloadedLogs = this.loggingManager.getLogs();
             console.log('After reload attempt:', { logsCount: reloadedLogs.length });
-            
-            // If still empty, let's use the direct logs array or add some test logs manually
+
+            // If still empty, let's use the direct logs array
             if (reloadedLogs.length === 0) {
                 console.warn('Still no logs after reload. Checking direct logs array...');
                 const directLogs = this.loggingManager.logs || [];
                 console.log('Direct logs array length:', directLogs.length);
-                
+
                 if (directLogs.length > 0) {
                     logs = directLogs;
                     console.log('Using direct logs array');
                 } else {
-                    console.warn('Adding test logs manually...');
-                    this.loggingManager.info('system', 'Test log entry 1', { source: 'manual_test' });
-                    this.loggingManager.warn('system', 'Test warning entry', { source: 'manual_test' });
-                    this.loggingManager.error('system', 'Test error entry', { source: 'manual_test' });
+                    console.log('No logs available, logs array will be empty');
                     logs = this.loggingManager.getLogs();
-                    console.log('After adding test logs:', { logsCount: logs.length });
                 }
             } else {
                 logs = reloadedLogs;
@@ -1883,65 +2214,8 @@ export class Application {
         container.innerHTML = '';
 
         if (logs.length === 0) {
-            console.warn('No logs found, but stats show:', stats);
-            
-            // Force create some visible logs for testing
-            console.log('Force creating visible test logs...');
-            const testLogs = [
-                {
-                    id: 'test_1',
-                    timestamp: new Date().toISOString(),
-                    category: 'system',
-                    level: 'info',
-                    message: 'Forced test log entry 1',
-                    metadata: { source: 'force_test' }
-                },
-                {
-                    id: 'test_2', 
-                    timestamp: new Date().toISOString(),
-                    category: 'system',
-                    level: 'warn',
-                    message: 'Forced test warning entry',
-                    metadata: { source: 'force_test' }
-                },
-                {
-                    id: 'test_3',
-                    timestamp: new Date().toISOString(), 
-                    category: 'system',
-                    level: 'error',
-                    message: 'Forced test error entry',
-                    metadata: { source: 'force_test' }
-                }
-            ];
-            
-            // Render these test logs directly
-            testLogs.forEach(log => {
-                const logElement = document.createElement('div');
-                logElement.className = `log-entry compact log-${log.level}`;
-                
-                const timestamp = new Date(log.timestamp).toLocaleTimeString();
-                
-                logElement.innerHTML = `
-                    <div class="log-entry-header compact">
-                        <div class="compact-info">
-                            <span class="level-badge level-${log.level}">${log.level.toUpperCase()}</span>
-                            <span class="category-badge">${log.category || 'general'}</span>
-                            <span class="log-timestamp">${timestamp}</span>
-                            <span class="compact-message">${this.escapeHtml(log.message)}</span>
-                        </div>
-                        <button class="metadata-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('i').classList.toggle('fa-chevron-down'); this.querySelector('i').classList.toggle('fa-chevron-up');">
-                            <i class="fas fa-chevron-down"></i>
-                        </button>
-                        <div class="metadata-preview" style="display: none;">
-                            <pre>${this.escapeHtml(JSON.stringify(log.metadata, null, 2))}</pre>
-                        </div>
-                    </div>
-                `;
-                
-                container.appendChild(logElement);
-            });
-            
-            console.log('Force rendered test logs');
+            // Show empty state message
+            container.innerHTML = '<div class="empty-logs-message">No logs available yet.</div>';
             return;
         }
 
@@ -1949,9 +2223,9 @@ export class Application {
         logs.slice(0, 50).forEach(log => { // Show only first 50 logs
             const logElement = document.createElement('div');
             logElement.className = `log-entry compact log-${log.level}`;
-            
+
             const timestamp = new Date(log.timestamp).toLocaleTimeString();
-            
+
             logElement.innerHTML = `
                 <div class="log-entry-header compact">
                     <div class="compact-info">
@@ -1970,12 +2244,12 @@ export class Application {
                     ` : ''}
                 </div>
             `;
-            
+
             container.appendChild(logElement);
         });
 
         this.loggingManager.info('ui', 'Simple logging panel opened', { logsShown: Math.min(logs.length, 50) });
-        
+
         // Add global debug function for troubleshooting
         window.debugLogging = () => {
             console.log('=== Logging Debug ===');
@@ -1990,7 +2264,7 @@ export class Application {
                 };
             }
         };
-        
+
         window.refreshLoggingPanel = () => {
             console.log('Manually refreshing logging panel...');
             this.populateSimpleLoggingPanel();
@@ -2084,6 +2358,9 @@ export class Application {
         // Setup user icon selection
         this.setupUserIconSelection();
 
+        // Setup color theme selection
+        this.setupColorThemeSelection();
+
         console.log('Settings loaded into modal:', {
             llmEnabled: this.elements.enableLLMCheckbox?.checked,
             provider: savedProvider,
@@ -2151,9 +2428,27 @@ export class Application {
      * Show progress indicator (enhanced with legacy's typing indicator implementation)
      */
     showProgressIndicator(context = null) {
+        // Check if AI companion is enabled - don't show progress indicator when AI companion handles thinking simulation
+        if (window.aiCompanion && window.aiCompanion.isEnabled === true) {
+            console.log('AI companion is enabled, skipping progress indicator (thinking simulation handles this)');
+            return;
+        }
+
         // Check if streaming is currently active - don't show typing indicator during streaming
         if (messageRenderer.currentlyStreamingMessageId) {
             console.log('Message streaming is active, skipping typing indicator');
+            return;
+        }
+
+        // Check if thinking simulation is active - don't show typing indicator during thinking simulation
+        if (window.aiCompanion && window.aiCompanion.isThinkingSimulationActive) {
+            console.log('Thinking simulation is active, skipping typing indicator');
+            return;
+        }
+
+        // Check if we're in thinking simulation evaluation period - don't show typing indicator during evaluation
+        if (window.aiCompanion && window.aiCompanion.isEnabled && this.isEvaluatingThinkingSimulation) {
+            console.log('Evaluating thinking simulation, skipping typing indicator');
             return;
         }
 
@@ -2169,7 +2464,7 @@ export class Application {
 
         // Create the enhanced typing indicator with context
         const indicatorElement = this.enhancedTypingIndicator.createIndicator(context);
-        
+
         // Create the message container
         const messageContainer = DOMUtils.createElement('div', {
             className: 'messageContainer botMessage',
@@ -2179,7 +2474,7 @@ export class Application {
         const messageIcon = DOMUtils.createElement('div', {
             className: 'messageIcon'
         });
-        messageIcon.style.backgroundImage = 'url("images/Microsoft-Copilot-Logo-30.png")';
+        messageIcon.style.backgroundImage = 'url("images/copilotstudio-icon.webp")';
 
         messageContainer.appendChild(messageIcon);
         messageContainer.appendChild(indicatorElement);
@@ -2208,21 +2503,157 @@ export class Application {
         if (progressIndicator) {
             // Stop the enhanced typing indicator immediately
             this.enhancedTypingIndicator.hide();
-            
+
             // Immediately hide the container to prevent any delay
             progressIndicator.style.display = 'none';
-            
+
             // Remove after a short delay to ensure smooth transition
             setTimeout(() => {
                 if (progressIndicator.parentNode) {
                     progressIndicator.remove();
                 }
             }, 100);
-            
+
             console.log('Enhanced typing indicator removed');
         } else {
             console.log('No typing indicator found to remove');
         }
+    }
+
+    /**
+     * Start intelligent thinking simulation with proper timing
+     * @param {string} messageText - The user's message
+     * @param {Promise} messagePromise - Promise for the DirectLine message sending
+     * @private
+     */
+    async startIntelligentThinkingSimulation(messageText, messagePromise) {
+        // Check if AI companion is enabled
+        if (!window.aiCompanion || window.aiCompanion.isEnabled !== true) {
+            console.log('[Application] AI Companion not enabled, skipping thinking simulation');
+            return;
+        }
+
+        // Skip thinking simulation when in AI companion mode (user is chatting with AI companion directly)
+        if (this.state.aiCompanionMode) {
+            console.log('[Application] AI Companion mode active, skipping thinking simulation');
+            return;
+        }
+
+        console.log('[Application] Starting intelligent thinking simulation...');
+
+        // Flag to track if agent response has arrived
+        let agentResponseReceived = false;
+        let thinkingSimulationActive = false;
+
+        // Listen for agent responses
+        const responseListener = (event) => {
+            console.log('[Application] Response listener triggered:', {
+                eventType: event.type,
+                eventDetail: event.detail,
+                from: event.detail?.from,
+                fromId: event.detail?.from?.id
+            });
+
+            // Check if this is actually an agent response, not a user action
+            if (event.detail && event.detail.from && event.detail.from.id !== 'user') {
+                agentResponseReceived = true;
+                console.log('[Application] Agent response detected, will end thinking simulation', {
+                    responseReceived: agentResponseReceived,
+                    thinkingActive: thinkingSimulationActive
+                });
+
+                // Immediately end thinking simulation if it's active
+                if (thinkingSimulationActive && window.aiCompanion) {
+                    console.log('[Application] Immediately ending thinking simulation due to agent response');
+                    window.aiCompanion.endThinkingSimulationNaturally();
+                    thinkingSimulationActive = false;
+                }
+
+                // If we're still in evaluation period, clear the flag but don't show typing indicator
+                // The thinking simulation will handle the display, or the quick response doesn't need an indicator
+                if (this.isEvaluatingThinkingSimulation) {
+                    this.isEvaluatingThinkingSimulation = false;
+                    console.log('[Application] Agent response during evaluation period, clearing evaluation flag');
+                }
+            } else {
+                console.log('[Application] Event not considered agent response:', {
+                    hasDetail: !!event.detail,
+                    hasFrom: !!event.detail?.from,
+                    fromId: event.detail?.from?.id
+                });
+            }
+        };
+
+        // Listen for both streaming and complete messages
+        window.addEventListener('streamingActivity', responseListener);
+        window.addEventListener('completeMessage', responseListener);
+        window.addEventListener('eventActivity', responseListener);
+
+        try {
+            // Wait 2 seconds to see if we get a quick response
+            console.log('[Application] Waiting 2 seconds for potential quick response...');
+            await this.delay(2000);
+
+            // Clear evaluation flag
+            this.isEvaluatingThinkingSimulation = false;
+
+            // If no response yet, start thinking simulation
+            if (!agentResponseReceived) {
+                console.log('[Application] No response in 2 seconds, starting thinking simulation...');
+                thinkingSimulationActive = true;
+
+                // Start thinking simulation (non-blocking)
+                const thinkingPromise = window.aiCompanion.simulateThinkingProcess(messageText);
+
+                // Monitor for agent response while thinking is active
+                const responseCheckInterval = setInterval(() => {
+                    if (agentResponseReceived && thinkingSimulationActive) {
+                        console.log('[Application] Agent response received, ending thinking simulation naturally...');
+                        console.log('[Application] Calling endThinkingSimulationNaturally() on AI companion...');
+                        window.aiCompanion.endThinkingSimulationNaturally();
+                        thinkingSimulationActive = false;
+                        clearInterval(responseCheckInterval);
+                        console.log('[Application] Thinking simulation end request sent, interval cleared');
+                    }
+                }, 500); // Check every 500ms for faster response
+
+                // Wait for thinking simulation to complete or be interrupted
+                await thinkingPromise;
+                thinkingSimulationActive = false;
+                clearInterval(responseCheckInterval);
+            } else {
+                console.log('[Application] Quick response received, no thinking simulation needed');
+                // Don't show progress indicator if AI companion is enabled - thinking simulation handles all visual feedback
+                if (!window.aiCompanion || window.aiCompanion.isEnabled !== true) {
+                    const messageContext = this.detectMessageContext(messageText);
+                    this.showProgressIndicator({
+                        source: 'user-message',
+                        messageText: messageText,
+                        hasFile: false,
+                        detectedContext: messageContext
+                    });
+                }
+            }
+
+        } catch (error) {
+            console.error('[Application] Error in intelligent thinking simulation:', error);
+        } finally {
+            // Clean up evaluation flag and event listeners
+            this.isEvaluatingThinkingSimulation = false;
+            window.removeEventListener('streamingActivity', responseListener);
+            window.removeEventListener('completeMessage', responseListener);
+            window.removeEventListener('eventActivity', responseListener);
+        }
+    }
+
+    /**
+     * Utility method for delays
+     * @param {number} ms - Milliseconds to delay
+     * @returns {Promise} Delay promise
+     * @private
+     */
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     /**
@@ -2232,9 +2663,9 @@ export class Application {
      */
     detectMessageContext(messageText) {
         if (!messageText) return 'general';
-        
+
         const message = messageText.toLowerCase();
-        
+
         // Code-related keywords
         const codeKeywords = [
             'function', 'class', 'method', 'variable', 'array', 'object',
@@ -2242,7 +2673,7 @@ export class Application {
             'code', 'script', 'programming', 'debug', 'error', 'syntax',
             'algorithm', 'logic', 'loop', 'condition', 'import', 'export'
         ];
-        
+
         // Research-related keywords
         const researchKeywords = [
             'research', 'find information', 'search for', 'look up', 'investigate',
@@ -2250,41 +2681,41 @@ export class Application {
             'what is', 'how does', 'why is', 'when did', 'where is',
             'explain', 'definition', 'meaning', 'background', 'history'
         ];
-        
+
         // Creative-related keywords
         const creativeKeywords = [
             'write', 'create', 'generate', 'compose', 'draft', 'design',
             'story', 'poem', 'article', 'blog', 'content', 'creative',
             'imagine', 'brainstorm', 'ideas', 'innovative', 'original'
         ];
-        
+
         // Complex analysis keywords
         const complexKeywords = [
             'analyze deeply', 'comprehensive', 'detailed analysis', 'in-depth',
             'complex', 'sophisticated', 'advanced', 'thorough', 'extensive',
             'multi-step', 'elaborate', 'comprehensive review', 'full analysis'
         ];
-        
+
         // Check for complex queries first (most specific)
         if (complexKeywords.some(keyword => message.includes(keyword))) {
             return 'complex';
         }
-        
+
         // Check for code-related content
         if (codeKeywords.some(keyword => message.includes(keyword))) {
             return 'code';
         }
-        
+
         // Check for research content
         if (researchKeywords.some(keyword => message.includes(keyword))) {
             return 'research';
         }
-        
+
         // Check for creative content
         if (creativeKeywords.some(keyword => message.includes(keyword))) {
             return 'creative';
         }
-        
+
         return 'general';
     }
 
@@ -2318,7 +2749,7 @@ export class Application {
         if (window.unifiedNotificationManager) {
             // Clear any existing initialization notifications first
             window.unifiedNotificationManager.clearZone('initialization');
-            
+
             // Determine notification type based on message content
             let notificationType = 'init-loading';
             if (message.toLowerCase().includes('ready') || message.toLowerCase().includes('complete')) {
@@ -2326,16 +2757,16 @@ export class Application {
             } else if (message.toLowerCase().includes('error') || message.toLowerCase().includes('failed')) {
                 notificationType = 'init-error';
             }
-            
+
             // Show new initialization notification
             const notificationId = window.unifiedNotificationManager.show(notificationType, message, {
                 persistent: true, // Keep visible until explicitly hidden
                 duration: 0 // Don't auto-hide
             });
-            
+
             // Store the notification ID for later cleanup
             this.currentInitNotificationId = notificationId;
-            
+
             console.log(`[Application] Initialization notification shown: ${notificationType} - ${message}`);
         } else {
             // Fallback to original method if unified system not available
@@ -2346,7 +2777,7 @@ export class Application {
                 if (loadingText) {
                     loadingText.textContent = message;
                 }
-                
+
                 // Show the loading indicator if it's hidden
                 if (loadingIndicator.style.display === 'none') {
                     DOMUtils.show(loadingIndicator);
@@ -2465,10 +2896,10 @@ export class Application {
 
         if (agentTitleEl && agentName) {
             // Check if AI companion has set a custom title
-            const hasCustomTitle = aiCompanion && 
-                                  aiCompanion.currentConversationTitle && 
-                                  aiCompanion.currentConversationTitle !== 'Agent Conversation';
-            
+            const hasCustomTitle = aiCompanion &&
+                aiCompanion.currentConversationTitle &&
+                aiCompanion.currentConversationTitle !== 'Agent Conversation';
+
             // Only update title if no custom AI-generated title exists
             if (!hasCustomTitle) {
                 const conversationTitle = `${agentName} Conversation`;
@@ -2477,7 +2908,7 @@ export class Application {
             } else {
                 console.log('[Application] Preserving AI-generated title:', aiCompanion.currentConversationTitle);
             }
-            
+
             // Update mobile title if in mobile layout
             if (this.mobileUtils && this.mobileUtils.isMobileLayout()) {
                 this.mobileUtils.updateMobileTitle(agentName);
@@ -2780,7 +3211,7 @@ export class Application {
         try {
             const urlObj = new URL(url);
             const hostname = urlObj.hostname.toLowerCase();
-            
+
             // Known domains that typically have strict CSP frame-ancestors policies
             const restrictedDomains = [
                 'sharepoint.com',
@@ -2801,8 +3232,8 @@ export class Application {
                 'login.microsoft.com',
                 'account.microsoft.com'
             ];
-            
-            return restrictedDomains.some(domain => 
+
+            return restrictedDomains.some(domain =>
                 hostname === domain || hostname.endsWith('.' + domain)
             );
         } catch (e) {
@@ -2829,7 +3260,7 @@ export class Application {
             try {
                 embeddedBrowser.src = url;
                 DOMUtils.show(this.elements.rightPanel);
-                
+
                 // Monitor for loading errors
                 embeddedBrowser.onerror = () => {
                     console.warn('Failed to load URL in embedded browser:', url);
@@ -2905,6 +3336,9 @@ export class Application {
             this.elements.agentFontSizeValue.textContent = fontSize;
         }
 
+        // Force refresh of existing agent messages by triggering reflow
+        this.refreshAgentMessageStyles(fontSize);
+
         // Save to localStorage
         localStorage.setItem('agentChatFontSize', size);
         console.log('Agent chat font size updated to:', fontSize);
@@ -2923,9 +3357,68 @@ export class Application {
             this.elements.companionFontSizeValue.textContent = fontSize;
         }
 
+        // Force refresh of existing companion messages
+        this.refreshCompanionMessageStyles(fontSize);
+
         // Save to localStorage
         localStorage.setItem('companionChatFontSize', size);
         console.log('AI companion chat font size updated to:', fontSize);
+    }
+
+    /**
+     * Force refresh of existing agent message styles
+     * @param {string} fontSize - New font size
+     * @private
+     */
+    refreshAgentMessageStyles(fontSize) {
+        // Update main chat window agent messages
+        const chatWindow = DOMUtils.getElementById('chatWindow');
+        if (chatWindow) {
+            // Target all message content that uses --agent-chat-font-size variable
+            const agentMessages = chatWindow.querySelectorAll(
+                '.botMessage .messageContent, ' +
+                '.userMessage .messageContent, ' +
+                '.full-width-messages .botMessage .messageContent, ' +
+                '.companion-response .messageContent, ' +
+                '.full-width-messages .companion-response .messageContent, ' +
+                '.messageText'
+            );
+            agentMessages.forEach(messageContent => {
+                // Temporarily set the font-size directly to force immediate update
+                const originalFontSize = messageContent.style.fontSize;
+                messageContent.style.fontSize = fontSize;
+
+                // After a brief moment, remove the inline style to let CSS variable take over
+                requestAnimationFrame(() => {
+                    messageContent.style.fontSize = originalFontSize || '';
+                });
+            });
+        }
+        console.log('Refreshed agent message styles with font size:', fontSize);
+    }
+
+    /**
+     * Force refresh of existing companion message styles
+     * @param {string} fontSize - New font size
+     * @private
+     */
+    refreshCompanionMessageStyles(fontSize) {
+        // Update companion chat window messages
+        const llmChatWindow = DOMUtils.getElementById('llmChatWindow');
+        if (llmChatWindow) {
+            const companionMessages = llmChatWindow.querySelectorAll('.messageContent, .messageText');
+            companionMessages.forEach(messageContent => {
+                // Temporarily set the font-size directly to force immediate update
+                const originalFontSize = messageContent.style.fontSize;
+                messageContent.style.fontSize = fontSize;
+
+                // After a brief moment, remove the inline style to let CSS variable take over
+                requestAnimationFrame(() => {
+                    messageContent.style.fontSize = originalFontSize || '';
+                });
+            });
+        }
+        console.log('Refreshed companion message styles with font size:', fontSize);
     }
 
     /**
@@ -3026,16 +3519,16 @@ export class Application {
      */
     setupUserIconSelection() {
         console.log('Setting up user icon selection...');
-        
+
         // Get all icon option elements
         const iconOptions = document.querySelectorAll('.icon-option');
         console.log('Found icon options:', iconOptions.length);
-        
+
         iconOptions.forEach(option => {
             DOMUtils.addEventListener(option, 'click', () => {
                 const iconType = option.getAttribute('data-icon');
                 console.log('Icon option clicked:', iconType);
-                
+
                 if (iconType === 'custom') {
                     // Trigger file input for custom icon
                     if (this.elements.customIconInput) {
@@ -3056,7 +3549,7 @@ export class Application {
                 }
             });
         }
-        
+
         console.log('User icon selection setup complete');
     }
 
@@ -3066,7 +3559,7 @@ export class Application {
      */
     selectUserIcon(iconType) {
         console.log('Selecting user icon:', iconType);
-        
+
         // Update visual selection
         const iconOptions = document.querySelectorAll('.icon-option');
         iconOptions.forEach(option => {
@@ -3078,10 +3571,10 @@ export class Application {
 
         // Update preview
         this.updateUserIconPreview(iconType);
-        
+
         // Save selection with -avatar suffix for storage consistency
         localStorage.setItem('userIcon', iconType + '-avatar');
-        
+
         // Apply to existing messages (use base iconType without -avatar for applyUserIcon)
         this.applyUserIcon(iconType);
     }
@@ -3094,13 +3587,13 @@ export class Application {
         const reader = new FileReader();
         reader.onload = (e) => {
             const imageData = e.target.result;
-            
+
             // Save custom icon data
             localStorage.setItem('customUserIconData', imageData);
-            
+
             // Select custom icon
             this.selectUserIcon('custom');
-            
+
             // Update custom icon display
             const customIconElements = document.querySelectorAll('.custom-icon');
             customIconElements.forEach(element => {
@@ -3117,11 +3610,11 @@ export class Application {
      */
     updateUserIconPreview(iconType) {
         if (!this.elements.currentUserIconPreview) return;
-        
+
         // Clear existing classes and styles
         this.elements.currentUserIconPreview.className = 'icon-preview';
         this.elements.currentUserIconPreview.style.backgroundImage = '';
-        
+
         // Apply icon-specific styling
         switch (iconType) {
             case 'friendly':
@@ -3172,7 +3665,7 @@ export class Application {
     applyUserIcon(iconType) {
         const userMessageIcons = document.querySelectorAll('.userMessage .messageIcon');
         console.log('Applying user icon:', iconType, 'to', userMessageIcons.length, 'user message icons');
-        
+
         userMessageIcons.forEach(icon => {
             // Clear all existing styles and content
             icon.style.backgroundImage = '';
@@ -3182,7 +3675,7 @@ export class Application {
             icon.style.justifyContent = '';
             icon.style.fontSize = '';
             icon.innerHTML = '';
-            
+
             // Apply new icon based on type
             switch (iconType) {
                 case 'friendly':
@@ -3194,19 +3687,19 @@ export class Application {
                     icon.style.fontSize = "16px";
                     break;
                 case 'robot':
-                    icon.style.backgroundImage = "url(\"data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 24 24' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12,2A2,2 0 0,1 14,4C14,4.74 13.6,5.39 13,5.73V7H14A7,7 0 0,1 21,14H22A1,1 0 0,1 23,15V18A1,1 0 0,1 22,19H21V20A2,2 0 0,1 19,22H5A2,2 0 0,1 3,20V19H2A1,1 0 0,1 1,18V15A1,1 0 0,1 2,14H3A7,7 0 0,1 10,7H11V5.73C10.4,5.39 10,4.74 10,4A2,2 0 0,1 12,2M7.5,13A2.5,2.5 0 0,0 5,15.5A2.5,2.5 0 0,0 7.5,18A2.5,2.5 0 0,0 10,15.5A2.5,2.5 0 0,0 7.5,13M16.5,13A2.5,2.5 0 0,0 14,15.5A2.5,2.5 0 0,0 16.5,18A2.5,2.5 0 0,0 19,15.5A2.5,2.5 0 0,0 16.5,13Z'/%3E%3C/svg%3E\")";
+                    icon.style.backgroundImage = getSVGDataUri('robotAvatar');
                     icon.style.background = "linear-gradient(135deg, #607D8B 0%, #455A64 100%)";
                     break;
                 case 'assistant':
-                    icon.style.backgroundImage = "url(\"data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 24 24' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12,2A2,2 0 0,1 14,4A2,2 0 0,1 12,6A2,2 0 0,1 10,4A2,2 0 0,1 12,2M12.5,7C13.04,7 13.5,7.17 13.86,7.46L19.84,11.86C20.55,12.46 21,13.3 21,14.21V16.5A1.5,1.5 0 0,1 19.5,18A1.5,1.5 0 0,1 18,16.5V14.21C18,13.95 17.93,13.71 17.82,13.5L16.5,14.27V16.5A1.5,1.5 0 0,1 15,18A1.5,1.5 0 0,1 13.5,16.5V15.82L12,15L10.5,15.82V16.5A1.5,1.5 0 0,1 9,18A1.5,1.5 0 0,1 7.5,16.5V14.27L6.18,13.5C6.07,13.71 6,13.95 6,14.21V16.5A1.5,1.5 0 0,1 4.5,18A1.5,1.5 0 0,1 3,16.5V14.21C3,13.3 3.45,12.46 4.16,11.86L10.14,7.46C10.5,7.17 10.96,7 11.5,7H12.5Z'/%3E%3C/svg%3E\")";
+                    icon.style.backgroundImage = getSVGDataUri('assistantAvatar');
                     icon.style.background = "linear-gradient(135deg, #2196F3 0%, #1976D2 100%)";
                     break;
                 case 'smart':
-                    icon.style.backgroundImage = "url(\"data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 24 24' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12,3L1,9L12,15L21,10.09V17H23V9M5,13.18V17.18L12,21L19,17.18V13.18L12,17L5,13.18Z'/%3E%3C/svg%3E\")";
+                    icon.style.backgroundImage = getSVGDataUri('smartAvatar');
                     icon.style.background = "linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)";
                     break;
                 case 'modern':
-                    icon.style.backgroundImage = "url(\"data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 24 24' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M17,17H7V7H17M14,2V4H10V2H8V4H7C5.89,4 5,4.89 5,6V18A2,2 0 0,0 7,20H17A2,2 0 0,0 19,18V6C19,4.89 18.1,4 17,4H16V2M16,6V18H8V6H16M12,8A2,2 0 0,0 10,10A2,2 0 0,0 12,12A2,2 0 0,0 14,10A2,2 0 0,0 12,8M12,14C10.67,14 8,14.67 8,16V17H16V16C16,14.67 13.33,14 12,14Z'/%3E%3C/svg%3E\")";
+                    icon.style.backgroundImage = getSVGDataUri('modernAvatar');
                     icon.style.background = "linear-gradient(135deg, #FF5722 0%, #D84315 100%)";
                     break;
                 case 'cute':
@@ -3218,15 +3711,15 @@ export class Application {
                     icon.style.fontSize = "14px";
                     break;
                 case 'professional':
-                    icon.style.backgroundImage = "url(\"data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 24 24' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z'/%3E%3C/svg%3E\")";
+                    icon.style.backgroundImage = getSVGDataUri('professionalAvatar');
                     icon.style.background = "linear-gradient(135deg, #34495e 0%, #2c3e50 100%)";
                     break;
                 case 'gaming':
-                    icon.style.backgroundImage = "url(\"data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 24 24' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7.97,16L5,12.5L7.97,9H17.03L20,12.5L17.03,16H7.97M8.5,14H9.5V15H10.5V14H11.5V13H10.5V12H9.5V13H8.5V14M16,13A1,1 0 0,0 17,12A1,1 0 0,0 16,11A1,1 0 0,0 15,12A1,1 0 0,0 16,13M14,15A1,1 0 0,0 15,14A1,1 0 0,0 14,13A1,1 0 0,0 13,14A1,1 0 0,0 14,15Z'/%3E%3C/svg%3E\")";
+                    icon.style.backgroundImage = getSVGDataUri('gamingAvatar');
                     icon.style.background = "linear-gradient(135deg, #E91E63 0%, #C2185B 100%)";
                     break;
                 case 'minimal':
-                    icon.style.backgroundImage = "url(\"data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 24 24' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12,19.2C9.5,19.2 7.29,17.92 6,16C6.03,14 10,12.9 12,12.9C14,12.9 17.97,14 18,16C16.71,17.92 14.5,19.2 12,19.2M12,5A3,3 0 0,1 15,8A3,3 0 0,1 12,11A3,3 0 0,1 9,8A3,3 0 0,1 12,5M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12C22,6.47 17.5,2 12,2Z'/%3E%3C/svg%3E\")";
+                    icon.style.backgroundImage = getSVGDataUri('minimalAvatar');
                     icon.style.background = "linear-gradient(135deg, #795548 0%, #5D4037 100%)";
                     break;
                 case 'carter':
@@ -3240,7 +3733,7 @@ export class Application {
                     break;
             }
         });
-        
+
         console.log('User icon application completed');
     }
 
@@ -3250,13 +3743,13 @@ export class Application {
      */
     loadUserIconSetting() {
         console.log('Loading user icon setting...');
-        
+
         const savedIcon = localStorage.getItem('userIcon') || 'friendly-avatar';
         console.log('Saved user icon:', savedIcon);
-        
+
         // Extract the base icon type (remove -avatar suffix for UI matching)
         const iconType = savedIcon.replace('-avatar', '');
-        
+
         // Update UI selection
         const iconOptions = document.querySelectorAll('.icon-option');
         iconOptions.forEach(option => {
@@ -3265,10 +3758,10 @@ export class Application {
                 option.classList.add('selected');
             }
         });
-        
+
         // Update preview
         this.updateUserIconPreview(iconType);
-        
+
         // If custom icon, restore the image
         if (iconType === 'custom') {
             const customIconData = localStorage.getItem('customUserIconData');
@@ -3280,11 +3773,200 @@ export class Application {
                 });
             }
         }
-        
+
         // Apply to existing messages (use base iconType without -avatar for applyUserIcon)
         this.applyUserIcon(iconType);
-        
+
         console.log('User icon setting loaded');
+    }
+
+    /**
+     * Setup color theme selection
+     * @private
+     */
+    setupColorThemeSelection() {
+        console.log('Setting up color theme selection...');
+
+        // Get all theme option elements
+        const themeOptions = document.querySelectorAll('.theme-option');
+        console.log('Found theme options:', themeOptions.length);
+
+        themeOptions.forEach(option => {
+            DOMUtils.addEventListener(option, 'click', () => {
+                const themeName = option.getAttribute('data-theme');
+                console.log('Theme option clicked:', themeName);
+                this.selectColorTheme(themeName);
+            });
+        });
+
+        // Update UI selection to reflect current theme (theme already loaded during app init)
+        if (themeOptions.length > 0) {
+            this.updateThemeUISelection();
+        }
+
+        console.log('Color theme selection setup complete');
+    }
+
+    /**
+     * Select a color theme
+     * @param {string} themeName - The name of the theme selected
+     */
+    selectColorTheme(themeName) {
+        console.log('Selecting color theme:', themeName);
+
+        // Update visual selection
+        const themeOptions = document.querySelectorAll('.theme-option');
+        themeOptions.forEach(option => {
+            option.classList.remove('selected');
+            if (option.getAttribute('data-theme') === themeName) {
+                option.classList.add('selected');
+            }
+        });
+
+        // Update current theme preview
+        this.updateCurrentThemePreview(themeName);
+
+        // Apply theme immediately
+        this.applyColorTheme(themeName);
+
+        // Save selection to localStorage
+        localStorage.setItem('selectedColorTheme', themeName);
+
+        // Store as current theme in application state
+        this.state.currentTheme = themeName;
+
+        console.log('Color theme selected and applied:', themeName);
+    }
+
+    /**
+     * Apply color theme to the interface
+     * @param {string} themeName - The name of the theme to apply
+     */
+    applyColorTheme(themeName) {
+        const themeGradients = {
+            'default': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            'ocean': 'linear-gradient(135deg, #2E86AB 0%, #A23B72 100%)',
+            'sunset': 'linear-gradient(135deg, #F18701 0%, #F35B04 100%)',
+            'forest': 'linear-gradient(135deg, #134E5E 0%, #71B280 100%)',
+            'cosmic': 'linear-gradient(135deg, #434343 0%, #000000 100%)',
+            'aurora': 'linear-gradient(135deg, #00C9FF 0%, #92FE9D 100%)',
+            'minimal': 'linear-gradient(135deg, #f7f7f7 0%, #e0e0e0 100%)',
+            'dark': 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)'
+        };
+
+        const gradient = themeGradients[themeName] || themeGradients['default'];
+
+        // Update CSS custom property
+        document.documentElement.style.setProperty('--theme-background', gradient);
+
+        console.log('Applied theme:', themeName, 'with gradient:', gradient);
+    }
+
+    /**
+     * Update the current theme preview display
+     * @param {string} themeName - The name of the theme to preview
+     */
+    updateCurrentThemePreview(themeName) {
+        const currentThemePreview = document.getElementById('currentThemePreview');
+        if (!currentThemePreview) return;
+
+        const themeGradient = currentThemePreview.querySelector('.theme-gradient');
+        const themeName_element = currentThemePreview.querySelector('.theme-name');
+
+        if (themeGradient && themeName_element) {
+            // Remove all existing theme classes
+            themeGradient.className = 'theme-gradient';
+
+            // Add the new theme class
+            themeGradient.classList.add(`${themeName}-theme`);
+
+            // Update the theme name text
+            const themeNames = {
+                'default': 'Default',
+                'ocean': 'Ocean',
+                'sunset': 'Sunset',
+                'forest': 'Forest',
+                'cosmic': 'Cosmic',
+                'aurora': 'Aurora',
+                'minimal': 'Minimal',
+                'dark': 'Dark'
+            };
+
+            themeName_element.textContent = themeNames[themeName] || 'Unknown';
+
+            console.log('Updated current theme preview to:', themeName);
+        }
+    }
+
+    /**
+     * Load saved color theme setting
+     * @private
+     */
+    loadColorThemeSetting() {
+        console.log('Loading color theme setting...');
+
+        const savedTheme = localStorage.getItem('selectedColorTheme') || 'default';
+        console.log('Saved color theme:', savedTheme);
+
+        // Store current theme in application state
+        this.state.currentTheme = savedTheme;
+
+        // Update UI selection
+        const themeOptions = document.querySelectorAll('.theme-option');
+        themeOptions.forEach(option => {
+            option.classList.remove('selected');
+            if (option.getAttribute('data-theme') === savedTheme) {
+                option.classList.add('selected');
+            }
+        });
+
+        // Update current theme preview
+        this.updateCurrentThemePreview(savedTheme);
+
+        // Apply the theme immediately
+        this.applyColorTheme(savedTheme);
+
+        console.log('Color theme setting loaded and applied:', savedTheme);
+    }
+
+    /**
+     * Update theme UI selection to reflect current theme (without reloading theme)
+     * @private
+     */
+    updateThemeUISelection() {
+        const currentTheme = this.getCurrentTheme();
+        console.log('Updating theme UI selection for:', currentTheme);
+
+        // Update visual selection in theme options
+        const themeOptions = document.querySelectorAll('.theme-option');
+        themeOptions.forEach(option => {
+            option.classList.remove('selected');
+            if (option.getAttribute('data-theme') === currentTheme) {
+                option.classList.add('selected');
+            }
+        });
+
+        // Update current theme preview if it exists
+        this.updateCurrentThemePreview(currentTheme);
+
+        console.log('Theme UI selection updated');
+    }
+
+    /**
+     * Get the current active theme
+     * @returns {string} The current theme name
+     */
+    getCurrentTheme() {
+        return this.state.currentTheme || 'default';
+    }
+
+    /**
+     * Check if a specific theme is currently active
+     * @param {string} themeName - The theme name to check
+     * @returns {boolean} True if the theme is currently active
+     */
+    isThemeActive(themeName) {
+        return this.getCurrentTheme() === themeName;
     }
 
     /**
@@ -3294,25 +3976,25 @@ export class Application {
     toggleMessageIcons(enabled) {
         this.uiState.messageIconsEnabled = enabled;
         localStorage.setItem('messageIconsEnabled', enabled.toString());
-        
+
         // Apply to all message icons immediately
         const allIcons = document.querySelectorAll('.messageIcon');
         allIcons.forEach(icon => {
             icon.style.display = enabled ? '' : 'none';
         });
-        
+
         // Update checkbox state if settings panel is open
         const iconToggle = document.getElementById('messageIconToggle');
         if (iconToggle) {
             iconToggle.checked = enabled;
         }
-        
+
         // Show/hide user icon setting section based on message icons enabled state
         const userIconGroup = document.getElementById('userIconGroup');
         if (userIconGroup) {
             userIconGroup.style.display = enabled ? '' : 'none';
         }
-        
+
         console.log('Message icons', enabled ? 'enabled' : 'disabled');
         console.log('User icon section', enabled ? 'shown' : 'hidden');
     }
@@ -3324,9 +4006,9 @@ export class Application {
     toggleLeftPanel(collapsed) {
         this.uiState.leftPanelCollapsed = collapsed;
         localStorage.setItem('leftPanelCollapsed', collapsed.toString());
-        
+
         const body = document.body;
-        
+
         if (body) {
             if (collapsed) {
                 DOMUtils.addClass(body, 'leftPanelCollapsed');
@@ -3334,10 +4016,10 @@ export class Application {
                 DOMUtils.removeClass(body, 'leftPanelCollapsed');
             }
         }
-        
+
         // Update side command bar state
         this.updateSideCommandBarState();
-        
+
         console.log('Left panel', collapsed ? 'collapsed' : 'expanded');
     }
 
@@ -3362,14 +4044,61 @@ export class Application {
     loadUIState() {
         // Apply left panel state
         this.toggleLeftPanel(this.uiState.leftPanelCollapsed);
-        
+
         // Apply message icons state
         this.toggleMessageIcons(this.uiState.messageIconsEnabled);
-        
+
+        // Load and apply color theme early (before settings modal is opened)
+        this.loadColorThemeSetting();
+
         // Initialize side command bar state
         this.updateSideCommandBarState();
+    }
+
+    /**
+     * Get the unified message API for external use
+     * @returns {Object|null} The unified message API or null if not initialized
+     */
+    getUnifiedMessageAPI() {
+        return this.unifiedMessageAPI || null;
+    }
+
+    /**
+     * Get the message integration system
+     * @returns {MessageIntegration|null} The message integration system or null if not initialized
+     */
+    getMessageIntegration() {
+        return this.messageIntegration || null;
+    }
+
+    /**
+     * Switch between unified and legacy message systems
+     * @param {boolean} useUnified - Whether to use the unified system
+     */
+    setUnifiedMessageMode(useUnified) {
+        if (this.messageIntegration) {
+            this.messageIntegration.setMigrationMode(!useUnified);
+            this.loggingManager.info('system', `Switched to ${useUnified ? 'unified' : 'legacy'} message system`);
+        }
+    }
+
+    /**
+     * Enable or disable professional message mode
+     * @param {boolean} enabled - Whether to enable professional mode
+     */
+    setProfessionalMessageMode(enabled) {
+        if (this.messageIntegration) {
+            this.messageIntegration.setProfessionalMode(enabled);
+            this.state.professionalMode = enabled;
+            this.loggingManager.info('system', `Professional message mode ${enabled ? 'enabled' : 'disabled'}`);
+        }
     }
 }
 
 // Create and export singleton instance
 export const app = new Application();
+
+// Export directLineManager for backward compatibility
+// OLD: Was exported from services/directLineManager.js as singleton
+// NEW: Export instance from application for compatibility with existing imports
+export const directLineManager = app.directLineManager;

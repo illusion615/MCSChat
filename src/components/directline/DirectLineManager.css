@@ -1,0 +1,534 @@
+/**
+ * DirectLine Manager Component Styles
+ * 
+ * CSS styles for DirectLine connection status indicators, typing indicators,
+ * and streaming message animations. Designed to be theme-agnostic and easily
+ * customizable for different projects.
+ * 
+ * @version 1.0.0
+ * @author MCSChat Project
+ */
+
+/* =============================================================================
+   CSS Custom Properties (Variables)
+   ============================================================================= */
+
+:root {
+    /* DirectLine Connection Status Colors */
+    --directline-status-connecting: #ffc107;
+    --directline-status-online: #28a745;
+    --directline-status-error: #dc3545;
+    --directline-status-expired: #fd7e14;
+    --directline-status-ended: #6c757d;
+
+    /* Typography */
+    --directline-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    --directline-font-size-small: 0.75rem;
+    --directline-font-size-normal: 0.875rem;
+
+    /* Spacing */
+    --directline-spacing-xs: 0.25rem;
+    --directline-spacing-sm: 0.5rem;
+    --directline-spacing-md: 1rem;
+    --directline-spacing-lg: 1.5rem;
+
+    /* Animation Timing */
+    --directline-animation-fast: 200ms;
+    --directline-animation-normal: 300ms;
+    --directline-animation-slow: 500ms;
+
+    /* Border Radius */
+    --directline-border-radius: 4px;
+    --directline-border-radius-lg: 8px;
+
+    /* Shadows */
+    --directline-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --directline-shadow-md: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* =============================================================================
+   Connection Status Indicator
+   ============================================================================= */
+
+.directline-status {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--directline-spacing-xs);
+    padding: var(--directline-spacing-xs) var(--directline-spacing-sm);
+    border-radius: var(--directline-border-radius);
+    font-family: var(--directline-font-family);
+    font-size: var(--directline-font-size-small);
+    font-weight: 500;
+    transition: all var(--directline-animation-normal) ease;
+}
+
+.directline-status__indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    transition: background-color var(--directline-animation-normal) ease;
+}
+
+.directline-status__text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+/* Status Variants */
+.directline-status--connecting {
+    background-color: rgba(255, 193, 7, 0.1);
+    color: var(--directline-status-connecting);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.directline-status--connecting .directline-status__indicator {
+    background-color: var(--directline-status-connecting);
+    animation: directline-pulse 1.5s infinite;
+}
+
+.directline-status--online {
+    background-color: rgba(40, 167, 69, 0.1);
+    color: var(--directline-status-online);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.directline-status--online .directline-status__indicator {
+    background-color: var(--directline-status-online);
+}
+
+.directline-status--error {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: var(--directline-status-error);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.directline-status--error .directline-status__indicator {
+    background-color: var(--directline-status-error);
+    animation: directline-blink 1s infinite;
+}
+
+.directline-status--expired {
+    background-color: rgba(253, 126, 20, 0.1);
+    color: var(--directline-status-expired);
+    border: 1px solid rgba(253, 126, 20, 0.3);
+}
+
+.directline-status--expired .directline-status__indicator {
+    background-color: var(--directline-status-expired);
+    animation: directline-blink 1s infinite;
+}
+
+.directline-status--ended {
+    background-color: rgba(108, 117, 125, 0.1);
+    color: var(--directline-status-ended);
+    border: 1px solid rgba(108, 117, 125, 0.3);
+}
+
+.directline-status--ended .directline-status__indicator {
+    background-color: var(--directline-status-ended);
+}
+
+/* =============================================================================
+   Typing Indicator
+   ============================================================================= */
+
+.directline-typing {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--directline-spacing-sm);
+    padding: var(--directline-spacing-sm) var(--directline-spacing-md);
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: var(--directline-border-radius-lg);
+    font-family: var(--directline-font-family);
+    font-size: var(--directline-font-size-normal);
+    color: rgba(0, 0, 0, 0.6);
+    animation: directline-fade-in var(--directline-animation-normal) ease;
+}
+
+.directline-typing__dots {
+    display: flex;
+    gap: 2px;
+}
+
+.directline-typing__dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: currentColor;
+    opacity: 0.4;
+    animation: directline-typing-dot 1.4s infinite ease-in-out;
+}
+
+.directline-typing__dot:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.directline-typing__dot:nth-child(2) {
+    animation-delay: -0.16s;
+}
+
+.directline-typing__dot:nth-child(3) {
+    animation-delay: 0s;
+}
+
+.directline-typing__text {
+    font-style: italic;
+}
+
+/* Enhanced typing indicator with progress */
+.directline-typing--enhanced {
+    position: relative;
+    overflow: hidden;
+}
+
+.directline-typing--enhanced::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: -100%;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, currentColor, transparent);
+    animation: directline-progress 2s infinite;
+}
+
+/* =============================================================================
+   Streaming Message Indicators
+   ============================================================================= */
+
+.directline-streaming {
+    position: relative;
+}
+
+.directline-streaming__badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 12px;
+    height: 12px;
+    background-color: #007bff;
+    border: 2px solid white;
+    border-radius: 50%;
+    animation: directline-pulse 1s infinite;
+}
+
+.directline-streaming__progress {
+    margin-top: var(--directline-spacing-xs);
+    height: 2px;
+    background-color: rgba(0, 123, 255, 0.2);
+    border-radius: 1px;
+    overflow: hidden;
+}
+
+.directline-streaming__progress-bar {
+    height: 100%;
+    background-color: #007bff;
+    border-radius: 1px;
+    transition: width var(--directline-animation-normal) ease;
+    animation: directline-streaming-progress 3s infinite;
+}
+
+/* =============================================================================
+   Error States
+   ============================================================================= */
+
+.directline-error {
+    display: flex;
+    align-items: center;
+    gap: var(--directline-spacing-sm);
+    padding: var(--directline-spacing-md);
+    background-color: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    border-radius: var(--directline-border-radius);
+    color: var(--directline-status-error);
+    font-family: var(--directline-font-family);
+    font-size: var(--directline-font-size-normal);
+}
+
+.directline-error__icon {
+    font-size: 1.2em;
+    flex-shrink: 0;
+}
+
+.directline-error__message {
+    flex: 1;
+    line-height: 1.4;
+}
+
+.directline-error__actions {
+    display: flex;
+    gap: var(--directline-spacing-sm);
+}
+
+.directline-error__button {
+    padding: var(--directline-spacing-xs) var(--directline-spacing-sm);
+    background-color: transparent;
+    border: 1px solid currentColor;
+    border-radius: var(--directline-border-radius);
+    color: inherit;
+    font-size: var(--directline-font-size-small);
+    cursor: pointer;
+    transition: all var(--directline-animation-fast) ease;
+}
+
+.directline-error__button:hover {
+    background-color: currentColor;
+    color: white;
+}
+
+/* =============================================================================
+   Health Monitor
+   ============================================================================= */
+
+.directline-health {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--directline-spacing-xs);
+    padding: var(--directline-spacing-xs);
+    border-radius: var(--directline-border-radius);
+    font-family: var(--directline-font-family);
+    font-size: var(--directline-font-size-small);
+    opacity: 0.7;
+    transition: opacity var(--directline-animation-normal) ease;
+}
+
+.directline-health:hover {
+    opacity: 1;
+}
+
+.directline-health__indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.directline-health--excellent .directline-health__indicator {
+    background-color: var(--directline-status-online);
+}
+
+.directline-health--good .directline-health__indicator {
+    background-color: var(--directline-status-connecting);
+}
+
+.directline-health--poor .directline-health__indicator {
+    background-color: var(--directline-status-error);
+    animation: directline-blink 1s infinite;
+}
+
+/* =============================================================================
+   Animations
+   ============================================================================= */
+
+@keyframes directline-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.7;
+        transform: scale(1.1);
+    }
+}
+
+@keyframes directline-blink {
+
+    0%,
+    50%,
+    100% {
+        opacity: 1;
+    }
+
+    25%,
+    75% {
+        opacity: 0.3;
+    }
+}
+
+@keyframes directline-typing-dot {
+
+    0%,
+    80%,
+    100% {
+        opacity: 0.4;
+        transform: scale(1);
+    }
+
+    40% {
+        opacity: 1;
+        transform: scale(1.2);
+    }
+}
+
+@keyframes directline-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes directline-progress {
+    0% {
+        left: -100%;
+    }
+
+    100% {
+        left: 100%;
+    }
+}
+
+@keyframes directline-streaming-progress {
+    0% {
+        width: 0%;
+    }
+
+    50% {
+        width: 70%;
+    }
+
+    100% {
+        width: 100%;
+    }
+}
+
+/* =============================================================================
+   Responsive Design
+   ============================================================================= */
+
+@media (max-width: 768px) {
+    .directline-status {
+        font-size: 0.7rem;
+        padding: 2px var(--directline-spacing-xs);
+    }
+
+    .directline-status__text {
+        max-width: 120px;
+    }
+
+    .directline-error {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--directline-spacing-sm);
+    }
+
+    .directline-error__actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .directline-error__button {
+        flex: 1;
+        text-align: center;
+    }
+}
+
+/* =============================================================================
+   Dark Theme Support
+   ============================================================================= */
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --directline-status-connecting: #ffc107;
+        --directline-status-online: #28a745;
+        --directline-status-error: #dc3545;
+        --directline-status-expired: #fd7e14;
+        --directline-status-ended: #adb5bd;
+    }
+
+    .directline-typing {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .directline-error {
+        background-color: rgba(220, 53, 69, 0.2);
+        border-color: rgba(220, 53, 69, 0.4);
+    }
+
+    .directline-streaming__progress {
+        background-color: rgba(0, 123, 255, 0.3);
+    }
+}
+
+/* =============================================================================
+   High Contrast Support
+   ============================================================================= */
+
+@media (prefers-contrast: high) {
+    .directline-status {
+        border-width: 2px;
+    }
+
+    .directline-status__indicator {
+        border: 1px solid currentColor;
+    }
+
+    .directline-error {
+        border-width: 2px;
+    }
+
+    .directline-error__button {
+        border-width: 2px;
+    }
+}
+
+/* =============================================================================
+   Reduced Motion Support
+   ============================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .directline-status__indicator,
+    .directline-typing__dot,
+    .directline-streaming__badge,
+    .directline-streaming__progress-bar,
+    .directline-health__indicator {
+        animation: none;
+    }
+
+    .directline-typing--enhanced::after {
+        animation: none;
+    }
+
+    * {
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* =============================================================================
+   Utility Classes
+   ============================================================================= */
+
+.directline-hidden {
+    display: none !important;
+}
+
+.directline-visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+.directline-fade-in {
+    animation: directline-fade-in var(--directline-animation-normal) ease;
+}
+
+.directline-no-animation {
+    animation: none !important;
+    transition: none !important;
+}

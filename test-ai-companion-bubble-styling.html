@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Companion Message Bubble Styling Test</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            margin: 20px;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 400px;
+        }
+
+        h1,
+        h2 {
+            color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>AI Companion Message Bubble Styling Test</h1>
+
+    <div class="test-section">
+        <h2>Message Bubble Comparison</h2>
+        <div class="chat-container">
+
+            <!-- User Message -->
+            <div class="messageContainer userMessage">
+                <div class="messageContent">
+                    How can you help me with my project?
+                </div>
+                <div class="messageIcon"
+                    style="background-image: url('images/carter_30k.png'); background-size: cover;"></div>
+            </div>
+
+            <!-- Regular Agent Message -->
+            <div class="messageContainer botMessage">
+                <div class="messageIcon"
+                    style="background-image: url('images/copilotstudio-icon.webp'); background-size: cover;"></div>
+                <div class="messageContent">
+                    I'd be happy to help you with your project! I can assist with various tasks including code review,
+                    documentation, planning, and technical guidance. What specific area would you like help with?
+                </div>
+            </div>
+
+            <!-- AI Companion Thinking Message -->
+            <div class="messageContainer botMessage thinking-message companion-response">
+                <div class="messageIcon" data-icon="aiCompanion" data-width="28" data-height="28"></div>
+                <div class="messageContent thinking-content">
+                    <em>Let me analyze this conversation and understand the user's needs...</em>
+                </div>
+            </div>
+
+            <!-- AI Companion Response Message -->
+            <div class="messageContainer botMessage companion-response">
+                <div class="messageIcon" data-icon="aiCompanion" data-width="28" data-height="28"></div>
+                <div class="messageContent">
+                    Based on your conversation, I can see you're looking for project assistance. Here's my analysis:
+
+                    **Key Areas for Support:**
+                    - Technical implementation guidance
+                    - Best practices and code review
+                    - Project planning and structure
+
+                    **Recommendations:**
+                    1. Start with a clear project outline
+                    2. Break down tasks into manageable components
+                    3. Consider using version control for tracking progress
+
+                    Would you like me to dive deeper into any of these areas?
+                </div>
+            </div>
+
+            <!-- User Response to AI Companion -->
+            <div class="messageContainer userMessage ai-companion-user-message">
+                <div class="messageContent">
+                    That's very helpful! Can you help me with the technical implementation part?
+                </div>
+                <div class="messageIcon"
+                    style="background-image: url('images/carter_30k.png'); background-size: cover;"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Styling Features</h2>
+        <ul>
+            <li><strong>Regular Agent Messages:</strong> Light gray background with standard agent icon</li>
+            <li><strong>AI Companion Messages:</strong> Purple gradient background with AI companion icon</li>
+            <li><strong>Thinking Messages:</strong> Lighter purple with italic text to show processing</li>
+            <li><strong>User Messages to AI Companion:</strong> Purple-themed when AI companion mode is active</li>
+            <li><strong>Bubble Design:</strong> All messages follow consistent bubble styling with proper spacing</li>
+        </ul>
+    </div>
+
+    <!-- Load icons if available -->
+    <script>
+        // Mock icon loading for demo
+        document.addEventListener('DOMContentLoaded', function () {
+            // Simulate AI companion icon loading
+            const aiIcons = document.querySelectorAll('[data-icon="aiCompanion"]');
+            aiIcons.forEach(icon => {
+                // For demo, use a purple placeholder
+                icon.style.background = 'linear-gradient(135deg, #8b5fbf, #744c9e)';
+                icon.style.borderRadius = '50%';
+                icon.style.display = 'flex';
+                icon.style.alignItems = 'center';
+                icon.style.justifyContent = 'center';
+                icon.style.color = 'white';
+                icon.style.fontSize = '14px';
+                icon.style.fontWeight = 'bold';
+                icon.innerHTML = 'AI';
+            });
+        });
+    </script>
+</body>
+
+</html>

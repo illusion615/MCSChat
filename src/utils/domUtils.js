@@ -167,5 +167,48 @@ export const DOMUtils = {
         if (element) {
             element.scrollTop = element.scrollHeight;
         }
+    },
+
+    /**
+     * Safely parse JSON from localStorage with error handling
+     * @param {string} key - localStorage key
+     * @param {*} defaultValue - Default value if parsing fails or key doesn't exist
+     * @returns {*} Parsed value or default value
+     */
+    safeParseLocalStorage(key, defaultValue = null) {
+        try {
+            const data = localStorage.getItem(key);
+            if (!data) return defaultValue;
+
+            // Validate that data is a string before parsing
+            if (typeof data !== 'string') {
+                console.error(`localStorage data for key '${key}' is not a string:`, typeof data);
+                localStorage.removeItem(key);
+                return defaultValue;
+            }
+
+            return JSON.parse(data);
+        } catch (error) {
+            console.error(`Error parsing localStorage data for key '${key}':`, error);
+            // Clear corrupted data
+            localStorage.removeItem(key);
+            return defaultValue;
+        }
+    },
+
+    /**
+     * Safely set JSON data to localStorage with error handling
+     * @param {string} key - localStorage key
+     * @param {*} value - Value to store
+     * @returns {boolean} Success status
+     */
+    safeSetLocalStorage(key, value) {
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+            return true;
+        } catch (error) {
+            console.error(`Error setting localStorage data for key '${key}':`, error);
+            return false;
+        }
     }
 };

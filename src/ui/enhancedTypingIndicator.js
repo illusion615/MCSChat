@@ -16,7 +16,7 @@ export class EnhancedTypingIndicator {
         this.context = {};
         this.progressInterval = null;
         this.currentProgress = 0;
-        
+
         // Cache for efficient LLM-style analysis
         this.analysisCache = {
             lastAnalysisTime: 0,
@@ -24,10 +24,10 @@ export class EnhancedTypingIndicator {
             cachedContext: null,
             cacheValidityMs: 2000 // Cache analysis for 2 seconds
         };
-        
+
         // Track recent messages to avoid repetition
         this.recentMessages = [];
-        
+
         // Configuration - Optimized for responsive feel
         this.config = {
             enableDetailedStatus: localStorage.getItem('enableDetailedWaitingStatus') !== 'false',
@@ -48,7 +48,7 @@ export class EnhancedTypingIndicator {
         // Status phase timing (in milliseconds) - More responsive for impatient users
         // Base timing with some randomness to feel more natural
         const timingVariation = () => Math.random() * 0.3 + 0.85; // ±15% variation
-        
+
         this.phases = {
             IMMEDIATE: 0,      // 0-1.5 seconds (faster immediate response)
             PROCESSING: Math.floor(1500 * timingVariation()),  // 1.3-1.7 seconds variance
@@ -129,7 +129,7 @@ export class EnhancedTypingIndicator {
                     "Just a bit more time needed..."
                 ]
             },
-            
+
             code: {
                 IMMEDIATE: [
                     "Analyzing code structure...",
@@ -367,7 +367,7 @@ export class EnhancedTypingIndicator {
             // Set opacity to 0 and display to none for immediate hiding
             this.element.style.opacity = '0';
             this.element.style.display = 'none';
-            
+
             // Clean up the element reference immediately
             if (this.element.parentNode) {
                 this.element.parentNode.removeChild(this.element);
@@ -423,11 +423,11 @@ export class EnhancedTypingIndicator {
             progressBar = DOMUtils.createElement('div', {
                 className: 'typing-progress-bar'
             });
-            
+
             const progressFill = DOMUtils.createElement('div', {
                 className: 'typing-progress-fill'
             });
-            
+
             progressBar.appendChild(progressFill);
         }
 
@@ -463,7 +463,7 @@ export class EnhancedTypingIndicator {
         const messageIcon = DOMUtils.createElement('div', {
             className: 'messageIcon'
         });
-        messageIcon.style.backgroundImage = 'url("images/Microsoft-Copilot-Logo-30.png")';
+        messageIcon.style.backgroundImage = 'url("images/copilotstudio-icon.webp")';
 
         // Create content area
         const contentArea = DOMUtils.createElement('div', {
@@ -602,7 +602,7 @@ export class EnhancedTypingIndicator {
         if (!statusArea) return;
 
         const message = this.getStatusMessage();
-        
+
         // Smooth transition
         statusArea.style.opacity = '0';
         setTimeout(() => {
@@ -620,8 +620,8 @@ export class EnhancedTypingIndicator {
     getStatusMessage() {
         const contextType = this.detectContextType();
         const conversationContext = this.analyzeConversationHistory();
-        const messages = this.messageSets[contextType]?.[this.currentPhase] || 
-                        this.messageSets.general[this.currentPhase];
+        const messages = this.messageSets[contextType]?.[this.currentPhase] ||
+            this.messageSets.general[this.currentPhase];
 
         if (!messages || messages.length === 0) {
             return "Processing...";
@@ -629,10 +629,10 @@ export class EnhancedTypingIndicator {
 
         // Generate smart contextual messages using LLM-style analysis
         const dynamicMessages = this.generateContextualMessages(contextType, conversationContext);
-        
+
         // Create weighted message pool for more natural selection
         const weightedMessages = this.createWeightedMessagePool(messages, dynamicMessages, conversationContext);
-        
+
         // Use intelligent selection algorithm
         return this.selectOptimalMessage(weightedMessages, conversationContext);
     }
@@ -642,31 +642,31 @@ export class EnhancedTypingIndicator {
      */
     createWeightedMessagePool(staticMessages, dynamicMessages, conversationContext) {
         const pool = [];
-        
+
         // Add static messages with base weight
         staticMessages.forEach(msg => {
             pool.push({ message: msg, weight: 1.0, source: 'static' });
         });
-        
+
         // Add dynamic messages with higher weight (more natural and contextual)
         dynamicMessages.forEach(msg => {
             pool.push({ message: msg, weight: 1.5, source: 'dynamic' });
         });
-        
+
         // Boost weights based on conversation characteristics
         pool.forEach(item => {
             // Boost urgent tone messages
-            if (conversationContext.conversationTone === 'urgent' && 
+            if (conversationContext.conversationTone === 'urgent' &&
                 (item.message.includes('quick') || item.message.includes('efficient'))) {
                 item.weight *= 1.3;
             }
-            
+
             // Boost polite tone messages
-            if (conversationContext.conversationTone === 'polite' && 
+            if (conversationContext.conversationTone === 'polite' &&
                 (item.message.includes('care') || item.message.includes('ensure'))) {
                 item.weight *= 1.2;
             }
-            
+
             // Boost topic-relevant messages
             if (conversationContext.recentTopics.length > 0) {
                 const topic = conversationContext.recentTopics[0];
@@ -675,7 +675,7 @@ export class EnhancedTypingIndicator {
                 }
             }
         });
-        
+
         return pool;
     }
 
@@ -684,25 +684,25 @@ export class EnhancedTypingIndicator {
      */
     selectOptimalMessage(weightedPool, conversationContext) {
         if (weightedPool.length === 0) return "Processing...";
-        
+
         // Avoid recently used messages to prevent repetition
         if (!this.recentMessages) this.recentMessages = [];
-        
+
         // Filter out recently used messages
-        const availableMessages = weightedPool.filter(item => 
+        const availableMessages = weightedPool.filter(item =>
             !this.recentMessages.includes(item.message)
         );
-        
+
         // If all messages were recently used, reset and use full pool
         const finalPool = availableMessages.length > 0 ? availableMessages : weightedPool;
-        
+
         // Calculate total weight
         const totalWeight = finalPool.reduce((sum, item) => sum + item.weight, 0);
-        
+
         // Weighted random selection
         let randomValue = Math.random() * totalWeight;
         let selectedMessage = finalPool[0].message;
-        
+
         for (const item of finalPool) {
             randomValue -= item.weight;
             if (randomValue <= 0) {
@@ -710,13 +710,13 @@ export class EnhancedTypingIndicator {
                 break;
             }
         }
-        
+
         // Track recent messages (keep last 3 to avoid immediate repetition)
         this.recentMessages.push(selectedMessage);
         if (this.recentMessages.length > 3) {
             this.recentMessages.shift();
         }
-        
+
         return selectedMessage;
     }
 
@@ -729,16 +729,16 @@ export class EnhancedTypingIndicator {
 
         // Get the current user's message for more targeted analysis
         const currentMessage = this.context.message || '';
-        
+
         // Use efficient pattern-based LLM-style analysis
         const messageIntent = this.analyzeMessageIntent(currentMessage, conversationContext);
         const complexityLevel = this.assessComplexity(currentMessage, conversationContext);
-        
+
         // Generate natural, context-aware messages based on LLM analysis
         const naturalMessages = this.generateNaturalStatusMessages(
-            messageIntent, 
-            complexityLevel, 
-            contextType, 
+            messageIntent,
+            complexityLevel,
+            contextType,
             conversationTone,
             recentTopics
         );
@@ -751,7 +751,7 @@ export class EnhancedTypingIndicator {
      */
     analyzeMessageIntent(message, conversationContext) {
         const msg = message.toLowerCase();
-        
+
         // Intent classification patterns (efficient keyword-based analysis)
         const intentPatterns = {
             'debug': ['error', 'bug', 'not working', 'broken', 'fix', 'problem', 'issue', 'debug'],
@@ -777,26 +777,26 @@ export class EnhancedTypingIndicator {
      */
     assessComplexity(message, conversationContext) {
         let complexity = 0;
-        
+
         // Message length factor
         if (message.length > 200) complexity += 2;
         else if (message.length > 100) complexity += 1;
-        
+
         // Technical keywords
         const technicalTerms = ['algorithm', 'architecture', 'design pattern', 'scalability', 'performance', 'optimization'];
         complexity += technicalTerms.filter(term => message.toLowerCase().includes(term)).length;
-        
+
         // Multiple questions or requirements
         const questionMarks = (message.match(/\?/g) || []).length;
         if (questionMarks > 1) complexity += 1;
-        
+
         // Code blocks or technical symbols
         if (/```|`[^`]+`|->|=>|::|\[|\]|\{|\}/.test(message)) complexity += 1;
-        
+
         // Conversation context complexity
         if (conversationContext.isComplexDiscussion) complexity += 1;
         if (conversationContext.recentTopics.length > 2) complexity += 1;
-        
+
         return Math.min(complexity, 5); // Cap at 5
     }
 
@@ -806,7 +806,7 @@ export class EnhancedTypingIndicator {
     generateNaturalStatusMessages(intent, complexity, contextType, tone, topics) {
         const messages = [];
         const phase = this.currentPhase;
-        
+
         // Intent-specific natural messages
         const intentMessages = {
             'debug': {
@@ -880,7 +880,7 @@ export class EnhancedTypingIndicator {
      */
     detectContextType() {
         const { message = '', isCode = false, isComplex = false } = this.context;
-        
+
         // Analyze conversation history for better context
         const conversationContext = this.analyzeConversationHistory();
 
@@ -903,7 +903,7 @@ export class EnhancedTypingIndicator {
         }
 
         // Check for complex context
-        if (isComplex || message.length > 300 || 
+        if (isComplex || message.length > 300 ||
             /complex|detailed|comprehensive|in-depth|thorough|elaborate/.test(message.toLowerCase()) ||
             conversationContext.isComplexDiscussion) {
             return 'complex';
@@ -925,15 +925,15 @@ export class EnhancedTypingIndicator {
         const currentTime = Date.now();
         const currentMessage = this.context.message || '';
         const messageHash = this.simpleHash(currentMessage);
-        
+
         // Return cached result if still valid and message hasn't changed
-        if (this.config.analysisEfficiencyMode && 
+        if (this.config.analysisEfficiencyMode &&
             this.analysisCache.cachedContext &&
             currentTime - this.analysisCache.lastAnalysisTime < this.analysisCache.cacheValidityMs &&
             messageHash === this.analysisCache.lastMessageHash) {
             return this.analysisCache.cachedContext;
         }
-        
+
         const chatWindow = document.querySelector('#chatWindow') || document.querySelector('.chat-window');
         if (!chatWindow) {
             const defaultContext = {
@@ -945,7 +945,7 @@ export class EnhancedTypingIndicator {
                 recentTopics: [],
                 conversationTone: 'neutral'
             };
-            
+
             // Cache the default result
             this.updateAnalysisCache(defaultContext, messageHash, currentTime);
             return defaultContext;
@@ -959,13 +959,13 @@ export class EnhancedTypingIndicator {
         }).filter(text => text.length > 0);
 
         const allText = recentMessages.join(' ');
-        
+
         // Efficient analysis using optimized keyword matching
         const analysis = this.performEfficientContextAnalysis(allText, currentMessage, recentMessages);
-        
+
         // Cache the result
         this.updateAnalysisCache(analysis, messageHash, currentTime);
-        
+
         return analysis;
     }
 
@@ -983,14 +983,14 @@ export class EnhancedTypingIndicator {
         };
 
         const combinedText = (allText + ' ' + currentMessage.toLowerCase());
-        
+
         // Count matches efficiently
         const counts = {};
         for (const [key, pattern] of Object.entries(patterns)) {
             const matches = combinedText.match(pattern);
             counts[key] = matches ? matches.length : 0;
         }
-        
+
         // Determine characteristics based on match counts
         const hasCodeDiscussion = counts.code >= 2;
         const isResearchHeavy = counts.research >= 2;
@@ -1085,7 +1085,7 @@ export class EnhancedTypingIndicator {
 
         // Simulate realistic progress based on phase
         let targetProgress = 0;
-        
+
         switch (this.currentPhase) {
             case 'IMMEDIATE':
                 targetProgress = 0;
@@ -1119,16 +1119,16 @@ export class EnhancedTypingIndicator {
      */
     updateConfig(newConfig) {
         this.config = { ...this.config, ...newConfig };
-        
+
         // Save to localStorage
         if (newConfig.enableDetailedStatus !== undefined) {
-            localStorage.setItem('enableDetailedWaitingStatus', newConfig.enableDetailedStatus);
+            localStorage.setItem('enableDetailedWaitingStatus', newConfig.enableDetailedStatus.toString());
         }
         if (newConfig.showProgressBar !== undefined) {
-            localStorage.setItem('showWaitingProgressBar', newConfig.showProgressBar);
+            localStorage.setItem('showWaitingProgressBar', newConfig.showProgressBar.toString());
         }
         if (newConfig.verbosity !== undefined) {
-            localStorage.setItem('waitingStatusVerbosity', newConfig.verbosity);
+            localStorage.setItem('waitingStatusVerbosity', newConfig.verbosity.toString());
         }
     }
 

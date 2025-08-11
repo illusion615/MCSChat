@@ -4,7 +4,10 @@ Comprehensive overview of MCS Chat's features and capabilities.
 
 ## 🆕 Latest Improvements
 
-### Enhanced UI & Performance (Latest Update)
+### Knowledge Hub & Enhanced UI (Latest Update)
+- **Knowledge Hub**: Upload and view PDF documents with page-by-page gallery
+- **PDF Processing**: Extract PDF pages as images for easy reading
+- **Document Library**: Organize and manage uploaded documents
 - **Optimized KPI Grid Layout**: Improved from 4 to 3 columns in default mode for better visual balance
 - **Robust Speech Recognition**: Fixed voice input errors across all speech providers 
 - **Enhanced Azure Speech Support**: Improved language detection and error handling
@@ -19,6 +22,25 @@ Comprehensive overview of MCS Chat's features and capabilities.
 - **Mobile AI companion** accessible via floating action button
 - **Adaptive layouts** that work across all screen sizes
 - **Touch-friendly controls** with minimum 44px tap targets
+
+### 📚 Knowledge Hub
+- **PDF Document Upload**: Drag-and-drop or browse to upload PDF files
+- **Page Extraction**: Automatically converts PDF pages to high-quality images
+- **Document Gallery**: View documents in a page-by-page image gallery
+- **Document Library**: Organize and manage all uploaded documents
+- **Quick Navigation**: Click pages to enlarge and view in detail
+- **Local Storage**: Documents stored locally for privacy and offline access
+- **Delete Management**: Remove individual documents or clear entire library
+
+#### Knowledge Hub Features
+- **Smart Processing**: Automatically extracts and optimizes PDF pages with adaptive compression
+- **Large Document Support**: Handle PDFs up to 100MB and 200 pages
+- **Responsive Gallery**: Grid layout adapts to screen size
+- **Image Zoom**: Click any page to view in full-screen modal
+- **Upload Progress**: Real-time progress indicators during processing
+- **Error Handling**: Robust error handling with user-friendly messages
+- **File Validation**: Ensures only PDF files are accepted for upload
+- **Intelligent Compression**: Adaptive quality based on document size
 
 ### 🤖 Multi-Agent AI Chat System
 

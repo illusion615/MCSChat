@@ -6,16 +6,17 @@
 import { DOMUtils } from '../utils/domUtils.js';
 import { Utils } from '../utils/helpers.js';
 
+
 export class MessageRenderer {
     constructor() {
         this.elements = {
             chatWindow: DOMUtils.getElementById('chatWindow'),
             suggestedActionsContainer: DOMUtils.getElementById('suggestedActionsContainer')
         };
-        
+
         // Use Map to track multiple streaming messages by ID to prevent race conditions
         this.streamingStates = new Map();
-        
+
         // Track messages being rendered to prevent duplicates
         this.renderingInProgress = new Set();
 
@@ -48,10 +49,10 @@ export class MessageRenderer {
 
         // Debug markdown libraries on initialization
         this.debugMarkdownLibraries();
-        
+
         // Initialize side browser immediately
         this.initializeSideBrowser();
-        
+
         // Initialize streaming speech
         this.initializeStreamingSpeech();
     }
@@ -62,7 +63,7 @@ export class MessageRenderer {
      */
     initializeSideBrowser() {
         console.log('[MessageRenderer] Initializing side browser...');
-        
+
         // Set up event listeners immediately if DOM is ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
@@ -99,10 +100,10 @@ export class MessageRenderer {
      */
     initializeStreamingSpeech() {
         console.log('[MessageRenderer] Initializing streaming speech...');
-        
+
         // Check if streaming speech is enabled
         this.streamingSpeechState.isEnabled = localStorage.getItem('speechAutoSpeak') === 'true';
-        
+
         console.log('[MessageRenderer] Streaming speech enabled:', this.streamingSpeechState.isEnabled);
     }
 
@@ -128,25 +129,25 @@ export class MessageRenderer {
                 import('../ai/aiCompanion.js'),
                 import('../utils/languageDetector.js')
             ]);
-            
+
             // Clean the text for speech
             const cleanText = this.cleanTextForSpeech(completeText);
-            
+
             if (cleanText.trim().length > 0) {
                 console.log(`[Speech] Processing complete content immediately: ${cleanText.length} characters`);
-                
+
                 // Detect language and log information
                 const languageInfo = languageDetector.detectLanguageAndGetVoice?.(cleanText);
                 if (languageInfo) {
                     console.log(`[Speech] Detected language: ${languageInfo.language} (${languageInfo.displayName}), using voice: ${languageInfo.voice}`);
                 }
-                
+
                 // Start speaking the complete content immediately - not connected to streaming
-                await aiCompanion.speakText(cleanText, { 
+                await aiCompanion.speakText(cleanText, {
                     autoDetectLanguage: true,
-                    forceSpeak: false 
+                    forceSpeak: false
                 });
-                
+
                 console.log(`[Speech] Successfully started speech for message ${messageId}`);
             }
         } catch (error) {
@@ -188,7 +189,7 @@ export class MessageRenderer {
         console.log('🔴 [MESSAGERENDERER-STOP] =================================');
         console.log('🔴 [MESSAGERENDERER-STOP] stopStreamingSpeech() called');
         console.log('🔴 [MESSAGERENDERER-STOP] =================================');
-        
+
         try {
             // Use the new comprehensive disposal and reinitialization method
             if (window.speechEngine && window.speechEngine.disposeAndReinitialize) {
@@ -199,13 +200,13 @@ export class MessageRenderer {
                 console.log(`🟢 [MESSAGERENDERER-STOP] speechEngine.disposeAndReinitialize() completed in ${(endTime - startTime).toFixed(2)}ms`);
                 return; // Exit early if disposal worked
             }
-            
+
             // Fallback to legacy methods if disposal method is not available
             console.log('🟡 [MESSAGERENDERER-STOP] Fallback: Using legacy stopping methods');
-            
+
             let speechStopAttempts = 0;
             let speechStopSuccess = false;
-            
+
             // Method 1: Use global aiCompanion for immediate access
             if (window.aiCompanion && window.aiCompanion.stopSpeaking) {
                 console.log('🟡 [MESSAGERENDERER-STOP] Method 1: calling window.aiCompanion.stopSpeaking()');
@@ -218,7 +219,7 @@ export class MessageRenderer {
             } else {
                 console.log('🔴 [MESSAGERENDERER-STOP] Method 1: aiCompanion not available');
             }
-            
+
             // Method 2: Try speechEngine if available (check for Azure provider)
             if (window.speechEngine) {
                 console.log('🟡 [MESSAGERENDERER-STOP] Method 2: speechEngine available');
@@ -226,7 +227,7 @@ export class MessageRenderer {
                 const isAzureProvider = currentProvider && currentProvider.constructor.name === 'AzureSpeechProvider';
                 console.log(`🟡 [MESSAGERENDERER-STOP] Current provider: ${currentProvider ? currentProvider.constructor.name : 'none'}`);
                 console.log(`🟡 [MESSAGERENDERER-STOP] Is Azure provider: ${isAzureProvider}`);
-                
+
                 if (window.speechEngine.stopSpeaking) {
                     speechStopAttempts++;
                     const startTime = performance.now();
@@ -238,7 +239,7 @@ export class MessageRenderer {
             } else {
                 console.log('🔴 [MESSAGERENDERER-STOP] Method 2: speechEngine not available');
             }
-            
+
             // Method 3: Direct browser speech synthesis cancellation
             if (typeof window.speechSynthesis !== 'undefined') {
                 console.log('🟡 [MESSAGERENDERER-STOP] Method 3: browser speechSynthesis available');
@@ -254,11 +255,11 @@ export class MessageRenderer {
             } else {
                 console.log('🔴 [MESSAGERENDERER-STOP] Method 3: speechSynthesis not available');
             }
-            
+
             console.log('🔴 [MESSAGERENDERER-STOP] =================================');
             console.log(`🔴 [MESSAGERENDERER-STOP] SUMMARY: ${speechStopAttempts} methods attempted, success: ${speechStopSuccess}`);
             console.log('🔴 [MESSAGERENDERER-STOP] =================================');
-            
+
             if (!speechStopSuccess) {
                 console.warn('🔴 [MESSAGERENDERER-STOP] No immediate speech stopping method worked, trying async fallback');
                 // Fallback: try async import as backup
@@ -337,7 +338,7 @@ export class MessageRenderer {
      */
     isMathematicalExpression(text) {
         const trimmed = text.trim();
-        
+
         // Mathematical indicators (strong positive signals)
         const mathIndicators = [
             // Mathematical operators
@@ -357,7 +358,7 @@ export class MessageRenderer {
             // Variables with operators
             /[a-zA-Z]\s*[+\-*/]\s*[a-zA-Z0-9]/
         ];
-        
+
         // Non-mathematical patterns (strong negative signals)
         const nonMathPatterns = [
             // Pure currency patterns
@@ -376,47 +377,47 @@ export class MessageRenderer {
             // Common abbreviations and units
             /^\d+\s*(kg|lb|ft|in|cm|mm|mph|km\/h|°[CF]?)$/i
         ];
-        
+
         // Context analysis weights
         let mathScore = 0;
         let nonMathScore = 0;
-        
+
         // Check for mathematical indicators
         for (const pattern of mathIndicators) {
             if (pattern.test(trimmed)) {
                 mathScore += 1;
             }
         }
-        
+
         // Check for non-mathematical patterns
         for (const pattern of nonMathPatterns) {
             if (pattern.test(trimmed)) {
                 nonMathScore += 2; // Higher weight for non-math patterns
             }
         }
-        
+
         // Additional contextual analysis
-        
+
         // If it's very short and alphanumeric only, likely not math
         if (trimmed.length <= 5 && /^[a-zA-Z0-9]+$/.test(trimmed)) {
             nonMathScore += 1;
         }
-        
+
         // If it contains multiple consecutive letters without operators, likely text
         if (/[a-zA-Z]{3,}/.test(trimmed) && !/[+\-*/=^_{}\\]/.test(trimmed)) {
             nonMathScore += 1;
         }
-        
+
         // If it starts with a digit and ends with letters (like currency), likely not math
         if (/^\d/.test(trimmed) && /[a-zA-Z]$/.test(trimmed)) {
             nonMathScore += 1;
         }
-        
+
         // Mathematical expressions usually have structure
         if (mathScore > 0 && /[a-zA-Z]/.test(trimmed)) {
             mathScore += 0.5; // Bonus for having variables
         }
-        
+
         // Decision logic: require clear mathematical intent
         return mathScore > nonMathScore && mathScore > 0;
     }
@@ -436,7 +437,7 @@ export class MessageRenderer {
             // Process display math first: $$...$$
             content = content.replace(/\$\$([^$]+?)\$\$/g, (match, math) => {
                 try {
-                    return katex.renderToString(math.trim(), { 
+                    return katex.renderToString(math.trim(), {
                         displayMode: true,
                         throwOnError: false,
                         errorColor: '#cc0000'
@@ -450,14 +451,14 @@ export class MessageRenderer {
             // Process inline math: $...$ with semantic analysis
             content = content.replace(/\$([^$\n]+?)\$/g, (match, math) => {
                 const trimmed = math.trim();
-                
+
                 // Use comprehensive semantic analysis
                 if (!this.isMathematicalExpression(trimmed)) {
                     return match; // Return original if not mathematical
                 }
 
                 try {
-                    return katex.renderToString(trimmed, { 
+                    return katex.renderToString(trimmed, {
                         displayMode: false,
                         throwOnError: false,
                         errorColor: '#cc0000'
@@ -472,7 +473,7 @@ export class MessageRenderer {
             content = content.replace(/\\begin\{([^}]+)\}([\s\S]*?)\\end\{\1\}/g, (match, env, math) => {
                 try {
                     const latexCode = `\\begin{${env}}${math}\\end{${env}}`;
-                    return katex.renderToString(latexCode, { 
+                    return katex.renderToString(latexCode, {
                         displayMode: true,
                         throwOnError: false,
                         errorColor: '#cc0000'
@@ -511,14 +512,14 @@ export class MessageRenderer {
     async renderCompleteMessageDirect(activity) {
         // Prevent duplicate rendering of the same message
         const messageId = activity.id || `${activity.from?.id}-${activity.timestamp}-${Date.now()}`;
-        
+
         if (this.renderingInProgress.has(messageId)) {
             console.log('Message already being rendered, skipping duplicate:', messageId);
             return;
         }
-        
+
         this.renderingInProgress.add(messageId);
-        
+
         try {
             console.log('Rendering complete message:', {
                 id: messageId,
@@ -547,67 +548,86 @@ export class MessageRenderer {
                 this.startSpeechWithCompleteContent(activity.text, messageId);
             }
 
-            const messageContainer = this.createMessageContainer(activity);
-            const messageDiv = this.createMessageDiv(activity);
-            const isUser = activity.from && activity.from.id === 'user';
-            
-            // Check if message icons are enabled
-            const messageIconsEnabled = localStorage.getItem('messageIconsEnabled') !== 'false';
-            const messageIcon = messageIconsEnabled ? this.createMessageIcon(isUser) : null;
+            // Check if there's actual content to display (text or attachments)
+            const hasTextContent = activity.text && activity.text.trim();
+            const hasAttachments = activity.attachments && activity.attachments.length > 0;
+            const hasActualContent = hasTextContent || hasAttachments;
 
-            // Add text content
-            if (activity.text) {
-                this.addTextContent(messageDiv, activity.text);
-            }
+            // Only create message container if there's actual content to display
+            let messageContainer = null;
+            if (hasActualContent) {
+                messageContainer = this.createMessageContainer(activity);
+                const messageDiv = this.createMessageDiv(activity);
+                const isUser = activity.from && activity.from.id === 'user';
 
-            // Add attachments
-            if (activity.attachments && activity.attachments.length > 0) {
-                console.log('MessageRenderer: Processing', activity.attachments.length, 'attachments');
-                this.addAttachments(messageDiv, activity.attachments);
-            } else {
-                console.log('MessageRenderer: No attachments to process');
-            }
+                // Check if message icons are enabled
+                const messageIconsEnabled = localStorage.getItem('messageIconsEnabled') !== 'false';
+                const messageIcon = messageIconsEnabled ? this.createMessageIcon(isUser) : null;
 
-            // Add elements in correct order based on message type
-            const isCompanionResponse = messageContainer.classList.contains('companion-response');
-
-            if (isUser) {
-                // User messages: content first, then icon (icon on right)
-                messageContainer.appendChild(messageDiv);
-                if (messageIcon) {
-                    messageContainer.appendChild(messageIcon);
+                // Add text content
+                if (activity.text) {
+                    this.addTextContent(messageDiv, activity.text);
                 }
-            } else if (isCompanionResponse) {
-                // Companion responses: only content, no icon (professor-like)
-                messageContainer.appendChild(messageDiv);
-            } else {
-                // Regular bot messages: icon first, then content (icon on left)
-                if (messageIcon) {
-                    messageContainer.appendChild(messageIcon);
+
+                // Add attachments
+                if (activity.attachments && activity.attachments.length > 0) {
+                    console.log('MessageRenderer: Processing', activity.attachments.length, 'attachments');
+                    this.addAttachments(messageDiv, activity.attachments);
+                } else {
+                    console.log('MessageRenderer: No attachments to process');
                 }
-                
-                // Create a content wrapper for message content only
-                const contentWrapper = DOMUtils.createElement('div', {
-                    className: 'message-content-wrapper',
-                    style: 'display: flex; align-items: flex-start; flex: 1;'
-                });
-                
-                contentWrapper.appendChild(messageDiv);
-                
-                messageContainer.appendChild(contentWrapper);
+
+                // Add elements in correct order based on message type
+                const isCompanionResponse = messageContainer.classList.contains('companion-response');
+
+                if (isUser) {
+                    // User messages: content first, then icon (icon on right)
+                    messageContainer.appendChild(messageDiv);
+                    if (messageIcon) {
+                        messageContainer.appendChild(messageIcon);
+                    }
+                } else if (isCompanionResponse) {
+                    // Companion responses: icon first, then content (with AI companion icon)
+                    if (messageIcon) {
+                        // Set AI companion icon for companion responses
+                        messageIcon.style.backgroundImage = '';
+                        messageIcon.setAttribute('data-icon', 'aiCompanion');
+                        messageIcon.setAttribute('data-width', '28');
+                        messageIcon.setAttribute('data-height', '28');
+                        messageContainer.appendChild(messageIcon);
+                        // Initialize icon after setting data-icon
+                        this.initializeMessageIcon(messageIcon);
+                    }
+                    messageContainer.appendChild(messageDiv);
+                } else {
+                    // Regular bot messages: icon first, then content (icon on left)
+                    if (messageIcon) {
+                        messageContainer.appendChild(messageIcon);
+                    }
+
+                    // Create a content wrapper for message content only
+                    const contentWrapper = DOMUtils.createElement('div', {
+                        className: 'message-content-wrapper',
+                        style: 'display: flex; align-items: flex-start; flex: 1;'
+                    });
+
+                    contentWrapper.appendChild(messageDiv);
+
+                    messageContainer.appendChild(contentWrapper);
+                }
+
+                // Insert at end to avoid reordering issues that cause flickering
+                this.elements.chatWindow.appendChild(messageContainer);
+
+                // Add response metadata (only if we have a message container)
+                this.addResponseMetadata(messageContainer, activity);
             }
 
-            // Insert at end to avoid reordering issues that cause flickering
-            this.elements.chatWindow.appendChild(messageContainer);
-
-            // Handle suggested actions
+            // Handle suggested actions (always render these, even without message content)
             if (activity.suggestedActions && activity.suggestedActions.actions.length > 0) {
                 console.log('Rendering suggested actions:', activity.suggestedActions.actions);
                 this.renderSuggestedActions(activity.suggestedActions.actions);
             }
-
-            // Add response metadata
-            this.addResponseMetadata(messageContainer, activity);
 
             // No additional speech processing needed here - handled at the beginning
             console.log(`[Complete] Finished rendering complete message ${messageId} (speech handled separately)`);
@@ -617,12 +637,12 @@ export class MessageRenderer {
         } finally {
             // Always clean up tracking regardless of success/failure
             this.renderingInProgress.delete(messageId);
-            
+
             // Dispatch messageRendered event for AI companion title updates
             window.dispatchEvent(new CustomEvent('messageRendered', {
-                detail: { 
+                detail: {
                     messageId: messageId,
-                    activity: activity 
+                    activity: activity
                 }
             }));
             console.log('[MessageRenderer] Dispatched messageRendered event for complete message:', messageId);
@@ -763,14 +783,14 @@ export class MessageRenderer {
             // Initialize streaming speech for new message
             this.initializeStreamingSpeech();
             this.resetStreamingSpeechState();
-            
+
             // Stop any ongoing speech from previous messages OR if this is a user message
             const isUserMessage = activity.from && activity.from.id === 'user';
             if (isUserMessage) {
                 console.log('[MessageRenderer] Stopping ongoing speech due to user message in streaming');
             }
             await this.stopStreamingSpeech();
-            
+
             // Create new streaming state for this message
             streamingState = {
                 startTime: Date.now(),
@@ -795,28 +815,38 @@ export class MessageRenderer {
                     streamingState.messageContainer.appendChild(messageIcon);
                 }
             } else if (isCompanionResponse) {
-                // Companion responses: only content, no icon (professor-like)
+                // Companion responses: icon first, then content (with AI companion icon)
+                if (messageIcon) {
+                    // Set AI companion icon for companion responses
+                    messageIcon.style.backgroundImage = '';
+                    messageIcon.setAttribute('data-icon', 'aiCompanion');
+                    messageIcon.setAttribute('data-width', '28');
+                    messageIcon.setAttribute('data-height', '28');
+                    streamingState.messageContainer.appendChild(messageIcon);
+                    // Initialize icon after setting data-icon
+                    this.initializeMessageIcon(messageIcon);
+                }
                 streamingState.messageContainer.appendChild(streamingState.messageDiv);
             } else {
                 // Regular bot messages: icon first, then content (icon on left)
                 if (messageIcon) {
                     streamingState.messageContainer.appendChild(messageIcon);
                 }
-                
+
                 // Create a content wrapper for message content only
                 const contentWrapper = DOMUtils.createElement('div', {
                     className: 'message-content-wrapper',
                     style: 'display: flex; align-items: flex-start; flex: 1;'
                 });
-                
+
                 contentWrapper.appendChild(streamingState.messageDiv);
-                
+
                 streamingState.messageContainer.appendChild(contentWrapper);
             }
 
             // Insert at end to avoid reordering issues that cause flickering
             this.elements.chatWindow.appendChild(streamingState.messageContainer);
-            
+
             // Store the streaming state
             this.streamingStates.set(messageId, streamingState);
 
@@ -852,7 +882,7 @@ export class MessageRenderer {
 
         if (streamingState && streamingState.messageDiv) {
             console.log('Finalizing streaming message:', messageId);
-            
+
             // Ensure final content is properly rendered with full activity text
             if (activity.text && activity.text !== streamingState.content) {
                 console.log('Finalizing streaming with complete content:', activity.text.length, 'chars');
@@ -884,9 +914,9 @@ export class MessageRenderer {
 
             // Dispatch messageRendered event for AI companion title updates
             window.dispatchEvent(new CustomEvent('messageRendered', {
-                detail: { 
+                detail: {
                     messageId: messageId,
-                    activity: activity 
+                    activity: activity
                 }
             }));
             console.log('[MessageRenderer] Dispatched messageRendered event for streaming message:', messageId);
@@ -921,15 +951,15 @@ export class MessageRenderer {
     async simulateStreamingDirect(activity) {
         try {
             const messageId = activity.id || `${activity.from?.id}-${activity.timestamp}-${Date.now()}`;
-            
+
             // Prevent duplicate streaming of the same message
             if (this.renderingInProgress.has(messageId)) {
                 console.log('Message already being rendered, skipping streaming:', messageId);
                 return;
             }
-            
+
             this.renderingInProgress.add(messageId);
-            
+
             console.log('Starting enhanced streaming simulation for:', messageId);
 
             if (!activity.text) {
@@ -990,20 +1020,29 @@ export class MessageRenderer {
                     streamingState.messageContainer.appendChild(messageIcon);
                 }
             } else if (isCompanionResponse) {
+                // Companion responses: icon first, then content (with AI companion icon)
+                if (messageIcon) {
+                    // Set AI companion icon for companion responses
+                    messageIcon.style.backgroundImage = '';
+                    messageIcon.setAttribute('data-icon', 'aiCompanion');
+                    streamingState.messageContainer.appendChild(messageIcon);
+                    // Initialize icon after setting data-icon
+                    this.initializeMessageIcon(messageIcon);
+                }
                 streamingState.messageContainer.appendChild(streamingState.messageDiv);
             } else {
                 if (messageIcon) {
                     streamingState.messageContainer.appendChild(messageIcon);
                 }
-                
+
                 // Create a content wrapper for message content only
                 const contentWrapper = DOMUtils.createElement('div', {
                     className: 'message-content-wrapper',
                     style: 'display: flex; align-items: flex-start; flex: 1;'
                 });
-                
+
                 contentWrapper.appendChild(streamingState.messageDiv);
-                
+
                 streamingState.messageContainer.appendChild(contentWrapper);
             }
 
@@ -1027,7 +1066,7 @@ export class MessageRenderer {
                 this.updateStreamingContent(streamingState.messageDiv, currentText);
                 streamingState.content = currentText;
                 streamingState.lastUpdate = Date.now();
-                
+
                 this.scrollToBottom();
 
                 // Improved timing: faster overall to prevent timeouts
@@ -1042,7 +1081,7 @@ export class MessageRenderer {
                 } else {
                     delay = Math.random() * 3 + 1; // 1-4ms per character (faster)
                 }
-                
+
                 await Utils.sleep(delay);
             }
 
@@ -1080,6 +1119,11 @@ export class MessageRenderer {
         // Add full-width styling for AI companion responses
         if (isCompanionResponse) {
             className += ' companion-response';
+        }
+
+        // Add special class for user messages when AI companion is active
+        if (isUser && document.body.classList.contains('ai-companion-active')) {
+            className += ' ai-companion-user-message';
         }
 
         const container = DOMUtils.createElement('div', {
@@ -1128,10 +1172,44 @@ export class MessageRenderer {
             // Apply the selected user icon
             this.applyUserIconToElement(iconElement);
         } else {
-            iconElement.style.backgroundImage = 'url("images/Microsoft-Copilot-Logo-30.png")';
+            // Use SVG agent icon for agent messages
+            iconElement.style.backgroundImage = '';
+            iconElement.setAttribute('data-icon', 'agent');
+            iconElement.setAttribute('data-width', '28');
+            iconElement.setAttribute('data-height', '28');
+
+            // Initialize this specific icon immediately
+            this.initializeMessageIcon(iconElement);
         }
 
         return iconElement;
+    }
+
+    /**
+     * Initialize a single message icon with SVG
+     * @param {HTMLElement} iconElement - The icon element to initialize
+     * @private
+     */
+    initializeMessageIcon(iconElement) {
+        const iconName = iconElement.getAttribute('data-icon');
+        console.log('Initializing message icon:', iconName, iconElement);
+
+        if (iconName) {
+            // Use the SVG icon initialization directly
+            setTimeout(() => {
+                // Import and apply the icon
+                import('../utils/svgIcons.js').then(({ getSVGDataUri }) => {
+                    const dataUri = getSVGDataUri(iconName, '#333'); // Use dark color for visibility
+                    console.log('Setting background image for', iconName, 'to', dataUri);
+                    iconElement.style.backgroundImage = dataUri;
+                    iconElement.style.backgroundSize = 'cover';
+                    iconElement.style.backgroundPosition = 'center';
+                    iconElement.style.backgroundRepeat = 'no-repeat';
+                }).catch(error => {
+                    console.error('Failed to load SVG icons:', error);
+                });
+            }, 0);
+        }
     }
 
     /**
@@ -1140,9 +1218,7 @@ export class MessageRenderer {
      * @private
      */
     applyUserIconToElement(element) {
-        const selectedIcon = localStorage.getItem('userIcon') || 'carter-avatar';
-        
-        // Clear all existing styles first
+        // Use SVG user icon for all user messages instead of the old system
         element.style.backgroundImage = '';
         element.style.background = '';
         element.style.display = '';
@@ -1150,63 +1226,17 @@ export class MessageRenderer {
         element.style.justifyContent = '';
         element.style.fontSize = '';
         element.innerHTML = '';
-        
+
         // Remove any existing avatar classes
         element.className = 'messageIcon';
-        
-        // Apply the selected icon style
-        switch (selectedIcon) {
-            case 'friendly-avatar':
-                element.style.display = 'flex';
-                element.style.alignItems = 'center';
-                element.style.justifyContent = 'center';
-                element.style.fontSize = '20px';
-                element.innerHTML = '😊';
-                break;
-            case 'robot-avatar':
-                element.style.display = 'flex';
-                element.style.alignItems = 'center';
-                element.style.justifyContent = 'center';
-                element.style.fontSize = '20px';
-                element.innerHTML = '🤖';
-                break;
-            case 'assistant-avatar':
-                element.classList.add('assistant-avatar');
-                break;
-            case 'smart-avatar':
-                element.classList.add('smart-avatar');
-                break;
-            case 'modern-avatar':
-                element.classList.add('modern-avatar');
-                break;
-            case 'cute-avatar':
-                element.classList.add('cute-avatar');
-                break;
-            case 'professional-avatar':
-                element.classList.add('professional-avatar');
-                break;
-            case 'gaming-avatar':
-                element.classList.add('gaming-avatar');
-                break;
-            case 'minimal-avatar':
-                element.classList.add('minimal-avatar');
-                break;
-            case 'custom-avatar':
-                const customIcon = localStorage.getItem('customUserIconData');
-                if (customIcon) {
-                    element.style.backgroundImage = `url(${customIcon})`;
-                    element.style.backgroundSize = 'cover';
-                    element.style.backgroundPosition = 'center';
-                } else {
-                    // Fallback to carter if no custom icon
-                    element.style.backgroundImage = 'url("images/carter_30k.png")';
-                }
-                break;
-            case 'carter-avatar':
-            default:
-                element.style.backgroundImage = 'url("images/carter_30k.png")';
-                break;
-        }
+
+        // Set SVG user icon
+        element.setAttribute('data-icon', 'user');
+        element.setAttribute('data-width', '28');
+        element.setAttribute('data-height', '28');
+
+        // Initialize this specific icon immediately
+        this.initializeMessageIcon(element);
     }
 
     /**
@@ -1231,7 +1261,7 @@ export class MessageRenderer {
                 ariaLabel = 'Read message aloud';
                 speakerButton.classList.remove('speaking');
                 break;
-                
+
             case 'pause':
                 iconSvg = `
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -1242,7 +1272,7 @@ export class MessageRenderer {
                 ariaLabel = 'Pause speaking';
                 speakerButton.classList.add('speaking');
                 break;
-                
+
             case 'stop':
                 iconSvg = `
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -1253,7 +1283,7 @@ export class MessageRenderer {
                 ariaLabel = 'Stop speaking';
                 speakerButton.classList.add('speaking');
                 break;
-                
+
             default:
                 // Default to speaker icon
                 return this.setSpeakerIcon(speakerButton, 'speaker');
@@ -1311,10 +1341,10 @@ export class MessageRenderer {
                         const { aiCompanion } = await import('../ai/aiCompanion.js');
                         aiCompanion.stopSpeaking();
                     }
-                    
+
                     // Reset all speaker button states
                     this.resetAllSpeakerButtons();
-                    
+
                 } catch (error) {
                     console.warn('Failed to stop speech:', error);
                     this.resetAllSpeakerButtons();
@@ -1328,12 +1358,12 @@ export class MessageRenderer {
             this.globalSpeechState.currentSpeakerButton = speakerButton;
             this.globalSpeechState.currentProgressContainer = progressContainer;
             this.globalSpeechState.currentProgressFill = progressFill;
-            
+
             this.startSpeechProgress(speakerButton, progressContainer, progressFill, messageText);
 
             try {
                 const { aiCompanion } = await import('../ai/aiCompanion.js');
-                
+
                 // Create progress callback
                 const onProgress = (progress) => {
                     // Only update if this is still the current speech
@@ -1383,14 +1413,14 @@ export class MessageRenderer {
      */
     startSpeechProgress(speakerButton, progressContainer, progressFill, text) {
         console.log('[MessageRenderer] Starting speech progress...');
-        
+
         // Update button to pause icon with speaking state
         this.setSpeakerIcon(speakerButton, 'pause');
 
         // Show progress bar
         progressContainer.style.display = 'block';
         progressFill.style.width = '0%';
-        
+
         console.log('[MessageRenderer] Progress container displayed, initial width set to 0%');
     }
 
@@ -1403,7 +1433,7 @@ export class MessageRenderer {
     updateSpeechProgress(progressFill, progress) {
         const clampedProgress = Math.max(0, Math.min(100, progress));
         console.log(`[MessageRenderer] Updating progress: ${progress}% -> ${clampedProgress}%`);
-        
+
         if (progressFill) {
             const oldWidth = progressFill.style.width;
             progressFill.style.width = `${clampedProgress}%`;
@@ -1436,26 +1466,26 @@ export class MessageRenderer {
     resetAllSpeakerButtons() {
         // Reset global state
         this.globalSpeechState.isPlaying = false;
-        
+
         // Reset the current speaker button if it exists
         if (this.globalSpeechState.currentSpeakerButton) {
             this.setSpeakerIcon(this.globalSpeechState.currentSpeakerButton, 'speaker');
         }
-        
+
         // Reset the current progress elements if they exist
         if (this.globalSpeechState.currentProgressContainer) {
             this.globalSpeechState.currentProgressContainer.style.display = 'none';
         }
-        
+
         if (this.globalSpeechState.currentProgressFill) {
             this.globalSpeechState.currentProgressFill.style.width = '0%';
         }
-        
+
         // Clear current references
         this.globalSpeechState.currentSpeakerButton = null;
         this.globalSpeechState.currentProgressContainer = null;
         this.globalSpeechState.currentProgressFill = null;
-        
+
         console.log('[Speaker] All speaker buttons reset to initial state');
     }
 
@@ -1492,10 +1522,10 @@ export class MessageRenderer {
                         const { aiCompanion } = await import('../ai/aiCompanion.js');
                         aiCompanion.stopSpeaking();
                     }
-                    
+
                     // Reset all speaker button states
                     this.resetAllSpeakerButtons();
-                    
+
                 } catch (error) {
                     console.warn('Failed to stop speech:', error);
                     this.resetAllSpeakerButtons();
@@ -1507,13 +1537,13 @@ export class MessageRenderer {
             console.log('[Speaker] Starting new speech synthesis');
             this.globalSpeechState.isPlaying = true;
             this.globalSpeechState.currentSpeakerButton = speakerButton;
-            
+
             // Update current button to pause state
             this.setSpeakerIcon(speakerButton, 'pause');
 
             try {
                 const { aiCompanion } = await import('../ai/aiCompanion.js');
-                
+
                 await aiCompanion.speakText(messageText, {
                     forceSpeak: true,
                     onComplete: () => {
@@ -1542,10 +1572,10 @@ export class MessageRenderer {
      */
     addTextContent(messageDiv, text) {
         console.log('MessageRenderer: addTextContent called with text length:', text?.length);
-        
+
         // Process LaTeX math expressions first (before markdown)
         const latexProcessedText = this.processLatex(text);
-        
+
         // Process markdown if available - exactly like legacy
         if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
             try {
@@ -1559,7 +1589,7 @@ export class MessageRenderer {
 
                 // Enhance inline references
                 const enhancedContent = this.enhanceInlineReferences(sanitizedContent);
-                
+
                 // Ensure agent messages are properly wrapped in paragraphs
                 const finalContent = this.ensureParagraphStructure(enhancedContent, messageDiv);
                 messageDiv.innerHTML = finalContent;
@@ -1610,7 +1640,7 @@ export class MessageRenderer {
         // Check if this is an agent message (not user message)
         const messageContainer = messageDiv.closest('.messageContainer');
         const isUserMessage = messageContainer && messageContainer.classList.contains('userMessage');
-        
+
         // Only apply paragraph structure to agent messages
         if (isUserMessage) {
             return content;
@@ -1629,7 +1659,7 @@ export class MessageRenderer {
 
         // For HTML content, check if it already has proper paragraph structure
         const trimmedContent = content.trim();
-        
+
         // If content already starts with a block element, leave it as is
         if (trimmedContent.match(/^<(p|div|h[1-6]|ul|ol|blockquote|pre|table)/i)) {
             return content;
@@ -1675,10 +1705,10 @@ export class MessageRenderer {
     updateStreamingContent(messageDiv, content) {
         // Handle URLs and markdown links specially during streaming
         const processedContent = this.handleStreamingUrls(content);
-        
+
         // Process LaTeX math expressions first (before markdown)
         const latexProcessedContent = this.processLatex(processedContent);
-        
+
         // Process markdown if available - removed typing cursor
         if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
             try {
@@ -1690,7 +1720,7 @@ export class MessageRenderer {
 
                 // Enhance inline references during streaming like in complete messages
                 const enhancedContent = this.enhanceInlineReferences(sanitizedContent);
-                
+
                 // Ensure agent messages have proper paragraph structure during streaming
                 const finalContent = this.ensureParagraphStructure(enhancedContent, messageDiv);
                 messageDiv.innerHTML = finalContent;
@@ -1720,7 +1750,7 @@ export class MessageRenderer {
         // Extract text content for speech processing (remove HTML tags)
         const textContent = messageDiv.textContent || messageDiv.innerText || '';
         const messageId = messageDiv.getAttribute('data-message-id') || `message-${Date.now()}`;
-        
+
         // Speech is handled separately by the new architecture - no need to process here
     }
 
@@ -1735,14 +1765,14 @@ export class MessageRenderer {
         const incompleteMarkdownLink = /\[[^\]]*$/; // [text without closing ]
         const incompleteMarkdownLinkWithParen = /\[[^\]]*\]\([^)]*$/; // [text](incomplete-url
         const incompleteUrl = /(^|\s)(https?:\/\/[^\s\])]*)$/; // URL at end without proper termination
-        
+
         // If content ends with incomplete markdown link syntax, render as plain text
         if (incompleteMarkdownLink.test(content) || incompleteMarkdownLinkWithParen.test(content)) {
             // Replace incomplete markdown with escaped version to prevent markdown processing
             return content.replace(/\[([^\]]*)$/, '\\[$1')
-                         .replace(/\[([^\]]*)\]\(([^)]*)$/, '\\[$1\\]\\($2');
+                .replace(/\[([^\]]*)\]\(([^)]*)$/, '\\[$1\\]\\($2');
         }
-        
+
         // If content ends with incomplete URL, don't process it as markdown yet
         if (incompleteUrl.test(content)) {
             const match = content.match(incompleteUrl);
@@ -1751,14 +1781,14 @@ export class MessageRenderer {
                 // Only treat as incomplete if it doesn't end with common URL endings
                 const commonEndings = ['.com', '.org', '.net', '.edu', '.gov', '.io', '.co', '.html', '.htm', '.php', '.asp', '.jsp'];
                 const hasValidEnding = commonEndings.some(ending => url.toLowerCase().endsWith(ending));
-                
+
                 if (!hasValidEnding && url.length > 10) {
                     // Escape the URL to prevent auto-linking until complete
                     return content.replace(incompleteUrl, `$1\\${url}`);
                 }
             }
         }
-        
+
         return content;
     }
 
@@ -1783,7 +1813,7 @@ export class MessageRenderer {
                 contentUrl: attachment.contentUrl,
                 name: attachment.name
             });
-            
+
             if (attachment.contentType === 'application/vnd.microsoft.card.adaptive') {
                 console.log('MessageRenderer: Rendering adaptive card');
                 this.renderAdaptiveCard(attachment, messageDiv);
@@ -1835,7 +1865,7 @@ export class MessageRenderer {
      */
     renderImageAttachment(attachment, messageDiv) {
         console.log('MessageRenderer: renderImageAttachment called with:', attachment);
-        
+
         const imageContainer = DOMUtils.createElement('div', {
             className: 'image-attachment'
         });
@@ -1862,7 +1892,7 @@ export class MessageRenderer {
 
         imageContainer.appendChild(img);
         messageDiv.appendChild(imageContainer);
-        
+
         console.log('MessageRenderer: Image attachment rendered and appended to messageDiv');
     }
 
@@ -1994,51 +2024,51 @@ export class MessageRenderer {
         }, 'Copilot Studio');
 
         metadata.appendChild(timeSpan);
-        
+
         // Only show response time for assistant messages, not user messages
         if (!isUserMessage && timeSpent) {
             const timeSpentSpan = DOMUtils.createElement('span', {
                 className: 'metadata-duration'
             }, timeSpent);
-            
-            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • '));
+
+            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' �?'));
             metadata.appendChild(timeSpentSpan);
         }
 
         // Add speaker button and progress bar for non-user messages
         if (!isUserMessage && activity) {
             // Add separator before speaker controls
-            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • '));
-            
+            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' �?'));
+
             // Create speaker controls container
             const speakerControls = DOMUtils.createElement('div', {
                 className: 'speaker-controls'
             });
-            
+
             // Create progress bar container (initially hidden)
             const progressContainer = DOMUtils.createElement('div', {
                 className: 'speech-progress-container',
                 style: 'display: none;'
             });
-            
+
             const progressBar = DOMUtils.createElement('div', {
                 className: 'speech-progress-bar'
             });
-            
+
             const progressFill = DOMUtils.createElement('div', {
                 className: 'speech-progress-fill',
                 style: 'width: 0%;'
             });
-            
+
             progressBar.appendChild(progressFill);
             progressContainer.appendChild(progressBar);
-            
+
             // Create enhanced speaker button
             const speakerButton = this.createEnhancedSpeakerButton(activity, progressContainer, progressFill);
-            
+
             speakerControls.appendChild(speakerButton);
             speakerControls.appendChild(progressContainer);
-            
+
             metadata.appendChild(speakerControls);
         }
 
@@ -2079,11 +2109,11 @@ export class MessageRenderer {
         if (this.responseTimeTracking.requestStartTime) {
             // This is an assistant response, calculate full request-to-response time
             const duration = Date.now() - this.responseTimeTracking.requestStartTime;
-            
+
             // Reset tracking for next request
             this.responseTimeTracking.requestStartTime = null;
             this.responseTimeTracking.lastRequestId = null;
-            
+
             console.log(`[MessageRenderer] Assistant response time: ${duration}ms`);
             return this.formatDuration(duration);
         }
@@ -2335,14 +2365,14 @@ export class MessageRenderer {
         if (messageIcon && messageContainer) {
             // Remove icon from its current position
             messageIcon.parentNode.removeChild(messageIcon);
-            
+
             // Remove messageDiv from its current position
             messageDiv.parentNode.removeChild(messageDiv);
-            
+
             // Add icon first, then content column to the column container
             columnContainer.appendChild(messageIcon);
             columnContainer.appendChild(contentColumn);
-            
+
             // Replace messageDiv with the column container
             messageContainer.appendChild(columnContainer);
         } else {
@@ -2461,7 +2491,7 @@ export class MessageRenderer {
                     if (citationsList && citationsList.style.display === 'none') {
                         citationsList.style.display = 'block';
                         if (toggleButton) {
-                            toggleButton.textContent = '▼';
+                            toggleButton.textContent = 'Hide Citations';
                             toggleButton.setAttribute('aria-expanded', 'true');
                         }
                     }
@@ -2686,11 +2716,11 @@ export class MessageRenderer {
         // Position tooltip relative to citation item
         const rect = citationItem.getBoundingClientRect();
         const tooltipRect = tooltip.getBoundingClientRect();
-        
+
         // Position above the citation if there's space, otherwise below
         const spaceAbove = rect.top;
         const spaceBelow = window.innerHeight - rect.bottom;
-        
+
         if (spaceAbove > 200 || spaceAbove > spaceBelow) {
             tooltip.style.top = 'auto';
             tooltip.style.bottom = '100%';
@@ -2722,7 +2752,7 @@ export class MessageRenderer {
     handleCitationClick(items) {
         // Find first item with a reference path
         const itemWithPath = items.find(item => item.ReferencePath);
-        
+
         if (itemWithPath && itemWithPath.ReferencePath) {
             this.handleCitationLink(itemWithPath.ReferencePath);
         } else {
@@ -2756,7 +2786,7 @@ export class MessageRenderer {
         try {
             const urlObj = new URL(url);
             const hostname = urlObj.hostname.toLowerCase();
-            
+
             // Only block the most problematic domains that definitely don't allow framing
             const restrictedDomains = [
                 'sharepoint.com',
@@ -2764,8 +2794,8 @@ export class MessageRenderer {
                 'login.microsoft.com',
                 'account.microsoft.com'
             ];
-            
-            return restrictedDomains.some(domain => 
+
+            return restrictedDomains.some(domain =>
                 hostname === domain || hostname.endsWith('.' + domain)
             );
         } catch (e) {
@@ -2798,12 +2828,12 @@ export class MessageRenderer {
         DOMUtils.addClass(sideBrowser, 'loading');
 
         // Reset state and add loading class to content
-        const sideBrowserContent = DOMUtils.getElementById('sideBrowserContent') || 
-                                 sideBrowser.querySelector('.side-browser-content');
+        const sideBrowserContent = DOMUtils.getElementById('sideBrowserContent') ||
+            sideBrowser.querySelector('.side-browser-content');
         if (sideBrowserContent) {
             DOMUtils.addClass(sideBrowserContent, 'loading');
         }
-        
+
         sideBrowserLoader.style.display = 'block';
         sideBrowserError.style.display = 'none';
         sideBrowserFrame.style.display = 'none';
@@ -2824,7 +2854,7 @@ export class MessageRenderer {
         // Check if URL might have CSP issues before loading
         if (this.isCSPRestrictedDomain(url)) {
             console.warn('URL likely has CSP restrictions, opening in external browser instead:', url);
-            this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError, 
+            this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError,
                 'This content cannot be displayed in a frame due to security policies.', url);
             return;
         }
@@ -2845,16 +2875,16 @@ export class MessageRenderer {
 
         sideBrowserFrame.onerror = () => {
             console.warn('Failed to load URL in iframe:', url);
-            this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError, 
+            this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError,
                 'Unable to load citation source. This content may be blocked by security policies.', url);
         };
 
         // Monitor for CSP violations and other frame loading issues
         const cspErrorHandler = (event) => {
-            if (event.data && typeof event.data === 'string' && 
+            if (event.data && typeof event.data === 'string' &&
                 (event.data.includes('frame-ancestors') || event.data.includes('CSP'))) {
                 console.warn('CSP violation detected for iframe:', url);
-                this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError, 
+                this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError,
                     'Content blocked by security policy.', url);
             }
         };
@@ -2864,7 +2894,7 @@ export class MessageRenderer {
         const loadingTimeout = setTimeout(() => {
             if (sideBrowserLoader.style.display !== 'none') {
                 console.warn('Iframe loading timeout for URL:', url);
-                this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError, 
+                this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError,
                     'Loading timeout. This content may be taking too long to load.', url);
                 window.removeEventListener('message', cspErrorHandler);
             }
@@ -2883,7 +2913,7 @@ export class MessageRenderer {
         } catch (error) {
             console.error('Error setting iframe src:', error);
             clearTimeout(loadingTimeout);
-            this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError, 
+            this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError,
                 'Failed to load citation source.', url);
         }
 
@@ -2924,7 +2954,7 @@ export class MessageRenderer {
      */
     setupSideBrowserEventListeners() {
         console.log('[SideBrowser] Setting up event listeners...');
-        
+
         // Use event delegation for better reliability
         document.addEventListener('click', (e) => {
             // Handle close button clicks
@@ -2935,33 +2965,33 @@ export class MessageRenderer {
                 this.closeSideBrowser();
                 return;
             }
-            
+
             // Handle external button clicks
             if (e.target.id === 'openExternalBtn' || e.target.closest('#openExternalBtn')) {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('[SideBrowser] External button clicked via delegation');
-                
+
                 // Try multiple ways to get the URL
                 const sideBrowserError = DOMUtils.getElementById('sideBrowserError');
                 let url = sideBrowserError?.dataset?.url;
-                
+
                 // Fallback: look for URL in button itself
                 if (!url) {
                     const button = e.target.closest('#openExternalBtn') || e.target;
                     url = button?.dataset?.url;
                 }
-                
+
                 // Fallback: look for URL in any parent elements
                 if (!url) {
                     const errorContainer = e.target.closest('.side-browser-error');
                     url = errorContainer?.dataset?.url;
                 }
-                
+
                 console.log('[SideBrowser] External button URL found:', url);
                 console.log('[SideBrowser] sideBrowserError element:', sideBrowserError);
                 console.log('[SideBrowser] sideBrowserError dataset:', sideBrowserError?.dataset);
-                
+
                 if (url) {
                     console.log('[SideBrowser] Opening URL in external browser:', url);
                     window.open(url, '_blank', 'noopener,noreferrer');
@@ -3007,26 +3037,26 @@ export class MessageRenderer {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('[SideBrowser] External button clicked directly');
-                
+
                 // Try multiple ways to get the URL
                 const sideBrowserError = DOMUtils.getElementById('sideBrowserError');
                 let url = sideBrowserError?.dataset?.url;
-                
+
                 // Fallback: look for URL in button itself
                 if (!url) {
                     url = openExternalBtn?.dataset?.url;
                 }
-                
+
                 // Fallback: look for URL in any parent elements
                 if (!url) {
                     const errorContainer = openExternalBtn.closest('.side-browser-error');
                     url = errorContainer?.dataset?.url;
                 }
-                
+
                 console.log('[SideBrowser] External button URL found:', url);
                 console.log('[SideBrowser] sideBrowserError element:', sideBrowserError);
                 console.log('[SideBrowser] sideBrowserError dataset:', sideBrowserError?.dataset);
-                
+
                 if (url) {
                     console.log('[SideBrowser] Opening URL in external browser:', url);
                     window.open(url, '_blank', 'noopener,noreferrer');
@@ -3064,7 +3094,7 @@ export class MessageRenderer {
      */
     closeSideBrowser() {
         console.log('[SideBrowser] Closing side browser...');
-        
+
         const sideBrowser = DOMUtils.getElementById('sideBrowser');
         const sideBrowserFrame = DOMUtils.getElementById('sideBrowserFrame');
 
@@ -3073,7 +3103,7 @@ export class MessageRenderer {
             // Remove all loading states
             DOMUtils.removeClass(sideBrowser, 'open');
             DOMUtils.removeClass(sideBrowser, 'loading');
-            
+
             const sideBrowserContent = sideBrowser.querySelector('.side-browser-content');
             if (sideBrowserContent) {
                 DOMUtils.removeClass(sideBrowserContent, 'loading');
@@ -3127,7 +3157,7 @@ export class MessageRenderer {
      */
     queueMessage(activity, renderType = 'complete') {
         const messageId = activity.id || `${activity.from?.id}-${activity.timestamp}-${Date.now()}`;
-        
+
         // Add timestamp for proper ordering if not present
         if (!activity.timestamp) {
             activity.timestamp = new Date().toISOString();
@@ -3142,10 +3172,10 @@ export class MessageRenderer {
 
         console.log('Queueing message:', messageId, 'Type:', renderType);
         this.messageQueue.push(queueItem);
-        
+
         // Sort queue by timestamp to ensure proper order
         this.messageQueue.sort((a, b) => new Date(a.activity.timestamp) - new Date(b.activity.timestamp));
-        
+
         // Start processing if not already running
         if (!this.isProcessingQueue) {
             this.processMessageQueue();
@@ -3178,7 +3208,7 @@ export class MessageRenderer {
             const { messageId, activity, renderType } = queueItem;
 
             console.log('Processing queued message:', messageId, 'Type:', renderType);
-            
+
             try {
                 // Set current streaming message
                 this.currentlyStreamingMessageId = messageId;
@@ -3191,12 +3221,12 @@ export class MessageRenderer {
                 if (renderType === 'simulate') {
                     const messageLength = activity.text?.length || 0;
                     const estimatedTime = Math.min(messageLength * 10, 30000); // 10ms per char, max 30s
-                    
+
                     const waitPromise = this.waitForStreamingComplete(messageId);
-                    const waitTimeoutPromise = new Promise((_, reject) => 
+                    const waitTimeoutPromise = new Promise((_, reject) =>
                         setTimeout(() => reject(new Error('Streaming completion timeout')), estimatedTime)
                     );
-                    
+
                     try {
                         await Promise.race([waitPromise, waitTimeoutPromise]);
                     } catch (timeoutError) {
@@ -3264,11 +3294,11 @@ export class MessageRenderer {
      */
     clearStreamingState() {
         console.log('Clearing all streaming states. Count:', this.streamingStates.size);
-        
+
         this.streamingStates.forEach((state, messageId) => {
             console.log('Clearing streaming state for message:', messageId);
         });
-        
+
         this.streamingStates.clear();
         this.renderingInProgress.clear();
     }

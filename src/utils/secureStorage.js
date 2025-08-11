@@ -57,7 +57,22 @@ export const SecureStorage = {
             const storedData = localStorage.getItem(`secure_${key}`);
             if (!storedData) return null;
 
-            const parsed = JSON.parse(storedData);
+            // Validate that storedData is a valid JSON string before parsing
+            if (typeof storedData !== 'string') {
+                console.error('Retrieved data is not a string:', typeof storedData);
+                return null;
+            }
+
+            let parsed;
+            try {
+                parsed = JSON.parse(storedData);
+            } catch (jsonError) {
+                console.error('Invalid JSON in localStorage for key:', key, jsonError);
+                // Clear corrupted data
+                localStorage.removeItem(`secure_${key}`);
+                return null;
+            }
+
             const encryptedArray = new Uint8Array(parsed.encrypted);
             const ivArray = new Uint8Array(parsed.iv);
 

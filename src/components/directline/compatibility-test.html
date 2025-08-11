@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DirectLine Library Compatibility Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .test {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .legacy {
+            background: #e7f3ff;
+        }
+
+        .modern {
+            background: #f0fff0;
+        }
+
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>DirectLine Library Compatibility Test</h1>
+
+    <div class="test legacy">
+        <h2>Legacy DirectLine Library (botframework-directlinejs@0.11.6)</h2>
+        <div id="legacyTest">Testing...</div>
+    </div>
+
+    <div class="test modern">
+        <h2>Modern DirectLine Library (botframework-directline@3.0.3)</h2>
+        <div id="modernTest">Testing...</div>
+    </div>
+
+    <!-- Load legacy library first -->
+    <script src="https://unpkg.com/botframework-directlinejs@0.11.6/dist/directline.js"></script>
+
+    <script>
+        // Test legacy library
+        function testLegacyLibrary() {
+            const legacyDiv = document.getElementById('legacyTest');
+
+            if (typeof DirectLine !== 'undefined') {
+                const legacyInfo = {
+                    'DirectLine exists': typeof DirectLine,
+                    'DirectLine.DirectLine': typeof DirectLine.DirectLine,
+                    'DirectLine.ConnectionStatus': typeof DirectLine.ConnectionStatus,
+                    'All properties': Object.keys(DirectLine)
+                };
+
+                legacyDiv.innerHTML = '<h3>✅ Legacy DirectLine Loaded</h3><pre>' +
+                    JSON.stringify(legacyInfo, null, 2) + '</pre>';
+
+                // Test instantiation
+                try {
+                    const testInstance = new DirectLine.DirectLine({ secret: 'test' });
+                    legacyDiv.innerHTML += '<p>✅ Can create DirectLine instance</p>';
+                } catch (error) {
+                    legacyDiv.innerHTML += '<p>❌ Error creating instance: ' + error.message + '</p>';
+                }
+            } else {
+                legacyDiv.innerHTML = '<h3>❌ Legacy DirectLine Failed to Load</h3>';
+            }
+        }
+
+        // Test modern library
+        function testModernLibrary() {
+            const modernDiv = document.getElementById('modernTest');
+
+            // Store legacy DirectLine
+            const legacyDirectLine = window.DirectLine;
+
+            // Load modern library
+            const script = document.createElement('script');
+            script.src = 'https://cdn.botframework.com/botframework-directline/3.0.3/directline.js';
+            script.onload = function () {
+                if (typeof DirectLine !== 'undefined') {
+                    const modernInfo = {
+                        'DirectLine exists': typeof DirectLine,
+                        'DirectLine.DirectLine': typeof DirectLine.DirectLine,
+                        'DirectLine.ConnectionStatus': typeof DirectLine.ConnectionStatus,
+                        'All properties': Object.keys(DirectLine)
+                    };
+
+                    modernDiv.innerHTML = '<h3>✅ Modern DirectLine Loaded</h3><pre>' +
+                        JSON.stringify(modernInfo, null, 2) + '</pre>';
+
+                    // Test instantiation
+                    try {
+                        const testInstance = new DirectLine.DirectLine({ secret: 'test' });
+                        modernDiv.innerHTML += '<p>✅ Can create DirectLine instance</p>';
+                    } catch (error) {
+                        modernDiv.innerHTML += '<p>❌ Error creating instance: ' + error.message + '</p>';
+                    }
+
+                    // Show compatibility comparison
+                    modernDiv.innerHTML += '<h4>Compatibility Check:</h4>';
+                    modernDiv.innerHTML += '<p>Legacy API compatible: ' +
+                        (typeof DirectLine.DirectLine === 'function' ? '✅' : '❌') + '</p>';
+
+                } else {
+                    modernDiv.innerHTML = '<h3>❌ Modern DirectLine Failed to Load</h3>';
+                }
+            };
+            script.onerror = function () {
+                modernDiv.innerHTML = '<h3>❌ Failed to load modern DirectLine</h3>';
+            };
+            document.head.appendChild(script);
+        }
+
+        // Run tests
+        setTimeout(() => {
+            testLegacyLibrary();
+            testModernLibrary();
+        }, 100);
+    </script>
+</body>
+
+</html>

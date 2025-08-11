@@ -66,7 +66,14 @@ export class UnifiedNotificationManager {
             'log-info': { icon: 'ℹ', zone: 'logging', priority: 'medium' },
             'log-warning': { icon: '⚠', zone: 'logging', priority: 'medium' },
             'log-error': { icon: '❌', zone: 'logging', priority: 'high' },
-            'log-success': { icon: '✅', zone: 'logging', priority: 'medium' }
+            'log-success': { icon: '✅', zone: 'logging', priority: 'medium' },
+
+            // Generic types (commonly used by other components)
+            'info': { icon: 'ℹ', zone: 'logging', priority: 'medium' },
+            'warning': { icon: '⚠', zone: 'logging', priority: 'medium' },
+            'error': { icon: '❌', zone: 'logging', priority: 'high' },
+            'success': { icon: '✅', zone: 'logging', priority: 'medium' },
+            'loading': { icon: '⟳', zone: 'logging', priority: 'medium' }
         };
 
         this.initialize();
@@ -78,10 +85,10 @@ export class UnifiedNotificationManager {
      */
     initialize() {
         console.log('[UnifiedNotificationManager] Initializing notification system...');
-        
+
         // Create floating containers for zones that need them
         this.createFloatingContainers();
-        
+
         // Setup cleanup on page unload
         window.addEventListener('beforeunload', () => {
             this.cleanup();
@@ -253,11 +260,11 @@ export class UnifiedNotificationManager {
 
         const element = notification.element;
         const zoneId = notification.zoneId;
-        
+
         // Add hide animation based on zone
         const animationName = this.getHideAnimationForZone(zoneId);
         element.style.animation = `${animationName} ${this.config.animationDuration}ms ease-in-out`;
-        
+
         setTimeout(() => {
             if (element.parentNode) {
                 element.parentNode.removeChild(element);
@@ -302,7 +309,7 @@ export class UnifiedNotificationManager {
         // Apply bottom-center positioning
         const styles = this.getZoneStyles('bottom-center');
         Object.assign(container.style, styles);
-        
+
         document.body.appendChild(container);
         return container;
     }
@@ -342,9 +349,9 @@ export class UnifiedNotificationManager {
         const timestamp = DOMUtils.createElement('div', {
             className: 'unified-notification-timestamp'
         });
-        timestamp.textContent = new Date().toLocaleTimeString([], { 
-            hour: '2-digit', 
-            minute: '2-digit' 
+        timestamp.textContent = new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
         });
 
         // Create close button (only for persistent or long-duration notifications)
@@ -486,14 +493,14 @@ export class UnifiedNotificationManager {
      */
     cleanup() {
         this.clearAll();
-        
+
         // Remove floating containers
         this.containers.forEach(container => {
             if (container.parentNode) {
                 container.parentNode.removeChild(container);
             }
         });
-        
+
         this.containers.clear();
         console.log('[UnifiedNotificationManager] Cleanup completed');
     }

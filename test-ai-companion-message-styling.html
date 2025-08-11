@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Companion Message Styling Test - Elegant Design</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            margin: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+        }
+
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .toggle-btn {
+            background: #8b5fbf;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+
+        .mode-indicator {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .normal-mode {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .ai-companion-mode {
+            background: #f3e5f5;
+            color: #8b5fbf;
+        }
+
+        .style-description {
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 16px 0;
+            color: #0c4a6e;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>AI Companion Message Styling Test</h1>
+
+    <div class="test-section">
+        <h2>Mode Toggle</h2>
+        <button class="toggle-btn" onclick="toggleAICompanionMode()">Toggle AI Companion Mode</button>
+        <div id="modeIndicator" class="mode-indicator normal-mode">Normal Chat Mode</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Message Style Examples</h2>
+
+        <div class="style-description">
+            <strong>新的素雅设计:</strong> AI Companion消息现在使用与agent消息相同的素雅bubble风格，但采用紫色边框和微妙的紫色主题元素，保持视觉的一致性和优雅感。
+        </div>
+
+        <h3>Regular Agent Message</h3>
+        <div class="messageContainer botMessage">
+            <div class="messageContent">
+                This is a regular agent message with the standard light background and subtle border.
+            </div>
+        </div>
+
+        <h3>AI Companion Message (New Elegant Style)</h3>
+        <div class="messageContainer botMessage companion-response">
+            <div class="messageContent">
+                This is an AI Companion message with elegant styling - same bubble design as agent messages but with a
+                subtle purple border and light purple accents. Much more refined than the previous heavy purple
+                background.
+            </div>
+        </div>
+
+        <h3>Thinking Message (Subtle Purple Theme)</h3>
+        <div class="messageContainer botMessage thinking-message companion-response">
+            <div class="messageContent">
+                This is a thinking message with even more subtle styling - italic text and very light purple accent
+                border.
+            </div>
+        </div>
+
+        <h3>Regular User Message (to Agent)</h3>
+        <div class="messageContainer userMessage">
+            <div class="messageContent">
+                Hello! This is a regular user message sent to the main agent. It should have the standard blue gradient
+                background.
+            </div>
+        </div>
+
+        <h3>AI Companion User Message (when AI Companion is active)</h3>
+        <div class="messageContainer userMessage ai-companion-user-message">
+            <div class="messageContent">
+                Hello! This is a user message sent when AI Companion mode is active. It should have a purple gradient
+                background to distinguish it from regular agent messages.
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Dynamic Test</h2>
+        <p>Click the button below to add a user message. The styling will change based on the current mode.</p>
+        <button class="toggle-btn" onclick="addTestMessage()">Add Test User Message</button>
+        <div id="dynamicMessages"></div>
+    </div>
+
+    <script>
+        let messageCounter = 1;
+
+        function toggleAICompanionMode() {
+            const body = document.body;
+            const indicator = document.getElementById('modeIndicator');
+
+            if (body.classList.contains('ai-companion-active')) {
+                body.classList.remove('ai-companion-active');
+                indicator.textContent = 'Normal Chat Mode';
+                indicator.className = 'mode-indicator normal-mode';
+            } else {
+                body.classList.add('ai-companion-active');
+                indicator.textContent = 'AI Companion Mode Active';
+                indicator.className = 'mode-indicator ai-companion-mode';
+            }
+        }
+
+        function addTestMessage() {
+            const container = document.getElementById('dynamicMessages');
+            const isAICompanionActive = document.body.classList.contains('ai-companion-active');
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `messageContainer userMessage${isAICompanionActive ? ' ai-companion-user-message' : ''}`;
+            messageDiv.style.marginBottom = '10px';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'messageContent';
+            contentDiv.textContent = `Test message #${messageCounter++} - ${isAICompanionActive ? 'AI Companion Mode' : 'Normal Mode'}`;
+
+            messageDiv.appendChild(contentDiv);
+            container.appendChild(messageDiv);
+        }
+    </script>
+</body>
+
+</html>

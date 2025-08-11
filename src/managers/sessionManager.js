@@ -13,7 +13,6 @@ export class SessionManager {
         this.currentSessionStorage = 'currentSession';
         this.initializeElements();
         this.initialize();
-        this.setupEventListeners();
     }
 
     /**
@@ -46,12 +45,12 @@ export class SessionManager {
         window.addEventListener('getConversationContext', (e) => {
             const maxMessages = e.detail?.maxMessages || 10;
             console.log(`[Session Manager] Context request received for ${maxMessages} messages`);
-            
+
             const context = this.getConversationContext(maxMessages);
 
             // Store the context in the event detail for the caller to access
             e.detail.context = context;
-            
+
             console.log(`[Session Manager] Context provided: ${context.substring(0, 100)}...`);
 
             // Also dispatch a response event
@@ -118,7 +117,7 @@ export class SessionManager {
      */
     saveCurrentSession() {
         try {
-            localStorage.setItem(this.currentSessionStorage, this.currentSession);
+            localStorage.setItem(this.currentSessionStorage, JSON.stringify(this.currentSession));
         } catch (error) {
             console.error('Error saving current session:', error);
         }
@@ -146,11 +145,13 @@ export class SessionManager {
         try {
             const saved = localStorage.getItem(this.currentSessionStorage);
             if (saved) {
-                this.currentSession = saved;
+                this.currentSession = JSON.parse(saved);
                 console.log('Loaded current session:', this.currentSession);
             }
         } catch (error) {
             console.error('Error loading current session:', error);
+            // Clear corrupted data
+            localStorage.removeItem(this.currentSessionStorage);
         }
     }
 
@@ -179,7 +180,7 @@ export class SessionManager {
         if (message.from === 'user') {
             const sessionMessages = chatHistory.filter(msg => msg.session === sessionId);
             const userMessages = sessionMessages.filter(msg => msg.from === 'user');
-            
+
             if (userMessages.length === 1) {
                 // This is the first user message, session is now meaningful
                 console.log('Session now has user interaction, refreshing session list');
@@ -206,7 +207,7 @@ export class SessionManager {
     cleanupGreetingOnlySessions() {
         console.log('[SessionManager] cleanupGreetingOnlySessions() TEMPORARILY DISABLED - No cleanup performed');
         return; // Exit early without doing any cleanup
-        
+
         const chatHistory = this.getChatHistory();
         const sessions = {};
 
@@ -229,13 +230,13 @@ export class SessionManager {
 
         if (greetingOnlySessions.length > 0) {
             // Remove messages from greeting-only sessions
-            const filteredHistory = chatHistory.filter(message => 
+            const filteredHistory = chatHistory.filter(message =>
                 !greetingOnlySessions.includes(message.session)
             );
-            
+
             this.saveChatHistory(filteredHistory);
             console.log(`Cleaned up ${greetingOnlySessions.length} greeting-only sessions:`, greetingOnlySessions);
-            
+
             // Refresh session list
             this.loadSessionList();
         }
@@ -259,9 +260,20 @@ export class SessionManager {
     getChatHistory() {
         try {
             const history = localStorage.getItem(this.sessionStorage);
-            return history ? JSON.parse(history) : [];
+            if (!history) return [];
+
+            // Validate that history is a string before parsing
+            if (typeof history !== 'string') {
+                console.error('Chat history data is not a string:', typeof history);
+                localStorage.removeItem(this.sessionStorage);
+                return [];
+            }
+
+            return JSON.parse(history);
         } catch (error) {
             console.error('Error loading chat history:', error);
+            // Clear corrupted data
+            localStorage.removeItem(this.sessionStorage);
             return [];
         }
     }
@@ -292,23 +304,23 @@ export class SessionManager {
         try {
             const chatHistory = this.getChatHistory();
             const sessions = this.groupMessagesBySession(chatHistory);
-            
+
             if (sessions[this.currentSession]) {
                 sessions[this.currentSession].title = title;
-                
+
                 // Update all messages in this session to include title reference
                 chatHistory.forEach(message => {
                     if (message.session === this.currentSession) {
                         message.sessionTitle = title;
                     }
                 });
-                
+
                 // Save updated history
                 this.saveChatHistory(chatHistory);
-                
+
                 // Refresh session list to show new title
                 this.loadSessionList();
-                
+
                 console.log(`[Session Manager] Updated session title: "${title}"`);
             }
         } catch (error) {
@@ -581,7 +593,7 @@ export class SessionManager {
         const messages = this.getSessionMessages();
         console.log(`[Session Manager] Total messages in current session: ${messages.length}`);
         console.log(`[Session Manager] Requested maxMessages: ${maxMessages}`);
-        
+
         // For KPI analysis, always provide ALL messages if maxMessages is very large (>500)
         // This ensures completeness analysis gets the full conversation context
         let messagesToInclude;
@@ -598,7 +610,7 @@ export class SessionManager {
             const sender = message.from === 'user' ? 'User' : 'Agent';
             const text = message.text || '[Non-text message]';
             context += `${sender}: ${text}\n`;
-            
+
             // Log first few messages for debugging
             if (index < 3) {
                 console.log(`[Session Manager] Message ${index + 1}: ${sender} - ${text.substring(0, 50)}...`);

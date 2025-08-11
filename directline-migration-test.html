@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DirectLine Component Migration Test</title>
+    <meta name="description"
+        content="Test suite for validating DirectLine component migration from legacy service to new component architecture.">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .success {
+            color: #4CAF50;
+            background: #e8f5e8;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .error {
+            color: #f44336;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .warning {
+            color: #ff9800;
+            background: #fff3e0;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .info {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        button {
+            background: #007ACC;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #005a9a;
+        }
+
+        .test-log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>DirectLine Component Migration Test</h1>
+    <p>Testing migration from legacy DirectLine service to new DirectLine component.</p>
+
+    <div class="test-container">
+        <h2>Migration Status</h2>
+        <div id="migration-status"></div>
+        <button onclick="testMigration()">Test Migration</button>
+        <button onclick="checkCompatibility()">Check API Compatibility</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div class="test-container">
+        <h2>Component Loading Test</h2>
+        <div id="component-results"></div>
+        <button onclick="testComponentLoading()">Test Component Loading</button>
+        <button onclick="testOldVsNew()">Compare Old vs New</button>
+    </div>
+
+    <div class="test-container">
+        <h2>API Methods Test</h2>
+        <div id="api-results"></div>
+        <button onclick="testAPIMethods()">Test API Methods</button>
+        <button onclick="testMethodSignatures()">Test Method Signatures</button>
+    </div>
+
+    <div class="test-container">
+        <h2>Test Log</h2>
+        <div id="test-log" class="test-log"></div>
+    </div>
+
+    <script type="module">
+        let testLog = [];
+
+        function addResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = message;
+            container.appendChild(div);
+        }
+
+        function clearContainer(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        function logMessage(message) {
+            const logContainer = document.getElementById('test-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            testLog.push(`[${timestamp}] ${message}`);
+        }
+
+        function clearResults() {
+            ['migration-status', 'component-results', 'api-results'].forEach(clearContainer);
+            document.getElementById('test-log').innerHTML = '';
+            testLog = [];
+        }
+
+        window.testMigration = async function () {
+            clearContainer('migration-status');
+            logMessage('Starting migration test...');
+
+            try {
+                // Test 1: Check if new DirectLine component can be loaded
+                const { DirectLineManager } = await import('../src/components/directline/DirectLineManager.js');
+                addResult('migration-status', '✅ New DirectLine component loaded successfully', 'success');
+                logMessage('New DirectLine component imported successfully');
+
+                // Test 2: Create instance
+                const manager = new DirectLineManager();
+                addResult('migration-status', '✅ DirectLine component instance created', 'success');
+                logMessage('DirectLine component instance created');
+
+                // Test 3: Check if it has required methods
+                const requiredMethods = ['initialize', 'setCallbacks', 'sendMessage', 'sendGreeting'];
+                const missingMethods = [];
+
+                requiredMethods.forEach(method => {
+                    if (typeof manager[method] === 'function') {
+                        logMessage(`✅ Method '${method}' exists`);
+                    } else {
+                        missingMethods.push(method);
+                        logMessage(`❌ Method '${method}' missing`);
+                    }
+                });
+
+                if (missingMethods.length === 0) {
+                    addResult('migration-status', '✅ All required methods present', 'success');
+                } else {
+                    addResult('migration-status', `❌ Missing methods: ${missingMethods.join(', ')}`, 'error');
+                }
+
+                // Test 4: Check constructor compatibility
+                const configTest = new DirectLineManager({ timeout: 15000 });
+                addResult('migration-status', '✅ Constructor accepts configuration', 'success');
+                logMessage('Constructor configuration test passed');
+
+                addResult('migration-status', '🎉 Migration compatibility test completed', 'success');
+
+            } catch (error) {
+                addResult('migration-status', `❌ Migration test failed: ${error.message}`, 'error');
+                logMessage(`Migration test error: ${error.message}`);
+            }
+        };
+
+        window.checkCompatibility = async function () {
+            clearContainer('migration-status');
+            logMessage('Checking backward compatibility...');
+
+            try {
+                // Test application integration
+                const { app, directLineManager } = await import('../src/core/application.js');
+
+                if (directLineManager) {
+                    addResult('migration-status', '✅ directLineManager export available', 'success');
+                    logMessage('directLineManager is available from application');
+
+                    // Check if it's the same instance as app.directLineManager
+                    if (directLineManager === app.directLineManager) {
+                        addResult('migration-status', '✅ Backward compatibility export working', 'success');
+                        logMessage('directLineManager export points to app instance');
+                    } else {
+                        addResult('migration-status', '⚠️ Export mismatch detected', 'warning');
+                        logMessage('directLineManager export differs from app instance');
+                    }
+                } else {
+                    addResult('migration-status', '❌ directLineManager export not found', 'error');
+                    logMessage('directLineManager export missing');
+                }
+
+                // Check global window reference
+                if (typeof window.directLineManager !== 'undefined') {
+                    addResult('migration-status', '✅ Global window.directLineManager available', 'success');
+                    logMessage('Global directLineManager reference is set');
+                } else {
+                    addResult('migration-status', '⚠️ Global directLineManager not set (set after app initialization)', 'warning');
+                    logMessage('Global directLineManager not available yet');
+                }
+
+            } catch (error) {
+                addResult('migration-status', `❌ Compatibility check failed: ${error.message}`, 'error');
+                logMessage(`Compatibility error: ${error.message}`);
+            }
+        };
+
+        window.testComponentLoading = async function () {
+            clearContainer('component-results');
+            logMessage('Testing component loading...');
+
+            try {
+                // Test new component
+                const newModule = await import('../src/components/directline/DirectLineManager.js');
+                addResult('component-results', '✅ New component loaded', 'success');
+                logMessage('New DirectLine component loaded');
+
+                // Test old service (should be commented out in application.js)
+                try {
+                    const oldModule = await import('../src/services/directLineManager.js');
+                    addResult('component-results', '✅ Old service still accessible (good for rollback)', 'success');
+                    logMessage('Old DirectLine service still accessible');
+                } catch (error) {
+                    addResult('component-results', `❌ Old service not accessible: ${error.message}`, 'error');
+                    logMessage(`Old service error: ${error.message}`);
+                }
+
+                // Compare constructors
+                const NewManager = newModule.DirectLineManager;
+                const newInstance = new NewManager();
+
+                addResult('component-results', '✅ Component loading test completed', 'success');
+
+            } catch (error) {
+                addResult('component-results', `❌ Component loading failed: ${error.message}`, 'error');
+                logMessage(`Component loading error: ${error.message}`);
+            }
+        };
+
+        window.testOldVsNew = async function () {
+            clearContainer('component-results');
+            logMessage('Comparing old vs new DirectLine managers...');
+
+            try {
+                // Load both
+                const newModule = await import('../src/components/directline/DirectLineManager.js');
+                const oldModule = await import('../src/services/directLineManager.js');
+
+                const NewManager = newModule.DirectLineManager;
+                const oldManagerInstance = oldModule.directLineManager;
+
+                // Compare API methods
+                const newInstance = new NewManager();
+                const commonMethods = ['initialize', 'setCallbacks', 'sendMessage', 'sendGreeting'];
+
+                addResult('component-results', '<h4>API Comparison:</h4>', 'info');
+
+                commonMethods.forEach(method => {
+                    const newHas = typeof newInstance[method] === 'function';
+                    const oldHas = typeof oldManagerInstance[method] === 'function';
+
+                    if (newHas && oldHas) {
+                        addResult('component-results', `✅ ${method}: Both have this method`, 'success');
+                    } else if (newHas && !oldHas) {
+                        addResult('component-results', `⚠️ ${method}: Only new component has this`, 'warning');
+                    } else if (!newHas && oldHas) {
+                        addResult('component-results', `❌ ${method}: Only old service has this`, 'error');
+                    } else {
+                        addResult('component-results', `❌ ${method}: Neither has this method`, 'error');
+                    }
+                });
+
+                logMessage('API comparison completed');
+
+            } catch (error) {
+                addResult('component-results', `❌ Comparison failed: ${error.message}`, 'error');
+                logMessage(`Comparison error: ${error.message}`);
+            }
+        };
+
+        window.testAPIMethods = async function () {
+            clearContainer('api-results');
+            logMessage('Testing API methods...');
+
+            try {
+                const { DirectLineManager } = await import('../src/components/directline/DirectLineManager.js');
+                const manager = new DirectLineManager();
+
+                // Test setCallbacks
+                let callbacksSet = false;
+                try {
+                    manager.setCallbacks({
+                        onActivity: (activity) => console.log('Test activity:', activity),
+                        onError: (error) => console.log('Test error:', error),
+                        onConnectionStatusChange: (status) => console.log('Test status:', status)
+                    });
+                    callbacksSet = true;
+                    addResult('api-results', '✅ setCallbacks() works', 'success');
+                } catch (error) {
+                    addResult('api-results', `❌ setCallbacks() failed: ${error.message}`, 'error');
+                }
+
+                // Test other methods (without actually connecting)
+                const methods = [
+                    { name: 'sendMessage', args: ['test message', []] },
+                    { name: 'sendGreeting', args: [] }
+                ];
+
+                methods.forEach(({ name, args }) => {
+                    try {
+                        // These should fail gracefully without crashing
+                        manager[name](...args);
+                        addResult('api-results', `⚠️ ${name}() should fail when not initialized`, 'warning');
+                    } catch (error) {
+                        if (error.message.includes('not initialized')) {
+                            addResult('api-results', `✅ ${name}() properly checks initialization`, 'success');
+                        } else {
+                            addResult('api-results', `❌ ${name}() unexpected error: ${error.message}`, 'error');
+                        }
+                    }
+                });
+
+                logMessage('API methods test completed');
+
+            } catch (error) {
+                addResult('api-results', `❌ API test failed: ${error.message}`, 'error');
+                logMessage(`API test error: ${error.message}`);
+            }
+        };
+
+        window.testMethodSignatures = async function () {
+            clearContainer('api-results');
+            logMessage('Testing method signatures...');
+
+            try {
+                const { DirectLineManager } = await import('../src/components/directline/DirectLineManager.js');
+                const manager = new DirectLineManager();
+
+                // Check method signatures
+                const signatures = {
+                    'initialize': 1, // expects 1 parameter (secret)
+                    'setCallbacks': 1, // expects 1 parameter (callbacks object)
+                    'sendMessage': 2, // expects 2 parameters (text, attachments)
+                    'sendGreeting': 0  // expects 0 parameters
+                };
+
+                addResult('api-results', '<h4>Method Signatures:</h4>', 'info');
+
+                Object.entries(signatures).forEach(([methodName, expectedParams]) => {
+                    const method = manager[methodName];
+                    if (typeof method === 'function') {
+                        const actualParams = method.length;
+                        if (actualParams === expectedParams) {
+                            addResult('api-results', `✅ ${methodName}(${expectedParams} params) - Correct signature`, 'success');
+                        } else {
+                            addResult('api-results', `⚠️ ${methodName}(${actualParams} params) - Expected ${expectedParams}`, 'warning');
+                        }
+                    } else {
+                        addResult('api-results', `❌ ${methodName} - Method not found`, 'error');
+                    }
+                });
+
+                logMessage('Method signatures test completed');
+
+            } catch (error) {
+                addResult('api-results', `❌ Signature test failed: ${error.message}`, 'error');
+                logMessage(`Signature test error: ${error.message}`);
+            }
+        };
+
+        // Initialize
+        window.addEventListener('load', () => {
+            logMessage('DirectLine migration test initialized');
+            addResult('migration-status', 'Click "Test Migration" to verify the migration is working correctly', 'info');
+            addResult('component-results', 'Test component loading and compatibility', 'info');
+            addResult('api-results', 'Test API methods and signatures', 'info');
+        });
+    </script>
+</body>
+
+</html>

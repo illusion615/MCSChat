@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>localStorage Diagnostic</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007acc;
+        }
+
+        .corrupted {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+
+        .healthy {
+            background: #e8f5e8;
+            border-left-color: #4caf50;
+        }
+
+        .error {
+            background: #fff3cd;
+            border-left-color: #ff9800;
+            border: 1px solid #ffc107;
+        }
+
+        .button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .button:hover {
+            background: #005a9e;
+        }
+
+        .button.danger {
+            background: #f44336;
+        }
+
+        .button.danger:hover {
+            background: #d32f2f;
+        }
+
+        .entry {
+            background: white;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .key {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .value {
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 5px;
+            border-radius: 3px;
+            margin: 5px 0;
+            word-break: break-all;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status.corrupted {
+            background: #ffcdd2;
+            color: #d32f2f;
+        }
+
+        .status.healthy {
+            background: #c8e6c9;
+            color: #388e3c;
+        }
+
+        .status.warning {
+            background: #fff3cd;
+            color: #f57c00;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .summary-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007acc;
+        }
+
+        .log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>localStorage Diagnostic Tool</h1>
+        <p>Detect and fix corrupted localStorage entries that cause JSON parsing errors</p>
+    </div>
+
+    <div class="summary" id="summary">
+        <!-- Summary cards will be populated here -->
+    </div>
+
+    <div class="section">
+        <h2>Quick Actions</h2>
+        <button class="button" onclick="scanStorage()">🔍 Scan localStorage</button>
+        <button class="button danger" onclick="cleanCorrupted()">🧹 Clean Corrupted Entries</button>
+        <button class="button" onclick="exportStorage()">📁 Export All Data</button>
+        <button class="button danger" onclick="clearAllStorage()">🗑️ Clear All localStorage</button>
+    </div>
+
+    <div class="section" id="results">
+        <h2>Scan Results</h2>
+        <p>Click "Scan localStorage" to analyze your storage.</p>
+    </div>
+
+    <div class="section">
+        <h2>Activity Log</h2>
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let scanResults = {};
+
+        function log(message, type = 'info') {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#f44336' : type === 'success' ? '#4caf50' : type === 'warning' ? '#ff9800' : '#d4d4d4';
+            logElement.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function updateSummary() {
+            const summary = document.getElementById('summary');
+            const total = Object.keys(scanResults).length;
+            const corrupted = Object.values(scanResults).filter(r => r.status === 'corrupted').length;
+            const healthy = Object.values(scanResults).filter(r => r.status === 'healthy').length;
+            const warnings = Object.values(scanResults).filter(r => r.status === 'warning').length;
+
+            summary.innerHTML = `
+                <div class="summary-card">
+                    <div class="summary-number">${total}</div>
+                    <div>Total Entries</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-number" style="color: #4caf50">${healthy}</div>
+                    <div>Healthy</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-number" style="color: #ff9800">${warnings}</div>
+                    <div>Warnings</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-number" style="color: #f44336">${corrupted}</div>
+                    <div>Corrupted</div>
+                </div>
+            `;
+        }
+
+        function isCorruptedValue(value) {
+            if (value === null) return false;
+
+            // Check for common corruption patterns
+            const corruptionPatterns = [
+                '[object Object]',
+                '[object Array]',
+                '[object HTMLElement]',
+                '[object Window]',
+                '[object Document]',
+                'undefined',
+                'null'
+            ];
+
+            return corruptionPatterns.some(pattern => value === pattern);
+        }
+
+        function analyzeValue(key, value) {
+            if (value === null) {
+                return { status: 'warning', issue: 'Null value' };
+            }
+
+            if (isCorruptedValue(value)) {
+                return { status: 'corrupted', issue: `Corrupted object string: ${value}` };
+            }
+
+            // Try to parse as JSON
+            try {
+                JSON.parse(value);
+                return { status: 'healthy', issue: 'Valid JSON' };
+            } catch (e) {
+                // Check if it's a simple string (not meant to be JSON)
+                if (typeof value === 'string' && !value.startsWith('{') && !value.startsWith('[')) {
+                    return { status: 'healthy', issue: 'Simple string value' };
+                }
+
+                return { status: 'warning', issue: `Invalid JSON: ${e.message}` };
+            }
+        }
+
+        function scanStorage() {
+            log('Starting localStorage scan...');
+            scanResults = {};
+
+            try {
+                const storageLength = localStorage.length;
+                log(`Found ${storageLength} localStorage entries`);
+
+                for (let i = 0; i < storageLength; i++) {
+                    const key = localStorage.key(i);
+                    if (!key) continue;
+
+                    const value = localStorage.getItem(key);
+                    const analysis = analyzeValue(key, value);
+
+                    scanResults[key] = {
+                        value: value,
+                        truncatedValue: value ? value.substring(0, 100) + (value.length > 100 ? '...' : '') : 'null',
+                        size: value ? value.length : 0,
+                        ...analysis
+                    };
+
+                    if (analysis.status === 'corrupted') {
+                        log(`CORRUPTED: ${key} = ${value}`, 'error');
+                    } else if (analysis.status === 'warning') {
+                        log(`WARNING: ${key} - ${analysis.issue}`, 'warning');
+                    }
+                }
+
+                displayResults();
+                updateSummary();
+                log('Scan completed successfully', 'success');
+
+            } catch (error) {
+                log(`Error during scan: ${error.message}`, 'error');
+            }
+        }
+
+        function displayResults() {
+            const resultsElement = document.getElementById('results');
+            const entries = Object.entries(scanResults);
+
+            if (entries.length === 0) {
+                resultsElement.innerHTML = '<h2>Scan Results</h2><p>No entries found or scan not performed.</p>';
+                return;
+            }
+
+            let html = '<h2>Scan Results</h2>';
+
+            // Group by status
+            const grouped = {
+                corrupted: entries.filter(([k, v]) => v.status === 'corrupted'),
+                warning: entries.filter(([k, v]) => v.status === 'warning'),
+                healthy: entries.filter(([k, v]) => v.status === 'healthy')
+            };
+
+            Object.entries(grouped).forEach(([status, items]) => {
+                if (items.length === 0) return;
+
+                const sectionClass = status === 'corrupted' ? 'corrupted' : status === 'warning' ? 'error' : 'healthy';
+                html += `<div class="section ${sectionClass}">`;
+                html += `<h3>${status.toUpperCase()} (${items.length})</h3>`;
+
+                items.forEach(([key, data]) => {
+                    html += `
+                        <div class="entry">
+                            <div class="key">${key} <span class="status ${status}">${status}</span></div>
+                            <div style="font-size: 12px; color: #666;">Size: ${data.size} chars | ${data.issue}</div>
+                            <div class="value">${data.truncatedValue || 'null'}</div>
+                            ${status === 'corrupted' ? `<button class="button danger" onclick="removeSingleEntry('${key}')">Remove</button>` : ''}
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+            });
+
+            resultsElement.innerHTML = html;
+        }
+
+        function cleanCorrupted() {
+            const corruptedKeys = Object.entries(scanResults)
+                .filter(([k, v]) => v.status === 'corrupted')
+                .map(([k, v]) => k);
+
+            if (corruptedKeys.length === 0) {
+                log('No corrupted entries found to clean', 'warning');
+                return;
+            }
+
+            if (!confirm(`This will remove ${corruptedKeys.length} corrupted entries. Continue?`)) {
+                return;
+            }
+
+            let cleaned = 0;
+            corruptedKeys.forEach(key => {
+                try {
+                    localStorage.removeItem(key);
+                    delete scanResults[key];
+                    cleaned++;
+                    log(`Removed corrupted entry: ${key}`, 'success');
+                } catch (error) {
+                    log(`Error removing ${key}: ${error.message}`, 'error');
+                }
+            });
+
+            log(`Cleaned ${cleaned} corrupted entries`, 'success');
+            displayResults();
+            updateSummary();
+        }
+
+        function removeSingleEntry(key) {
+            if (!confirm(`Remove localStorage entry "${key}"?`)) return;
+
+            try {
+                localStorage.removeItem(key);
+                delete scanResults[key];
+                log(`Removed entry: ${key}`, 'success');
+                displayResults();
+                updateSummary();
+            } catch (error) {
+                log(`Error removing ${key}: ${error.message}`, 'error');
+            }
+        }
+
+        function exportStorage() {
+            try {
+                const data = {};
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    data[key] = localStorage.getItem(key);
+                }
+
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `localStorage-backup-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+
+                log('localStorage exported successfully', 'success');
+            } catch (error) {
+                log(`Error exporting localStorage: ${error.message}`, 'error');
+            }
+        }
+
+        function clearAllStorage() {
+            if (!confirm('This will permanently delete ALL localStorage data. Are you sure?')) {
+                return;
+            }
+
+            if (!confirm('This action cannot be undone. Continue?')) {
+                return;
+            }
+
+            try {
+                localStorage.clear();
+                scanResults = {};
+                log('All localStorage data cleared', 'success');
+                displayResults();
+                updateSummary();
+            } catch (error) {
+                log(`Error clearing localStorage: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-scan on page load
+        window.addEventListener('load', () => {
+            log('Page loaded, starting initial scan...');
+            scanStorage();
+        });
+    </script>
+</body>
+
+</html>

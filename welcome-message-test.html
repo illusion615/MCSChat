@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome Message Test</title>
+    <meta name="description"
+        content="Test suite for validating DirectLine welcome message functionality and bot greeting responses.">
+    <!-- Load DirectLine like main app -->
+    <script src="https://unpkg.com/botframework-directlinejs@0.11.6/dist/directline.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .error {
+            color: red;
+            background: #ffebee;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        .success {
+            color: green;
+            background: #e8f5e8;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        .info {
+            color: blue;
+            background: #e3f2fd;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        .warning {
+            color: orange;
+            background: #fff3e0;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        button {
+            background: #007ACC;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #005a9a;
+        }
+
+        .test-log {
+            background: #f5f5f5;
+            padding: 10px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Welcome Message Test</h1>
+    <p>Testing if the new DirectLine component properly triggers welcome messages.</p>
+
+    <div>
+        <h3>DirectLine Secret:</h3>
+        <input type="password" id="secretInput" placeholder="Enter DirectLine secret..."
+            style="width: 400px; padding: 8px;">
+        <button onclick="testWelcomeMessage()">Test Welcome Message</button>
+        <button onclick="clearResults()">Clear</button>
+    </div>
+
+    <div id="results"></div>
+    <div id="test-log" class="test-log"></div>
+
+    <script type="module">
+        let testManager = null;
+        let messageCount = 0;
+        let botMessageReceived = false;
+
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = message;
+            document.getElementById('results').appendChild(div);
+
+            // Also log to test log
+            const logDiv = document.createElement('div');
+            logDiv.textContent = `[${new Date().toLocaleTimeString()}] ${message.replace(/<[^>]*>/g, '')}`;
+            document.getElementById('test-log').appendChild(logDiv);
+            document.getElementById('test-log').scrollTop = document.getElementById('test-log').scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('test-log').innerHTML = '';
+            messageCount = 0;
+            botMessageReceived = false;
+        }
+
+        window.testWelcomeMessage = async function () {
+            const secret = document.getElementById('secretInput').value.trim();
+            if (!secret) {
+                log('❌ Please enter a DirectLine secret', 'error');
+                return;
+            }
+
+            clearResults();
+            log('🧪 Starting welcome message test...', 'info');
+
+            try {
+                // Load the new component
+                const { DirectLineManager } = await import('../src/components/directline/DirectLineManagerSimple.js');
+                testManager = new DirectLineManager();
+                log('✅ DirectLine component loaded', 'success');
+
+                // Set up callbacks to monitor messages
+                testManager.setCallbacks({
+                    onActivity: (activity) => {
+                        messageCount++;
+                        log(`📨 Activity received (#${messageCount}): ${activity.type} from ${activity.from?.name || activity.from?.id || 'unknown'}`, 'info');
+
+                        if (activity.type === 'message' && activity.from?.id !== 'user') {
+                            botMessageReceived = true;
+                            log(`🤖 <strong>Bot message received!</strong> Text: "${activity.text || '[no text]'}"`, 'success');
+
+                            // Check if this looks like a welcome message
+                            if (activity.text && (
+                                activity.text.toLowerCase().includes('hello') ||
+                                activity.text.toLowerCase().includes('welcome') ||
+                                activity.text.toLowerCase().includes('hi') ||
+                                activity.text.toLowerCase().includes('start')
+                            )) {
+                                log('🎉 <strong>Welcome message detected!</strong>', 'success');
+                            }
+                        } else if (activity.type === 'typing') {
+                            log('⌨️ Bot is typing...', 'info');
+                        } else {
+                            log(`📋 Other activity: ${JSON.stringify(activity, null, 2)}`, 'info');
+                        }
+                    },
+                    onConnectionStatusChange: (status) => {
+                        const statusNames = {
+                            0: 'Uninitialized',
+                            1: 'Connecting',
+                            2: 'Online',
+                            3: 'ExpiredToken',
+                            4: 'FailedToConnect',
+                            5: 'Ended'
+                        };
+
+                        log(`🔌 Connection status: ${statusNames[status] || status}`, status === 2 ? 'success' : 'info');
+
+                        if (status === 2) {
+                            log('🚀 Connection online! Automatic greeting should be sent...', 'success');
+
+                            // Set a timeout to check if we get a response
+                            setTimeout(() => {
+                                if (!botMessageReceived) {
+                                    log('⚠️ No bot message received after 10 seconds. Welcome message may not be working.', 'warning');
+                                    log('💡 Try manually calling sendGreeting() or check bot configuration.', 'info');
+                                }
+                            }, 10000);
+                        }
+                    },
+                    onError: (error) => {
+                        log(`❌ DirectLine error: ${error.message}`, 'error');
+                    }
+                });
+
+                // Initialize connection
+                log('🔌 Initializing DirectLine connection...', 'info');
+                const success = await testManager.initialize(secret);
+
+                if (success) {
+                    log('✅ DirectLine initialized successfully', 'success');
+                    log('⏳ Waiting for welcome message... (this may take a few seconds)', 'info');
+                } else {
+                    log('❌ DirectLine initialization failed', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ Test failed: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        // Manual greeting test
+        window.manualGreeting = function () {
+            if (testManager) {
+                log('📤 Manually sending greeting...', 'info');
+                testManager.sendGreeting();
+            } else {
+                log('❌ No DirectLine manager initialized', 'error');
+            }
+        };
+
+        window.clearResults = clearResults;
+
+        // Add manual greeting button after page loads
+        window.addEventListener('load', () => {
+            const container = document.querySelector('div');
+            const manualButton = document.createElement('button');
+            manualButton.textContent = 'Manual Greeting';
+            manualButton.onclick = manualGreeting;
+            container.appendChild(manualButton);
+        });
+    </script>
+</body>
+
+</html>

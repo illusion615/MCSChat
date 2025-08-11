@@ -1,0 +1,553 @@
+/**
+ * Unified Message Styles
+ * Consolidated styles for all message types using the unified message renderer
+ * This file contains ALL unified message styling to prevent conflicts
+ */
+
+/* =================================================================
+   ANIMATIONS AND KEYFRAMES
+   ================================================================= */
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes blink {
+
+    0%,
+    50% {
+        opacity: 1;
+    }
+
+    51%,
+    100% {
+        opacity: 0;
+    }
+}
+
+/* =================================================================
+   UNIFIED MESSAGE CONTAINER
+   ================================================================= */
+.unified-message {
+    display: flex;
+    align-items: flex-start;
+    margin: 8px 0;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    animation: messageSlideIn 0.3s ease-out;
+}
+
+.unified-message.user {
+    justify-content: flex-end;
+}
+
+.unified-message.agent,
+.unified-message.ai-companion,
+.unified-message.system,
+.unified-message.error {
+    justify-content: flex-start;
+}
+
+/* =================================================================
+   UNIFIED MESSAGE ICONS
+   ================================================================= */
+.unified-message-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    margin: 4px;
+    margin-top: 12px;
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+/* AI Companion icons should be 28x28 */
+.unified-message.ai-companion .unified-message-icon,
+.unified-message.thinking .unified-message-icon {
+    width: 28px;
+    height: 28px;
+}
+
+.unified-message.user .unified-message-icon {
+    order: 2;
+    margin-left: 12px;
+    margin-right: 0;
+}
+
+.unified-message.agent .unified-message-icon,
+.unified-message.ai-companion .unified-message-icon,
+.unified-message.system .unified-message-icon,
+.unified-message.error .unified-message-icon {
+    margin-right: 12px;
+}
+
+/* Type-specific icon styling */
+.unified-message.user .unified-message-icon {
+    background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+}
+
+.unified-message.agent .unified-message-icon {
+    background: transparent;
+}
+
+.unified-message.ai-companion .unified-message-icon {
+    background: #ffffff;
+    border-radius: 50%;
+}
+
+.unified-message.system .unified-message-icon {
+    background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+}
+
+.unified-message.error .unified-message-icon {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+/* =================================================================
+   LEGACY COMPATIBILITY FOR MESSAGEICON CLASS
+   ================================================================= */
+.unified-message .messageIcon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-right: 12px;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* Type-specific legacy compatibility */
+.unified-message.ai-companion .messageIcon,
+.unified-message.thinking .messageIcon {
+    width: 28px;
+    height: 28px;
+}
+
+.unified-message.user .messageIcon {
+    order: 2;
+    margin-right: 0;
+    margin-left: 12px;
+}
+
+.unified-message.agent .messageIcon,
+.unified-message.ai-companion .messageIcon,
+.unified-message.thinking .messageIcon,
+.unified-message.system .messageIcon,
+.unified-message.error .messageIcon {
+    order: 1;
+}
+
+.unified-message.user .messageIcon {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.unified-message.agent .messageIcon {
+    background: transparent;
+}
+
+.unified-message.ai-companion .messageIcon {
+    background: #ffffff;
+    border-radius: 50%;
+}
+
+.unified-message.system .messageIcon {
+    background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+}
+
+.unified-message.error .messageIcon {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+/* =================================================================
+   MESSAGE BODY AND CONTENT
+   ================================================================= */
+.unified-message-body {
+    display: flex;
+    flex-direction: column;
+    max-width: 85%;
+    min-width: 0;
+}
+
+.unified-message-content {
+    padding: 16px 20px;
+    border-radius: 20px;
+    line-height: 1.6;
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    font-size: var(--unified-message-font-size, 15px);
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+/* =================================================================
+   TYPE-SPECIFIC MESSAGE CONTENT STYLING
+   ================================================================= */
+
+/* User message styling */
+.unified-message.user .unified-message-content {
+    background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+    color: #ffffff;
+    border-radius: 20px 20px 4px 20px;
+    box-shadow: 0 2px 8px rgba(0, 120, 212, 0.3);
+    font-weight: 500;
+}
+
+/* Agent message styling */
+.unified-message.agent .unified-message-content {
+    background: rgba(248, 249, 250, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    color: #323130;
+    border-radius: 20px 20px 20px 4px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(10px);
+}
+
+/* AI Companion message styling */
+.unified-message.ai-companion .unified-message-content {
+    background: rgba(248, 249, 250, 0.95);
+    border: 1px solid rgba(139, 95, 191, 0.3);
+    color: #323130;
+    border-radius: 20px 20px 20px 4px;
+    box-shadow: 0 2px 8px rgba(139, 95, 191, 0.12);
+    backdrop-filter: blur(10px);
+}
+
+/* Thinking message styling */
+.unified-message.thinking .unified-message-content {
+    background: rgba(248, 249, 250, 0.95);
+    border: 1px solid rgba(167, 139, 250, 0.25);
+    color: #555566;
+    font-style: italic;
+    opacity: 0.9;
+    border-radius: 20px 20px 20px 4px;
+    box-shadow: 0 2px 6px rgba(167, 139, 250, 0.1);
+}
+
+/* System message styling */
+.unified-message.system .unified-message-content {
+    background: rgba(243, 244, 246, 0.95);
+    border: 1px solid rgba(107, 114, 128, 0.3);
+    color: #374151;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 14px;
+}
+
+/* Error message styling */
+.unified-message.error .unified-message-content {
+    background: rgba(254, 242, 242, 0.95);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #dc2626;
+    border-radius: 20px 20px 20px 4px;
+    border-left: 4px solid #ef4444;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.1);
+}
+
+/* =================================================================
+   MESSAGE METADATA
+   ================================================================= */
+.unified-message-metadata {
+    font-size: 11px;
+    color: #8a8886;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.8;
+    line-height: 1.3;
+    padding: 0 4px;
+}
+
+.unified-message.user .unified-message-metadata {
+    justify-content: flex-end;
+}
+
+.unified-message.agent .unified-message-metadata,
+.unified-message.ai-companion .unified-message-metadata,
+.unified-message.thinking .unified-message-metadata,
+.unified-message.system .unified-message-metadata,
+.unified-message.error .unified-message-metadata {
+    justify-content: flex-start;
+}
+
+/* Metadata components */
+.message-timestamp {
+    color: #8a8886;
+}
+
+.message-model {
+    color: #6b7280;
+    font-weight: 500;
+    background: rgba(0, 0, 0, 0.05);
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 10px;
+}
+
+.message-tokens {
+    color: #6b7280;
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 10px;
+    background: rgba(0, 0, 0, 0.05);
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+.message-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+.message-status.delivered {
+    background: rgba(34, 197, 94, 0.1);
+    color: #16a34a;
+}
+
+.message-status.error {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+.message-status.pending {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+}
+
+/* Speaker controls in metadata */
+.unified-message-metadata .speaker-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* =================================================================
+   ENHANCED MARKDOWN SUPPORT
+   ================================================================= */
+.unified-message-content h1,
+.unified-message-content h2,
+.unified-message-content h3,
+.unified-message-content h4,
+.unified-message-content h5,
+.unified-message-content h6 {
+    margin: 16px 0 8px 0;
+    line-height: 1.3;
+    font-weight: 600;
+}
+
+.unified-message-content h1:first-child,
+.unified-message-content h2:first-child,
+.unified-message-content h3:first-child,
+.unified-message-content h4:first-child,
+.unified-message-content h5:first-child,
+.unified-message-content h6:first-child {
+    margin-top: 0;
+}
+
+.unified-message-content p {
+    margin: 0 0 12px 0;
+    line-height: 1.6;
+}
+
+.unified-message-content p:last-child {
+    margin-bottom: 0;
+}
+
+.unified-message-content code {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.9em;
+}
+
+.unified-message.user .unified-message-content code {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.unified-message-content pre {
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    padding: 12px;
+    margin: 12px 0;
+    overflow-x: auto;
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+.unified-message.user .unified-message-content pre {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.unified-message-content pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+}
+
+.unified-message-content ul,
+.unified-message-content ol {
+    margin: 12px 0;
+    padding-left: 24px;
+}
+
+.unified-message-content li {
+    margin: 4px 0;
+    line-height: 1.5;
+}
+
+.unified-message-content blockquote {
+    border-left: 4px solid rgba(0, 0, 0, 0.2);
+    margin: 12px 0;
+    padding: 8px 0 8px 16px;
+    color: rgba(0, 0, 0, 0.7);
+    font-style: italic;
+}
+
+.unified-message.user .unified-message-content blockquote {
+    border-left-color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* =================================================================
+   STREAMING EFFECTS
+   ================================================================= */
+.unified-message-content.streaming {
+    border-left: 3px solid #0073e6;
+    transition: border-left 0.3s ease;
+}
+
+.unified-message-content.streaming::after {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 2px;
+    background: #0073e6;
+    margin-left: 4px;
+    animation: blink 1s infinite;
+    vertical-align: middle;
+}
+
+/* =================================================================
+   QUEUE STATUS INDICATOR
+   ================================================================= */
+.unified-queue-status {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 120, 212, 0.1);
+    border: 1px solid rgba(0, 120, 212, 0.3);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #0056b3;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.unified-queue-status.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.unified-queue-status.processing {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.3);
+    color: #d97706;
+}
+
+.unified-queue-status.error {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #dc2626;
+}
+
+/* =================================================================
+   PROFESSIONAL MODE ADJUSTMENTS
+   ================================================================= */
+.full-width-messages .unified-message.agent .unified-message-content,
+.full-width-messages .unified-message.ai-companion .unified-message-content {
+    max-width: 100%;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: var(--spacing-md) 0;
+    margin: var(--spacing-sm) 0;
+    box-shadow: none;
+}
+
+.full-width-messages .unified-message.agent,
+.full-width-messages .unified-message.ai-companion {
+    justify-content: stretch;
+    background: transparent;
+    margin: 0;
+    padding: 0;
+}
+
+.full-width-messages .unified-message.agent .unified-message-icon,
+.full-width-messages .unified-message.ai-companion .unified-message-icon {
+    display: none;
+}
+
+.full-width-messages .unified-message-metadata {
+    display: flex;
+    margin-left: 0;
+    opacity: 0.6;
+    font-size: 10px;
+}
+
+/* =================================================================
+   RESPONSIVE ADJUSTMENTS
+   ================================================================= */
+@media (max-width: 768px) {
+    .unified-message-icon {
+        display: none;
+    }
+
+    .unified-message-body {
+        max-width: 90%;
+    }
+
+    .unified-message-content {
+        padding: 12px 16px;
+        font-size: 15px;
+        line-height: 1.5;
+    }
+
+    .unified-message.user .unified-message-content {
+        max-width: 90%;
+    }
+
+    .unified-message.thinking .unified-message-icon {
+        display: none;
+    }
+}

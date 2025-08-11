@@ -1,6 +1,17 @@
 /**
- * DirectLine Connection Manager
- * Handles Microsoft Bot Framework DirectLine API connections and subscriptions
+ * DirectLine Connection Manager (Legacy)
+ * 
+ * ⚠️  DEPRECATED: This file is maintained for backward compatibility only.
+ * Please use the new reusable component instead:
+ * 
+ * import { DirectLineManager } from '../components/directline/DirectLineManager.js';
+ * 
+ * The new component provides:
+ * - Enhanced streaming support
+ * - Better error handling
+ * - Comprehensive documentation
+ * - Test suite included
+ * - Theme support and accessibility
  */
 
 import { Utils } from '../utils/helpers.js';
@@ -271,11 +282,23 @@ export class DirectLineManager {
      */
     getLastUserMessage() {
         try {
-            const chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
+            const chatHistoryData = localStorage.getItem('chatHistory');
+            if (!chatHistoryData) return null;
+
+            // Validate that chatHistoryData is a string before parsing
+            if (typeof chatHistoryData !== 'string') {
+                console.error('Chat history data is not a string:', typeof chatHistoryData);
+                localStorage.removeItem('chatHistory');
+                return null;
+            }
+
+            const chatHistory = JSON.parse(chatHistoryData);
             const userMessages = chatHistory.filter(msg => msg.sender === 'user');
             return userMessages.length > 0 ? userMessages[userMessages.length - 1].message : null;
         } catch (error) {
             console.warn('Could not retrieve last user message:', error);
+            // Clear corrupted data
+            localStorage.removeItem('chatHistory');
             return null;
         }
     }
@@ -598,21 +621,36 @@ export class DirectLineManager {
         // Method 4: If no greeting after 3 seconds, send an empty message (last resort)
         setTimeout(() => {
             // Check if we've received any bot messages yet
-            const chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
-            const currentSession = sessionStorage.getItem('currentSession') || 'default';
-            const currentSessionMessages = chatHistory.filter(entry => entry.session === currentSession);
+            try {
+                const chatHistoryData = localStorage.getItem('chatHistory');
+                let chatHistory = [];
 
-            // Only send empty message if no bot messages received yet
-            if (currentSessionMessages.filter(msg => msg.sender === 'bot').length === 0) {
-                console.log('No greeting received, sending empty message...');
-                this.directLine.postActivity({
-                    from: { id: 'user' },
-                    type: 'message',
-                    text: ''
-                }).subscribe(
-                    id => console.log('Empty message sent to trigger greeting, id:', id),
-                    error => console.error('Error sending empty message:', error)
-                );
+                if (chatHistoryData) {
+                    if (typeof chatHistoryData !== 'string') {
+                        console.error('Chat history data is not a string:', typeof chatHistoryData);
+                        localStorage.removeItem('chatHistory');
+                    } else {
+                        chatHistory = JSON.parse(chatHistoryData);
+                    }
+                }
+
+                const currentSession = sessionStorage.getItem('currentSession') || 'default';
+                const currentSessionMessages = chatHistory.filter(entry => entry.session === currentSession);
+
+                // Only send empty message if no bot messages received yet
+                if (currentSessionMessages.filter(msg => msg.sender === 'bot').length === 0) {
+                    console.log('No greeting received, sending empty message...');
+                    this.directLine.postActivity({
+                        from: { id: 'user' },
+                        type: 'message',
+                        text: ''
+                    }).subscribe(
+                        id => console.log('Empty message sent to trigger greeting, id:', id),
+                        error => console.error('Error sending empty message:', error)
+                    );
+                }
+            } catch (error) {
+                console.error('Error checking chat history for greeting:', error);
             }
         }, 3000);
     }

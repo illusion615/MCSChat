@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Theme Gallery Test</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div style="padding: 20px;">
+        <h1>Color Theme Gallery Test</h1>
+        <p>This page tests the color theme selection functionality.</p>
+
+        <div class="settings-section">
+            <h3>🎨 Color Theme</h3>
+            <p>Choose a background gradient theme</p>
+
+            <div class="color-theme-gallery">
+                <div class="theme-options">
+                    <div class="theme-option selected" data-theme="default">
+                        <div class="theme-gradient"
+                            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+                        <div class="theme-name">Default</div>
+                    </div>
+                    <div class="theme-option" data-theme="ocean">
+                        <div class="theme-gradient"
+                            style="background: linear-gradient(135deg, #2E86AB 0%, #A23B72 100%);"></div>
+                        <div class="theme-name">Ocean</div>
+                    </div>
+                    <div class="theme-option" data-theme="sunset">
+                        <div class="theme-gradient"
+                            style="background: linear-gradient(135deg, #F18701 0%, #F35B04 100%);"></div>
+                        <div class="theme-name">Sunset</div>
+                    </div>
+                    <div class="theme-option" data-theme="forest">
+                        <div class="theme-gradient"
+                            style="background: linear-gradient(135deg, #134E5E 0%, #71B280 100%);"></div>
+                        <div class="theme-name">Forest</div>
+                    </div>
+                    <div class="theme-option" data-theme="cosmic">
+                        <div class="theme-gradient"
+                            style="background: linear-gradient(135deg, #434343 0%, #000000 100%);"></div>
+                        <div class="theme-name">Cosmic</div>
+                    </div>
+                    <div class="theme-option" data-theme="aurora">
+                        <div class="theme-gradient"
+                            style="background: linear-gradient(135deg, #00C9FF 0%, #92FE9D 100%);"></div>
+                        <div class="theme-name">Aurora</div>
+                    </div>
+                    <div class="theme-option" data-theme="minimal">
+                        <div class="theme-gradient"
+                            style="background: linear-gradient(135deg, #f7f7f7 0%, #e0e0e0 100%);"></div>
+                        <div class="theme-name">Minimal</div>
+                    </div>
+                    <div class="theme-option" data-theme="dark">
+                        <div class="theme-gradient"
+                            style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);"></div>
+                        <div class="theme-name">Dark</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px;">
+            <h3>Testing Instructions:</h3>
+            <ol>
+                <li>Click on any theme option above</li>
+                <li>The background should change to match the selected theme</li>
+                <li>The selected theme should be highlighted with a border</li>
+                <li>The selection should persist in localStorage</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Test script to verify theme functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Theme test page loaded');
+
+            // Add click handlers to theme options
+            const themeOptions = document.querySelectorAll('.theme-option');
+            console.log('Found theme options:', themeOptions.length);
+
+            themeOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    const themeName = option.getAttribute('data-theme');
+                    console.log('Theme clicked:', themeName);
+
+                    // Update selection
+                    themeOptions.forEach(opt => opt.classList.remove('selected'));
+                    option.classList.add('selected');
+
+                    // Apply theme
+                    const themeGradients = {
+                        'default': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        'ocean': 'linear-gradient(135deg, #2E86AB 0%, #A23B72 100%)',
+                        'sunset': 'linear-gradient(135deg, #F18701 0%, #F35B04 100%)',
+                        'forest': 'linear-gradient(135deg, #134E5E 0%, #71B280 100%)',
+                        'cosmic': 'linear-gradient(135deg, #434343 0%, #000000 100%)',
+                        'aurora': 'linear-gradient(135deg, #00C9FF 0%, #92FE9D 100%)',
+                        'minimal': 'linear-gradient(135deg, #f7f7f7 0%, #e0e0e0 100%)',
+                        'dark': 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)'
+                    };
+
+                    const gradient = themeGradients[themeName];
+                    document.documentElement.style.setProperty('--theme-background', gradient);
+
+                    // Save to localStorage
+                    localStorage.setItem('selectedColorTheme', themeName);
+
+                    console.log('Applied theme:', themeName, 'Gradient:', gradient);
+                });
+            });
+
+            // Load saved theme
+            const savedTheme = localStorage.getItem('selectedColorTheme') || 'default';
+            console.log('Loading saved theme:', savedTheme);
+
+            const savedOption = document.querySelector(`[data-theme="${savedTheme}"]`);
+            if (savedOption) {
+                savedOption.click();
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -7,21 +7,85 @@ import { DOMUtils } from '../utils/domUtils.js';
 import { Utils } from '../utils/helpers.js';
 import { SecureStorage } from '../utils/secureStorage.js';
 import { speechEngine } from '../services/speechEngine.js';
+import { getSVGPath } from '../utils/svgIcons.js';
+import { initializeSVGIcons } from '../ui/iconInitializer.js';
+import { promptManager } from './promptManager.js';
+
+/**
+ * Helper function to update SVG path from centralized library
+ * @param {HTMLElement} button - Button containing the SVG
+ * @param {string} iconName - Name of the icon
+ */
+function updateButtonIcon(button, iconName) {
+    if (!button) return;
+
+    let svg = button.querySelector('svg');
+
+    // If no SVG exists, create one
+    if (!svg) {
+        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '18');
+        svg.setAttribute('height', '18');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'currentColor');
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        svg.appendChild(path);
+
+        // Clear button content and add SVG
+        button.innerHTML = '';
+        button.appendChild(svg);
+    }
+
+    const pathElement = svg.querySelector('path');
+    if (pathElement) {
+        let pathData = getSVGPath(iconName);
+
+        // For arrow icons, extract path data from the full SVG string
+        if (iconName === 'arrowLeft' || iconName === 'arrowRight') {
+            const pathMatch = pathData.match(/d=['"]([^'"]*)['"]/);
+            pathData = pathMatch ? pathMatch[1] : '';
+        }
+
+        if (pathData) {
+            pathElement.setAttribute('d', pathData);
+        }
+    }
+}
 
 export class AICompanion {
     constructor() {
+        console.log('[AICompanion] Constructor starting - isEnabled before loadSettings:', this.isEnabled);
+
         this.isEnabled = false;
         this.currentProvider = 'openai';
         this.titleUpdateTimeout = null;
         this.currentConversationTitle = 'Agent Conversation';
         this.conversationContext = [];
-        
+
+        // Current thinking message tracking for main chat
+        this.currentThinkingMessage = null;
+
+        // Thinking simulation state tracking
+        this.isThinkingSimulationActive = false;
+        this.shouldEndThinkingNaturally = false;
+
+        // Promise-based thinking completion tracking
+        this.thinkingCompletionPromise = null;
+        this.thinkingCompletionResolve = null;
+
+        // Continuous thinking content tracking
+        this.currentThinkingDiv = null;
+        this.currentThinkingContent = '';
+        this.thinkingPromptIndex = 0;
+        this.currentUserMessage = null; // Store current user message for contextual thinking
+
         // Store the actual context used for KPI analysis
         this.lastKPIAnalysisContext = '';
-        
+
         // Flag to prevent multiple quick action requests
         this.isQuickActionInProgress = false;
-        
+
         this.kpiData = {
             accuracy: 0,
             helpfulness: 0,
@@ -73,20 +137,20 @@ export class AICompanion {
             speechRate: 1.0,
             speechVolume: 1.0,
             naturalness: 0.8,
-            
+
             // Multi-language settings
             autoDetectLanguage: false,
             enableLanguageDetection: false,
             continuousLanguageDetection: false,
             candidateLanguages: ['en-US', 'es-ES', 'fr-FR', 'de-DE', 'zh-CN'],
-            
+
             azureSettings: {
                 subscriptionKey: '',
                 region: 'eastus',
                 voiceName: 'en-US-JennyNeural'
             }
         };
-        
+
         this.speechState = {
             isInitialized: false,
             currentProvider: null,
@@ -100,6 +164,8 @@ export class AICompanion {
         this.loadSettings();
         this.setupRealTimeSync();
         this.initializeSpeech();
+
+        console.log('[AICompanion] Constructor completed - isEnabled after loadSettings:', this.isEnabled, 'type:', typeof this.isEnabled);
     }
 
     /**
@@ -110,15 +176,12 @@ export class AICompanion {
         this.elements = {
             llmPanel: DOMUtils.getElementById('llmAnalysisPanel'),
             llmChatWindow: DOMUtils.getElementById('llmChatWindow'),
-            llmUserInput: DOMUtils.getElementById('llmUserInput'),
-            llmSendButton: DOMUtils.getElementById('llmSendButton'),
+            chatWindow: DOMUtils.getElementById('chatWindow'), // Main chat window for output migration
             llmStatus: DOMUtils.getElementById('llmStatus'),
             llmModelName: DOMUtils.getElementById('llmModelName'),
             toggleButton: DOMUtils.getElementById('toggleLLMPanelBtn'),
             expandButton: DOMUtils.getElementById('expandAiCompanionBtn'),
-            quickActionButtons: DOMUtils.querySelectorAll('.quick-action-btn'),
             agentConversationTitle: DOMUtils.getElementById('agentConversationTitle'),
-            contextIndicator: DOMUtils.querySelector('.context-indicator span'),
             // AI Companion notification area
             aiNotificationsArea: DOMUtils.getElementById('aiCompanionNotifications'),
             // KPI elements
@@ -145,7 +208,9 @@ export class AICompanion {
             // Model comparison view
             modelComparisonTable: DOMUtils.getElementById('modelComparisonTable'),
             refreshModelComparisonBtn: DOMUtils.getElementById('refreshModelComparisonBtn'),
-            resetAllModelsBtn: DOMUtils.getElementById('resetAllModelsBtn')
+            resetAllModelsBtn: DOMUtils.getElementById('resetAllModelsBtn'),
+            // Prompt management
+            managePromptsBtn: DOMUtils.getElementById('managePromptsBtn')
         };
 
         // Setup KPI click handlers
@@ -157,9 +222,16 @@ export class AICompanion {
      * @private
      */
     loadSettings() {
-        this.isEnabled = localStorage.getItem('enableLLM') === 'true';
+        const enableLLMValue = localStorage.getItem('enableLLM');
+        this.isEnabled = enableLLMValue === 'true';
         this.currentProvider = localStorage.getItem('selectedApiProvider') || 'openai';
-        
+
+        console.log('[AICompanion] loadSettings() called:', {
+            enableLLMValue: enableLLMValue,
+            isEnabled: this.isEnabled,
+            isEnabledType: typeof this.isEnabled
+        });
+
         // Load enhanced speech settings
         this.speechSettings.autoSpeak = localStorage.getItem('speechAutoSpeak') === 'true';
         this.speechSettings.voiceInput = localStorage.getItem('speechVoiceInput') === 'true';
@@ -168,7 +240,7 @@ export class AICompanion {
         this.speechSettings.speechRate = parseFloat(localStorage.getItem('speechRate')) || 1.0;
         this.speechSettings.speechVolume = parseFloat(localStorage.getItem('speechVolume')) || 1.0;
         this.speechSettings.naturalness = parseFloat(localStorage.getItem('speechNaturalness')) || 0.8;
-        
+
         // Load Azure settings
         const azureSettings = localStorage.getItem('speechAzureSettings');
         if (azureSettings) {
@@ -178,12 +250,12 @@ export class AICompanion {
                 console.warn('[AICompanion] Failed to parse Azure settings:', error);
             }
         }
-        
+
         // Load multi-language settings
         this.speechSettings.autoDetectLanguage = localStorage.getItem('speechAutoDetectLanguage') === 'true';
         this.speechSettings.enableLanguageDetection = localStorage.getItem('speechEnableLanguageDetection') === 'true';
         this.speechSettings.continuousLanguageDetection = localStorage.getItem('speechContinuousLanguageDetection') === 'true';
-        
+
         const candidateLanguages = localStorage.getItem('speechCandidateLanguages');
         if (candidateLanguages) {
             try {
@@ -192,13 +264,13 @@ export class AICompanion {
                 console.warn('[AICompanion] Failed to parse candidate languages:', error);
             }
         }
-        
+
         // Sync Azure settings to speech engine on initialization
         if (speechEngine) {
             speechEngine.settings.azureSettings = { ...this.speechSettings.azureSettings };
             speechEngine.saveSettings();
             console.log('[AICompanion] Azure settings synced to speech engine during initialization');
-            
+
             // Sync multi-language settings to speech engine
             speechEngine.setAutoDetectLanguage(this.speechSettings.autoDetectLanguage);
             speechEngine.setLanguageDetection(
@@ -207,11 +279,11 @@ export class AICompanion {
                 this.speechSettings.candidateLanguages
             );
         }
-        
-        console.log('[AICompanion] Settings loaded:', { 
-            enabled: this.isEnabled, 
+
+        console.log('[AICompanion] Settings loaded:', {
+            enabled: this.isEnabled,
             provider: this.currentProvider,
-            speechSettings: this.speechSettings 
+            speechSettings: this.speechSettings
         });
     }
 
@@ -356,24 +428,24 @@ export class AICompanion {
      */
     async refreshKPIAnalysis() {
         console.log('[AI Companion] Manual KPI analysis refresh triggered');
-        
+
         try {
             // Get the latest conversation context
             const currentContext = this.getAdaptiveConversationContext('analysis');
             const messageCount = (currentContext.match(/\n(User|Agent):/g) || []).length;
-            
+
             if (messageCount === 0) {
                 console.log('[AI Companion] No messages available for KPI analysis');
                 return { error: 'No conversation messages available' };
             }
 
             // Find the most recent assistant message to re-analyze
-            const contextLines = currentContext.split('\n').filter(line => 
+            const contextLines = currentContext.split('\n').filter(line =>
                 line.startsWith('User:') || line.startsWith('Agent:')
             );
-            
+
             const lastAgentMessage = contextLines.filter(line => line.startsWith('Agent:')).pop();
-            
+
             if (!lastAgentMessage) {
                 console.log('[AI Companion] No agent messages found for analysis');
                 return { error: 'No agent messages found' };
@@ -388,7 +460,7 @@ export class AICompanion {
 
             // Run the KPI analysis (now async with LLM evaluation)
             await this.analyzeMessageForKPIs(messageData);
-            
+
             console.log('[AI Companion] KPI analysis refreshed with current context');
             return {
                 contextLength: currentContext.length,
@@ -396,7 +468,7 @@ export class AICompanion {
                 lastAnalyzedMessage: messageData.content.substring(0, 100) + '...',
                 kpiResults: { ...this.kpiData }
             };
-            
+
         } catch (error) {
             console.error('[AI Companion] Error refreshing KPI analysis:', error);
             return { error: error.message };
@@ -431,33 +503,6 @@ export class AICompanion {
      * @private
      */
     attachEventListeners() {
-        // Send button and input events
-        if (this.elements.llmSendButton && this.elements.llmUserInput) {
-            DOMUtils.addEventListener(this.elements.llmSendButton, 'click', () => {
-                this.sendMessage();
-            });
-
-            DOMUtils.addEventListener(this.elements.llmUserInput, 'keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    this.sendMessage();
-                }
-            });
-
-            // Auto-resize textarea
-            DOMUtils.addEventListener(this.elements.llmUserInput, 'input', function () {
-                this.style.height = 'auto';
-                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-            });
-        }
-
-        // Quick action buttons
-        this.elements.quickActionButtons.forEach(btn => {
-            DOMUtils.addEventListener(btn, 'click', (e) => {
-                this.handleQuickAction(e);
-            });
-        });
-
         // Toggle panel button
         if (this.elements.toggleButton) {
             DOMUtils.addEventListener(this.elements.toggleButton, 'click', () => {
@@ -515,6 +560,73 @@ export class AICompanion {
                 this.resetAllModelTokens();
             });
         }
+
+        // Prompt management button
+        if (this.elements.managePromptsBtn) {
+            DOMUtils.addEventListener(this.elements.managePromptsBtn, 'click', () => {
+                this.openPromptManagementModal();
+            });
+        }
+    }
+
+    /**
+     * Open the prompt management modal
+     * @private
+     */
+    openPromptManagementModal() {
+        const modal = DOMUtils.createElement('div', {
+            className: 'prompt-modal-overlay'
+        });
+
+        const modalContent = DOMUtils.createElement('div', {
+            className: 'prompt-modal-content'
+        });
+
+        const header = DOMUtils.createElement('div', {
+            className: 'prompt-modal-header'
+        });
+
+        header.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>AI Companion Prompt Management</h2>
+                <button id="closePromptModal" class="prompt-modal-close">&times;</button>
+            </div>
+        `;
+
+        const body = DOMUtils.createElement('div', {
+            className: 'prompt-modal-body'
+        });
+
+        const promptManagerUI = promptManager.createPromptManagementUI();
+
+        body.appendChild(promptManagerUI);
+
+        modalContent.appendChild(header);
+        modalContent.appendChild(body);
+        modal.appendChild(modalContent);
+
+        // Close handlers
+        const closeBtn = header.querySelector('#closePromptModal');
+        closeBtn.addEventListener('click', () => {
+            modal.remove();
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+
+        // Escape key handler
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', escapeHandler);
+            }
+        };
+        document.addEventListener('keydown', escapeHandler);
+
+        document.body.appendChild(modal);
     }
 
     /**
@@ -523,19 +635,19 @@ export class AICompanion {
      */
     handleModelChange() {
         console.log('[AI Companion] Model change detected');
-        
+
         // Update current provider from settings
         this.currentProvider = localStorage.getItem('selectedApiProvider') || 'openai';
-        
+
         // Update UI elements immediately
         this.updateStatus();
         this.updateModelComparisonView();
-        
+
         // Update AI Companion header model name
         if (this.elements.llmModelName) {
             this.elements.llmModelName.textContent = this.getCurrentModelName();
         }
-        
+
         console.log('[AI Companion] Updated to model:', {
             provider: this.currentProvider,
             modelId: this.getCurrentModelId(),
@@ -560,6 +672,18 @@ export class AICompanion {
             DOMUtils.addClass(this.elements.llmPanel, 'collapsed');
         }
 
+        // Update agent chat panel classes for proper layout
+        const agentChatPanel = document.getElementById('agentChatPanel');
+        if (agentChatPanel) {
+            if (show) {
+                DOMUtils.removeClass(agentChatPanel, 'companion-hidden');
+            } else {
+                DOMUtils.addClass(agentChatPanel, 'companion-hidden');
+                // Also remove companion-expanded when hiding
+                DOMUtils.removeClass(agentChatPanel, 'companion-expanded');
+            }
+        }
+
         // The toggle button visibility should only depend on whether LLM is enabled
         if (this.elements.toggleButton) {
             this.elements.toggleButton.style.display = this.isEnabled ? 'inline-flex' : 'none';
@@ -569,10 +693,10 @@ export class AICompanion {
         if (show) {
             this.updateStatus();
             this.updateTokenDisplays(); // Update token displays when panel is shown
-            
+
             // Sync dropdown with current model (async, don't await)
             this.syncModelDropdownSelection();
-            
+
             // Also schedule a delayed sync in case models load after panel opening
             setTimeout(() => this.syncModelDropdownSelection(), 1000);
         }
@@ -594,32 +718,40 @@ export class AICompanion {
         const agentChatPanel = DOMUtils.getElementById('agentChatPanel');
 
         if (isExpanded) {
-            // Restore default layout
+            // Collapse to default width
             DOMUtils.removeClass(this.elements.llmPanel, 'expanded');
             if (agentChatPanel) {
                 DOMUtils.removeClass(agentChatPanel, 'companion-expanded');
             }
-            
+
             // Update button title and ARIA label
             if (this.elements.expandButton) {
                 this.elements.expandButton.title = 'Expand panel to 50/50 layout';
                 this.elements.expandButton.setAttribute('aria-label', 'Expand AI Companion Panel');
+
+                // Update icon to collapsed state (arrow pointing right)
+                updateButtonIcon(this.elements.expandButton, 'arrowRight');
             }
-            
+
             console.log('[AI Companion] Restored default layout');
         } else {
             // Expand to 50/50 layout
             DOMUtils.addClass(this.elements.llmPanel, 'expanded');
             if (agentChatPanel) {
                 DOMUtils.addClass(agentChatPanel, 'companion-expanded');
+                // Remove companion-hidden if it exists
+                DOMUtils.removeClass(agentChatPanel, 'companion-hidden');
             }
-            
+
             // Update button title and ARIA label
             if (this.elements.expandButton) {
                 this.elements.expandButton.title = 'Restore default panel width';
                 this.elements.expandButton.setAttribute('aria-label', 'Restore Default AI Companion Width');
+
+                // Update icon to expanded state (arrow pointing left)
+                updateButtonIcon(this.elements.expandButton, 'arrowLeft');
             }
-            
+
             console.log('[AI Companion] Expanded to 50/50 layout');
         }
 
@@ -634,24 +766,46 @@ export class AICompanion {
     initializePanel() {
         console.log('Initializing AI companion panel components');
         this.updateContextIndicator();
-        
+
         // Restore user's expand preference
         const wasExpanded = localStorage.getItem('aiCompanionExpanded') === 'true';
+        const agentChatPanel = DOMUtils.getElementById('agentChatPanel');
+
         if (wasExpanded && this.elements.llmPanel && !this.elements.llmPanel.classList.contains('expanded')) {
             // Apply expanded state without animation on initialization
-            const agentChatPanel = DOMUtils.getElementById('agentChatPanel');
             DOMUtils.addClass(this.elements.llmPanel, 'expanded');
             if (agentChatPanel) {
                 DOMUtils.addClass(agentChatPanel, 'companion-expanded');
+                DOMUtils.removeClass(agentChatPanel, 'companion-hidden');
             }
-            
+
             // Update button title and ARIA label
             if (this.elements.expandButton) {
                 this.elements.expandButton.title = 'Restore default panel width';
                 this.elements.expandButton.setAttribute('aria-label', 'Restore Default AI Companion Width');
+
+                // Update icon to expanded state (arrow pointing left)
+                console.log('[AI Companion] Setting expanded expand button icon (arrowLeft)');
+                updateButtonIcon(this.elements.expandButton, 'arrowLeft');
             }
-            
+
             console.log('[AI Companion] Restored expanded layout from user preference');
+        } else {
+            // Set default state icon (arrow pointing right)
+            if (this.elements.expandButton) {
+                this.elements.expandButton.title = 'Expand panel to 50/50 layout';
+                this.elements.expandButton.setAttribute('aria-label', 'Expand AI Companion Panel');
+
+                // Update icon to default state (arrow pointing right)
+                console.log('[AI Companion] Setting default expand button icon (arrowRight)');
+                updateButtonIcon(this.elements.expandButton, 'arrowRight');
+            }
+
+            if (agentChatPanel) {
+                // Ensure proper default state - remove any existing state classes
+                DOMUtils.removeClass(agentChatPanel, 'companion-expanded');
+                DOMUtils.removeClass(agentChatPanel, 'companion-hidden');
+            }
         }
     }
 
@@ -722,22 +876,22 @@ export class AICompanion {
         try {
             // Set connecting status
             this.elements.llmStatus.className = 'status-indicator connecting';
-            
+
             const ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
-            
+
             // Test connection with a timeout
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-            
+
             const response = await fetch(`${ollamaUrl}/api/version`, {
                 signal: controller.signal,
                 headers: {
                     'Content-Type': 'application/json'
                 }
             });
-            
+
             clearTimeout(timeoutId);
-            
+
             if (response.ok) {
                 // Connection successful
                 this.elements.llmStatus.className = 'status-indicator connected';
@@ -756,181 +910,1237 @@ export class AICompanion {
     }
 
     /**
-     * Send message to AI companion
+     * Simulate AI companion thinking process while waiting for agent response
+     * This method is called from the main application when users send messages to the agent,
+     * not when users interact with the AI companion's own chat interface.
+     * @param {string} userMessage - The user's message
+     * @returns {Promise} Promise that resolves when thinking simulation is truly finished
+     * @private
      */
-    async sendMessage() {
-        if (!this.elements.llmUserInput) return;
-
-        const userMessage = this.elements.llmUserInput.value.trim();
-        if (!userMessage) return;
-
-        // Dispose and reinitialize all speech services when user sends a new message
-        console.log('[AICompanion] Disposing and reinitializing all speech services due to new user message');
-        try {
-            if (window.speechEngine && window.speechEngine.disposeAndReinitialize) {
-                console.log('[AICompanion] Calling speechEngine.disposeAndReinitialize()');
-                await window.speechEngine.disposeAndReinitialize();
-                console.log('[AICompanion] Speech engine disposed and reinitialized successfully');
-            } else if (window.speechEngine && window.speechEngine.stopSpeaking) {
-                // Fallback to old method if new method is not available
-                console.log('[AICompanion] Fallback: Using old stopSpeaking() method');
-                window.speechEngine.stopSpeaking();
-            } else {
-                // Use local stop method as final fallback
-                console.log('[AICompanion] Using local stopSpeaking() method');
-                this.stopSpeaking();
-            }
-        } catch (error) {
-            console.error('[AICompanion] Error during speech disposal and reinitialization:', error);
-            // Fallback to local stop method
-            this.stopSpeaking();
+    async simulateThinkingProcess(userMessage) {
+        // If thinking is already active, don't restart - just continue
+        if (this.isThinkingSimulationActive) {
+            console.log('[AICompanion] Thinking simulation already active, continuing...');
+            return this.thinkingCompletionPromise;
         }
 
-        // Clear input
-        this.elements.llmUserInput.value = '';
-        this.elements.llmUserInput.style.height = 'auto';
-
-        // For manual user input, show the message and add context automatically
-        this.renderMessage('user', userMessage);
-
-        // Add conversation context for user messages
-        const conversationContext = this.getAdaptiveConversationContext('general');
-        const messageWithContext = `${conversationContext}\n\nUser Question: ${userMessage}`;
-
-        // Estimate input token usage for user message + context
-        this.estimateTokenUsage(messageWithContext, true);
-
-        // Note: Typing indicator disabled - using unified notification system
-        this.showTypingIndicator();
+        // Create completion promise
+        this.thinkingCompletionPromise = new Promise(resolve => {
+            this.thinkingCompletionResolve = resolve;
+        });
 
         try {
-            if (!this.isEnabled) {
-                throw new Error('AI Companion not enabled. Please enable it in settings.');
+            console.log('[AICompanion] Starting thinking simulation for user message:', userMessage.substring(0, 100));
+
+            // Set simulation state
+            this.isThinkingSimulationActive = true;
+            this.shouldEndThinkingNaturally = false;
+            this.currentThinkingContent = '';
+            this.thinkingPromptIndex = 0;
+            this.currentUserMessage = userMessage; // Store for contextual continuous thinking
+
+            // Generate thinking thoughts about the user's question (now async)
+            const thinkingPrompts = await this.generateThinkingPrompts(userMessage);
+            console.log('[AICompanion] Generated thinking prompts:', thinkingPrompts.length, thinkingPrompts);
+
+            // Ensure we have thinking prompts
+            if (!thinkingPrompts || thinkingPrompts.length === 0) {
+                console.error('[AICompanion] No thinking prompts generated!');
+                return;
             }
 
-            await this.sendQuickActionRequest(messageWithContext);
+            // Create thinking message in the main chat window only if it doesn't exist
+            if (!this.currentThinkingDiv) {
+                const thinkingActivity = this.createThinkingActivity(''); // Start with empty content
+                const messageContainer = this.createMainChatMessageContainer(thinkingActivity);
+
+                // Create content wrapper that will contain both message and metadata
+                const contentWrapper = DOMUtils.createElement('div', {
+                    className: 'message-content-wrapper'
+                });
+
+                this.currentThinkingDiv = this.createMainChatMessageDiv();
+
+                // Build the message structure (thinking messages use bot style)
+                const messageIcon = this.createMainChatMessageIcon(false); // false = bot message
+                if (messageIcon) {
+                    messageContainer.appendChild(messageIcon);
+                }
+
+                contentWrapper.appendChild(this.currentThinkingDiv);
+
+                // Add metadata for thinking messages inside the content wrapper
+                const metadata = this.createMessageMetadata('thinking');
+                if (metadata) {
+                    contentWrapper.appendChild(metadata);
+                }
+
+                messageContainer.appendChild(contentWrapper);
+
+                // Add to main chat window
+                const chatWindow = DOMUtils.getElementById('chatWindow');
+                if (!chatWindow) {
+                    console.error('[AICompanion] Chat window not found!');
+                    return;
+                }
+
+                chatWindow.appendChild(messageContainer);
+                this.scrollMainChatToBottom();
+                console.log('[AICompanion] Thinking message added to chat window');
+            }
+
+            // Continue streaming thoughts from where we left off
+            await this.continueThinkingStream(thinkingPrompts);
+
+            console.log('[AICompanion] Thinking simulation finished');
         } catch (error) {
-            console.error('AI companion message error:', error);
-            this.hideTypingIndicator();
-            this.renderMessage('error', `Error: ${error.message}`);
+            console.error('[AICompanion] Error in thinking simulation:', error);
+            // Note: Thinking messages are preserved even if there are errors
+            // as they may contain valuable partial thoughts
+        } finally {
+            // Reset simulation state
+            this.isThinkingSimulationActive = false;
+            this.shouldEndThinkingNaturally = false;
+
+            // Signal completion to waiting processes
+            if (this.thinkingCompletionResolve) {
+                console.log('[AICompanion] Resolving thinking completion promise');
+                this.thinkingCompletionResolve();
+                this.thinkingCompletionResolve = null;
+                this.thinkingCompletionPromise = null;
+            }
+
+            // Reset tracking variables for next thinking session
+            this.currentThinkingDiv = null;
+            this.currentThinkingContent = '';
+            this.thinkingPromptIndex = 0;
+            this.currentUserMessage = null;
+        }
+
+        // Return the completion promise for external waiting
+        return this.thinkingCompletionPromise;
+    }
+
+    /**
+     * Continue streaming thinking content from where it left off
+     * @param {Array<string>} thinkingPrompts - Initial thinking prompts
+     * @private
+     */
+    async continueThinkingStream(thinkingPrompts) {
+        // Continue from where we left off with initial prompts
+        for (let i = this.thinkingPromptIndex; i < thinkingPrompts.length && this.isThinkingSimulationActive && !this.shouldEndThinkingNaturally; i++) {
+            const thought = thinkingPrompts[i];
+
+            // Add natural delays between thoughts (with interruption checks)
+            if (i > this.thinkingPromptIndex) {
+                await this.delayWithInterruption(300 + Math.random() * 400); // Faster: 0.3-0.7s between thoughts
+            }
+
+            if (!this.isThinkingSimulationActive || this.shouldEndThinkingNaturally) break;
+
+            // Add separator for additional thoughts (but not for the very first thought)
+            if (this.currentThinkingContent.length > 0) {
+                this.currentThinkingContent += '\n\n';
+            }
+
+            // Append new thought to existing content
+            const newContent = this.currentThinkingContent + thought;
+
+            // Stream only the new part of the thought
+            await this.streamNewThoughtContent(this.currentThinkingContent.length, newContent);
+
+            // Update current content
+            this.currentThinkingContent = newContent;
+            this.thinkingPromptIndex = i + 1;
+
+            // Shorter pause between complete thoughts
+            if (i < thinkingPrompts.length - 1) {
+                await this.delayWithInterruption(500); // Faster: 0.5s pause
+            }
+        }
+
+        // After initial thoughts are done, keep generating new thoughts until agent responds
+        if (this.isThinkingSimulationActive && !this.shouldEndThinkingNaturally) {
+            console.log('[AICompanion] Initial thoughts completed, continuing with additional thoughts until agent responds...');
+            await this.continuousThinkingLoop();
+        }
+
+        // Handle natural ending vs normal completion
+        if (this.shouldEndThinkingNaturally) {
+            console.log('[AICompanion] Ending thinking simulation naturally due to agent response');
+            this.endThinkingNaturallyInMainChat(this.currentThinkingDiv, this.currentThinkingContent, null);
+
+            // Add a brief delay for visual completion before allowing agent message rendering
+            await this.delay(300); // Faster completion
+        } else if (this.isThinkingSimulationActive) {
+            // Normal completion (should rarely happen now since we loop continuously)
+            console.log('[AICompanion] Thinking simulation completed normally');
+            this.finalizeThinkingInMainChat(this.currentThinkingDiv, this.currentThinkingContent, null);
+
+            // Brief pause before transitioning to agent response
+            await this.delay(500); // Faster transition
         }
     }
 
     /**
-     * Handle quick action button clicks
-     * @param {Event} event - Click event
+     * Continuous thinking loop that generates new thoughts until agent responds
+     * @private
      */
-    async handleQuickAction(event) {
-        const action = event.target.dataset.action;
-        const button = event.target;
-        console.log('Quick action clicked:', action);
+    async continuousThinkingLoop() {
+        let continuousThoughtIndex = 0;
+
+        // Check if AI is available for context-aware thinking generation
+        const useAI = this.isEnabled && await this.isAIConfigured().catch(() => false);
+
+        // Fallback template thoughts (only used when AI is not available)
+        const fallbackThoughts = [
+            "Let me search through more relevant information...",
+            "I should also consider alternative approaches...",
+            "Checking for any related context that might be helpful...",
+            "Let me think about potential edge cases or considerations...",
+            "Looking for the most comprehensive answer to provide...",
+            "I want to make sure I cover all important aspects...",
+            "Considering different perspectives on this topic...",
+            "Let me gather some additional insights...",
+            "Thinking about practical examples or use cases...",
+            "Making sure I provide the most accurate information...",
+            "Let me double-check my understanding of the question...",
+            "Considering any recent developments or best practices...",
+            "I want to ensure my response is clear and helpful...",
+            "Reviewing the context to provide a targeted answer...",
+            "Analyzing the knowledge base for relevant information...",
+            "Cross-referencing with related topics and concepts...",
+            "Preparing a well-structured and comprehensive response...",
+            "Almost ready with a complete and helpful answer..."
+        ];
+
+        while (this.isThinkingSimulationActive && !this.shouldEndThinkingNaturally) {
+            // Add a longer pause before generating additional thoughts
+            console.log('[AICompanion] Starting delay before next continuous thought...');
+            await this.delayWithInterruption(2000 + Math.random() * 3000); // 2-5 seconds between additional thoughts
+
+            // Double-check flags after delay
+            if (!this.isThinkingSimulationActive || this.shouldEndThinkingNaturally) {
+                console.log('[AICompanion] Thinking simulation flags indicate stopping after delay:', {
+                    isThinkingSimulationActive: this.isThinkingSimulationActive,
+                    shouldEndThinkingNaturally: this.shouldEndThinkingNaturally
+                });
+                break;
+            }
+
+            let thought;
+
+            // Prioritize AI-powered context-aware thoughts when available
+            if (useAI) {
+                try {
+                    // Generate context-aware thinking based on the user's question and current thinking progress
+                    thought = await this.generateContextualContinuousThought(continuousThoughtIndex);
+                    console.log('[AICompanion] Generated AI-powered contextual continuous thought');
+                } catch (error) {
+                    console.log('[AICompanion] AI contextual thought generation failed, trying simple AI thought...', error.message);
+
+                    // Fallback to simple AI thought generation
+                    try {
+                        thought = await this.generateSingleAIThought();
+                        console.log('[AICompanion] Generated AI-powered simple continuous thought');
+                    } catch (error2) {
+                        console.log('[AICompanion] All AI thought generation failed, using template');
+                        thought = fallbackThoughts[continuousThoughtIndex % fallbackThoughts.length];
+                    }
+                }
+            } else {
+                // Use template thoughts when AI is not available
+                thought = fallbackThoughts[continuousThoughtIndex % fallbackThoughts.length];
+                console.log('[AICompanion] AI not available, using template thought');
+            }
+
+            continuousThoughtIndex++;
+
+            // Add separator and new thought
+            if (this.currentThinkingContent.length > 0) {
+                this.currentThinkingContent += '\n\n';
+            }
+
+            const newContent = this.currentThinkingContent + thought;
+
+            // Stream the new thought
+            await this.streamNewThoughtContent(this.currentThinkingContent.length, newContent);
+
+            // Update current content
+            this.currentThinkingContent = newContent;
+
+            console.log(`[AICompanion] Added continuous thought ${continuousThoughtIndex}: ${thought.substring(0, 50)}...`);
+        }
+
+        console.log('[AICompanion] Continuous thinking loop ended');
+    }
+
+    /**
+     * Generate a contextual AI-powered thought for continuous thinking based on user's question and progress
+     * @param {number} thoughtIndex - Index of the current continuous thought
+     * @returns {string} A contextual thinking thought
+     * @private
+     */
+    async generateContextualContinuousThought(thoughtIndex) {
+        // Use stored user message or try to extract from thinking content
+        const userMessage = this.currentUserMessage || this.extractUserQuestion(this.currentThinkingContent) || 'the current question';
+
+        // Get conversation context for richer thinking
+        const conversationContext = this.getConversationContextForThinking();
+        const contextPart = conversationContext ? ` Given our conversation about ${conversationContext}, ` : '';
+
+        // Get current thinking progress to build upon
+        const currentThoughts = this.currentThinkingContent.split('\n\n').filter(t => t.trim());
+        const thinkingProgressSummary = currentThoughts.length > 0
+            ? ` So far I've been thinking: ${currentThoughts.slice(-2).join(', ').substring(0, 100)}...`
+            : '';
+
+        // Detect the language of the user's question for consistent responses
+        const isChineseQuestion = /[\u4e00-\u9fff]/.test(userMessage);
+        const languageInstruction = isChineseQuestion
+            ? `\n\n**IMPORTANT: Respond in Chinese since the user asked in Chinese.**`
+            : `\n\n**IMPORTANT: Respond in the same language as the user's question.**`;
+
+        // Create different types of contextual prompts based on thinking progress
+        let thoughtPrompt;
+
+        if (thoughtIndex === 0) {
+            // First continuous thought - deeper analysis
+            thoughtPrompt = promptManager.getFormattedPrompt('questionAnalysis', {
+                userMessage: userMessage
+            }) + languageInstruction;
+        } else if (thoughtIndex % 4 === 1) {
+            // Context-aware thinking
+            thoughtPrompt = promptManager.getFormattedPrompt('contextualThinking', {
+                userMessage: userMessage,
+                contextPart: contextPart
+            }) + languageInstruction;
+        } else if (thoughtIndex % 4 === 2) {
+            // Implementation/practical thinking
+            thoughtPrompt = promptManager.getFormattedPrompt('practicalThinking', {
+                userMessage: userMessage
+            }) + languageInstruction;
+        } else {
+            // Comprehensive/synthesis thinking
+            thoughtPrompt = promptManager.getFormattedPrompt('synthesisThinking', {
+                userMessage: userMessage,
+                thinkingProgressSummary: thinkingProgressSummary
+            }) + languageInstruction;
+        }
+
+        try {
+            let thought = '';
+
+            if (this.currentProvider === 'ollama') {
+                thought = await this.generateOllamaThinking(thoughtPrompt);
+            } else {
+                thought = await this.generateAPIThinking(thoughtPrompt);
+            }
+
+            // Clean up the response and ensure it's a single sentence
+            thought = thought.trim()
+                .split('\n')[0] // Take first line only
+                .replace(/^["']|["']$/g, '') // Remove quotes
+                .replace(/^- /, '') // Remove bullet points
+                .trim();
+
+            // Ensure it's not empty and not too long
+            if (thought.length === 0) {
+                throw new Error('Empty contextual thought generated');
+            }
+
+            if (thought.length > 200) {
+                // Truncate if too long but preserve sentence structure
+                thought = thought.substring(0, 197) + '...';
+            }
+
+            // Ensure it doesn't start with generic phrases - prefer contextual content
+            const genericPrefixes = ['I think', 'I believe', 'I should', 'Let me'];
+            const startsGeneric = genericPrefixes.some(prefix => thought.toLowerCase().startsWith(prefix.toLowerCase()));
+
+            if (startsGeneric && (thought.includes('specific') || thought.includes(userMessage.split(' ')[0]))) {
+                // It's using "specific" or references the question, which suggests it's contextual despite generic prefix
+                return thought;
+            } else if (startsGeneric) {
+                // Try to make it more contextual
+                thought = thought.replace(/^(I think|I believe|I should|Let me)\s*/i, '');
+                thought = thought.charAt(0).toUpperCase() + thought.slice(1);
+            }
+
+            console.log(`[AICompanion] Generated contextual thought for ${userMessage.substring(0, 30)}...: ${thought.substring(0, 50)}...`);
+            return thought;
+        } catch (error) {
+            console.error('[AICompanion] Error generating contextual continuous thought:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Generate a single AI-powered thought for continuous thinking
+     * @returns {string} A single thinking thought
+     * @private
+     */
+    async generateSingleAIThought() {
+        // Detect language for consistent response
+        const userMessage = this.currentUserMessage || '';
+        const isChineseQuestion = /[\u4e00-\u9fff]/.test(userMessage);
+        const languageInstruction = isChineseQuestion
+            ? `\n\nIMPORTANT: Respond in Chinese since the user asked in Chinese.`
+            : `\n\nIMPORTANT: Respond in the same language as the user's question.`;
+
+        const simpleThoughtPrompt = promptManager.getFormattedPrompt('simpleContinuation', {
+            userMessage: userMessage
+        }) + languageInstruction;
+
+        try {
+            let thought = '';
+
+            if (this.currentProvider === 'ollama') {
+                thought = await this.generateOllamaThinking(simpleThoughtPrompt);
+            } else {
+                thought = await this.generateAPIThinking(simpleThoughtPrompt);
+            }
+
+            // Clean up the response and ensure it's a single sentence
+            thought = thought.trim()
+                .split('\n')[0] // Take first line only
+                .replace(/^["']|["']$/g, '') // Remove quotes
+                .trim();
+
+            // Ensure it's not empty and not too long
+            if (thought.length === 0 || thought.length > 150) {
+                throw new Error('Invalid AI thought generated');
+            }
+
+            return thought;
+        } catch (error) {
+            console.error('[AICompanion] Error generating single AI thought:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Format thinking content for HTML display with proper paragraph structure
+     * @param {string} content - Raw thinking content with \n\n separators
+     * @returns {string} HTML formatted content
+     * @private
+     */
+    formatThinkingContentForHTML(content) {
+        if (!content) return '';
+
+        // Split content into paragraphs and format each one
+        const paragraphs = content.split('\n\n')
+            .map(paragraph => paragraph.trim())
+            .filter(paragraph => paragraph.length > 0);
+
+        // Wrap each paragraph in a div with margin for proper spacing
+        const formattedParagraphs = paragraphs.map(paragraph =>
+            `<div style="margin-bottom: 0.8rem; line-height: 1.6;">${paragraph}</div>`
+        );
+
+        return formattedParagraphs.join('');
+    }
+
+    /**
+     * Stream only new content that was added to the thinking message
+     * @param {number} startIndex - Index to start streaming from
+     * @param {string} fullContent - Complete content including new text
+     * @private
+     */
+    async streamNewThoughtContent(startIndex, fullContent) {
+        // Ensure we have a valid thinking div
+        if (!this.currentThinkingDiv) {
+            console.error('[AICompanion] No currentThinkingDiv available for streaming');
+            return;
+        }
+
+        // Stream only the new characters from startIndex
+        for (let i = startIndex; i < fullContent.length; i++) {
+            if (!this.isThinkingSimulationActive || this.shouldEndThinkingNaturally) break;
+
+            // Update display with current content, properly formatted
+            const currentContent = fullContent.substring(0, i + 1);
+            this.currentThinkingDiv.innerHTML = this.formatThinkingContentForHTML(currentContent);
+            this.scrollMainChatToBottom();
+
+            // Faster typing speed to match agent streaming (similar to real message streaming)
+            const delay = 10 + Math.random() * 15; // 10-25ms per character (much faster)
+            await this.delay(delay);
+        }
+
+        // Ensure final content is displayed with proper formatting
+        if (this.currentThinkingDiv && this.isThinkingSimulationActive) {
+            this.currentThinkingDiv.innerHTML = this.formatThinkingContentForHTML(fullContent);
+            this.scrollMainChatToBottom();
+        }
+    }
+
+    /**
+     * End thinking simulation naturally when agent response arrives
+     * @public
+     */
+    endThinkingSimulationNaturally() {
+        console.log('[AICompanion] Received request to end thinking simulation naturally');
+        console.log('[AICompanion] Current simulation state:', {
+            isThinkingSimulationActive: this.isThinkingSimulationActive,
+            shouldEndThinkingNaturally: this.shouldEndThinkingNaturally
+        });
+
+        this.shouldEndThinkingNaturally = true;
+
+        // Also immediately stop the main simulation flag for faster interruption
+        this.isThinkingSimulationActive = false;
+
+        console.log('[AICompanion] Thinking simulation flags set to end naturally');
+    }
+
+    /**
+     * Check if thinking simulation is currently active
+     * @returns {boolean} Whether thinking simulation is active
+     * @public
+     */
+    isThinkingActive() {
+        return this.isThinkingSimulationActive;
+    }
+
+    /**
+     * Get the thinking completion promise if thinking is active
+     * @returns {Promise|null} Promise that resolves when thinking is complete, or null if not active
+     * @public
+     */
+    getThinkingCompletionPromise() {
+        return this.thinkingCompletionPromise;
+    }
+
+    /**
+     * End thinking simulation naturally in main chat with a smooth transition
+     * @param {HTMLElement} messageDiv - Message div
+     * @param {string} currentText - Current thinking text
+     * @param {HTMLElement} messageContainer - Message container (can be null)
+     * @private
+     */
+    endThinkingNaturallyInMainChat(messageDiv, currentText, messageContainer) {
+        if (!messageDiv) return;
+
+        // Enhanced language detection - check both stored user message and existing thinking content
+        const isChineseQuestion = (this.currentUserMessage && /[\u4e00-\u9fff]/.test(this.currentUserMessage)) ||
+            (currentText && /[\u4e00-\u9fff]/.test(currentText));
+
+        console.log('[AICompanion] Language detection for completion:', {
+            currentUserMessage: this.currentUserMessage,
+            hasChineseInUserMessage: this.currentUserMessage && /[\u4e00-\u9fff]/.test(this.currentUserMessage),
+            hasChineseInThinkingContent: currentText && /[\u4e00-\u9fff]/.test(currentText),
+            finalDetection: isChineseQuestion
+        });
+
+        const completionMessage = isChineseQuestion ?
+            '💡 完美！我已经准备好回答了。' :
+            '💡 Perfect! I have my thoughts ready for the response.';
+
+        // Add a natural completion message with proper formatting
+        const completionText = currentText + (currentText ? '\n\n' : '') + completionMessage;
+        messageDiv.innerHTML = this.formatThinkingContentForHTML(completionText);
+        this.scrollMainChatToBottom();
+
+        // Thinking message remains as part of the conversation - no auto-clearing
+        console.log('[AICompanion] Thinking simulation ended naturally, message preserved in conversation');
+    }
+
+    /**
+     * Delay with interruption support for thinking simulation
+     * @param {number} ms - Milliseconds to delay
+     * @returns {Promise} Delay promise that can be interrupted
+     * @private
+     */
+    async delayWithInterruption(ms) {
+        const checkInterval = 50; // Check every 50ms for faster interruption
+        const iterations = Math.ceil(ms / checkInterval);
+
+        for (let i = 0; i < iterations; i++) {
+            if (!this.isThinkingSimulationActive || this.shouldEndThinkingNaturally) {
+                console.log('[AICompanion] Delay interrupted by thinking simulation flags:', {
+                    isThinkingSimulationActive: this.isThinkingSimulationActive,
+                    shouldEndThinkingNaturally: this.shouldEndThinkingNaturally,
+                    iteration: i,
+                    totalIterations: iterations
+                });
+                break;
+            }
+            await this.delay(checkInterval);
+        }
+    }
+
+    /**
+     * Extract the actual user question from the message with context
+     * @param {string} messageWithContext - Full message including context
+     * @returns {string} The extracted user question
+     * @private
+     */
+    extractUserQuestion(messageWithContext) {
+        // Look for the "User Question:" prefix that's added in sendUserMessage
+        const userQuestionMatch = messageWithContext.match(/User Question: (.+)$/s);
+        if (userQuestionMatch) {
+            return userQuestionMatch[1].trim();
+        }
+
+        // Fallback: return the last part after context
+        const lines = messageWithContext.split('\n');
+        return lines[lines.length - 1].trim() || messageWithContext.trim();
+    }
+
+    /**
+     * Generate natural thinking prompts based on the user's question using LLM
+     * @param {string} userMessage - The user's message
+     * @returns {Array<string>} Array of thinking thoughts
+     * @private
+     */
+    async generateThinkingPrompts(userMessage) {
+        try {
+            // Try to generate AI-powered thinking content if AI companion is enabled and configured
+            if (this.isEnabled && await this.isAIConfigured()) {
+                return await this.generateAIThinkingContent(userMessage);
+            }
+        } catch (error) {
+            console.log('[AICompanion] AI thinking generation failed, falling back to templates:', error.message);
+        }
+
+        // Fallback to template-based thinking if AI generation fails or is not available
+        return this.generateTemplateThinkingPrompts(userMessage);
+    }
+
+    /**
+     * Generate AI-powered thinking content using LLM
+     * @param {string} userMessage - The user's message
+     * @returns {Array<string>} Array of thinking thoughts
+     * @private
+     */
+    async generateAIThinkingContent(userMessage) {
+        const conversationContext = this.getConversationContextForThinking();
+        const contextPart = conversationContext ? ` The conversation context includes: ${conversationContext}.` : '';
+
+        // Detect user question language for explicit instruction
+        const isChineseQuestion = /[\u4e00-\u9fff]/.test(userMessage);
+        const languageInstruction = isChineseQuestion
+            ? 'CRITICAL: The user asked in Chinese, so ALL thinking content must be in Chinese only. Do not use any English, Italian, or other languages.'
+            : 'CRITICAL: The user asked in English, so ALL thinking content must be in English only. Do not use any Chinese, Italian, or other languages.';
+
+        // Use centralized prompt manager
+        const thinkingPrompt = promptManager.getFormattedPrompt('thinkingGeneration', {
+            userMessage: userMessage,
+            contextPart: contextPart,
+            languageInstruction: languageInstruction
+        });
+
+        try {
+            let thinkingContent = '';
+
+            if (this.currentProvider === 'ollama') {
+                thinkingContent = await this.generateOllamaThinking(thinkingPrompt);
+            } else {
+                thinkingContent = await this.generateAPIThinking(thinkingPrompt);
+            }
+
+            // Parse the AI response into individual thoughts
+            const thoughts = thinkingContent
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0)
+                .slice(0, 4); // Limit to 4 thoughts max
+
+            // Ensure we have at least one thought
+            if (thoughts.length === 0) {
+                throw new Error('No thinking content generated');
+            }
+
+            return thoughts;
+        } catch (error) {
+            console.error('[AICompanion] Error generating AI thinking content:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Generate thinking content using Ollama
+     * @param {string} prompt - The thinking prompt
+     * @returns {string} Generated thinking content
+     * @private
+     */
+    async generateOllamaThinking(prompt) {
+        const ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
+        const selectedModel = localStorage.getItem('ollamaSelectedModel');
+
+        if (!selectedModel || selectedModel === 'No Model Selected') {
+            throw new Error('No Ollama model selected');
+        }
+
+        const response = await fetch(`${ollamaUrl}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: selectedModel,
+                prompt: prompt,
+                stream: false,
+                options: {
+                    temperature: 0.7,
+                    max_tokens: 200
+                }
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Ollama request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.response || '';
+    }
+
+    /**
+     * Generate thinking content using API providers
+     * @param {string} prompt - The thinking prompt
+     * @returns {string} Generated thinking content
+     * @private
+     */
+    async generateAPIThinking(prompt) {
+        const apiKey = await SecureStorage.retrieve(`${this.currentProvider}ApiKey`);
+        if (!apiKey) {
+            throw new Error(`No API key found for ${this.currentProvider}`);
+        }
+
+        let requestBody, url, headers;
+
+        switch (this.currentProvider) {
+            case 'openai':
+                url = 'https://api.openai.com/v1/chat/completions';
+                headers = {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                };
+                requestBody = {
+                    model: 'gpt-3.5-turbo',
+                    messages: [{ role: 'user', content: prompt }],
+                    max_tokens: 200,
+                    temperature: 0.7
+                };
+                break;
+
+            case 'anthropic':
+                url = 'https://api.anthropic.com/v1/messages';
+                headers = {
+                    'x-api-key': apiKey,
+                    'Content-Type': 'application/json',
+                    'anthropic-version': '2023-06-01'
+                };
+                requestBody = {
+                    model: 'claude-3-haiku-20240307',
+                    max_tokens: 200,
+                    messages: [{ role: 'user', content: prompt }]
+                };
+                break;
+
+            case 'azure':
+                const endpoint = localStorage.getItem('azureEndpoint');
+                const deployment = localStorage.getItem('azureDeployment');
+                if (!endpoint || !deployment) {
+                    throw new Error('Azure endpoint or deployment not configured');
+                }
+                url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=2024-02-15-preview`;
+                headers = {
+                    'api-key': apiKey,
+                    'Content-Type': 'application/json'
+                };
+                requestBody = {
+                    messages: [{ role: 'user', content: prompt }],
+                    max_tokens: 200,
+                    temperature: 0.7
+                };
+                break;
+
+            default:
+                throw new Error(`Unsupported provider: ${this.currentProvider}`);
+        }
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            throw new Error(`API request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        switch (this.currentProvider) {
+            case 'openai':
+            case 'azure':
+                return data.choices?.[0]?.message?.content || '';
+            case 'anthropic':
+                return data.content?.[0]?.text || '';
+            default:
+                return '';
+        }
+    }
+
+    /**
+     * Check if AI is properly configured for thinking generation
+     * @returns {boolean} Whether AI is configured
+     * @private
+     */
+    async isAIConfigured() {
+        try {
+            if (this.currentProvider === 'ollama') {
+                const selectedModel = localStorage.getItem('ollamaSelectedModel');
+                return selectedModel && selectedModel !== 'No Model Selected';
+            } else {
+                const apiKey = await SecureStorage.retrieve(`${this.currentProvider}ApiKey`);
+                if (this.currentProvider === 'azure') {
+                    const endpoint = localStorage.getItem('azureEndpoint');
+                    const deployment = localStorage.getItem('azureDeployment');
+                    return !!(apiKey && endpoint && deployment);
+                }
+                return !!apiKey;
+            }
+        } catch (error) {
+            return false;
+        }
+    }
+
+    /**
+     * Generate template-based thinking prompts (fallback)
+     * @param {string} userMessage - The user's message
+     * @returns {Array<string>} Array of thinking thoughts
+     * @private
+     */
+    generateTemplateThinkingPrompts(userMessage) {
+        const thoughts = [];
+
+        // Detect if the question is in Chinese to provide language-consistent thinking
+        const isChineseQuestion = /[\u4e00-\u9fff]/.test(userMessage);
+
+        // Analyze the question type and generate appropriate thoughts
+        const questionType = this.analyzeQuestionType(userMessage);
+
+        // Initial analysis thought (language-aware)
+        if (isChineseQuestion) {
+            thoughts.push(`🤔 让我思考一下这个问题："${userMessage}"`);
+        } else {
+            thoughts.push(`🤔 Let me think about this question: "${userMessage}"`);
+        }
+
+        // Question-specific thinking patterns (language-aware)
+        if (isChineseQuestion) {
+            switch (questionType) {
+                case 'technical':
+                    thoughts.push('这似乎是一个技术问题。我应该考虑技术细节和最佳实践...');
+                    thoughts.push('让我想想如何最准确和有用地解释这个问题...');
+                    break;
+                case 'howto':
+                    thoughts.push('这是一个"如何做"的问题。我应该提供逐步指导...');
+                    thoughts.push('我要确保涵盖所有重要步骤和潜在问题...');
+                    break;
+                case 'troubleshooting':
+                    thoughts.push('这看起来像是一个故障排除问题。让我考虑常见原因和解决方案...');
+                    thoughts.push('我应该考虑诊断和解决这个问题的系统方法...');
+                    break;
+                case 'conceptual':
+                    thoughts.push('这是在询问概念。我应该用例子清楚地解释...');
+                    thoughts.push('让我想想如何以易于理解的方式分解这个问题...');
+                    break;
+                case 'comparison':
+                    thoughts.push('这是要我比较选项。我应该考虑优缺点...');
+                    thoughts.push('让我想想关键差异和用例...');
+                    break;
+                default:
+                    thoughts.push('让我分析什么对这个问题最有帮助...');
+                    thoughts.push('我想提供一个全面和有用的回答...');
+            }
+        } else {
+            switch (questionType) {
+                case 'technical':
+                    thoughts.push('This seems like a technical question. I should consider the technical details and best practices...');
+                    thoughts.push('Let me think about the most accurate and helpful way to explain this...');
+                    break;
+                case 'howto':
+                    thoughts.push('This is a "how-to" question. I should provide step-by-step guidance...');
+                    thoughts.push('I want to make sure I cover all the important steps and potential issues...');
+                    break;
+                case 'troubleshooting':
+                    thoughts.push('This looks like a troubleshooting question. Let me consider common causes and solutions...');
+                    thoughts.push('I should think about systematic approaches to diagnose and fix this...');
+                    break;
+                case 'conceptual':
+                    thoughts.push('This is asking about concepts. I should explain clearly with examples...');
+                    thoughts.push('Let me think about how to break this down in an understandable way...');
+                    break;
+                case 'comparison':
+                    thoughts.push('This is asking me to compare options. I should consider pros and cons...');
+                    thoughts.push('Let me think about the key differences and use cases...');
+                    break;
+                default:
+                    thoughts.push('Let me analyze what would be most helpful for this question...');
+                    thoughts.push('I want to provide a comprehensive and useful response...');
+            }
+        }
+
+        // Add context-aware thoughts based on conversation history
+        const conversationContext = this.getConversationContextForThinking();
+        if (conversationContext) {
+            thoughts.push(`Based on our previous conversation about ${conversationContext}, I should consider how this relates...`);
+        }
+
+        // Final preparation thought (language-aware)
+        if (isChineseQuestion) {
+            thoughts.push('好的，我想我有了一个很好的方法。让我制定我的回答...');
+        } else {
+            thoughts.push('Alright, I think I have a good approach. Let me formulate my response...');
+        }
+
+        // Randomly select 3-4 thoughts to keep it natural and not too long
+        const selectedThoughts = this.selectRandomThoughts(thoughts, 3 + Math.floor(Math.random() * 2));
+
+        return selectedThoughts;
+    }
+
+    /**
+     * Analyze the type of question being asked
+     * @param {string} question - The user's question
+     * @returns {string} Question type
+     * @private
+     */
+    analyzeQuestionType(question) {
+        const lowerQuestion = question.toLowerCase();
+
+        if (lowerQuestion.includes('how to') || lowerQuestion.includes('how do') || lowerQuestion.includes('how can')) {
+            return 'howto';
+        }
+        if (lowerQuestion.includes('error') || lowerQuestion.includes('not working') || lowerQuestion.includes('problem') || lowerQuestion.includes('issue')) {
+            return 'troubleshooting';
+        }
+        if (lowerQuestion.includes('vs') || lowerQuestion.includes('versus') || lowerQuestion.includes('difference between') || lowerQuestion.includes('compare')) {
+            return 'comparison';
+        }
+        if (lowerQuestion.includes('what is') || lowerQuestion.includes('explain') || lowerQuestion.includes('why does') || lowerQuestion.includes('concept')) {
+            return 'conceptual';
+        }
+        if (lowerQuestion.match(/\b(code|programming|api|function|method|class|variable|syntax)\b/)) {
+            return 'technical';
+        }
+
+        return 'general';
+    }
+
+    /**
+     * Get conversation context for thinking process
+     * @returns {string|null} Brief context description
+     * @private
+     */
+    getConversationContextForThinking() {
+        try {
+            const chatWindow = DOMUtils.getElementById('chatWindow');
+            if (!chatWindow) return null;
+
+            const messageContainers = Array.from(chatWindow.querySelectorAll('.messageContainer'));
+            if (messageContainers.length < 2) return null;
+
+            // Look at recent messages to identify topic
+            const recentMessages = messageContainers.slice(-4); // Last 4 messages
+            const topics = [];
+
+            recentMessages.forEach(container => {
+                const messageText = container.querySelector('.messageText, .messageContent, .messageDiv')?.textContent || '';
+                const words = messageText.toLowerCase().split(/\s+/);
+
+                // Extract potential topic keywords
+                const topicKeywords = words.filter(word =>
+                    word.length > 4 &&
+                    !['about', 'could', 'would', 'should', 'there', 'where', 'when', 'what', 'this'].includes(word)
+                );
+
+                topics.push(...topicKeywords.slice(0, 2)); // Top 2 keywords per message
+            });
+
+            // Return most common topic
+            if (topics.length > 0) {
+                const topicCounts = {};
+                topics.forEach(topic => topicCounts[topic] = (topicCounts[topic] || 0) + 1);
+                const mostCommonTopic = Object.keys(topicCounts).reduce((a, b) => topicCounts[a] > topicCounts[b] ? a : b);
+                return mostCommonTopic;
+            }
+
+            return null;
+        } catch (error) {
+            console.error('[AICompanion] Error getting conversation context for thinking:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Select random thoughts from the generated list
+     * @param {Array<string>} thoughts - All available thoughts
+     * @param {number} count - Number of thoughts to select
+     * @returns {Array<string>} Selected thoughts
+     * @private
+     */
+    selectRandomThoughts(thoughts, count) {
+        // Always include the first thought (question analysis)
+        const selected = [thoughts[0]];
+
+        // Randomly select from the middle thoughts
+        const middleThoughts = thoughts.slice(1, -1);
+        const shuffled = middleThoughts.sort(() => 0.5 - Math.random());
+        selected.push(...shuffled.slice(0, count - 2));
+
+        // Always include the last thought (preparation)
+        if (thoughts.length > 1) {
+            selected.push(thoughts[thoughts.length - 1]);
+        }
+
+        return selected;
+    }
+
+    /**
+     * Create thinking activity object for main chat
+     * @param {string} initialThought - Initial thinking text
+     * @returns {Object} Activity object
+     * @private
+     */
+    createThinkingActivity(initialThought) {
+        return {
+            id: `thinking-${Date.now()}`,
+            from: { id: 'ai-companion-thinking', name: 'AI Companion' },
+            type: 'message',
+            text: initialThought,
+            timestamp: new Date().toISOString(),
+            isThinking: true
+        };
+    }
+
+    /**
+     * Create main chat message container for thinking
+     * @param {Object} activity - Activity object
+     * @returns {HTMLElement} Message container
+     * @private
+     */
+    createMainChatMessageContainer(activity) {
+        const container = DOMUtils.createElement('div', {
+            className: 'messageContainer botMessage thinking-message companion-response',
+            dataset: {
+                messageId: activity.id,
+                timestamp: activity.timestamp,
+                isThinking: 'true'
+            }
+        });
+
+        return container;
+    }
+
+    /**
+     * Create main chat message div
+     * @returns {HTMLElement} Message div
+     * @private
+     */
+    createMainChatMessageDiv() {
+        return DOMUtils.createElement('div', {
+            className: 'messageContent thinking-content'
+        });
+    }
+
+    /**
+     * Create main chat message icon
+     * @param {boolean} isUser - Whether message is from user
+     * @returns {HTMLElement|null} Message icon or null if icons disabled
+     * @private
+     */
+    createMainChatMessageIcon(isUser) {
+        // Check if message icons are enabled (follow agent message icon visibility rules)
+        const messageIconsEnabled = localStorage.getItem('messageIconsEnabled') !== 'false';
+        if (!messageIconsEnabled) {
+            return null;
+        }
+
+        const icon = DOMUtils.createElement('div', {
+            className: 'messageIcon'
+        });
+
+        // Use appropriate icons
+        if (isUser) {
+            icon.style.backgroundImage = 'url("images/carter_30k.png")';
+            icon.style.backgroundSize = 'cover';
+        } else {
+            // Use AI companion icon for thinking and companion messages
+            icon.setAttribute('data-icon', 'aiCompanion');
+            // Initialize icon after setting data-icon
+            setTimeout(() => initializeSVGIcons(), 0);
+        }
+
+        return icon;
+    }
+
+    /**
+     * Stream thinking text in main chat
+     * @param {HTMLElement} messageDiv - Message div
+     * @param {string} fullText - Complete text to display
+     * @private
+     */
+    async streamThoughtInMainChat(messageDiv, fullText) {
+        const thoughts = fullText.split('\n\n');
+        let displayText = '';
+
+        for (let i = 0; i < thoughts.length; i++) {
+            if (i > 0) displayText += '\n\n';
+
+            const thought = thoughts[i];
+            const startLength = displayText.length;
+
+            // Stream this thought character by character
+            for (let j = 0; j < thought.length; j++) {
+                displayText = fullText.substring(0, startLength + j + 1);
+
+                messageDiv.innerHTML = displayText;
+                this.scrollMainChatToBottom();
+
+                // Natural typing speed variation
+                const delay = 30 + Math.random() * 40; // 30-70ms per character
+                await this.delay(delay);
+            }
+
+            displayText += thought;
+        }
+    }
+
+    /**
+     * Finalize thinking message in main chat
+     * @param {HTMLElement} messageDiv - Message div
+     * @param {string} fullText - Complete thinking text
+     * @param {HTMLElement} messageContainer - Message container (can be null)
+     * @private
+     */
+    finalizeThinkingInMainChat(messageDiv, fullText, messageContainer) {
+        if (!messageDiv) return;
+
+        // Update to final thinking state with completion indicator
+        messageDiv.innerHTML = fullText + '<br><br><span style="color: #10b981; font-size: 0.9em; font-weight: 500;">✓ Analysis complete</span>';
+        this.scrollMainChatToBottom();
+
+        // No longer store reference for removal - thinking messages remain as part of conversation
+        console.log('[AICompanion] Thinking message finalized and preserved in conversation');
+    }
+
+    /**
+     * Clear thinking messages from main chat (manual cleanup only)
+     * @private
+     */
+    clearThinkingMessages() {
+        try {
+            if (this.currentThinkingMessage && this.currentThinkingMessage.parentNode) {
+                console.log('[AICompanion] Manually clearing thinking message from main chat');
+                // Fade out the thinking message before removing
+                this.currentThinkingMessage.style.transition = 'opacity 0.3s ease-out';
+                this.currentThinkingMessage.style.opacity = '0';
+
+                setTimeout(() => {
+                    if (this.currentThinkingMessage && this.currentThinkingMessage.parentNode) {
+                        this.currentThinkingMessage.parentNode.removeChild(this.currentThinkingMessage);
+                        console.log('[AICompanion] Thinking message manually removed from DOM');
+                    }
+                    this.currentThinkingMessage = null;
+                }, 300);
+            } else {
+                console.log('[AICompanion] No thinking message to clear');
+            }
+        } catch (error) {
+            console.error('[AICompanion] Error clearing thinking messages:', error);
+            this.currentThinkingMessage = null;
+        }
+    }
+
+    /**
+     * Scroll main chat to bottom
+     * @private
+     */
+    scrollMainChatToBottom() {
+        const chatWindow = DOMUtils.getElementById('chatWindow');
+        if (chatWindow) {
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+    }
+
+    /**
+     * Utility method for delays
+     * @param {number} ms - Milliseconds to delay
+     * @returns {Promise} Delay promise
+     * @private
+     */
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Handle quick action processing for main chat panel
+     * @param {string} action - The action type (analyze, summarize, benchmark)
+     * @param {string} messageText - Optional custom message text
+     * @returns {Promise} Promise that resolves when action is complete
+     * @public
+     */
+    async handleQuickAction(action, messageText = null) {
+        console.log('Quick action called from main chat:', action);
 
         // Check if any request is already in progress
         if (this.isQuickActionInProgress) {
-            console.log('Quick action already in progress, ignoring click');
+            console.log('Quick action already in progress, ignoring request');
             return;
         }
 
         // Set flag to prevent multiple requests
         this.isQuickActionInProgress = true;
 
-        // Disable ALL quick action buttons to prevent multiple requests
-        this.disableAllQuickActionButtons();
+        try {
+            let prompt = '';
 
-        // Debug conversation context when analysis is requested
-        if (action === 'analyze') {
-            this.debugConversationContext();
-        }
-
-        let prompt = '';
-        
-        switch (action) {
-            case 'analyze':
-                const analysisContext = this.getAdaptiveConversationContext('analysis');
-                prompt = `${analysisContext}\n\nPlease analyze the agent's responses in this conversation. Focus on:\n1. Response quality and accuracy\n2. Helpfulness and relevance\n3. Communication style\n4. Areas for improvement\n\nProvide a brief but insightful analysis.`;
-                break;
-            case 'summarize':
-                const summaryContext = this.getAdaptiveConversationContext('summary');
-                prompt = `${summaryContext}\n\nPlease provide a concise summary of this conversation, highlighting:\n1. Main topics discussed\n2. Key information provided by the agent\n3. User's main questions or concerns\n4. Overall conversation outcome`;
-                break;
-            case 'benchmark':
-                // Handle A/B test analysis separately due to its multi-step nature
-                // This runs a scientific A/B test comparing:
-                // - Option A: General knowledge response (control)
-                // - Option B: Agent response with context (treatment)
-                try {
+            switch (action) {
+                case 'analyze':
+                    const analysisContext = this.getAdaptiveConversationContext('analysis');
+                    prompt = `${analysisContext}\n\nPlease analyze the agent's responses in this conversation. Focus on:\n1. Response quality and accuracy\n2. Helpfulness and relevance\n3. Communication style\n4. Areas for improvement\n\nProvide a brief but insightful analysis.`;
+                    break;
+                case 'summarize':
+                    const summaryContext = this.getAdaptiveConversationContext('summary');
+                    prompt = `${summaryContext}\n\nPlease provide a concise summary of this conversation, highlighting:\n1. Main topics discussed\n2. Key information provided by the agent\n3. User's main questions or concerns\n4. Overall conversation outcome`;
+                    break;
+                case 'benchmark':
+                    // Handle A/B test analysis separately due to its multi-step nature
                     await this.performBenchmarkAnalysis();
-                    this.enableAllQuickActionButtons();
                     this.isQuickActionInProgress = false;
                     return;
-                } catch (error) {
-                    console.error('Error performing A/B test analysis:', error);
-                    this.hideTypingIndicator();
-                    this.enableAllQuickActionButtons();
-                    this.isQuickActionInProgress = false;
-                    this.renderMessage('error', `A/B Test Error: ${error.message}`);
-                    return;
-                }
-        }
+                case 'custom':
+                    if (messageText) {
+                        const conversationContext = this.getAdaptiveConversationContext('general');
+                        prompt = `${conversationContext}\n\nUser Question: ${messageText}`;
+                    }
+                    break;
+            }
 
-        if (prompt) {
-            try {
+            if (prompt) {
                 // Estimate input token usage for the prompt
                 this.estimateTokenUsage(prompt, true);
-                
+
                 this.showTypingIndicator();
                 await this.sendQuickActionRequest(prompt);
-                
-                // Re-enable all buttons after successful completion
-                this.enableAllQuickActionButtons();
-                this.isQuickActionInProgress = false;
-            } catch (error) {
-                console.error('Error sending quick action request:', error);
-                this.hideTypingIndicator();
-                
-                // Re-enable all buttons after error
-                this.enableAllQuickActionButtons();
-                this.isQuickActionInProgress = false;
-                
-                this.renderMessage('error', `Error: ${error.message}`);
             }
-        } else {
-            // Re-enable all buttons if no prompt was generated
-            this.enableAllQuickActionButtons();
+        } catch (error) {
+            console.error('Error processing quick action:', error);
+            this.hideTypingIndicator();
+            this.renderMessage('error', `Error: ${error.message}`);
+        } finally {
             this.isQuickActionInProgress = false;
         }
     }
 
     /**
-     * Disable all quick action buttons
-     * @private
-     */
-    disableAllQuickActionButtons() {
-        this.elements.quickActionButtons.forEach(btn => {
-            btn.disabled = true;
-            btn.style.opacity = '0.6';
-            btn.style.cursor = 'not-allowed';
-        });
-        console.log('[AI Companion] All quick action buttons disabled');
-    }
-
-    /**
-     * Enable all quick action buttons
-     * @private
-     */
-    enableAllQuickActionButtons() {
-        this.elements.quickActionButtons.forEach(btn => {
-            btn.disabled = false;
-            btn.style.opacity = '';
-            btn.style.cursor = '';
-        });
-        console.log('[AI Companion] All quick action buttons enabled');
-    }
-
-    /**
      * Send quick action request to AI
      * @param {string} messageWithContext - Message with conversation context
-     * @private
+     * @public
      */
     async sendQuickActionRequest(messageWithContext) {
         if (this.currentProvider === 'ollama') {
@@ -941,43 +2151,71 @@ export class AICompanion {
     }
 
     /**
+     * Enable all quick action buttons (works with main chat panel buttons)
+     * @public
+     */
+    enableAllQuickActionButtons() {
+        const quickActionButtons = document.querySelectorAll('.quick-action-btn');
+        quickActionButtons.forEach(btn => {
+            btn.disabled = false;
+            btn.style.opacity = '';
+            btn.style.cursor = '';
+        });
+        console.log('[AI Companion] All quick action buttons enabled');
+    }
+
+    /**
+     * Disable all quick action buttons (works with main chat panel buttons) 
+     * @public
+     */
+    disableAllQuickActionButtons() {
+        const quickActionButtons = document.querySelectorAll('.quick-action-btn');
+        quickActionButtons.forEach(btn => {
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
+        });
+        console.log('[AI Companion] All quick action buttons disabled');
+    }
+
+    /**
      * Perform A/B test analysis comparing agent response (treatment) with general knowledge (control)
      * This implements a scientific A/B testing methodology to evaluate the effectiveness of contextual responses
      * @private
      */
     async performBenchmarkAnalysis() {
         console.log('[AI Companion] Starting A/B test analysis (Context vs General Knowledge)');
-        
+
         // Try to get the most recent complete agent response using multiple methods
         let lastUserQuestion = null;
         let lastAgentResponse = null;
-        
+
         // Method 1: Extract FULL content directly from DOM (bypassing context truncation)
         const chatWindow = DOMUtils.getElementById('chatWindow');
         if (chatWindow) {
             const messageContainers = Array.from(chatWindow.querySelectorAll('.messageContainer')).reverse();
-            
+
             for (const container of messageContainers) {
                 if (container.classList.contains('botMessage') && !lastAgentResponse) {
                     // Try multiple selectors to get the complete message content
                     const messageSelectors = [
-                        '.messageText', 
-                        '.messageContent', 
+                        '.messageText',
+                        '.messageContent',
                         '.message-content',
                         '.messageDiv',
                         '.message'
                     ];
-                    
+
                     let messageElement = null;
                     for (const selector of messageSelectors) {
                         messageElement = container.querySelector(selector);
                         if (messageElement) break;
                     }
-                    
+
                     if (messageElement) {
                         // Get the COMPLETE content without any truncation
                         let fullContent = '';
-                        
+
                         // Method 1: Get all text nodes and preserve structure
                         const walker = document.createTreeWalker(
                             messageElement,
@@ -985,7 +2223,7 @@ export class AICompanion {
                             null,
                             false
                         );
-                        
+
                         let textNodes = [];
                         let node;
                         while (node = walker.nextNode()) {
@@ -993,11 +2231,11 @@ export class AICompanion {
                                 textNodes.push(node.textContent);
                             }
                         }
-                        
+
                         if (textNodes.length > 0) {
                             fullContent = textNodes.join(' ').trim();
                         }
-                        
+
                         // Method 2: Fallback to innerHTML processing if text nodes didn't work
                         if (!fullContent || fullContent.length < 20) {
                             const innerHTML = messageElement.innerHTML;
@@ -1017,17 +2255,17 @@ export class AICompanion {
                                     .trim();
                             }
                         }
-                        
+
                         // Method 3: Final fallback to textContent/innerText
                         if (!fullContent || fullContent.length < 20) {
                             fullContent = messageElement.textContent || messageElement.innerText || '';
                         }
-                        
+
                         if (fullContent && fullContent.trim().length > 10) {
                             lastAgentResponse = fullContent.trim();
                             console.log('[AI Companion] DOM extraction successful (FULL CONTENT), length:', lastAgentResponse.length);
                             console.log('[AI Companion] DOM extracted preview:', lastAgentResponse.substring(0, 200) + '...');
-                            
+
                             // Now find the corresponding user question
                             let foundUser = false;
                             for (const prevContainer of messageContainers) {
@@ -1037,19 +2275,19 @@ export class AICompanion {
                                 }
                                 if (foundUser && prevContainer.classList.contains('userMessage')) {
                                     const userSelectors = [
-                                        '.messageText', 
-                                        '.messageContent', 
+                                        '.messageText',
+                                        '.messageContent',
                                         '.message-content',
                                         '.messageDiv',
                                         '.message'
                                     ];
-                                    
+
                                     let userMessageElement = null;
                                     for (const selector of userSelectors) {
                                         userMessageElement = prevContainer.querySelector(selector);
                                         if (userMessageElement) break;
                                     }
-                                    
+
                                     if (userMessageElement) {
                                         lastUserQuestion = userMessageElement.textContent || userMessageElement.innerText || '';
                                         if (lastUserQuestion) {
@@ -1065,22 +2303,22 @@ export class AICompanion {
                 }
             }
         }
-        
+
         // Method 2: Fallback to session context if DOM extraction failed
         if (!lastAgentResponse || lastAgentResponse.length < 20) {
             console.log('[AI Companion] DOM extraction insufficient, trying session context');
-            
+
             const conversationContext = this.getAdaptiveConversationContext('analysis');
             const contextLines = conversationContext.split('\n');
-            
+
             if (contextLines.length >= 2) {
                 let collectingAgentResponse = false;
                 let agentResponseLines = [];
-                
+
                 // Parse backwards to find the most recent user-agent exchange
                 for (let i = contextLines.length - 1; i >= 0; i--) {
                     const line = contextLines[i].trim();
-                    
+
                     if (line.startsWith('Agent:') && !lastAgentResponse) {
                         // Found the start of the agent response
                         collectingAgentResponse = true;
@@ -1095,13 +2333,13 @@ export class AICompanion {
                         // Found the user question that prompted this agent response
                         lastUserQuestion = line.substring(5).trim();
                         lastAgentResponse = agentResponseLines.join('\n').trim();
-                        
+
                         // Clean up the response to remove any artifacts
                         lastAgentResponse = lastAgentResponse
                             .replace(/^\s*\n+/, '') // Remove leading newlines
                             .replace(/\n+\s*$/, '') // Remove trailing newlines
                             .trim();
-                        
+
                         console.log('[AI Companion] Session context extraction successful (but may be truncated)');
                         console.log('[AI Companion] Agent response length:', lastAgentResponse.length);
                         console.log('[AI Companion] Agent response preview:', lastAgentResponse.substring(0, 200) + '...');
@@ -1113,16 +2351,16 @@ export class AICompanion {
                 }
             }
         }
-        
+
         if (!lastUserQuestion || !lastAgentResponse) {
             throw new Error('Could not find a complete user question and agent response pair to benchmark');
         }
-        
+
         // Ensure we have meaningful content
         if (lastAgentResponse.length < 10) {
             throw new Error('Agent response is too short to provide meaningful benchmark analysis');
         }
-        
+
         // Enhanced debugging for content extraction
         console.log('[AI Companion] === A/B TEST CONTENT EXTRACTION DEBUG ===');
         console.log('[AI Companion] Benchmarking question:', lastUserQuestion.substring(0, 150) + (lastUserQuestion.length > 150 ? '...' : ''));
@@ -1130,15 +2368,15 @@ export class AICompanion {
         console.log('[AI Companion] Agent response preview (first 300 chars):', lastAgentResponse.substring(0, 300) + (lastAgentResponse.length > 300 ? '...' : ''));
         console.log('[AI Companion] Agent response preview (last 100 chars):', lastAgentResponse.length > 100 ? '...' + lastAgentResponse.slice(-100) : lastAgentResponse);
         console.log('[AI Companion] ===============================================');
-        
+
         // Note: Typing indicator disabled - using unified notification system for A/B test progress
         this.showTypingIndicator();
-        
+
         try {
             // Initialize streaming container for progressive A/B test results
             const { messageContainer, messageDiv } = this.initializeStreamingMessage();
             let currentContent = '';
-            
+
             // Step 1: Stream header immediately
             const header = `# 🧪 A/B Test Results Report
 
@@ -1148,11 +2386,11 @@ export class AICompanion {
 **Methodology**: Scientific A/B testing comparing control group vs treatment group
 
 ---`;
-            
+
             currentContent += header;
             this.updateStreamingContent(messageDiv, currentContent);
             this.showNotification('progress', '🧪 A/B Test Step 1/3: Getting control group response (general knowledge)...', 0);
-            
+
             // Step 2: Stream Option A (General Knowledge) with real streaming
             const optionAHeader = `
 
@@ -1161,14 +2399,14 @@ export class AICompanion {
 `;
             currentContent += optionAHeader;
             this.updateStreamingContent(messageDiv, currentContent);
-            
+
             // Get control group response with streaming
             const generalKnowledgeResponse = await this.getGeneralKnowledgeResponseStreaming(
-                lastUserQuestion, 
-                messageDiv, 
+                lastUserQuestion,
+                messageDiv,
                 currentContent
             );
-            
+
             // Update content with completed Option A
             const processedGeneralResponse = this.formatResponseForDisplay(generalKnowledgeResponse);
             currentContent = currentContent.replace(optionAHeader, `
@@ -1178,31 +2416,36 @@ export class AICompanion {
 ${processedGeneralResponse}
 
 ---`);
-            
+
             this.updateStreamingContent(messageDiv, currentContent);
-            this.showNotification('progress', '🧪 A/B Test Step 2/3: Displaying treatment group response (agent with context)...', 0);
-            
-            // Step 3: Stream Option B immediately (we already have it)
-            const processedAgentResponse = this.formatResponseForDisplay(lastAgentResponse);
+            this.showNotification('progress', '🧪 A/B Test Step 2/3: Referencing treatment group response (agent with context)...', 0);
+
+            // Step 3: Reference Option B (agent response) without duplicating it
             const optionB = `
 
 ## 💬 **Option B: Treatment Group (Agent with Conversational Context)**
 
-${processedAgentResponse}
+*📌 **Note**: The agent's response is already displayed in the chat window above. This A/B test compares that contextual response against the general knowledge response shown in Option A.*
+
+**Treatment Group Features:**
+- ✅ Full conversation context awareness
+- ✅ Domain-specific knowledge integration  
+- ✅ Personalized response based on chat history
+- ✅ Context-aware follow-up capabilities
 
 ---`;
-            
+
             currentContent += optionB;
             this.updateStreamingContent(messageDiv, currentContent);
             this.showNotification('progress', '🧪 A/B Test Step 3/3: Analyzing control vs treatment groups...', 0);
-            
+
             // Step 4: Get and stream analysis with real streaming
             const analysisHeader = `
 
 `;
             currentContent += analysisHeader;
             this.updateStreamingContent(messageDiv, currentContent);
-            
+
             const comparisonAnalysis = await this.getComparisonAnalysisStreaming(
                 lastUserQuestion,
                 generalKnowledgeResponse,
@@ -1210,7 +2453,7 @@ ${processedAgentResponse}
                 messageDiv,
                 currentContent
             );
-            
+
             // Update content with completed analysis
             currentContent = currentContent.replace(analysisHeader, `
 
@@ -1218,13 +2461,13 @@ ${comparisonAnalysis}
 
 ---
 
-*💡 **How to Read A/B Test Results**: Option A = Control group (general knowledge only) | Option B = Treatment group (agent with conversation context) | Compare which approach delivers better outcomes for your specific use case.*`);
-            
+*💡 **How to Read A/B Test Results**: Option A = Control group (general knowledge only) | Option B = Treatment group (agent response shown in chat above) | This scientific comparison evaluates the effectiveness of contextual vs. general knowledge responses.*`);
+
             this.finalizeMessage(messageDiv, currentContent);
-            
+
             // Clear A/B test progress notifications
             this.clearAllNotifications();
-            
+
         } finally {
             this.hideTypingIndicator();
         }
@@ -1243,14 +2486,14 @@ Question: ${question}`;
 
         // Estimate and track token usage
         this.estimateTokenUsage(prompt, true);
-        
+
         let response;
         if (this.currentProvider === 'ollama') {
             response = await this.getOllamaResponse(prompt);
         } else {
             response = await this.getAPIEvaluation(prompt);
         }
-        
+
         return response;
     }
 
@@ -1349,14 +2592,14 @@ Analyze both responses considering the question type:
 
         // Estimate and track token usage
         this.estimateTokenUsage(prompt, true);
-        
+
         let analysis;
         if (this.currentProvider === 'ollama') {
             analysis = await this.getOllamaResponse(prompt);
         } else {
             analysis = await this.getAPIEvaluation(prompt);
         }
-        
+
         return analysis;
     }
 
@@ -1369,7 +2612,7 @@ Analyze both responses considering the question type:
      */
     formatResponseForDisplay(response) {
         if (!response) return '*No response available*';
-        
+
         // Clean up the response while preserving markdown structure
         let formatted = response
             .trim()
@@ -1387,13 +2630,13 @@ Analyze both responses considering the question type:
             // Ensure proper spacing around code blocks
             .replace(/([^\n])\n(```)/g, '$1\n\n$2')
             .replace(/(```[^\n]*)\n([^\n`])/g, '$1\n\n$2');
-        
+
         // If the content doesn't start with markdown formatting, ensure it's treated as regular text
         if (!formatted.match(/^(#{1,6}\s|>\s|\*\s|-\s|\+\s|\d+\.\s|```|\|)/)) {
             // For plain text responses, ensure proper paragraph formatting
             formatted = formatted.replace(/\n\n+/g, '\n\n');
         }
-        
+
         return formatted;
     }
 
@@ -1471,10 +2714,10 @@ Analyze both responses considering the question type:
                                 if (!messageContainer) {
                                     // Mark content streaming started - disables timeout notifications
                                     this.markContentStreamingStarted();
-                                    
+
                                     // Show processing notification when first response chunk arrives
                                     this.showNotification('progress', `Processing response from ${localStorage.getItem('ollamaSelectedModel')}...`, 0);
-                                    
+
                                     // Use unified streaming message initialization
                                     const streaming = this.initializeStreamingMessage();
                                     messageContainer = streaming.messageContainer;
@@ -1491,11 +2734,11 @@ Analyze both responses considering the question type:
                                 if (messageDiv) {
                                     this.finalizeMessage(messageDiv, fullResponse);
                                 }
-                                
+
                                 // Clear response time notifications on successful completion
                                 this.clearResponseTimeNotifications();
                                 this.clearAllNotifications(); // Clear all notifications on success
-                                
+
                                 // Success - break out of retry loop
                                 return;
                             }
@@ -1504,39 +2747,39 @@ Analyze both responses considering the question type:
                         }
                     }
                 }
-                
+
                 // If we get here, the stream completed successfully
                 // Clear response time notifications on successful completion
                 this.clearResponseTimeNotifications();
                 this.clearAllNotifications(); // Clear all notifications on success
                 return;
-                
+
             } catch (error) {
                 console.error(`Ollama streaming error (attempt ${retryCount + 1}/${maxRetries + 1}):`, error);
-                
+
                 if (retryCount < maxRetries) {
                     retryCount++;
                     const delay = isFirstUse ? 3000 : 1000; // Longer delay for first use retries
                     console.log(`[AI Companion] Retrying in ${delay}ms... (${retryCount}/${maxRetries})`);
-                    
+
                     // Update user with retry message
                     if (error.message.includes('timeout')) {
                         this.hideTypingIndicator();
                         this.showNotification('timeout', `Model loading timeout. Retrying... (${retryCount}/${maxRetries})`, 8000);
                         this.showTypingIndicator();
                     }
-                    
+
                     await new Promise(resolve => setTimeout(resolve, delay));
                     continue;
                 } else {
                     // All retries exhausted
                     this.hideTypingIndicator();
-                    
+
                     // Provide helpful error message for first use
                     if (isFirstUse && error.message.includes('timeout')) {
                         throw new Error(`Model ${selectedModel} failed to load after ${maxRetries + 1} attempts. This can happen with large models on first use. Please try again or select a smaller model.`);
                     }
-                    
+
                     throw error;
                 }
             }
@@ -1737,7 +2980,7 @@ Analyze both responses considering the question type:
                                 if (!messageContainer) {
                                     // Mark content streaming started - disables timeout notifications
                                     this.markContentStreamingStarted();
-                                    
+
                                     // Use unified streaming message initialization
                                     const streaming = this.initializeStreamingMessage();
                                     messageContainer = streaming.messageContainer;
@@ -1802,7 +3045,7 @@ Analyze both responses considering the question type:
                                     if (!messageContainer) {
                                         // Mark content streaming started - disables timeout notifications
                                         this.markContentStreamingStarted();
-                                        
+
                                         // Use unified streaming message initialization
                                         const streaming = this.initializeStreamingMessage();
                                         messageContainer = streaming.messageContainer;
@@ -1856,13 +3099,13 @@ Analyze both responses considering the question type:
         const modelStateKey = `ollama_${selectedModel}_firstUse`;
         const isFirstUse = !localStorage.getItem(modelStateKey);
 
-        console.log('Sending to Ollama:', { 
-            url: ollamaUrl, 
-            model: selectedModel, 
+        console.log('Sending to Ollama:', {
+            url: ollamaUrl,
+            model: selectedModel,
             isFirstUse: isFirstUse,
             messageType: 'AI Companion Chat'
         });
-        
+
         // Start response time tracking for user notifications (no hard timeout)
         const startTime = Date.now();
         this.setupResponseTimeNotifications(startTime, selectedModel, isFirstUse);
@@ -1894,7 +3137,7 @@ Analyze both responses considering the question type:
             }
 
             return response;
-            
+
         } catch (error) {
             // Clear any pending notifications
             this.clearResponseTimeNotifications();
@@ -1913,7 +3156,7 @@ Analyze both responses considering the question type:
     setupResponseTimeNotifications(startTime, modelName, isFirstUse) {
         // Clear any existing notifications
         this.clearResponseTimeNotifications();
-        
+
         this.responseTimeNotifications = {
             startTime,
             modelName,
@@ -1938,7 +3181,7 @@ Analyze both responses considering the question type:
                     this.showResponseTimeNotification(notification.message, startTime);
                 }
             }, notification.delay);
-            
+
             this.responseTimeNotifications.notificationTimeouts.push(timeoutId);
         });
     }
@@ -1955,13 +3198,13 @@ Analyze both responses considering the question type:
         if (!this.responseTimeNotifications || !this.responseTimeNotifications.isWaitingForResponse) {
             return; // Don't show timeout notification if we're already processing response
         }
-        
+
         const elapsed = Math.round((Date.now() - startTime) / 1000);
         const fullMessage = `${message} (${elapsed}s elapsed)`;
-        
+
         // Show in notification area instead of chat
         this.showNotification('timeout', fullMessage, 10000); // Auto-hide after 10 seconds
-        
+
         console.log(`[AI Companion] Response time notification: ${fullMessage}`);
     }
 
@@ -1984,10 +3227,10 @@ Analyze both responses considering the question type:
         if (this.responseTimeNotifications) {
             this.responseTimeNotifications.isWaitingForResponse = false;
             this.responseTimeNotifications.hasReceivedContent = true;
-            
+
             // Clear any existing timeout notifications since we're now processing
             this.clearTimeoutNotifications();
-            
+
             console.log('[AI Companion] Content streaming started - timeout notifications disabled');
         }
     }
@@ -2026,17 +3269,17 @@ Analyze both responses considering the question type:
                 'warning': 'warning',
                 'info': 'info'
             };
-            
+
             const unifiedType = typeMapping[type] || 'info';
             const notificationId = `ai-notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            
+
             const options = {
                 id: notificationId,
                 message: message,
                 type: unifiedType,
                 zone: 'ai-companion' // Use dedicated AI companion zone
             };
-            
+
             // Set auto-hide or persistent based on duration
             if (duration > 0) {
                 options.autoHide = duration;
@@ -2045,15 +3288,15 @@ Analyze both responses considering the question type:
             } else {
                 options.autoHide = 5000; // Default auto-hide for other types
             }
-            
+
             window.unifiedNotificationManager.show(options);
             console.log(`[AICompanion] Notification shown via unified system: ${type} - ${message}`);
             return notificationId;
         }
-        
+
         // Fallback to legacy notification system if unified system not available
         console.warn('[AICompanion] Unified notification system not available, using fallback');
-        
+
         if (!this.elements.aiNotificationsArea) {
             console.warn('[AICompanion] AI notifications area not found, notification not shown');
             return null;
@@ -2069,7 +3312,7 @@ Analyze both responses considering the question type:
         const icon = DOMUtils.createElement('div', {
             className: 'ai-notification-icon'
         });
-        
+
         // Set icon content based on type
         const iconContent = {
             progress: '⟳',
@@ -2131,7 +3374,7 @@ Analyze both responses considering the question type:
             console.log(`[AICompanion] Notification removed via unified system: ${notificationId}`);
             return;
         }
-        
+
         // Fallback to legacy notification removal
         const notification = DOMUtils.getElementById(notificationId);
         if (notification) {
@@ -2140,7 +3383,7 @@ Analyze both responses considering the question type:
                 if (notification.parentNode) {
                     notification.parentNode.removeChild(notification);
                 }
-                
+
                 // Hide notification area if no notifications remain
                 if (this.elements.aiNotificationsArea && this.elements.aiNotificationsArea.children.length === 0) {
                     this.elements.aiNotificationsArea.classList.remove('has-notifications');
@@ -2158,7 +3401,7 @@ Analyze both responses considering the question type:
             window.unifiedNotificationManager.clearZone('ai-companion');
             console.log('[AICompanion] All notifications cleared via unified system');
         }
-        
+
         // Also clear legacy notifications if notification area exists
         if (this.elements.aiNotificationsArea) {
             this.elements.aiNotificationsArea.innerHTML = '';
@@ -2176,10 +3419,10 @@ Analyze both responses considering the question type:
     showResponseTimeNotification(message, startTime) {
         const elapsed = Math.round((Date.now() - startTime) / 1000);
         const fullMessage = `${message} (${elapsed}s elapsed)`;
-        
+
         // Show in notification area instead of chat
         this.showNotification('timeout', fullMessage, 10000); // Auto-hide after 10 seconds
-        
+
         console.log(`[AI Companion] Response time notification: ${fullMessage}`);
     }
 
@@ -2189,20 +3432,115 @@ Analyze both responses considering the question type:
      * @param {string} message - Message content
      */
     renderMessage(sender, message) {
-        if (!this.elements.llmChatWindow) return;
+        // Check if unified message system is available
+        const app = window.MCSChatApp;
+        const unifiedMessageAPI = app && app.getUnifiedMessageAPI ? app.getUnifiedMessageAPI() : null;
+
+        if (unifiedMessageAPI) {
+            // Use unified message system
+            let messageType;
+            switch (sender) {
+                case 'user':
+                    messageType = 'user';
+                    break;
+                case 'assistant':
+                    messageType = 'ai-companion';
+                    break;
+                case 'thinking':
+                    messageType = 'ai-companion';
+                    break;
+                case 'error':
+                    messageType = 'error';
+                    break;
+                default:
+                    messageType = 'ai-companion';
+            }
+
+            const metadata = {
+                timestamp: new Date(),
+                model: this.currentProvider || 'ai-companion',
+                container: 'ai-companion'
+            };
+
+            return unifiedMessageAPI.addMessage(messageType, message, metadata);
+        }
+
+        // Fallback to legacy system if unified system not available
+        this.renderMessageLegacy(sender, message);
+    }
+
+    /**
+     * Legacy message rendering (fallback)
+     * @param {string} sender - Message sender
+     * @param {string} message - Message content
+     */
+    renderMessageLegacy(sender, message) {
+        // Output to main chat window instead of AI companion panel
+        if (!this.elements.chatWindow) return;
 
         const messageContainer = this.createMessageContainer(sender);
+
+        // Create content wrapper that will contain both message and metadata
+        const contentWrapper = DOMUtils.createElement('div', {
+            className: 'message-content-wrapper'
+        });
+
         const messageDiv = DOMUtils.createElement('div', {
-            className: 'messageDiv'
+            className: 'messageContent'
         });
 
         // Use unified message creation with proper markdown processing
         this.createMessageElement(messageDiv, message, sender === 'error');
 
-        messageContainer.appendChild(messageDiv);
-        this.elements.llmChatWindow.appendChild(messageContainer);
+        contentWrapper.appendChild(messageDiv);
 
-        this.scrollToBottom();
+        // Add metadata for AI companion messages inside the content wrapper
+        const metadata = this.createMessageMetadata(sender);
+        if (metadata) {
+            contentWrapper.appendChild(metadata);
+        }
+
+        messageContainer.appendChild(contentWrapper);
+        this.elements.chatWindow.appendChild(messageContainer);
+
+        // Scroll main chat window to bottom
+        DOMUtils.scrollToBottom(this.elements.chatWindow);
+    }
+
+    /**
+     * Create metadata element for AI companion messages
+     * @param {string} sender - Message sender
+     * @returns {HTMLElement|null} Metadata element or null if not needed
+     * @private
+     */
+    createMessageMetadata(sender) {
+        const isUser = sender === 'user';
+        const isThinking = sender === 'thinking';
+
+        // Create metadata element
+        const metadata = DOMUtils.createElement('div', {
+            className: 'message-metadata'
+        });
+
+        // Add timestamp
+        const messageTime = new Date();
+        const timeSpan = DOMUtils.createElement('span', {
+            className: 'metadata-time'
+        }, messageTime.toLocaleTimeString());
+
+        metadata.appendChild(timeSpan);
+
+        // Add source information for non-user messages
+        if (!isUser) {
+            const sourceSpan = DOMUtils.createElement('span', {
+                className: 'metadata-source'
+            }, isThinking ? 'AI Companion (Thinking)' : 'AI Companion');
+
+            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • '));
+            metadata.appendChild(sourceSpan);
+        }
+
+        return metadata;
     }
 
     /**
@@ -2213,22 +3551,41 @@ Analyze both responses considering the question type:
      */
     createMessageContainer(sender) {
         const isUser = sender === 'user';
+        const isThinking = sender === 'thinking';
+        const isBot = !isUser && !isThinking;
+
+        // Add companion-response class for bot messages to maintain AI companion styling
+        let className = `messageContainer llmMessage ${sender}Message ${isThinking ? 'thinking-container' : ''}`;
+        if (isBot) {
+            className += ' companion-response botMessage';
+        } else if (isUser) {
+            className += ' userMessage';
+        }
+
         const container = DOMUtils.createElement('div', {
-            className: `messageContainer llmMessage ${sender}Message`,
+            className: className,
             dataset: {
                 sender,
                 timestamp: new Date().toISOString()
             }
         });
 
-        // Only add icon for user messages, positioned on the right
-        if (isUser) {
+        // Add icon for both user and bot messages to follow standard message style
+        if (isUser || isBot) {
             const icon = DOMUtils.createElement('div', {
                 className: 'messageIcon'
             });
-            // Set user icon background image to match agent chat
-            icon.style.backgroundImage = 'url("images/carter_30k.png")';
-            icon.style.backgroundSize = 'cover';
+
+            if (isUser) {
+                // Set user icon background image to match agent chat
+                icon.style.backgroundImage = 'url("images/carter_30k.png")';
+                icon.style.backgroundSize = 'cover';
+            } else if (isBot) {
+                // Set AI companion icon for bot messages
+                icon.setAttribute('data-icon', 'aiCompanion');
+                // Initialize icon after setting data-icon
+                setTimeout(() => initializeSVGIcons(), 0);
+            }
 
             container.appendChild(icon);
         }
@@ -2267,39 +3624,36 @@ Analyze both responses considering the question type:
      * @private
      */
     createMessageElement(parentDiv, content = '', isError = false) {
-        let textElement = parentDiv.querySelector('.messageText');
-        if (!textElement) {
-            textElement = DOMUtils.createElement('div', {
-                className: `messageText ${isError ? 'error-message' : ''}`
-            });
-            parentDiv.appendChild(textElement);
-        }
-
+        // For the new structure, create content directly in the messageContent div
         if (content) {
             const processed = this.processMarkdownContent(content, isError);
             if (processed.html) {
-                textElement.innerHTML = processed.content;
+                parentDiv.innerHTML = processed.content;
             } else {
-                textElement.textContent = processed.content;
+                parentDiv.textContent = processed.content;
             }
         }
 
-        return textElement;
+        return parentDiv;
     }
 
     /**
-     * Initialize streaming message structure
+     * Initialize streaming message container (clears any thinking messages)
      * @returns {Object} Object containing messageContainer and messageDiv
      * @private
      */
     initializeStreamingMessage() {
         this.hideTypingIndicator();
 
+        // Clear any existing thinking messages from main chat before starting real response
+        this.clearThinkingMessages();
+
         const messageContainer = this.createMessageContainer('assistant');
-        const messageDiv = DOMUtils.createElement('div', { className: 'messageDiv' });
+        const messageDiv = DOMUtils.createElement('div', { className: 'messageContent' });
 
         messageContainer.appendChild(messageDiv);
-        this.elements.llmChatWindow.appendChild(messageContainer);
+        // Output to main chat window instead of AI companion panel
+        this.elements.chatWindow.appendChild(messageContainer);
 
         return { messageContainer, messageDiv };
     }
@@ -2311,20 +3665,16 @@ Analyze both responses considering the question type:
      * @private
      */
     updateStreamingContent(messageDiv, content) {
-        let textElement = messageDiv.querySelector('.messageText');
-        if (!textElement) {
-            textElement = this.createMessageElement(messageDiv);
-        }
-
+        // With the new structure, messageDiv is already the messageContent
         // Process markdown and add typing cursor for streaming effect
         const processed = this.processMarkdownContent(content);
 
         if (processed.html) {
             // For HTML content, append typing cursor as HTML
-            textElement.innerHTML = processed.content + '<span class="typing-cursor">|</span>';
+            messageDiv.innerHTML = processed.content + '<span class="typing-cursor">|</span>';
         } else {
             // For plain text, append typing cursor as text
-            textElement.innerHTML = processed.content + '<span class="typing-cursor">|</span>';
+            messageDiv.innerHTML = processed.content + '<span class="typing-cursor">|</span>';
         }
     }
 
@@ -2351,10 +3701,10 @@ Analyze both responses considering the question type:
 
         // Check for citations in the content and add them
         this.addCitationsIfPresent(messageDiv, content);
-        
+
         // Estimate token usage for this response (rough approximation)
         this.estimateTokenUsage(content);
-        
+
         // Re-enable quick action buttons when message is complete
         if (this.isQuickActionInProgress) {
             this.enableAllQuickActionButtons();
@@ -2566,7 +3916,7 @@ Analyze both responses considering the question type:
     hideTypingIndicator() {
         // Typing indicator disabled - now using unified notification system
         console.log('[AI Companion] Typing indicator disabled - using unified notification system');
-        
+
         // Re-enable quick action buttons when typing ends (for error cases)
         if (this.isQuickActionInProgress) {
             this.enableAllQuickActionButtons();
@@ -2600,7 +3950,7 @@ Analyze both responses considering the question type:
      */
     getConversationContext(maxMessages = 50) {
         console.log(`[AI Companion] Requesting conversation context with maxMessages: ${maxMessages}`);
-        
+
         // Try to get context from session manager first
         const eventDetail = { maxMessages };
         const event = new CustomEvent('getConversationContext', {
@@ -2613,7 +3963,7 @@ Analyze both responses considering the question type:
             console.log(`[AI Companion] Got context from session manager:`, eventDetail.context.substring(0, 200) + '...');
             const messageCount = (eventDetail.context.match(/\n(User|Agent):/g) || []).length;
             console.log(`[AI Companion] Session manager provided ${messageCount} messages`);
-            
+
             if (messageCount > 0) {
                 return eventDetail.context;
             }
@@ -2625,13 +3975,13 @@ Analyze both responses considering the question type:
         if (this.conversationContext && this.conversationContext.length > 0) {
             console.log(`[AI Companion] Using internal conversation context: ${this.conversationContext.length} messages`);
             let context = 'Recent conversation:\n';
-            
+
             const recentMessages = this.conversationContext.slice(-maxMessages);
             recentMessages.forEach((message, index) => {
                 const role = message.role === 'user' ? 'User' : 'Agent';
                 context += `${role}: ${message.content}\n`;
             });
-            
+
             console.log(`[AI Companion] Internal context generated: ${recentMessages.length} messages`);
             return context;
         }
@@ -2646,48 +3996,48 @@ Analyze both responses considering the question type:
         // Try multiple selectors to catch all message types
         const messageContainers = chatWindow.querySelectorAll('.messageContainer, .message, [data-message-id]');
         console.log(`[AI Companion] Found ${messageContainers.length} message containers in DOM`);
-        
+
         const recentMessages = Array.from(messageContainers).slice(-maxMessages);
-        
+
         let context = 'Recent conversation:\n';
         let messageCount = 0;
-        
+
         recentMessages.forEach((container, index) => {
-            const isUser = container.classList.contains('userMessage') || 
-                          container.querySelector('.userMessage') ||
-                          container.dataset.sender === 'user';
-            
+            const isUser = container.classList.contains('userMessage') ||
+                container.querySelector('.userMessage') ||
+                container.dataset.sender === 'user';
+
             // Try multiple selectors for message content
             let messageContent = container.querySelector('.messageContent') ||
-                               container.querySelector('.messageText') ||
-                               container.querySelector('.messageDiv') ||
-                               container.querySelector('[data-content]');
-            
+                container.querySelector('.messageText') ||
+                container.querySelector('.messageDiv') ||
+                container.querySelector('[data-content]');
+
             // If no specific content element, try the container itself
             if (!messageContent) {
                 messageContent = container;
             }
-            
+
             let text = '[Unable to extract message]';
             if (messageContent) {
                 // Try to get text content, excluding citations and metadata
                 const clonedContent = messageContent.cloneNode(true);
-                
+
                 // Remove citations, metadata, and other non-essential elements
                 const elementsToRemove = clonedContent.querySelectorAll(
                     '.citations-container, .simplified-citations, .message-metadata, .citation-tooltip, ' +
                     '.messageIcon, .timestamp, .typing-cursor, .streaming-progress'
                 );
                 elementsToRemove.forEach(el => el.remove());
-                
+
                 text = clonedContent.textContent?.trim() || '[Empty message]';
-                
+
                 // Limit message length for context
                 if (text.length > 500) {
                     text = text.substring(0, 500) + '...';
                 }
             }
-            
+
             if (text && text !== '[Empty message]' && text !== '[Unable to extract message]') {
                 const sender = isUser ? 'User' : 'Agent';
                 context += `${sender}: ${text}\n`;
@@ -2707,7 +4057,7 @@ Analyze both responses considering the question type:
      */
     getAdaptiveConversationContext(purpose = 'general') {
         console.log(`[AI Companion] Getting adaptive context for purpose: ${purpose}`);
-        
+
         // Get total message count first by requesting a large number
         const eventDetail = { maxMessages: 1000 }; // Get a large number to count all messages
         const event = new CustomEvent('getConversationContext', {
@@ -2717,7 +4067,7 @@ Analyze both responses considering the question type:
 
         const totalContext = eventDetail.context || '';
         const totalMessages = (totalContext.match(/\n(User|Agent):/g) || []).length;
-        
+
         console.log(`[AI Companion] Total messages available: ${totalMessages}`);
 
         // Adaptive limits based on purpose and conversation length
@@ -2745,14 +4095,14 @@ Analyze both responses considering the question type:
         }
 
         console.log(`[AI Companion] Adaptive context: ${totalMessages} total messages, requesting ${maxMessages} for ${purpose}`);
-        
+
         const finalContext = this.getConversationContext(maxMessages);
         const finalMessageCount = (finalContext.match(/\n(User|Agent):/g) || []).length;
-        
+
         console.log(`[AI Companion] Final context delivered: ${finalMessageCount} messages for ${purpose} analysis`);
-        
+
         if (purpose === 'analysis' && finalMessageCount < totalMessages * 0.8) {
-            console.warn(`[AI Companion] KPI Analysis Warning: Only received ${finalMessageCount}/${totalMessages} messages (${Math.round(finalMessageCount/totalMessages*100)}%). This may affect completeness accuracy.`);
+            console.warn(`[AI Companion] KPI Analysis Warning: Only received ${finalMessageCount}/${totalMessages} messages (${Math.round(finalMessageCount / totalMessages * 100)}%). This may affect completeness accuracy.`);
         }
         return finalContext;
     }
@@ -2763,20 +4113,20 @@ Analyze both responses considering the question type:
      */
     debugConversationContext() {
         console.log('[AI Companion] === CONVERSATION CONTEXT DEBUG ===');
-        
+
         // Test direct session manager access
         const testEvent = new CustomEvent('getConversationContext', {
             detail: { maxMessages: 1000 }
         });
         window.dispatchEvent(testEvent);
-        
+
         const sessionContext = testEvent.detail.context || '';
         const sessionMessageCount = (sessionContext.match(/\n(User|Agent):/g) || []).length;
-        
+
         // Test DOM extraction
         const chatWindow = DOMUtils.getElementById('chatWindow');
         const domMessageContainers = chatWindow ? chatWindow.querySelectorAll('.messageContainer, .message') : [];
-        
+
         const debugInfo = {
             sessionManager: {
                 available: !!testEvent.detail.context,
@@ -2793,7 +4143,7 @@ Analyze both responses considering the question type:
                 totalMessagesFound: Math.max(sessionMessageCount, domMessageContainers.length)
             }
         };
-        
+
         console.log('[AI Companion] Debug info:', debugInfo);
         return debugInfo;
     }
@@ -2812,7 +4162,7 @@ Analyze both responses considering the question type:
         const selectedModel = localStorage.getItem('ollamaSelectedModel');
         const modelStateKey = `ollama_${selectedModel}_firstUse`;
         const isFirstModelUse = !localStorage.getItem(modelStateKey);
-        
+
         if (isFirstModelUse) {
             console.log('[AI Companion] Skipping heavy KPI analysis during first model invocation for better performance');
         }
@@ -2824,16 +4174,16 @@ Analyze both responses considering the question type:
             // Get conversation context
             const conversationContext = this.getAdaptiveConversationContext('analysis');
             this.lastKPIAnalysisContext = conversationContext;
-            
+
             const contextMessageCount = (conversationContext.match(/\n(User|Agent):/g) || []).length;
             console.log(`[AI Companion] KPI Analysis using ${contextMessageCount} messages`);
 
             // PHASE 1: INSTANT - Calculate fast heuristic-based KPIs
             const fastResults = this.calculateFastKPIs(messageData, conversationContext);
-            
+
             // Apply fast results immediately
             this.applyKPIResults(fastResults, false); // false = not final
-            
+
             // Update efficiency and consumption immediately
             this.completeResponseTiming();
             this.kpiData.efficiency = Math.max(0, Math.min(10, this.calculateEfficiency()));
@@ -2885,7 +4235,7 @@ Analyze both responses considering the question type:
         this.lastWordCount = wordCount;
 
         // Parse context for analysis
-        const contextMessages = conversationContext.split('\n').filter(line => 
+        const contextMessages = conversationContext.split('\n').filter(line =>
             line.startsWith('User:') || line.startsWith('Agent:')
         );
         const userMessages = contextMessages.filter(line => line.startsWith('User:'));
@@ -2933,7 +4283,7 @@ Analyze both responses considering the question type:
      */
     scheduleLLMAnalysis(messageData, conversationContext) {
         const now = Date.now();
-        
+
         // Cancel any pending analysis
         if (this.kpiOptimization.pendingAnalysis) {
             clearTimeout(this.kpiOptimization.pendingAnalysis);
@@ -2972,10 +4322,10 @@ Analyze both responses considering the question type:
 
             // Create optimized prompt for all KPIs in single call
             const llmResults = await this.getBatchedKPIAnalysis(messageData, conversationContext);
-            
+
             // Apply LLM results as final values
             this.applyKPIResults(llmResults, true); // true = final results
-            
+
             console.log('[AI Companion] LLM KPI results applied:', llmResults);
 
         } catch (error) {
@@ -3050,18 +4400,18 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
     parseBatchedKPIResponse(llmResponse) {
         try {
             console.log('[AI Companion] Raw LLM response for KPI parsing:', llmResponse.substring(0, 500) + '...');
-            
+
             // Try multiple strategies to extract valid JSON
             let jsonString = null;
             let parsed = null;
-            
+
             // Strategy 1: Look for JSON between code blocks
             const codeBlockMatch = llmResponse.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i);
             if (codeBlockMatch) {
                 jsonString = codeBlockMatch[1];
                 console.log('[AI Companion] Found JSON in code block');
             }
-            
+
             // Strategy 2: Look for the first complete JSON object
             if (!jsonString) {
                 const jsonMatch = llmResponse.match(/\{[^}]*\}/);
@@ -3073,7 +4423,7 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
                         for (let i = startIndex; i < llmResponse.length; i++) {
                             if (llmResponse[i] === '{') braceCount++;
                             else if (llmResponse[i] === '}') braceCount--;
-                            
+
                             if (braceCount === 0) {
                                 jsonString = llmResponse.substring(startIndex, i + 1);
                                 break;
@@ -3082,7 +4432,7 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
                     }
                 }
             }
-            
+
             // Strategy 3: Fallback to simple regex match
             if (!jsonString) {
                 const simpleMatch = llmResponse.match(/\{[\s\S]*\}/);
@@ -3090,22 +4440,22 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
                     jsonString = simpleMatch[0];
                 }
             }
-            
+
             if (!jsonString) {
                 throw new Error('No JSON found in LLM response');
             }
-            
+
             console.log('[AI Companion] Attempting to parse JSON:', jsonString.substring(0, 200) + '...');
-            
+
             // Clean the JSON string before parsing
             jsonString = jsonString
                 .replace(/,\s*}/g, '}')  // Remove trailing commas
                 .replace(/,\s*]/g, ']')  // Remove trailing commas in arrays
                 .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')  // Quote unquoted keys
                 .trim();
-            
+
             parsed = JSON.parse(jsonString);
-            
+
             return {
                 accuracy: Math.max(0, Math.min(10, parsed.accuracy?.score || 7)),
                 helpfulness: Math.max(0, Math.min(10, parsed.helpfulness?.score || 7)),
@@ -3119,12 +4469,14 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
         } catch (error) {
             console.error('[AI Companion] Error parsing batched KPI response:', error);
             console.error('[AI Companion] Raw response that failed to parse:', llmResponse);
-            
+
             // Return neutral scores as fallback
             return {
                 accuracy: 7, helpfulness: 7, completeness: 7,
-                reasoning: { accuracy: 'Parse error - see console', helpfulness: 'Parse error - see console', 
-                           completeness: 'Parse error - see console' }
+                reasoning: {
+                    accuracy: 'Parse error - see console', helpfulness: 'Parse error - see console',
+                    completeness: 'Parse error - see console'
+                }
             };
         }
     }
@@ -3141,7 +4493,7 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
 
         // Apply results
         this.kpiData.accuracy = results.accuracy;
-        this.kpiData.helpfulness = results.helpfulness; 
+        this.kpiData.helpfulness = results.helpfulness;
         this.kpiData.completeness = results.completeness;
 
         // Store reasoning if available (for modal display)
@@ -3154,11 +4506,11 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
 
         // Calculate changes and trend
         this.kpiData.changes++;
-        const avgCurrent = (this.kpiData.accuracy + this.kpiData.helpfulness + 
-                          this.kpiData.completeness + this.kpiData.efficiency) / 4;
-        const avgPrevious = (this.previousKpiData.accuracy + this.previousKpiData.helpfulness + 
-                           this.previousKpiData.completeness + this.previousKpiData.efficiency) / 4;
-        
+        const avgCurrent = (this.kpiData.accuracy + this.kpiData.helpfulness +
+            this.kpiData.completeness + this.kpiData.efficiency) / 4;
+        const avgPrevious = (this.previousKpiData.accuracy + this.previousKpiData.helpfulness +
+            this.previousKpiData.completeness + this.previousKpiData.efficiency) / 4;
+
         if (avgCurrent > avgPrevious + 0.3) {
             this.kpiData.trend = 'improving';
         } else if (avgCurrent < avgPrevious - 0.3) {
@@ -3175,6 +4527,11 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
             efficiency: this.kpiData.efficiency.toFixed(1),
             trend: this.kpiData.trend
         });
+
+        // Generate and display KPI explanation in chat when final results are available
+        if (isFinal && results.reasoning) {
+            this.generateAndDisplayKPIExplanation(results);
+        }
     }
 
     /**
@@ -3188,14 +4545,14 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
         // Simple heuristic: count question keywords addressed
         const questionKeywords = userMessage.toLowerCase().match(/\b(how|what|when|where|why|which|who)\b/g) || [];
         const uniqueKeywords = [...new Set(questionKeywords)];
-        
+
         let addressedCount = 0;
         for (const keyword of uniqueKeywords) {
             if (content.includes(keyword) || this.getResponsePatternForKeyword(keyword, content)) {
                 addressedCount++;
             }
         }
-        
+
         return Math.min(addressedCount, uniqueKeywords.length);
     }
 
@@ -3216,7 +4573,7 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
             'which': ['option', 'choice', 'alternative'],
             'who': ['person', 'individual', 'team']
         };
-        
+
         const keywordPatterns = patterns[keyword] || [];
         return keywordPatterns.some(pattern => content.includes(pattern));
     }
@@ -3231,35 +4588,35 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
     async analyzeWithContext(messageData, conversationContext) {
         const content = messageData.content.toLowerCase();
         const wordCount = content.split(' ').length;
-        
+
         // Parse conversation context for contextual understanding
-        const contextMessages = conversationContext.split('\n').filter(line => 
+        const contextMessages = conversationContext.split('\n').filter(line =>
             line.startsWith('User:') || line.startsWith('Agent:')
         );
-        
+
         const userMessages = contextMessages.filter(line => line.startsWith('User:'));
         const agentMessages = contextMessages.filter(line => line.startsWith('Agent:'));
         const conversationLength = contextMessages.length;
-        
+
         console.log(`[AI Companion] Analyzing with context: ${conversationLength} messages, ${userMessages.length} user, ${agentMessages.length} agent`);
 
         // Enhanced accuracy analysis with conversation context
         let accuracy = 7.0;
-        
+
         // Check for consistency with previous agent responses
         if (agentMessages.length > 1) {
             const previousResponses = agentMessages.slice(-3); // Last 3 responses
             const hasConsistentTone = this.checkResponseConsistency(content, previousResponses);
             if (hasConsistentTone) accuracy += 0.5;
         }
-        
+
         // Analyze response relevance to recent user questions
         if (userMessages.length > 0) {
             const recentUserMessage = userMessages[userMessages.length - 1].substring(5); // Remove "User:"
             const relevanceScore = this.calculateRelevanceScore(content, recentUserMessage);
             accuracy += relevanceScore * 2; // Scale relevance to accuracy
         }
-        
+
         // Traditional accuracy indicators
         if (content.includes('i think') || content.includes('maybe') || content.includes('probably')) {
             accuracy -= 1.0;
@@ -3273,13 +4630,13 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
 
         // Enhanced helpfulness analysis
         let helpfulness = 6.5;
-        
+
         // Check if response builds on conversation history
         if (conversationLength > 2) {
             const buildsOnHistory = this.checkIfBuildsOnHistory(content, contextMessages);
             if (buildsOnHistory) helpfulness += 1.5;
         }
-        
+
         // Analyze actionable content
         if (content.includes('here\'s how') || content.includes('you can') || content.includes('try this')) {
             helpfulness += 1.5;
@@ -3293,7 +4650,7 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
 
         // Enhanced completeness analysis
         let completeness = Math.min(8.0, Math.max(3.0, wordCount * 0.15));
-        
+
         // Check if response addresses all parts of multi-part questions
         if (userMessages.length > 0) {
             const lastUserMessage = userMessages[userMessages.length - 1];
@@ -3303,7 +4660,7 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
                 completeness += (addressedParts / questionParts) * 2;
             }
         }
-        
+
         if (content.includes('example') || content.includes('for instance')) {
             completeness += 0.8;
         }
@@ -3433,11 +4790,11 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
         if (this.timeTracking.lastUserMessage) {
             // Calculate the response time from user message to completion
             this.timeTracking.responseTime = Date.now() - this.timeTracking.lastUserMessage;
-            
+
             // Update message count and average
             this.timeTracking.messageCount++;
             this.timeTracking.avgResponseTime = (
-                (this.timeTracking.avgResponseTime * (this.timeTracking.messageCount - 1)) + 
+                (this.timeTracking.avgResponseTime * (this.timeTracking.messageCount - 1)) +
                 this.timeTracking.responseTime
             ) / this.timeTracking.messageCount;
 
@@ -3457,15 +4814,15 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
      */
     checkResponseConsistency(currentResponse, previousResponses) {
         if (!previousResponses || previousResponses.length === 0) return true;
-        
+
         // Check for consistent tone and style indicators
         const currentHasPersonal = /\b(i\s|my\s|me\s)/g.test(currentResponse);
         const currentHasFormal = /\b(furthermore|therefore|additionally|consequently)\b/g.test(currentResponse);
-        
+
         const previousResponses_text = previousResponses.join(' ').toLowerCase();
         const previousHasPersonal = /\b(i\s|my\s|me\s)/g.test(previousResponses_text);
         const previousHasFormal = /\b(furthermore|therefore|additionally|consequently)\b/g.test(previousResponses_text);
-        
+
         // Consistency check: similar tone patterns
         return (currentHasPersonal === previousHasPersonal) || (currentHasFormal === previousHasFormal);
     }
@@ -3479,18 +4836,18 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
      */
     calculateRelevanceScore(response, userMessage) {
         if (!userMessage) return 0.5;
-        
-        const userWords = userMessage.toLowerCase().split(/\W+/).filter(word => 
+
+        const userWords = userMessage.toLowerCase().split(/\W+/).filter(word =>
             word.length > 3 && !['this', 'that', 'with', 'from', 'they', 'have', 'will', 'been', 'were'].includes(word)
         );
-        
+
         if (userWords.length === 0) return 0.5;
-        
+
         let matches = 0;
         userWords.forEach(word => {
             if (response.includes(word)) matches++;
         });
-        
+
         return Math.min(1, matches / userWords.length);
     }
 
@@ -3506,7 +4863,7 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
             'as mentioned', 'as discussed', 'earlier', 'previously', 'before',
             'following up', 'continuing', 'building on', 'expanding on'
         ];
-        
+
         return historyIndicators.some(indicator => response.includes(indicator));
     }
 
@@ -3520,17 +4877,17 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
     countAddressedQuestionParts(response, userMessage) {
         const questionParts = userMessage.split('?').filter(part => part.trim().length > 0);
         if (questionParts.length <= 1) return 1;
-        
+
         let addressedParts = 0;
         questionParts.forEach(part => {
-            const keywords = part.toLowerCase().split(/\W+/).filter(word => 
+            const keywords = part.toLowerCase().split(/\W+/).filter(word =>
                 word.length > 3 && !['what', 'how', 'why', 'when', 'where', 'which'].includes(word)
             );
-            
+
             const hasMatch = keywords.some(keyword => response.includes(keyword));
             if (hasMatch) addressedParts++;
         });
-        
+
         return Math.max(1, addressedParts);
     }
 
@@ -3552,21 +4909,21 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
         try {
             // Prepare the evaluation prompt for the LLM
             const evaluationPrompt = this.buildHLSEvaluationPrompt(content, conversationContext);
-            
+
             // Get LLM evaluation
             const llmEvaluation = await this.getLLMEvaluation(evaluationPrompt);
-            
+
             // Parse and validate the LLM response
             const evaluation = this.parseHLSEvaluation(llmEvaluation);
-            
+
             // Store evaluation for modal display
             this.lastHLSEvaluation = evaluation;
-            
+
             // Log detailed breakdown
             this.logHLSBreakdown(evaluation);
-            
+
             return Math.max(0, Math.min(10, evaluation.finalScore));
-            
+
         } catch (error) {
             console.error('[AI Companion] Error in LLM-powered HLS evaluation:', error);
             // Fallback to basic scoring if LLM evaluation fails
@@ -3674,7 +5031,7 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
      */
     async getLLMEvaluation(prompt) {
         console.log('[AI Companion] Sending HLS evaluation request to LLM');
-        
+
         try {
             if (this.currentProvider === 'ollama') {
                 return await this.getOllamaEvaluation(prompt);
@@ -3722,7 +5079,7 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
 
             const data = await response.json();
             return data.response;
-            
+
         } catch (error) {
             throw error;
         }
@@ -3746,7 +5103,7 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
             const endpoint = localStorage.getItem('azureEndpoint');
             const deployment = localStorage.getItem('azureDeployment');
             const apiVersion = localStorage.getItem('azureApiVersion') || '2024-02-01';
-            
+
             url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
             headers = {
                 'Content-Type': 'application/json',
@@ -3794,12 +5151,12 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
         }
 
         const data = await response.json();
-        
+
         // Track token usage from API response
         if (data.usage) {
             this.trackTokenUsage(data.usage);
         }
-        
+
         if (this.currentProvider === 'anthropic') {
             return data.content[0].text;
         } else {
@@ -3822,7 +5179,7 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
             }
 
             let jsonString = jsonMatch[0];
-            
+
             // Clean up common JSON issues in LLM responses
             jsonString = this.cleanupLLMJson(jsonString);
 
@@ -3834,7 +5191,7 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
                 console.error('[AI Companion] JSON Parse Error:', parseError.message);
                 console.error('[AI Companion] Raw LLM Response:', llmResponse);
                 console.error('[AI Companion] Extracted JSON String:', jsonString);
-                
+
                 // Try to identify the problematic part
                 const lines = jsonString.split('\n');
                 const errorMatch = parseError.message.match(/line (\d+)/);
@@ -3846,11 +5203,11 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
                         if (lines[lineNum + 1]) console.error(`[AI Companion] Next line:`, lines[lineNum + 1]);
                     }
                 }
-                
+
                 // Attempt to repair the JSON and try again
                 console.warn('[AI Companion] Attempting JSON repair...');
                 const repairedJson = this.attemptJsonRepair(jsonString);
-                
+
                 try {
                     evaluation = JSON.parse(repairedJson);
                     console.log('[AI Companion] JSON repair successful!');
@@ -3860,7 +5217,7 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
                     throw parseError; // Throw original error
                 }
             }
-            
+
             // Validate required structure
             const requiredDimensions = ['relevanceCoherence', 'depthUnderstanding', 'adaptability', 'expressiveness', 'engagement'];
             for (const dimension of requiredDimensions) {
@@ -3871,14 +5228,14 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
 
             // Calculate weighted final score
             const weightedScore = (evaluation.relevanceCoherence.score * 0.30) +
-                                (evaluation.depthUnderstanding.score * 0.25) +
-                                (evaluation.adaptability.score * 0.20) +
-                                (evaluation.expressiveness.score * 0.15) +
-                                (evaluation.engagement.score * 0.10);
+                (evaluation.depthUnderstanding.score * 0.25) +
+                (evaluation.adaptability.score * 0.20) +
+                (evaluation.expressiveness.score * 0.15) +
+                (evaluation.engagement.score * 0.10);
 
             // Convert from 0-100 to 0-10 scale
             evaluation.finalScore = weightedScore / 10;
-            
+
             // Store individual scores for display
             evaluation.breakdown = {
                 relevance: evaluation.relevanceCoherence.score,
@@ -3995,7 +5352,7 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
         console.log(`  🤝 Engagement & Responsiveness (10%): ${evaluation.breakdown.engagement.toFixed(1)}/100`);
         console.log(`     ${evaluation.engagement.explanation}`);
         console.log(`  📊 Final HLS Score: ${evaluation.finalScore.toFixed(1)}/10`);
-        
+
         if (evaluation.overallAssessment) {
             console.log(`  📝 Overall Assessment: ${evaluation.overallAssessment.summary}`);
             if (evaluation.overallAssessment.standoutQualities?.length > 0) {
@@ -4018,7 +5375,7 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
      */
     calculateBasicHumanLikeness(content) {
         console.log('[AI Companion] Using fallback basic human-likeness calculation');
-        
+
         let score = 6.0; // Default baseline
         const lowerContent = content.toLowerCase();
         const wordCount = content.split(' ').length;
@@ -4027,7 +5384,7 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
         if (/\b(i\s|you\s|we\s)/g.test(lowerContent)) score += 0.5;
         if (/[.!?]+/.test(content)) score += 0.3;
         if (wordCount > 10 && wordCount < 150) score += 0.5;
-        
+
         // Penalties for obvious AI patterns
         if (lowerContent.includes('as an ai') || lowerContent.includes('i am programmed')) score -= 2.0;
         if (lowerContent.includes('i cannot') && lowerContent.includes('feel')) score -= 1.0;
@@ -4044,14 +5401,14 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
      */
     checkConversationFlow(content, conversationContext) {
         const lowerContent = content.toLowerCase();
-        
+
         // Look for transitional phrases
         const transitions = [
             'also', 'additionally', 'furthermore', 'moreover',
             'however', 'on the other hand', 'nevertheless',
             'by the way', 'speaking of', 'that reminds me'
         ];
-        
+
         return transitions.some(transition => lowerContent.includes(transition));
     }
 
@@ -4063,30 +5420,30 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
      */
     detectUserTone(userMessage) {
         const lowerMessage = userMessage.toLowerCase();
-        
+
         // Emotional/urgent
         if (lowerMessage.includes('!') || lowerMessage.includes('urgent') || lowerMessage.includes('asap')) {
             return 'urgent';
         }
-        
+
         // Technical/formal
-        if (lowerMessage.includes('implement') || lowerMessage.includes('configure') || 
+        if (lowerMessage.includes('implement') || lowerMessage.includes('configure') ||
             lowerMessage.includes('documentation') || lowerMessage.includes('api')) {
             return 'technical';
         }
-        
+
         // Casual/friendly
-        if (lowerMessage.includes('hey') || lowerMessage.includes('thanks') || 
+        if (lowerMessage.includes('hey') || lowerMessage.includes('thanks') ||
             lowerMessage.includes('please') || lowerMessage.includes('could you')) {
             return 'casual';
         }
-        
+
         // Question-seeking
-        if (lowerMessage.includes('?') || lowerMessage.includes('how') || 
+        if (lowerMessage.includes('?') || lowerMessage.includes('how') ||
             lowerMessage.includes('what') || lowerMessage.includes('why')) {
             return 'inquisitive';
         }
-        
+
         return 'neutral';
     }
 
@@ -4099,28 +5456,28 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
      */
     evaluateResponseAppropriatenessToUserTone(agentResponse, userTone) {
         const lowerResponse = agentResponse.toLowerCase();
-        
+
         switch (userTone) {
             case 'urgent':
                 // Should be direct and acknowledge urgency
-                return lowerResponse.includes('right away') || lowerResponse.includes('immediately') || 
-                       lowerResponse.includes('urgent') || lowerResponse.length < 200; // Concise for urgency
-                       
+                return lowerResponse.includes('right away') || lowerResponse.includes('immediately') ||
+                    lowerResponse.includes('urgent') || lowerResponse.length < 200; // Concise for urgency
+
             case 'technical':
                 // Should use technical language and be detailed
-                return lowerResponse.includes('implement') || lowerResponse.includes('configure') || 
-                       lowerResponse.includes('code') || lowerResponse.includes('system');
-                       
+                return lowerResponse.includes('implement') || lowerResponse.includes('configure') ||
+                    lowerResponse.includes('code') || lowerResponse.includes('system');
+
             case 'casual':
                 // Should be friendly and approachable
-                return lowerResponse.includes('sure') || lowerResponse.includes('of course') || 
-                       lowerResponse.includes('happy to') || lowerResponse.includes('glad to');
-                       
+                return lowerResponse.includes('sure') || lowerResponse.includes('of course') ||
+                    lowerResponse.includes('happy to') || lowerResponse.includes('glad to');
+
             case 'inquisitive':
                 // Should be informative and educational
-                return lowerResponse.includes('here\'s how') || lowerResponse.includes('here\'s what') || 
-                       lowerResponse.includes('let me explain') || lowerResponse.includes('to answer');
-                       
+                return lowerResponse.includes('here\'s how') || lowerResponse.includes('here\'s what') ||
+                    lowerResponse.includes('let me explain') || lowerResponse.includes('to answer');
+
             default:
                 return true; // Neutral tone is generally appropriate
         }
@@ -4249,11 +5606,11 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
             if (element) {
                 // Store original value
                 element.dataset.originalValue = element.textContent;
-                
+
                 // Show calculating indicator
                 element.innerHTML = '<span class="calculating-indicator">⟳</span> Calculating...';
                 element.classList.add('calculating');
-                
+
                 // Add calculating animation to parent container
                 const kpiItem = element.closest('.kpi-item');
                 if (kpiItem) {
@@ -4346,7 +5703,7 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
      */
     scheduleConversationTitleUpdate() {
         console.log('[AI Companion] Scheduling conversation title update...');
-        
+
         if (this.titleUpdateTimeout) {
             clearTimeout(this.titleUpdateTimeout);
         }
@@ -4424,17 +5781,17 @@ Example good titles:
 
         // Split into words and check count
         const words = cleanTitle.split(/\s+/).filter(word => word.length > 0);
-        
+
         if (words.length === 0) {
             return 'Agent Conversation';
         }
-        
+
         // Enforce 20-word maximum limit
         if (words.length > 20) {
             console.log(`[AI Companion] Title too long (${words.length} words), truncating to 20 words`);
             cleanTitle = words.slice(0, 20).join(' ');
         }
-        
+
         // Ensure minimum length (4 words) for meaningful titles
         if (words.length < 4) {
             console.log(`[AI Companion] Title too short (${words.length} words), keeping as is`);
@@ -4442,7 +5799,7 @@ Example good titles:
 
         // Ensure title ends properly (no trailing punctuation except periods)
         cleanTitle = cleanTitle.replace(/[,;:\-]+$/, '');
-        
+
         console.log(`[AI Companion] Title validation: ${words.length} words -> "${cleanTitle}"`);
         return cleanTitle;
     }
@@ -4486,7 +5843,7 @@ Example good titles:
             }
 
             return response;
-            
+
         } catch (error) {
             throw error;
         }
@@ -4501,11 +5858,11 @@ Example good titles:
     async generateTitleWithOllama(prompt) {
         try {
             const response = await this.sendToOllamaForTitle(prompt);
-            
+
             // Handle non-streaming response
             const data = await response.json();
             return data.response ? data.response.trim() : '';
-            
+
         } catch (error) {
             console.error('Error generating title with Ollama:', error);
             return '';
@@ -4534,7 +5891,7 @@ Example good titles:
             } else if (provider === 'anthropic') {
                 return await this.generateTitleWithAnthropic(prompt, apiKey);
             }
-            
+
             return '';
         } catch (error) {
             console.error(`[AI Companion] Error generating title with ${provider}:`, error);
@@ -4662,7 +6019,7 @@ Example good titles:
             this.currentConversationTitle = cleanTitle;
             this.elements.agentConversationTitle.textContent = cleanTitle;
             console.log('Successfully updated conversation title to:', cleanTitle);
-            
+
             // Notify session manager to save the title
             const titleUpdateEvent = new CustomEvent('updateSessionTitle', {
                 detail: { title: cleanTitle }
@@ -4679,7 +6036,8 @@ Example good titles:
      * @private
      */
     scrollToBottom() {
-        DOMUtils.scrollToBottom(this.elements.llmChatWindow);
+        // Scroll main chat window instead of AI companion panel
+        DOMUtils.scrollToBottom(this.elements.chatWindow);
     }
 
     /**
@@ -4713,12 +6071,12 @@ Example good titles:
         localStorage.setItem('selectedApiProvider', provider);
         this.updateStatus();
         this.updateTokenDisplays(); // Update displays when provider changes
-        
+
         // Sync dropdown if switching to Ollama
         if (provider === 'ollama') {
             setTimeout(() => this.syncModelDropdownSelection(), 500);
         }
-        
+
         console.log('AI provider set to:', provider);
     }
 
@@ -4784,7 +6142,7 @@ Example good titles:
         if (!this.elements.kpiModal) return;
 
         console.log('[AI Companion] Opening KPI modal for type:', kpiType);
-        
+
         const kpiData = this.getKPIDetails(kpiType);
         console.log('[AI Companion] KPI data retrieved:', kpiData);
 
@@ -4930,7 +6288,7 @@ Example good titles:
         } else if (type === 'humanlikeness') {
             // Show detailed LLM evaluation breakdown if available
             const hasLLMEvaluation = this.lastHLSEvaluation && typeof this.lastHLSEvaluation === 'object';
-            
+
             if (hasLLMEvaluation) {
                 html = `
                     <div class="calculation-item">
@@ -5099,15 +6457,15 @@ Example good titles:
         // Get the current analysis context to ensure we show what's actually being used
         const currentAnalysisContext = this.getAdaptiveConversationContext('analysis');
         const analysisContextToUse = this.lastKPIAnalysisContext || currentAnalysisContext;
-        
+
         console.log(`[AI Companion] Generating context HTML - stored context length: ${this.lastKPIAnalysisContext?.length || 0}, current context length: ${currentAnalysisContext.length}`);
-        
+
         if (!analysisContextToUse || analysisContextToUse === 'No conversation available.') {
             return '<p>No conversation context available for analysis. The KPI analysis uses conversation context from the session manager.</p>';
         }
 
         // Parse the context string that was actually used for analysis
-        const contextLines = analysisContextToUse.split('\n').filter(line => 
+        const contextLines = analysisContextToUse.split('\n').filter(line =>
             line.startsWith('User:') || line.startsWith('Agent:')
         );
 
@@ -5124,19 +6482,19 @@ Example good titles:
 
         // Show recent messages from the actual analysis context, ordered chronologically (old to new)
         const recentMessages = contextLines.slice(-10); // Show last 10 messages
-        
+
         // Ensure chronological order from oldest to newest
         recentMessages.forEach((line, index) => {
             const isUser = line.startsWith('User:');
             const role = isUser ? 'user' : 'assistant';
             const content = line.substring(isUser ? 5 : 6); // Remove "User:" or "Agent:"
-            
+
             const analysis = !isUser ? this.getContextualMessageAnalysis(content, kpiType) : 'User message - provides context for agent analysis';
-            
+
             // Calculate message number (chronological from start of context window)
             const messageNumber = contextLines.length - 10 + index + 1;
             const messageIndex = messageNumber > 0 ? messageNumber : index + 1;
-            
+
             html += `
                 <div class="context-message ${role}">
                     <div class="message-role">#${messageIndex} ${isUser ? 'User' : 'Agent'}</div>
@@ -5174,7 +6532,7 @@ Example good titles:
      */
     getContextualMessageAnalysis(content, kpiType) {
         const lowerContent = typeof content === 'string' ? content.toLowerCase() : '';
-        
+
         switch (kpiType) {
             case 'accuracy':
                 return '🎯 Evaluated by LLM for factual correctness and information precision';
@@ -5189,7 +6547,7 @@ Example good titles:
                 if (this.lastHLSEvaluation && this.lastHLSEvaluation.overallAssessment) {
                     const standoutQualities = this.lastHLSEvaluation.overallAssessment.standoutQualities || [];
                     const mainWeaknesses = this.lastHLSEvaluation.overallAssessment.mainWeaknesses || [];
-                    
+
                     let analysis = '🤖 LLM-evaluated human-likeness: ';
                     if (standoutQualities.length > 0) {
                         analysis += `Strengths: ${standoutQualities.slice(0, 2).join(', ')}`;
@@ -5270,7 +6628,7 @@ Example good titles:
      */
     loadConversationTokens(conversationId) {
         if (!conversationId) return;
-        
+
         const stored = localStorage.getItem(`aiCompanion_conversationTokens_${conversationId}`);
         if (stored) {
             this.tokenTracking.conversationTokens = parseInt(stored);
@@ -5286,7 +6644,7 @@ Example good titles:
      */
     saveConversationTokens() {
         if (!this.tokenTracking.currentConversationId) return;
-        
+
         localStorage.setItem(
             `aiCompanion_conversationTokens_${this.tokenTracking.currentConversationId}`,
             this.tokenTracking.conversationTokens.toString()
@@ -5305,7 +6663,7 @@ Example good titles:
         // Rough token estimation: ~4 characters per token for English text
         const estimatedTokens = Math.ceil(content.length / 4);
 
-        const usage = isInput ? 
+        const usage = isInput ?
             { prompt_tokens: estimatedTokens, completion_tokens: 0 } :
             { prompt_tokens: 0, completion_tokens: estimatedTokens };
 
@@ -5390,24 +6748,24 @@ Example good titles:
 
         console.log('[AI Companion] Attempting to sync dropdown to model:', currentModel);
         console.log('[AI Companion] Dropdown options count:', ollamaModelSelect.options.length);
-        
+
         // Log all available options for debugging
         const availableOptions = Array.from(ollamaModelSelect.options).map(opt => opt.value).filter(v => v);
         console.log('[AI Companion] Available model options:', availableOptions);
 
         // Check if dropdown is empty or only has placeholder
-        const hasModels = ollamaModelSelect.options.length > 1 && 
-                         Array.from(ollamaModelSelect.options).some(option => option.value && option.value !== '');
+        const hasModels = ollamaModelSelect.options.length > 1 &&
+            Array.from(ollamaModelSelect.options).some(option => option.value && option.value !== '');
 
         if (!hasModels) {
             console.log('[AI Companion] No models loaded in dropdown, attempting to refresh models');
-            
+
             // Try to trigger model refresh if application is available
             if (window.MCSChatApp && window.MCSChatApp.refreshOllamaModels) {
                 try {
                     await window.MCSChatApp.refreshOllamaModels();
                     console.log('[AI Companion] Models refreshed, retrying sync');
-                    
+
                     // Retry sync after refresh
                     setTimeout(() => this.syncModelDropdownSelection(), 500);
                     return;
@@ -5419,7 +6777,7 @@ Example good titles:
 
         // Check if the current model exists in the dropdown options
         const modelExists = Array.from(ollamaModelSelect.options).some(option => option.value === currentModel);
-        
+
         if (modelExists) {
             // Set the dropdown to show the current model
             ollamaModelSelect.value = currentModel;
@@ -5449,12 +6807,12 @@ Example good titles:
         const percentage = Math.min((tokens / maxTokens) * 100, 100);
         if (this.elements.kpiConsumptionBar) {
             this.elements.kpiConsumptionBar.style.width = `${percentage}%`;
-            
+
             // Color coding based on usage
             let color = '#10b981'; // Green
             if (percentage > 75) color = '#ef4444'; // Red
             else if (percentage > 50) color = '#f59e0b'; // Yellow
-            
+
             this.elements.kpiConsumptionBar.style.background = color;
         }
     }
@@ -5613,7 +6971,7 @@ Example good titles:
             delete this.tokenTracking.modelTokens[modelId];
             this.saveModelTokens();
             this.updateModelComparisonView();
-            
+
             console.log(`[AI Companion] Reset token metrics for model: ${modelId}`);
         }
     }
@@ -5646,7 +7004,7 @@ Example good titles:
 
         const modelStateKey = `ollama_${selectedModel}_firstUse`;
         const hasBeenUsed = !!localStorage.getItem(modelStateKey);
-        
+
         return {
             model: selectedModel,
             hasBeenUsed: hasBeenUsed,
@@ -5676,42 +7034,42 @@ Example good titles:
      */
     async initializeSpeech() {
         console.log('[AICompanion] Initializing enhanced speech functionality...');
-        
+
         try {
             // Initialize the speech engine with current settings
             await speechEngine.initialize();
-            
+
             // Sync settings from aiCompanion to speechEngine
             speechEngine.settings = { ...speechEngine.settings, ...this.speechSettings };
-            
+
             // Switch to the preferred provider
             await speechEngine.switchProvider(this.speechSettings.provider);
-            
+
             // Update state
             this.speechState.isInitialized = true;
             this.speechState.currentProvider = speechEngine.state.currentProvider;
             this.speechState.capabilities = speechEngine.getCapabilities();
             this.speechState.availableVoices = await speechEngine.getAvailableVoices();
-            
+
             // Setup UI controls
             this.setupSpeechControls();
-            
+
             // Listen for speech provider fallback notifications
             window.addEventListener('speechProviderFallback', async (event) => {
                 const { message } = event.detail;
                 console.warn('[AICompanion] Speech provider fallback:', message);
-                
+
                 // Show user-friendly notification
                 this.showNotification('system', message, 5000);
-                
+
                 // Update UI to reflect the fallback
                 await this.updateSpeechProviderUI();
             });
-            
+
             console.log('[AICompanion] Enhanced speech functionality initialized successfully');
             console.log('[AICompanion] Current provider:', this.speechSettings.provider);
             console.log('[AICompanion] Capabilities:', this.speechState.capabilities);
-            
+
         } catch (error) {
             console.error('[AICompanion] Failed to initialize speech functionality:', error);
             this.speechState.isInitialized = false;
@@ -5729,33 +7087,33 @@ Example good titles:
         }
 
         console.log('[AICompanion] Testing speech recognition compatibility...');
-        
+
         // Set up a temporary error handler for testing
         const originalErrorHandler = this.speechState.recognition.onerror;
         let testCompleted = false;
-        
+
         this.speechState.recognition.onerror = (event) => {
             if (!testCompleted) {
                 testCompleted = true;
                 console.warn('[AICompanion] Speech recognition test failed:', event.error);
-                
+
                 if (event.error === 'language-not-supported') {
                     console.log('[AICompanion] Language not supported during test, reinitializing...');
                     this.handleLanguageNotSupported();
                 }
-                
+
                 // Restore original error handler
                 if (this.speechState.recognition) {
                     this.speechState.recognition.onerror = originalErrorHandler;
                 }
             }
         };
-        
+
         // Test with a very short timeout
         try {
             // Don't actually start recognition, just test if the current settings are valid
             console.log('[AICompanion] Speech recognition appears to be configured correctly');
-            
+
             // Restore original error handler after a short delay
             setTimeout(() => {
                 if (this.speechState.recognition && !testCompleted) {
@@ -5763,11 +7121,11 @@ Example good titles:
                     console.log('[AICompanion] Speech recognition test completed successfully');
                 }
             }, 100);
-            
+
         } catch (error) {
             testCompleted = true;
             console.warn('[AICompanion] Speech recognition test error:', error);
-            
+
             // Restore original error handler
             if (this.speechState.recognition) {
                 this.speechState.recognition.onerror = originalErrorHandler;
@@ -5833,7 +7191,7 @@ Example good titles:
             try {
                 this.speechState.recognition.lang = lang;
                 console.log('[AICompanion] Set speech recognition language to:', lang || 'browser default');
-                
+
                 // Test if the language is actually supported by attempting a quick validation
                 // Note: This doesn't guarantee it will work, but it's better than nothing
                 return;
@@ -5842,7 +7200,7 @@ Example good titles:
                 continue;
             }
         }
-        
+
         // If no language worked during setup, default to empty string
         this.speechState.recognition.lang = '';
         console.log('[AICompanion] Using browser default language as fallback');
@@ -5874,7 +7232,7 @@ Example good titles:
             console.error('[AICompanion] Speech recognition error:', event.error);
             this.speechState.isRecording = false;
             this.updateVoiceInputButton();
-            
+
             // Handle specific error types
             if (event.error === 'language-not-supported') {
                 console.warn('[AICompanion] Language not supported, trying fallback language');
@@ -5900,10 +7258,10 @@ Example good titles:
      */
     handleLanguageNotSupported() {
         console.log('[AICompanion] Attempting to reinitialize speech recognition with fallback language');
-        
+
         // Try to reinitialize with fallback languages
         const fallbackLanguages = ['en', '', 'en-GB', 'en-AU'];
-        
+
         for (const lang of fallbackLanguages) {
             try {
                 // Reinitialize speech recognition with fallback language
@@ -5913,10 +7271,10 @@ Example good titles:
                     this.speechState.recognition.continuous = false;
                     this.speechState.recognition.interimResults = false;
                     this.speechState.recognition.lang = lang;
-                    
+
                     // Re-setup event handlers
                     this.setupSpeechRecognition();
-                    
+
                     console.log('[AICompanion] Successfully reinitialized speech recognition with language:', lang || 'browser default');
                     return; // Success, exit the loop
                 }
@@ -5925,12 +7283,12 @@ Example good titles:
                 continue;
             }
         }
-        
+
         // If all fallbacks failed, disable speech recognition
         console.error('[AICompanion] All language fallbacks failed, disabling speech recognition');
         this.speechState.recognition = null;
         this.showSpeechError('Speech recognition is not available in your browser language.');
-        
+
         // Hide voice input button since it won't work
         const voiceButton = document.getElementById('voiceInputBtn');
         if (voiceButton) {
@@ -5950,14 +7308,14 @@ Example good titles:
             const originalTitle = voiceButton.title;
             voiceButton.title = message;
             voiceButton.style.background = '#ef4444';
-            
+
             // Reset after 3 seconds
             setTimeout(() => {
                 voiceButton.title = originalTitle;
                 voiceButton.style.background = '';
             }, 3000);
         }
-        
+
         console.warn('[AICompanion] Speech error shown to user:', message);
     }
 
@@ -5967,7 +7325,7 @@ Example good titles:
      */
     setupSpeechControls() {
         console.log('[AICompanion] Setting up enhanced speech controls...');
-        
+
         // Provider selection dropdown
         const providerSelect = document.getElementById('speechProvider');
         if (providerSelect) {
@@ -5975,10 +7333,10 @@ Example good titles:
             providerSelect.addEventListener('change', async (e) => {
                 const newProvider = e.target.value;
                 console.log('[AICompanion] Switching speech provider to:', newProvider);
-                
+
                 this.speechSettings.provider = newProvider;
                 localStorage.setItem('speechProvider', newProvider);
-                
+
                 // Switch provider in speech engine
                 try {
                     // If switching to Azure, sync Azure settings first
@@ -5987,17 +7345,17 @@ Example good titles:
                         speechEngine.saveSettings();
                         console.log('[AICompanion] Azure settings synced to speech engine:', this.speechSettings.azureSettings);
                     }
-                    
+
                     await speechEngine.switchProvider(newProvider);
                     this.speechState.currentProvider = speechEngine.state.currentProvider;
                     this.speechState.capabilities = speechEngine.getCapabilities();
                     this.speechState.availableVoices = await speechEngine.getAvailableVoices();
-                    
+
                     // Update UI based on new capabilities
                     this.updateVoiceOptions();
                     this.toggleVoiceInputButton();
                     this.toggleAzureSettings();
-                    
+
                     // Validate selected voice is compatible with new provider
                     // If not, reset to default for the new provider
                     if (this.speechSettings.selectedVoice && Array.isArray(this.speechState.availableVoices)) {
@@ -6005,14 +7363,14 @@ Example good titles:
                             const voiceValue = (newProvider === 'local_ai' && voice.localUri) ? voice.localUri : (voice.name || voice.voiceURI);
                             return voiceValue === this.speechSettings.selectedVoice;
                         });
-                        
+
                         if (!selectedVoiceExists) {
                             console.log(`[AICompanion] Selected voice "${this.speechSettings.selectedVoice}" not available in ${newProvider}, resetting to default`);
                             this.speechSettings.selectedVoice = '';
                             localStorage.setItem('speechSelectedVoice', '');
                         }
                     }
-                    
+
                     console.log('[AICompanion] Speech provider switched successfully to:', newProvider);
                     console.log('[AICompanion] Current provider in engine:', speechEngine.state.currentProvider);
                 } catch (error) {
@@ -6022,7 +7380,7 @@ Example good titles:
                 }
             });
         }
-        
+
         // Auto-speak checkbox
         const autoSpeakCheckbox = document.getElementById('speechAutoSpeak');
         if (autoSpeakCheckbox) {
@@ -6030,7 +7388,7 @@ Example good titles:
             console.log('[AICompanion] Auto-speak checkbox set to:', this.speechSettings.autoSpeak);
             autoSpeakCheckbox.addEventListener('change', (e) => {
                 this.speechSettings.autoSpeak = e.target.checked;
-                localStorage.setItem('speechAutoSpeak', e.target.checked);
+                localStorage.setItem('speechAutoSpeak', e.target.checked.toString());
                 console.log('[AICompanion] Auto-speak setting changed to:', e.target.checked);
             });
         } else {
@@ -6043,7 +7401,7 @@ Example good titles:
             voiceInputCheckbox.checked = this.speechSettings.voiceInput;
             voiceInputCheckbox.addEventListener('change', (e) => {
                 this.speechSettings.voiceInput = e.target.checked;
-                localStorage.setItem('speechVoiceInput', e.target.checked);
+                localStorage.setItem('speechVoiceInput', e.target.checked.toString());
                 this.toggleVoiceInputButton();
             });
         }
@@ -6054,7 +7412,7 @@ Example good titles:
             voiceSelect.addEventListener('change', (e) => {
                 this.speechSettings.selectedVoice = e.target.value;
                 localStorage.setItem('speechSelectedVoice', e.target.value);
-                
+
                 // Update speech engine settings
                 speechEngine.settings.selectedVoice = e.target.value;
                 speechEngine.saveSettings();
@@ -6070,8 +7428,8 @@ Example good titles:
             rateSlider.addEventListener('input', (e) => {
                 this.speechSettings.speechRate = parseFloat(e.target.value);
                 rateValue.textContent = `${this.speechSettings.speechRate}x`;
-                localStorage.setItem('speechRate', this.speechSettings.speechRate);
-                
+                localStorage.setItem('speechRate', this.speechSettings.speechRate.toString());
+
                 // Update speech engine settings
                 speechEngine.settings.speechRate = this.speechSettings.speechRate;
                 speechEngine.saveSettings();
@@ -6087,8 +7445,8 @@ Example good titles:
             volumeSlider.addEventListener('input', (e) => {
                 this.speechSettings.speechVolume = parseFloat(e.target.value) / 100;
                 volumeValue.textContent = `${Math.round(this.speechSettings.speechVolume * 100)}%`;
-                localStorage.setItem('speechVolume', this.speechSettings.speechVolume);
-                
+                localStorage.setItem('speechVolume', this.speechSettings.speechVolume.toString());
+
                 // Update speech engine settings
                 speechEngine.settings.speechVolume = this.speechSettings.speechVolume;
                 speechEngine.saveSettings();
@@ -6104,8 +7462,8 @@ Example good titles:
             naturalnessSlider.addEventListener('input', (e) => {
                 this.speechSettings.naturalness = parseFloat(e.target.value) / 100;
                 naturalnessValue.textContent = `${Math.round(this.speechSettings.naturalness * 100)}%`;
-                localStorage.setItem('speechNaturalness', this.speechSettings.naturalness);
-                
+                localStorage.setItem('speechNaturalness', this.speechSettings.naturalness.toString());
+
                 // Update speech engine settings
                 speechEngine.settings.naturalness = this.speechSettings.naturalness;
                 speechEngine.saveSettings();
@@ -6174,11 +7532,11 @@ Example good titles:
      */
     saveAzureSettings() {
         localStorage.setItem('speechAzureSettings', JSON.stringify(this.speechSettings.azureSettings));
-        
+
         // Always update speech engine settings so they're available when switching to Azure
         speechEngine.settings.azureSettings = { ...this.speechSettings.azureSettings };
         speechEngine.saveSettings();
-        
+
         console.log('[AICompanion] Azure settings saved and synced to speech engine:', this.speechSettings.azureSettings);
     }
 
@@ -6193,7 +7551,7 @@ Example good titles:
             autoDetectCheckbox.checked = this.speechSettings.autoDetectLanguage;
             autoDetectCheckbox.addEventListener('change', (e) => {
                 this.speechSettings.autoDetectLanguage = e.target.checked;
-                localStorage.setItem('speechAutoDetectLanguage', e.target.checked);
+                localStorage.setItem('speechAutoDetectLanguage', e.target.checked.toString());
                 this.updateSpeechEngineLanguageSettings();
                 console.log('[AICompanion] Auto-detect language setting changed to:', e.target.checked);
             });
@@ -6205,7 +7563,7 @@ Example good titles:
             enableDetectionCheckbox.checked = this.speechSettings.enableLanguageDetection;
             enableDetectionCheckbox.addEventListener('change', (e) => {
                 this.speechSettings.enableLanguageDetection = e.target.checked;
-                localStorage.setItem('speechEnableLanguageDetection', e.target.checked);
+                localStorage.setItem('speechEnableLanguageDetection', e.target.checked.toString());
                 this.updateSpeechEngineLanguageSettings();
                 console.log('[AICompanion] Enable language detection setting changed to:', e.target.checked);
             });
@@ -6217,7 +7575,7 @@ Example good titles:
             continuousDetectionCheckbox.checked = this.speechSettings.continuousLanguageDetection;
             continuousDetectionCheckbox.addEventListener('change', (e) => {
                 this.speechSettings.continuousLanguageDetection = e.target.checked;
-                localStorage.setItem('speechContinuousLanguageDetection', e.target.checked);
+                localStorage.setItem('speechContinuousLanguageDetection', e.target.checked.toString());
                 this.updateSpeechEngineLanguageSettings();
                 console.log('[AICompanion] Continuous language detection setting changed to:', e.target.checked);
             });
@@ -6228,7 +7586,7 @@ Example good titles:
         if (candidateLanguagesSelect) {
             // Set initial selection based on saved settings
             this.updateCandidateLanguagesSelection(candidateLanguagesSelect);
-            
+
             candidateLanguagesSelect.addEventListener('change', (e) => {
                 const selectedLanguages = Array.from(e.target.selectedOptions).map(option => option.value);
                 this.speechSettings.candidateLanguages = selectedLanguages;
@@ -6245,12 +7603,12 @@ Example good titles:
      */
     updateCandidateLanguagesSelection(selectElement) {
         if (!selectElement) return;
-        
+
         // Clear current selection
         Array.from(selectElement.options).forEach(option => {
             option.selected = false;
         });
-        
+
         // Set selection based on saved candidate languages
         this.speechSettings.candidateLanguages.forEach(langCode => {
             const option = selectElement.querySelector(`option[value="${langCode}"]`);
@@ -6295,10 +7653,10 @@ Example good titles:
         const voiceSelect = document.getElementById('speechVoiceSelect');
         if (voiceSelect && this.speechState.availableVoices && Array.isArray(this.speechState.availableVoices)) {
             voiceSelect.innerHTML = '<option value="">Default</option>';
-            
+
             this.speechState.availableVoices.forEach(voice => {
                 const option = document.createElement('option');
-                
+
                 // For Local AI models, use localUri as the value (voice ID like "neutral", "warm", etc.)
                 // For other providers, use the voice name or voiceURI
                 if (voice.localUri && this.speechSettings.provider === 'local_ai') {
@@ -6306,14 +7664,14 @@ Example good titles:
                 } else {
                     option.value = voice.name || voice.voiceURI;
                 }
-                
+
                 option.textContent = `${voice.name} (${voice.lang})`;
                 if (voice.naturalness) {
                     option.textContent += ` - ${Math.round(voice.naturalness * 100)}% natural`;
                 }
                 voiceSelect.appendChild(option);
             });
-            
+
             // Restore selected voice
             if (this.speechSettings.selectedVoice) {
                 voiceSelect.value = this.speechSettings.selectedVoice;
@@ -6331,11 +7689,11 @@ Example good titles:
         if (providerSelect && speechEngine) {
             this.speechSettings.provider = speechEngine.settings.provider;
             providerSelect.value = this.speechSettings.provider;
-            
+
             // Update capabilities and voices
             this.speechState.capabilities = speechEngine.getCapabilities();
             this.speechState.availableVoices = await speechEngine.getAvailableVoices();
-            
+
             // Update UI components
             this.updateVoiceOptions();
             this.toggleVoiceInputButton();
@@ -6353,21 +7711,21 @@ Example good titles:
         // Handle legacy boolean parameter for backward compatibility
         const forceSpeak = typeof options === 'boolean' ? options : options.forceSpeak || false;
         const actualOptions = typeof options === 'object' ? options : {};
-        
-        console.log('[AICompanion] speakText called:', { 
-            text: text?.substring(0, 50) + '...', 
-            forceSpeak, 
+
+        console.log('[AICompanion] speakText called:', {
+            text: text?.substring(0, 50) + '...',
+            forceSpeak,
             autoDetectLanguage: actualOptions.autoDetectLanguage,
             autoSpeak: this.speechSettings.autoSpeak,
             isInitialized: this.speechState.isInitialized,
             provider: this.speechSettings.provider
         });
-        
+
         if (!this.speechState.isInitialized) {
             console.warn('[AICompanion] Speech not initialized');
             return false;
         }
-        
+
         if (!forceSpeak && !this.speechSettings.autoSpeak) {
             console.log('[AICompanion] Auto-speak disabled, skipping speech');
             return false;
@@ -6389,23 +7747,23 @@ Example good titles:
                 autoDetectLanguage: actualOptions?.autoDetectLanguage || false,
                 ...actualOptions
             });
-            
+
             if (success) {
                 console.log('[AICompanion] Speech synthesis successful');
                 this.updateSpeakerButtons();
             } else {
                 console.warn('[AICompanion] Speech synthesis failed');
-                
+
                 // Show user-friendly message for Local AI audio issues
                 if (this.speechSettings.provider === 'local_ai') {
                     this.showNotification('system', 'Speech synthesis failed. If using Local AI, please ensure you\'ve clicked somewhere on the page first to enable audio.', 4000);
                 }
             }
-            
+
             return success;
         } catch (error) {
             console.error('[AICompanion] Speech synthesis error:', error);
-            
+
             // Handle AudioContext errors specifically
             if (error.message && error.message.includes('user interaction')) {
                 this.showNotification('system', 'Audio requires user interaction. Please click anywhere on the page and try speaking again.', 5000);
@@ -6414,7 +7772,7 @@ Example good titles:
             } else {
                 this.showNotification('system', 'Speech synthesis failed. Please try again.', 3000);
             }
-            
+
             return false;
         }
     }
@@ -6443,20 +7801,20 @@ Example good titles:
      * @public
      */
     async speakTextWithProgress(text, options = {}) {
-        console.log('[AICompanion] speakTextWithProgress called:', { 
-            text: text?.substring(0, 50) + '...', 
+        console.log('[AICompanion] speakTextWithProgress called:', {
+            text: text?.substring(0, 50) + '...',
             hasProgressCallback: !!options.onProgress,
             provider: this.speechSettings.provider
         });
-        
+
         const { onProgress, onComplete, onError, forceSpeak = false } = options;
-        
+
         if (!this.speechState.isInitialized) {
             console.warn('[AICompanion] Speech not initialized');
             onError?.(new Error('Speech not initialized'));
             return false;
         }
-        
+
         if (!forceSpeak && !this.speechSettings.autoSpeak) {
             console.log('[AICompanion] Auto-speak disabled, skipping speech');
             onComplete?.();
@@ -6471,7 +7829,7 @@ Example good titles:
 
         try {
             console.log('[AICompanion] Starting speech with real progress tracking from speech engine');
-            
+
             // Use the enhanced speech engine with real progress callbacks
             const success = await speechEngine.speakText(text, {
                 forceSpeak,
@@ -6479,7 +7837,7 @@ Example good titles:
                 volume: this.speechSettings.speechVolume,
                 voice: this.speechSettings.selectedVoice,
                 naturalness: this.speechSettings.naturalness,
-                
+
                 // Pass through the real progress callbacks from speech engine
                 onProgress: (progress) => {
                     console.log(`[AICompanion] Real progress from speech engine: ${Math.round(progress * 100)}%`);
@@ -6495,7 +7853,7 @@ Example good titles:
                     onError?.(error);
                 }
             });
-            
+
             return success;
         } catch (error) {
             console.error('[AICompanion] Speech synthesis with progress error:', error);
@@ -6552,34 +7910,34 @@ Example good titles:
             this.showSpeechError('Speech engine is not initialized.');
             return;
         }
-        
+
         if (!this.speechState.capabilities.supportsSpeechRecognition) {
             this.showSpeechError('Speech recognition is not supported by the current provider.');
             return;
         }
-        
+
         if (this.speechState.isRecording) {
             console.log('[AICompanion] Speech recognition already in progress');
             return;
         }
-        
+
         try {
             console.log('[AICompanion] Starting enhanced speech recognition...');
             this.speechState.isRecording = true;
             this.updateVoiceInputButton();
-            
+
             const transcript = await speechEngine.startSpeechRecognition({
                 language: navigator.language || 'en-US',
                 interimResults: false
             });
-            
+
             if (transcript) {
                 this.handleSpeechInput(transcript);
             }
-            
+
         } catch (error) {
             console.error('[AICompanion] Enhanced speech recognition failed:', error);
-            
+
             if (error.message.includes('permission')) {
                 this.showSpeechError('Microphone access denied. Please allow microphone access.');
             } else if (error.message.includes('network')) {
@@ -6600,7 +7958,7 @@ Example good titles:
      */
     handleSpeechInput(transcript) {
         const messageInput = document.getElementById('userInput');
-        
+
         // Ensure transcript is a valid string
         let transcriptText = '';
         if (typeof transcript === 'string') {
@@ -6612,7 +7970,7 @@ Example good titles:
             // Convert other types to string
             transcriptText = String(transcript).trim();
         }
-        
+
         if (messageInput && transcriptText) {
             messageInput.value = transcriptText;
             messageInput.focus();
@@ -6627,12 +7985,12 @@ Example good titles:
         const voiceButton = document.getElementById('voiceInputBtn');
         if (voiceButton) {
             // Check if voice input is enabled and supported by current provider
-            const shouldShow = this.speechSettings.voiceInput && 
-                              this.speechState.isInitialized &&
-                              this.speechState.capabilities.supportsSpeechRecognition;
-            
+            const shouldShow = this.speechSettings.voiceInput &&
+                this.speechState.isInitialized &&
+                this.speechState.capabilities.supportsSpeechRecognition;
+
             voiceButton.style.display = shouldShow ? 'flex' : 'none';
-            
+
             if (!shouldShow && this.speechSettings.voiceInput) {
                 console.log('[AICompanion] Voice input disabled - not supported by current provider:', this.speechSettings.provider);
             }
@@ -6672,7 +8030,7 @@ Example good titles:
             autoSpeak: this.speechSettings.autoSpeak,
             isInitialized: this.speechState.isInitialized
         });
-        
+
         if (this.speechSettings.autoSpeak) {
             // Small delay to ensure message is rendered
             setTimeout(() => {
@@ -6697,9 +8055,9 @@ Question: ${question}`;
 
         // Estimate and track token usage
         this.estimateTokenUsage(prompt, true);
-        
+
         let fullResponse = '';
-        
+
         if (this.currentProvider === 'ollama') {
             // Stream from Ollama
             fullResponse = await this.streamOllamaResponse(prompt, messageDiv, currentContent, '');
@@ -6708,7 +8066,7 @@ Question: ${question}`;
             const response = await this.getAPIEvaluation(prompt);
             fullResponse = await this.simulateStreamingForAPI(response, messageDiv, currentContent, '');
         }
-        
+
         return fullResponse;
     }
 
@@ -6809,9 +8167,9 @@ Analyze both responses considering the question type:
 
         // Estimate and track token usage
         this.estimateTokenUsage(prompt, true);
-        
+
         let fullResponse = '';
-        
+
         if (this.currentProvider === 'ollama') {
             // Stream from Ollama
             fullResponse = await this.streamOllamaResponse(prompt, messageDiv, currentContent, '');
@@ -6820,7 +8178,7 @@ Analyze both responses considering the question type:
             const response = await this.getAPIEvaluation(prompt);
             fullResponse = await this.simulateStreamingForAPI(response, messageDiv, currentContent, '');
         }
-        
+
         return fullResponse;
     }
 
@@ -6877,10 +8235,10 @@ Analyze both responses considering the question type:
                         fullResponse += data.response;
                         // Update streaming content in real-time
                         this.updateStreamingContent(messageDiv, baseContent + sectionContent + fullResponse);
-                        
+
                         // Scroll to bottom to show new content
                         this.scrollToBottom();
-                        
+
                         // Small delay to make streaming visible
                         await new Promise(resolve => setTimeout(resolve, 10));
                     }
@@ -6905,26 +8263,103 @@ Analyze both responses considering the question type:
     async simulateStreamingForAPI(response, messageDiv, baseContent, sectionContent) {
         const words = response.split(' ');
         let streamedContent = '';
-        
+
         for (let i = 0; i < words.length; i++) {
             streamedContent += words[i] + (i < words.length - 1 ? ' ' : '');
-            
+
             // Update streaming content
             this.updateStreamingContent(messageDiv, baseContent + sectionContent + streamedContent);
-            
+
             // Scroll to bottom to show new content
             this.scrollToBottom();
-            
+
             // Delay between words for streaming effect
             await new Promise(resolve => setTimeout(resolve, 50));
         }
-        
+
         return response;
+    }
+
+    /**
+     * Generate and display KPI explanation using LLM
+     * @param {Object} results - KPI analysis results
+     * @private
+     */
+    async generateAndDisplayKPIExplanation(results) {
+        try {
+            console.log('[AI Companion] Generating KPI explanation...');
+
+            // Create a prompt to explain the KPI values
+            const kpiExplanationPrompt = this.buildKPIExplanationPrompt(results);
+
+            // Get explanation from LLM
+            const explanation = await this.getLLMEvaluation(kpiExplanationPrompt);
+
+            if (explanation && explanation.trim()) {
+                // Display the explanation in the main chat window
+                this.renderMessage('assistant', explanation);
+                console.log('[AI Companion] KPI explanation displayed in chat');
+            } else {
+                console.warn('[AI Companion] Empty KPI explanation received');
+            }
+        } catch (error) {
+            console.error('[AI Companion] Error generating KPI explanation:', error);
+            // Display a fallback explanation
+            this.displayFallbackKPIExplanation(results);
+        }
+    }
+
+    /**
+     * Build prompt for KPI explanation
+     * @param {Object} results - KPI analysis results
+     * @returns {string} Explanation prompt
+     * @private
+     */
+    buildKPIExplanationPrompt(results) {
+        const trendInfo = this.kpiData.trend === 'improving' ? '↗️ improving' :
+            this.kpiData.trend === 'declining' ? '↘️ declining' : '→ stable';
+
+        const conversationContext = this.getConversationContextForThinking();
+
+        // Use centralized prompt manager
+        return promptManager.getFormattedPrompt('kpiExplanation', {
+            kpiName: 'Conversation Quality Metrics',
+            kpiValue: `Accuracy: ${results.accuracy.toFixed(1)}/10, Helpfulness: ${results.helpfulness.toFixed(1)}/10, Completeness: ${results.completeness.toFixed(1)}/10, Efficiency: ${this.kpiData.efficiency.toFixed(1)}/10, Trend: ${trendInfo}`,
+            kpiContext: results.reasoning || 'Based on conversation analysis and response quality assessment.',
+            conversationContext: conversationContext || 'General conversation analysis'
+        });
+    }
+
+    /**
+     * Display fallback KPI explanation when LLM fails
+     * @param {Object} results - KPI analysis results
+     * @private
+     */
+    displayFallbackKPIExplanation(results) {
+        const avgScore = ((results.accuracy + results.helpfulness + results.completeness + this.kpiData.efficiency) / 4).toFixed(1);
+        const trendEmoji = this.kpiData.trend === 'improving' ? '📈' :
+            this.kpiData.trend === 'declining' ? '📉' : '📊';
+
+        const fallbackMessage = `## 📊 Conversation Quality Summary
+
+**Overall Score**: ${avgScore}/10 ${trendEmoji}
+
+**Key Metrics:**
+• **Accuracy**: ${results.accuracy.toFixed(1)}/10
+• **Helpfulness**: ${results.helpfulness.toFixed(1)}/10  
+• **Completeness**: ${results.completeness.toFixed(1)}/10
+• **Efficiency**: ${this.kpiData.efficiency.toFixed(1)}/10
+
+The conversation quality is currently **${avgScore >= 8 ? 'excellent' : avgScore >= 6 ? 'good' : avgScore >= 4 ? 'fair' : 'needs improvement'}** with a **${this.kpiData.trend}** trend.`;
+
+        this.renderMessage('assistant', fallbackMessage);
     }
 }
 
 // Create and export singleton instance
+console.log('[AICompanion] Creating singleton instance...');
 export const aiCompanion = new AICompanion();
+console.log('[AICompanion] Singleton instance created - isEnabled:', aiCompanion.isEnabled, 'type:', typeof aiCompanion.isEnabled);
 
 // Debug utilities for troubleshooting performance issues
 if (typeof window !== 'undefined') {
@@ -6945,8 +8380,58 @@ if (typeof window !== 'undefined') {
         }
     };
 
-    // Make resetSpecificModelTokens available globally for model comparison view
-    window.aiCompanion = {
-        resetSpecificModelTokens: (modelId) => aiCompanion.resetSpecificModelTokens(modelId)
+    // Make aiCompanion available globally and add utility methods
+    console.log('[AICompanion] Setting window.aiCompanion - before assignment, aiCompanion.isEnabled:', aiCompanion.isEnabled);
+    window.aiCompanion = aiCompanion;
+    console.log('[AICompanion] window.aiCompanion assigned - window.aiCompanion.isEnabled:', window.aiCompanion.isEnabled);
+
+    // Add additional utility methods to the global instance
+    window.aiCompanion.resetSpecificModelTokens = (modelId) => aiCompanion.resetSpecificModelTokens(modelId);
+
+    // Verify the global assignment worked correctly
+    console.log('[AICompanion] Global window.aiCompanion set:', {
+        hasInstance: !!window.aiCompanion,
+        isEnabled: window.aiCompanion.isEnabled,
+        isEnabledType: typeof window.aiCompanion.isEnabled,
+        hasSimulateMethod: typeof window.aiCompanion.simulateThinkingProcess,
+        hasLoadSettings: typeof window.aiCompanion.loadSettings
+    });
+
+    // Add a global debug function to check AI companion status
+    window.checkAICompanionStatus = () => {
+        console.log('[Debug] AI Companion Status Check:', {
+            windowAiCompanionExists: !!window.aiCompanion,
+            isEnabled: window.aiCompanion ? window.aiCompanion.isEnabled : 'N/A',
+            isEnabledType: window.aiCompanion ? typeof window.aiCompanion.isEnabled : 'N/A',
+            localStorage_enableLLM: localStorage.getItem('enableLLM'),
+            hasSimulateThinkingProcess: window.aiCompanion ? typeof window.aiCompanion.simulateThinkingProcess : 'N/A',
+            canCallLoadSettings: window.aiCompanion ? typeof window.aiCompanion.loadSettings : 'N/A'
+        });
+        return {
+            exists: !!window.aiCompanion,
+            isEnabled: window.aiCompanion ? window.aiCompanion.isEnabled : null,
+            localStorage: localStorage.getItem('enableLLM')
+        };
+    };
+
+    // Add a global function to force reload AI companion settings
+    window.forceReloadAICompanionSettings = () => {
+        if (window.aiCompanion && window.aiCompanion.loadSettings) {
+            console.log('[Debug] Force reloading AI companion settings...');
+            const beforeState = {
+                isEnabled: window.aiCompanion.isEnabled,
+                localStorage: localStorage.getItem('enableLLM')
+            };
+            window.aiCompanion.loadSettings();
+            const afterState = {
+                isEnabled: window.aiCompanion.isEnabled,
+                localStorage: localStorage.getItem('enableLLM')
+            };
+            console.log('[Debug] Settings reloaded:', { before: beforeState, after: afterState });
+            return afterState;
+        } else {
+            console.error('[Debug] AI companion not available or missing loadSettings method');
+            return null;
+        }
     };
 }

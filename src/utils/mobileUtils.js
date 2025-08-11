@@ -33,9 +33,9 @@ export class MobileUtils {
             mobileHeader: document.getElementById('mobileHeader'),
             mobileMenuToggle: document.getElementById('mobileMenuToggle'),
             mobileNewChatBtn: document.getElementById('mobileNewChatBtn'),
+            mobileKnowledgeHubBtn: document.getElementById('mobileKnowledgeHubBtn'),
             mobileOverlay: document.getElementById('mobileOverlay'),
             leftPanel: document.getElementById('leftPanel'),
-            mobileSidebarClose: document.getElementById('mobileSidebarClose'),
             container: document.getElementById('container'),
             clearButton: document.getElementById('clearButton'),
             mobileAiToggle: document.getElementById('mobileAiToggle'),
@@ -61,10 +61,10 @@ export class MobileUtils {
             });
         }
 
-        // Mobile sidebar close
-        if (this.elements.mobileSidebarClose) {
-            this.elements.mobileSidebarClose.addEventListener('click', () => {
-                this.closeMobileSidebar();
+        // Mobile Knowledge Hub button
+        if (this.elements.mobileKnowledgeHubBtn) {
+            DOMUtils.addEventListener(this.elements.mobileKnowledgeHubBtn, 'click', () => {
+                this.handleMobileKnowledgeHub();
             });
         }
 
@@ -142,7 +142,7 @@ export class MobileUtils {
 
         // Update mobile state classes
         document.body.classList.toggle('mobile-layout', this.isMobile);
-        
+
         console.log(`[Mobile Utils] Mobile state: ${this.isMobile ? 'mobile' : 'desktop'}`);
     }
 
@@ -166,12 +166,12 @@ export class MobileUtils {
         if (!this.isMobile) return;
 
         this.sidebarOpen = true;
-        
+
         // Add classes for animations
         this.elements.leftPanel?.classList.add('mobile-open');
         this.elements.mobileOverlay?.classList.add('active');
         this.elements.mobileMenuToggle?.classList.add('active');
-        
+
         // Show overlay
         if (this.elements.mobileOverlay) {
             this.elements.mobileOverlay.style.display = 'block';
@@ -217,7 +217,25 @@ export class MobileUtils {
         if (this.elements.clearButton) {
             this.elements.clearButton.click();
         }
-        
+
+        // Close sidebar if open
+        if (this.sidebarOpen) {
+            this.closeMobileSidebar();
+        }
+    }
+
+    /**
+     * Handle mobile Knowledge Hub button
+     */
+    handleMobileKnowledgeHub() {
+        // Import the Knowledge Hub service and open the modal
+        import('../services/knowledgeHub.js').then(({ getKnowledgeHub }) => {
+            const knowledgeHub = getKnowledgeHub();
+            knowledgeHub.showModal();
+        }).catch(error => {
+            console.error('[Mobile Utils] Error opening Knowledge Hub:', error);
+        });
+
         // Close sidebar if open
         if (this.sidebarOpen) {
             this.closeMobileSidebar();
@@ -229,7 +247,7 @@ export class MobileUtils {
      */
     toggleAiPanel() {
         if (!this.isMobile) return;
-        
+
         if (this.aiPanelOpen) {
             this.closeAiPanel();
         } else {
@@ -242,14 +260,14 @@ export class MobileUtils {
      */
     openAiPanel() {
         if (!this.isMobile) return;
-        
+
         this.aiPanelOpen = true;
-        
+
         // Close sidebar if open
         if (this.sidebarOpen) {
             this.closeMobileSidebar();
         }
-        
+
         this.elements.llmAnalysisPanel?.classList.add('mobile-open');
         console.log('[Mobile Utils] AI panel opened');
     }
@@ -259,7 +277,7 @@ export class MobileUtils {
      */
     closeAiPanel() {
         if (!this.isMobile) return;
-        
+
         this.aiPanelOpen = false;
         this.elements.llmAnalysisPanel?.classList.remove('mobile-open');
         console.log('[Mobile Utils] AI panel closed');
@@ -308,7 +326,7 @@ export class MobileUtils {
         // Small delay to let orientation change complete
         setTimeout(() => {
             this.checkMobileState();
-            
+
             // Close sidebar on orientation change to prevent layout issues
             if (this.sidebarOpen) {
                 this.closeMobileSidebar();
@@ -338,7 +356,7 @@ export class MobileUtils {
 
         const handleTouchStart = (e) => {
             if (!this.isMobile) return;
-            
+
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
             isSwipeActive = true;
@@ -390,7 +408,7 @@ export class MobileUtils {
     initializeMobileFeatures() {
         this.setupViewport();
         this.setupSwipeGestures();
-        
+
         // Handle orientation change
         window.addEventListener('orientationchange', () => {
             this.handleOrientationChange();

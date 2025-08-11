@@ -28,14 +28,14 @@ export class SpeechEngine {
             speechRate: 1.0,
             speechVolume: 1.0,
             naturalness: 0.8,
-            
+
             // Multi-language settings
             autoDetectLanguage: false,
             enableLanguageDetection: false,
             continuousLanguageDetection: false,
             candidateLanguages: ['en-US', 'es-ES', 'fr-FR', 'de-DE', 'zh-CN'],
             fallbackLanguage: 'en-US',
-            
+
             azureSettings: {
                 subscriptionKey: '',
                 region: 'eastus',
@@ -70,10 +70,10 @@ export class SpeechEngine {
      */
     async initialize() {
         console.log('[SpeechEngine] Initializing speech engine...');
-        
+
         await this.loadSettings();
         await this.initializeProviders();
-        
+
         this.state.isInitialized = true;
         console.log('[SpeechEngine] Speech engine initialized successfully');
     }
@@ -105,7 +105,7 @@ export class SpeechEngine {
      */
     async initializeProviders() {
         console.log('[SpeechEngine] Initializing speech providers...');
-        
+
         // Initialize Enhanced Web Speech API (always available)
         this.webSpeechProvider = new EnhancedWebSpeechProvider();
         await this.webSpeechProvider.initialize();
@@ -120,11 +120,11 @@ export class SpeechEngine {
             } catch (error) {
                 console.warn('[SpeechEngine] Local AI provider failed to initialize:', error.message);
                 console.info('[SpeechEngine] This is expected - Local AI models require large downloads and may not work in all environments');
-                
+
                 // Fallback to Web Speech API
                 this.settings.provider = this.providers.WEB_SPEECH;
                 this.saveSettings();
-                
+
                 // Show user notification about fallback
                 this.showProviderFallbackNotification('Local AI models are experimental and failed to load. Using Enhanced Web Speech API instead. This provides excellent quality with immediate availability.');
             }
@@ -141,14 +141,14 @@ export class SpeechEngine {
                 // Fallback to Web Speech API
                 this.settings.provider = this.providers.WEB_SPEECH;
                 this.saveSettings();
-                
+
                 // Show user notification about fallback
                 this.showProviderFallbackNotification('Azure Speech Services failed to initialize. Using Web Speech API instead.');
             }
         }
 
         this.state.currentProvider = this.getCurrentProvider();
-        
+
         // Load available voices from the current provider
         await this.loadAvailableVoices();
     }
@@ -177,7 +177,7 @@ export class SpeechEngine {
      */
     showProviderFallbackNotification(message) {
         console.warn('[SpeechEngine] Provider fallback:', message);
-        
+
         // Try to show a user-friendly notification
         if (typeof window !== 'undefined') {
             // Dispatch custom event for UI to handle
@@ -243,16 +243,16 @@ export class SpeechEngine {
         if (this.settings.provider === providerName) return;
 
         console.log(`[SpeechEngine] Switching to provider: ${providerName}`);
-        
+
         // Validate provider before switching
         if (providerName === this.providers.AZURE && !this.isAzureConfigurationValid()) {
             console.warn('[SpeechEngine] Cannot switch to Azure: invalid configuration');
             this.showProviderFallbackNotification('Azure Speech Services requires a valid subscription key and region. Please configure your Azure settings in the speech options.');
             return;
         }
-        
+
         this.settings.provider = providerName;
-        
+
         // Initialize new provider if not already done
         if (providerName === this.providers.LOCAL_AI && !this.localAIProvider) {
             try {
@@ -314,7 +314,7 @@ export class SpeechEngine {
 
         try {
             this.state.isProcessing = true;
-            
+
             loggingManager?.info('speech', 'Starting speech synthesis', {
                 provider: this.settings.provider,
                 textLength: text.length,
@@ -324,40 +324,46 @@ export class SpeechEngine {
                 autoDetectLanguage: this.settings.autoDetectLanguage || options.autoDetectLanguage,
                 hasProgressCallback: !!options.onProgress
             });
-            
+
             // Initialize audio context for Local AI provider if needed
             if (this.settings.provider === this.providers.LOCAL_AI && provider.initializeAudioContext) {
                 await provider.initializeAudioContext();
             }
-            
+
             const speechOptions = {
                 rate: this.settings.speechRate,
                 volume: this.settings.speechVolume,
                 voice: this.settings.selectedVoice,
                 naturalness: this.settings.naturalness,
-                
+
                 // Add multi-language support options
                 autoDetectLanguage: this.settings.autoDetectLanguage || options.autoDetectLanguage,
                 languageDetector: languageDetector,
-                
+
                 // Pass through progress callbacks to providers
                 onProgress: options.onProgress,
                 onComplete: options.onComplete,
                 onError: options.onError,
-                
+
                 ...options
             };
 
             await provider.speak(text, speechOptions);
             return true;
         } catch (error) {
+            // Don't log interruption as an error - it's normal behavior
+            if (error.message && error.message.includes('interrupted')) {
+                console.log('[SpeechEngine] Speech interrupted (normal behavior)');
+                return true; // Return success for interruptions
+            }
+
             console.error('[SpeechEngine] Speech synthesis failed:', error);
-            
+
             // Provide user-friendly error message for audio context issues
             if (error.message && error.message.includes('user interaction')) {
                 console.warn('[SpeechEngine] Speech requires user interaction');
             }
-            
+
             return false;
         } finally {
             this.state.isProcessing = false;
@@ -381,7 +387,7 @@ export class SpeechEngine {
 
         try {
             this.state.isRecording = true;
-            
+
             // Add multi-language recognition options
             const recognitionOptions = {
                 enableLanguageDetection: this.settings.enableLanguageDetection || options.enableLanguageDetection,
@@ -389,7 +395,7 @@ export class SpeechEngine {
                 continuousLanguageDetection: this.settings.continuousLanguageDetection || options.continuousLanguageDetection,
                 ...options
             };
-            
+
             const result = await provider.recognize(recognitionOptions);
             return result;
         } catch (error) {
@@ -407,12 +413,12 @@ export class SpeechEngine {
         console.log('🔴 [SPEECHENGINE-STOP] =================================');
         console.log('🔴 [SPEECHENGINE-STOP] stopSpeaking() called');
         console.log('🔴 [SPEECHENGINE-STOP] =================================');
-        
+
         const currentProvider = this.state.currentProvider;
         console.log('🟡 [SPEECHENGINE-STOP] Current provider:', currentProvider ? currentProvider.constructor.name : 'none');
         console.log('🟡 [SPEECHENGINE-STOP] Has stop method:', !!(currentProvider && currentProvider.stop));
         console.log('🟡 [SPEECHENGINE-STOP] isProcessing:', this.state.isProcessing);
-        
+
         if (currentProvider && currentProvider.stop) {
             try {
                 console.log('🟡 [SPEECHENGINE-STOP] Calling provider.stop()');
@@ -426,12 +432,12 @@ export class SpeechEngine {
         } else {
             console.log('🔴 [SPEECHENGINE-STOP] No current provider or stop method available');
         }
-        
+
         // Update processing state
         const wasProcessing = this.state.isProcessing;
         this.state.isProcessing = false;
         console.log(`🟢 [SPEECHENGINE-STOP] Processing state: ${wasProcessing} → ${this.state.isProcessing}`);
-        
+
         console.log('🔴 [SPEECHENGINE-STOP] Speech synthesis stopped successfully');
         console.log('🔴 [SPEECHENGINE-STOP] =================================');
     }
@@ -444,22 +450,22 @@ export class SpeechEngine {
         console.log('🟣 [SPEECHENGINE-DISPOSE] ===============================');
         console.log('🟣 [SPEECHENGINE-DISPOSE] Starting complete disposal and reinitialization');
         console.log('🟣 [SPEECHENGINE-DISPOSE] ===============================');
-        
+
         const startTime = performance.now();
-        
+
         // First, stop any ongoing speech
         this.stopSpeaking();
         this.stopRecognition();
-        
+
         // Dispose of all providers completely
         await this.disposeAllProviders();
-        
+
         // Reset state
         this.resetEngineState();
-        
+
         // Reinitialize all providers from scratch
         await this.initializeProviders();
-        
+
         const endTime = performance.now();
         console.log(`🟢 [SPEECHENGINE-DISPOSE] Complete disposal and reinitialization completed in ${(endTime - startTime).toFixed(2)}ms`);
         console.log('🟣 [SPEECHENGINE-DISPOSE] ===============================');
@@ -471,17 +477,17 @@ export class SpeechEngine {
      */
     async disposeAllProviders() {
         console.log('🟡 [SPEECHENGINE-DISPOSE] Disposing all providers...');
-        
+
         // Dispose Azure provider
         if (this.azureProvider) {
             try {
                 console.log('🟡 [SPEECHENGINE-DISPOSE] Disposing Azure provider...');
-                
+
                 // Stop any ongoing synthesis
                 if (this.azureProvider.stop) {
                     this.azureProvider.stop();
                 }
-                
+
                 // Close synthesizer if it exists
                 if (this.azureProvider.synthesizer) {
                     try {
@@ -491,7 +497,7 @@ export class SpeechEngine {
                         console.warn('🟡 [SPEECHENGINE-DISPOSE] Error closing Azure synthesizer:', error);
                     }
                 }
-                
+
                 // Close recognizer if it exists
                 if (this.azureProvider.recognizer) {
                     try {
@@ -501,26 +507,26 @@ export class SpeechEngine {
                         console.warn('🟡 [SPEECHENGINE-DISPOSE] Error closing Azure recognizer:', error);
                     }
                 }
-                
+
                 // Reset Azure provider state
                 this.azureProvider.shouldStop = false;
                 this.azureProvider.isActivelyPlaying = false;
-                
+
                 console.log('🟢 [SPEECHENGINE-DISPOSE] Azure provider disposed');
             } catch (error) {
                 console.error('🔴 [SPEECHENGINE-DISPOSE] Error disposing Azure provider:', error);
             }
         }
-        
+
         // Dispose Local AI provider
         if (this.localAIProvider) {
             try {
                 console.log('🟡 [SPEECHENGINE-DISPOSE] Disposing Local AI provider...');
-                
+
                 if (this.localAIProvider.stop) {
                     this.localAIProvider.stop();
                 }
-                
+
                 // Dispose worker if it exists
                 if (this.localAIProvider.worker) {
                     try {
@@ -530,7 +536,7 @@ export class SpeechEngine {
                         console.warn('🟡 [SPEECHENGINE-DISPOSE] Error terminating Local AI worker:', error);
                     }
                 }
-                
+
                 // Close audio context if it exists
                 if (this.localAIProvider.audioContext && this.localAIProvider.audioContext.state !== 'closed') {
                     try {
@@ -540,37 +546,37 @@ export class SpeechEngine {
                         console.warn('🟡 [SPEECHENGINE-DISPOSE] Error closing Local AI audio context:', error);
                     }
                 }
-                
+
                 console.log('🟢 [SPEECHENGINE-DISPOSE] Local AI provider disposed');
             } catch (error) {
                 console.error('🔴 [SPEECHENGINE-DISPOSE] Error disposing Local AI provider:', error);
             }
         }
-        
+
         // Dispose Web Speech provider
         if (this.webSpeechProvider) {
             try {
                 console.log('🟡 [SPEECHENGINE-DISPOSE] Disposing Web Speech provider...');
-                
+
                 if (this.webSpeechProvider.stop) {
                     this.webSpeechProvider.stop();
                 }
-                
+
                 if (this.webSpeechProvider.stopRecognition) {
                     this.webSpeechProvider.stopRecognition();
                 }
-                
+
                 console.log('🟢 [SPEECHENGINE-DISPOSE] Web Speech provider disposed');
             } catch (error) {
                 console.error('🔴 [SPEECHENGINE-DISPOSE] Error disposing Web Speech provider:', error);
             }
         }
-        
+
         // Clear all provider references
         this.webSpeechProvider = null;
         this.localAIProvider = null;
         this.azureProvider = null;
-        
+
         console.log('🟢 [SPEECHENGINE-DISPOSE] All providers disposed and references cleared');
     }
 
@@ -580,7 +586,7 @@ export class SpeechEngine {
      */
     resetEngineState() {
         console.log('🟡 [SPEECHENGINE-DISPOSE] Resetting engine state...');
-        
+
         this.state = {
             isInitialized: false,
             currentProvider: null,
@@ -590,7 +596,7 @@ export class SpeechEngine {
             availableVoices: [],
             localModelsLoaded: false
         };
-        
+
         console.log('🟢 [SPEECHENGINE-DISPOSE] Engine state reset');
     }
 
@@ -625,7 +631,7 @@ export class SpeechEngine {
     setVoice(voiceName) {
         this.settings.selectedVoice = voiceName;
         this.saveSettings();
-        
+
         // Update current provider if it supports voice selection
         const provider = this.state.currentProvider;
         if (provider && provider.setVoice) {
@@ -639,7 +645,7 @@ export class SpeechEngine {
     setSpeechRate(rate) {
         this.settings.speechRate = Math.max(0.1, Math.min(3.0, rate));
         this.saveSettings();
-        
+
         // Update current provider
         const provider = this.state.currentProvider;
         if (provider && provider.setRate) {
@@ -653,7 +659,7 @@ export class SpeechEngine {
     setSpeechVolume(volume) {
         this.settings.speechVolume = Math.max(0.0, Math.min(1.0, volume));
         this.saveSettings();
-        
+
         // Update current provider
         const provider = this.state.currentProvider;
         if (provider && provider.setVolume) {
@@ -675,7 +681,7 @@ export class SpeechEngine {
     setNaturalness(level) {
         this.settings.naturalness = Math.max(0.0, Math.min(1.0, level));
         this.saveSettings();
-        
+
         // Update current provider if it supports naturalness
         const provider = this.state.currentProvider;
         if (provider && provider.setNaturalness) {
@@ -748,7 +754,7 @@ export class SpeechEngine {
         }
         this.saveSettings();
         console.log(`[SpeechEngine] Speech recognition language detection ${enabled ? 'enabled' : 'disabled'}`);
-        
+
         if (enabled && candidateLanguages) {
             console.log(`[SpeechEngine] Candidate languages:`, candidateLanguages);
         }
@@ -768,11 +774,11 @@ export class SpeechEngine {
      */
     getSupportedLanguages() {
         const provider = this.state.currentProvider;
-        
+
         if (this.settings.provider === this.providers.AZURE) {
             return languageDetector.getSupportedLanguagesForSpeechRecognition();
         }
-        
+
         // Web Speech API and Local AI have limited language support
         return ['en-US', 'en-GB', 'es-ES', 'fr-FR', 'de-DE', 'it-IT', 'pt-BR', 'zh-CN', 'ja-JP'];
     }
@@ -783,7 +789,7 @@ export class SpeechEngine {
     detectLanguageAndGetVoice(text) {
         const detectedLanguage = languageDetector.detectLanguage(text);
         const appropriateVoice = languageDetector.getVoiceForLanguage(detectedLanguage);
-        
+
         return {
             language: detectedLanguage,
             voice: appropriateVoice,
@@ -830,7 +836,7 @@ class EnhancedWebSpeechProvider {
 
     async initialize() {
         console.log('[EnhancedWebSpeech] Initializing enhanced web speech...');
-        
+
         if (!this.synthesis) {
             throw new Error('Speech Synthesis not supported');
         }
@@ -851,9 +857,21 @@ class EnhancedWebSpeechProvider {
     async loadVoices() {
         return new Promise((resolve) => {
             const loadVoicesCallback = () => {
-                this.voices = this.synthesis.getVoices();
-                this.rankVoicesByNaturalness();
-                console.log(`[EnhancedWebSpeech] Loaded ${this.voices.length} voices`);
+                try {
+                    const allVoices = this.synthesis.getVoices() || [];
+                    // Filter out any invalid voice objects
+                    this.voices = allVoices.filter(voice =>
+                        voice &&
+                        typeof voice === 'object' &&
+                        voice.name &&
+                        voice.lang
+                    );
+                    this.rankVoicesByNaturalness();
+                    console.log(`[EnhancedWebSpeech] Loaded ${this.voices.length} valid voices out of ${allVoices.length} total`);
+                } catch (error) {
+                    console.error('[EnhancedWebSpeech] Error loading voices:', error);
+                    this.voices = []; // Fallback to empty array
+                }
                 resolve();
             };
 
@@ -867,36 +885,36 @@ class EnhancedWebSpeechProvider {
 
     rankVoicesByNaturalness() {
         // Enhanced voice ranking algorithm
-        this.voices = this.voices.map(voice => {
+        this.voices = this.voices.filter(voice => voice && voice.name && voice.lang).map(voice => {
             let naturalness = 0.5; // Base score
-            
+
             // Prefer neural/high-quality voices
-            if (voice.name.toLowerCase().includes('neural') || 
+            if (voice.name.toLowerCase().includes('neural') ||
                 voice.name.toLowerCase().includes('premium') ||
                 voice.name.toLowerCase().includes('enhanced')) {
                 naturalness += 0.3;
             }
-            
+
             // Prefer specific high-quality voice engines
-            if (voice.name.includes('Google') || 
+            if (voice.name.includes('Google') ||
                 voice.name.includes('Microsoft') ||
                 voice.name.includes('Apple')) {
                 naturalness += 0.2;
             }
-            
+
             // Language preference (prefer native language voices)
             if (voice.lang.startsWith(navigator.language.split('-')[0])) {
                 naturalness += 0.2;
             }
-            
+
             // Gender diversity (slight preference for female voices as they tend to be clearer)
-            if (voice.name.toLowerCase().includes('female') || 
+            if (voice.name.toLowerCase().includes('female') ||
                 voice.name.toLowerCase().includes('woman') ||
                 voice.name.toLowerCase().includes('jenny') ||
                 voice.name.toLowerCase().includes('aria')) {
                 naturalness += 0.1;
             }
-            
+
             return { ...voice, naturalness: Math.min(naturalness, 1.0) };
         }).sort((a, b) => b.naturalness - a.naturalness);
     }
@@ -905,15 +923,15 @@ class EnhancedWebSpeechProvider {
         if (!this.recognition) return;
 
         this.recognition.lang = navigator.language || 'en-US';
-        
+
         this.recognition.onstart = () => {
             console.log('[EnhancedWebSpeech] Speech recognition started');
         };
-        
+
         this.recognition.onend = () => {
             console.log('[EnhancedWebSpeech] Speech recognition ended');
         };
-        
+
         this.recognition.onerror = (event) => {
             console.error('[EnhancedWebSpeech] Speech recognition error:', event.error);
         };
@@ -930,10 +948,10 @@ class EnhancedWebSpeechProvider {
             this.synthesis.cancel();
 
             const utterance = new SpeechSynthesisUtterance(this.cleanTextForSpeech(text));
-            
+
             // Enhanced voice selection
             if (options.voice) {
-                const voice = this.voices.find(v => v.name === options.voice);
+                const voice = this.voices.find(v => v && v.name === options.voice);
                 if (voice) utterance.voice = voice;
             } else {
                 // Auto-select best voice based on naturalness
@@ -950,7 +968,7 @@ class EnhancedWebSpeechProvider {
             if (options.onProgress) {
                 const textLength = text.length;
                 let spokenChars = 0;
-                
+
                 // Track word boundaries to estimate progress
                 utterance.onboundary = (event) => {
                     if (event.name === 'word') {
@@ -975,7 +993,19 @@ class EnhancedWebSpeechProvider {
             };
 
             utterance.onerror = (event) => {
+                // Handle interruption as normal behavior, not an error
+                if (event.error === 'interrupted') {
+                    console.log('[WebSpeech] Speech interrupted (normal behavior)');
+                    if (options.onComplete) {
+                        options.onComplete();
+                    }
+                    resolve(); // Resolve normally for interruptions
+                    return;
+                }
+
+                // Handle actual errors
                 const error = new Error(`Speech synthesis error: ${event.error}`);
+                console.error('[WebSpeech] Speech synthesis error:', error);
                 if (options.onError) {
                     options.onError(error);
                 }
@@ -1004,12 +1034,16 @@ class EnhancedWebSpeechProvider {
     }
 
     getBestVoiceForLanguage(language) {
+        if (!language || !this.voices || this.voices.length === 0) {
+            return null;
+        }
+
         const langCode = language.split('-')[0];
-        const matchingVoices = this.voices.filter(voice => 
-            voice.lang.startsWith(langCode)
+        const matchingVoices = this.voices.filter(voice =>
+            voice && voice.lang && voice.lang.startsWith(langCode)
         );
-        
-        return matchingVoices.length > 0 ? matchingVoices[0] : this.voices[0];
+
+        return matchingVoices.length > 0 ? matchingVoices[0] : (this.voices[0] || null);
     }
 
     cleanTextForSpeech(text) {
@@ -1056,7 +1090,12 @@ class EnhancedWebSpeechProvider {
 
     stop() {
         if (this.synthesis) {
-            this.synthesis.cancel();
+            try {
+                console.log('[WebSpeech] Stopping speech synthesis');
+                this.synthesis.cancel();
+            } catch (error) {
+                console.warn('[WebSpeech] Error stopping speech synthesis:', error);
+            }
         }
     }
 
@@ -1098,7 +1137,7 @@ class LocalAISpeechProvider {
 
     async initialize() {
         console.log('[LocalAISpeech] Initializing local AI speech...');
-        
+
         if (this.settings.useWebWorker) {
             try {
                 await this.initializeWithWebWorker();
@@ -1110,23 +1149,23 @@ class LocalAISpeechProvider {
         } else {
             await this.initializeInMainThread();
         }
-        
+
         console.log('[LocalAISpeech] Local AI speech initialized');
     }
 
     async initializeWithWebWorker() {
         // Create web worker for model processing
         this.worker = new Worker('/src/workers/speechWorker.js');
-        
+
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 console.warn('[LocalAISpeech] Worker initialization timeout, falling back to main thread');
                 reject(new Error('Worker initialization timeout'));
             }, 30000); // 30 second timeout
-            
+
             this.worker.onmessage = (event) => {
                 const { type, success, error } = event.data;
-                
+
                 if (type === 'initialized') {
                     clearTimeout(timeout);
                     if (success) {
@@ -1141,13 +1180,13 @@ class LocalAISpeechProvider {
                     reject(new Error(error));
                 }
             };
-            
+
             this.worker.onerror = (error) => {
                 clearTimeout(timeout);
                 console.warn('[LocalAISpeech] Worker error during initialization:', error);
                 reject(new Error('Worker initialization failed'));
             };
-            
+
             this.worker.postMessage({
                 type: 'initialize',
                 modelPath: this.settings.modelPath
@@ -1159,19 +1198,19 @@ class LocalAISpeechProvider {
         try {
             // Dynamically import Transformers.js with correct version
             const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
-            
+
             // Initialize text-to-speech model
             console.log('[LocalAISpeech] Loading TTS model...');
             this.models.tts = await pipeline('text-to-speech', 'Xenova/speecht5_tts', {
                 quantized: false,
             });
-            
+
             // Initialize speech-to-text model
             console.log('[LocalAISpeech] Loading STT model...');
             this.models.stt = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
                 quantized: false,
             });
-            
+
             console.log('[LocalAISpeech] Models loaded successfully');
         } catch (error) {
             console.error('[LocalAISpeech] Failed to load models:', error);
@@ -1193,7 +1232,7 @@ class LocalAISpeechProvider {
 
             // Initialize audio context on first use (ensures user gesture compliance)
             await this.initializeAudioContext();
-            
+
             if (options.onProgress) {
                 console.log('[LocalAI] Audio context initialized');
                 options.onProgress(0.2); // 20% - Audio context ready
@@ -1203,7 +1242,7 @@ class LocalAISpeechProvider {
             if (options.voice && options.voice !== this.currentVoice) {
                 console.log(`[LocalAISpeech] Switching voice from ${this.currentVoice} to ${options.voice}`);
                 await this.setVoice(options.voice);
-                
+
                 if (options.onProgress) {
                     console.log('[LocalAI] Voice configuration updated');
                     options.onProgress(0.3); // 30% - Voice configured
@@ -1213,12 +1252,12 @@ class LocalAISpeechProvider {
             // For Local AI, always process the complete text as a single unit for best quality
             // This eliminates chunking artifacts and provides smooth, continuous speech
             console.log(`[LocalAISpeech] Processing complete text as single unit (${text.length} characters) with voice: ${this.currentVoice}`);
-            
+
             if (options.onProgress) {
                 console.log('[LocalAI] Text preparation complete, starting synthesis...');
                 options.onProgress(0.4); // 40% - Text prepared, starting synthesis
             }
-            
+
             if (this.worker) {
                 await this.speakWithWorker(text, options);
             } else {
@@ -1236,10 +1275,10 @@ class LocalAISpeechProvider {
         return new Promise((resolve, reject) => {
             // Track synthesis progress with worker
             let progressReported = false;
-            
+
             this.worker.onmessage = (event) => {
                 const { type, success, audioData, error, progress } = event.data;
-                
+
                 if (type === 'synthesis_progress' && options.onProgress) {
                     // Map worker progress (0-100) to our range (40-80%)
                     const mappedProgress = 0.4 + (progress / 100) * 0.4;
@@ -1252,7 +1291,7 @@ class LocalAISpeechProvider {
                             console.log('[LocalAI] Synthesis complete, starting audio playback...');
                             options.onProgress(0.85); // 85% - Synthesis done, starting playback
                         }
-                        
+
                         this.playAudioData(audioData, options).then(() => {
                             resolve();
                         }).catch(reject);
@@ -1261,7 +1300,7 @@ class LocalAISpeechProvider {
                     }
                 }
             };
-            
+
             // Include voice profile in options, but exclude callback functions 
             // (functions cannot be cloned for worker communication)
             const speechOptions = {
@@ -1270,13 +1309,13 @@ class LocalAISpeechProvider {
                 forceSpeak: options.forceSpeak
                 // Note: onProgress, onComplete, onError callbacks are handled here, not in worker
             };
-            
+
             this.worker.postMessage({
                 type: 'synthesize',
                 text,
                 options: speechOptions
             });
-            
+
             // Fallback progress simulation if worker doesn't report progress
             if (options.onProgress && !progressReported) {
                 console.log('[LocalAI] Starting fallback progress simulation');
@@ -1299,14 +1338,14 @@ class LocalAISpeechProvider {
                 console.log('[LocalAI] Starting text-to-speech model synthesis...');
                 options.onProgress(0.5); // 50% - Model synthesis starting
             }
-            
+
             const result = await this.models.tts(text);
-            
+
             if (options.onProgress) {
                 console.log('[LocalAI] Model synthesis complete, preparing audio...');
                 options.onProgress(0.85); // 85% - Synthesis done, preparing playback
             }
-            
+
             await this.playAudioData(result.audio, options);
         } catch (error) {
             console.error('[LocalAISpeech] TTS synthesis failed:', error);
@@ -1330,30 +1369,30 @@ class LocalAISpeechProvider {
             // Create audio buffer and play
             const audioBuffer = this.audioContext.createBuffer(1, audioData.length, 16000);
             audioBuffer.getChannelData(0).set(audioData);
-            
+
             const source = this.audioContext.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(this.audioContext.destination);
-            
+
             // Track audio playback progress
             if (options.onProgress) {
                 console.log('[LocalAI] Audio playback starting...');
                 options.onProgress(0.9); // 90% - Audio playback started
-                
+
                 const duration = audioBuffer.duration;
                 const startTime = this.audioContext.currentTime;
-                
+
                 // Track playback progress
                 const progressInterval = setInterval(() => {
                     const elapsed = this.audioContext.currentTime - startTime;
                     const progress = Math.min(0.99, 0.9 + (elapsed / duration) * 0.09); // 90-99%
                     options.onProgress(progress);
-                    
+
                     if (elapsed >= duration) {
                         clearInterval(progressInterval);
                     }
                 }, 100);
-                
+
                 // Complete progress on audio end
                 source.onended = () => {
                     clearInterval(progressInterval);
@@ -1364,7 +1403,7 @@ class LocalAISpeechProvider {
                     }
                 };
             }
-            
+
             // Add error handling for playback
             source.onerror = (error) => {
                 console.error('[LocalAISpeech] Audio playback error:', error);
@@ -1372,13 +1411,13 @@ class LocalAISpeechProvider {
                     options.onError(error);
                 }
             };
-            
+
             source.start();
             console.log('[LocalAISpeech] Audio playback started successfully');
-            
+
         } catch (error) {
             console.error('[LocalAISpeech] Failed to play audio:', error);
-            
+
             // If audio context fails, try to provide user guidance
             if (error.name === 'NotAllowedError' || error.message.includes('user gesture')) {
                 console.warn('[LocalAISpeech] Audio requires user interaction. Speech will be available after user clicks something.');
@@ -1388,7 +1427,7 @@ class LocalAISpeechProvider {
                 }
                 throw userError;
             }
-            
+
             if (options.onError) {
                 options.onError(error);
             }
@@ -1405,13 +1444,13 @@ class LocalAISpeechProvider {
             try {
                 this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 console.log('[LocalAISpeech] AudioContext initialized');
-                
+
                 // Ensure it's running
                 if (this.audioContext.state === 'suspended') {
                     await this.audioContext.resume();
                     console.log('[LocalAISpeech] AudioContext resumed');
                 }
-                
+
                 return true;
             } catch (error) {
                 console.error('[LocalAISpeech] Failed to initialize AudioContext:', error);
@@ -1429,7 +1468,7 @@ class LocalAISpeechProvider {
         // Get audio from microphone
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const audioData = await this.recordAudio(stream);
-        
+
         if (this.worker) {
             return await this.recognizeWithWorker(audioData, options);
         } else {
@@ -1441,19 +1480,19 @@ class LocalAISpeechProvider {
         return new Promise((resolve) => {
             const mediaRecorder = new MediaRecorder(stream);
             const audioChunks = [];
-            
+
             mediaRecorder.ondataavailable = (event) => {
                 audioChunks.push(event.data);
             };
-            
+
             mediaRecorder.onstop = async () => {
                 const audioBlob = new Blob(audioChunks);
                 const audioBuffer = await audioBlob.arrayBuffer();
                 resolve(new Float32Array(audioBuffer));
             };
-            
+
             mediaRecorder.start();
-            
+
             // Stop recording after 5 seconds or when user stops
             setTimeout(() => {
                 mediaRecorder.stop();
@@ -1466,7 +1505,7 @@ class LocalAISpeechProvider {
         return new Promise((resolve, reject) => {
             this.worker.onmessage = (event) => {
                 const { type, success, transcript, error } = event.data;
-                
+
                 if (type === 'stt_complete') {
                     if (success) {
                         resolve(transcript);
@@ -1475,7 +1514,7 @@ class LocalAISpeechProvider {
                     }
                 }
             };
-            
+
             this.worker.postMessage({
                 type: 'recognize',
                 audioData,
@@ -1498,7 +1537,7 @@ class LocalAISpeechProvider {
         const sentences = text.match(/[^\.!?]+[\.!?]+/g) || [text];
         const chunks = [];
         let currentChunk = '';
-        
+
         for (const sentence of sentences) {
             if (currentChunk.length + sentence.length <= maxLength) {
                 currentChunk += sentence;
@@ -1507,7 +1546,7 @@ class LocalAISpeechProvider {
                 currentChunk = sentence;
             }
         }
-        
+
         if (currentChunk) chunks.push(currentChunk.trim());
         return chunks;
     }
@@ -1517,7 +1556,7 @@ class LocalAISpeechProvider {
         if (this.worker) {
             this.worker.postMessage({ type: 'stop' });
         }
-        
+
         // Stop any playing audio
         if (this.audioContext && this.audioContext.state !== 'closed') {
             // AudioContext doesn't have a direct stop method, but we can suspend it
@@ -1547,7 +1586,7 @@ class LocalAISpeechProvider {
                     if (event.data.type === 'voices_list') {
                         clearTimeout(timeout);
                         this.worker.removeEventListener('message', handleMessage);
-                        
+
                         this.availableVoices = event.data.voices;
                         const voices = event.data.voices.map(voice => ({
                             name: voice.name,
@@ -1558,7 +1597,7 @@ class LocalAISpeechProvider {
                             naturalness: 0.8,
                             isDefault: voice.isDefault
                         }));
-                        
+
                         resolve(voices);
                     }
                 };
@@ -1586,9 +1625,9 @@ class LocalAISpeechProvider {
     async setVoice(voiceId) {
         if (this.worker) {
             this.currentVoice = voiceId;
-            this.worker.postMessage({ 
-                type: 'setVoice', 
-                voiceId: voiceId 
+            this.worker.postMessage({
+                type: 'setVoice',
+                voiceId: voiceId
             });
             console.log(`[LocalAISpeech] Voice changed to: ${voiceId}`);
         }
@@ -1616,7 +1655,7 @@ class AzureSpeechProvider {
         this.speechConfig = null;
         this.synthesizer = null;
         this.recognizer = null;
-        
+
         // Tracking flags for proper stop handling
         this.shouldStop = false;
         this.isActivelyPlaying = false;
@@ -1624,19 +1663,19 @@ class AzureSpeechProvider {
 
     async initialize() {
         console.log('[AzureSpeech] Initializing Azure Speech Services...');
-        
+
         try {
             // Load Azure Speech SDK
             await this.loadAzureSpeechSDK();
-            
+
             // Initialize speech configuration
             this.speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
                 this.settings.subscriptionKey,
                 this.settings.region
             );
-            
+
             this.speechConfig.speechSynthesisVoiceName = this.settings.voiceName;
-            
+
             console.log('[AzureSpeech] Azure Speech Services initialized');
         } catch (error) {
             console.error('[AzureSpeech] Failed to initialize Azure Speech:', error);
@@ -1646,7 +1685,7 @@ class AzureSpeechProvider {
 
     async loadAzureSpeechSDK() {
         if (window.SpeechSDK) return;
-        
+
         return new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = 'https://aka.ms/csspeech/jsbrowserpackageraw';
@@ -1676,7 +1715,7 @@ class AzureSpeechProvider {
 
         return new Promise((resolve, reject) => {
             const audioConfig = SpeechSDK.AudioConfig.fromDefaultSpeakerOutput();
-            
+
             // Auto-detect language and select appropriate voice if enabled
             if (options.autoDetectLanguage) {
                 try {
@@ -1684,9 +1723,9 @@ class AzureSpeechProvider {
                     if (languageDetector) {
                         const detectedLanguage = languageDetector.detectLanguage(text);
                         const appropriateVoice = languageDetector.getVoiceForLanguage(detectedLanguage);
-                        
+
                         console.log(`[AzureSpeech] Auto-detected language: ${detectedLanguage}, using voice: ${appropriateVoice}`);
-                        
+
                         // Update speech config with detected language voice
                         this.speechConfig.speechSynthesisVoiceName = appropriateVoice;
                         this.settings.voiceName = appropriateVoice;
@@ -1695,12 +1734,12 @@ class AzureSpeechProvider {
                     console.warn('[AzureSpeech] Language auto-detection failed, using default voice:', error);
                 }
             }
-            
+
             if (options.onProgress) {
                 console.log('[Azure] Voice configuration ready');
                 options.onProgress(0.2); // 20% - Voice configured
             }
-            
+
             // Create a NEW synthesizer for each synthesis to ensure clean state
             if (this.synthesizer) {
                 try {
@@ -1709,29 +1748,29 @@ class AzureSpeechProvider {
                     console.warn('[AzureSpeech] Error closing previous synthesizer:', e);
                 }
             }
-            
+
             this.synthesizer = new SpeechSDK.SpeechSynthesizer(this.speechConfig, audioConfig);
-            
+
             // Set up Azure synthesis event handlers for real progress tracking
             let synthesisComplete = false;
             let audioStartTime = null;
             let estimatedDuration = 0;
-            
+
             if (options.onProgress) {
                 console.log('[Azure] Setting up synthesis event handlers...');
-                
+
                 // Calculate estimated duration for playback progress
                 const wordsPerMinute = 150; // Typical Azure voice speed
                 const words = text.trim().split(/\s+/).length;
                 estimatedDuration = (words / wordsPerMinute) * 60 * 1000; // in milliseconds
                 console.log(`[Azure] Estimated audio duration: ${Math.round(estimatedDuration)}ms for ${words} words`);
-                
+
                 // Track synthesis start
                 this.synthesizer.synthesisStarted = (s, e) => {
                     console.log('[Azure] Synthesis started');
                     options.onProgress(0.4); // 40% - Synthesis started
                 };
-                
+
                 // Track synthesis progress through audio data events
                 this.synthesizer.synthesizing = (s, e) => {
                     if (!synthesisComplete) {
@@ -1741,54 +1780,54 @@ class AzureSpeechProvider {
                         options.onProgress(synthProgress);
                     }
                 };
-                
+
                 // Track when synthesis completes but before audio starts playing
                 this.synthesizer.synthesisCompleted = (s, e) => {
                     synthesisComplete = true;
                     audioStartTime = Date.now();
                     console.log('[Azure] Synthesis completed, audio starting playback');
                     options.onProgress(0.7); // 70% - Audio ready and starting playback
-                    
+
                     // Start playback progress tracking
                     const playbackInterval = setInterval(() => {
                         if (!this.isActivelyPlaying) {
                             clearInterval(playbackInterval);
                             return;
                         }
-                        
+
                         const elapsed = Date.now() - audioStartTime;
                         const playbackProgress = Math.min(0.95, elapsed / estimatedDuration);
                         const totalProgress = 0.7 + (playbackProgress * 0.25); // 70-95% during playback
-                        
+
                         console.log(`[Azure] Playback progress: ${Math.round(totalProgress * 100)}%`);
                         options.onProgress(totalProgress);
-                        
+
                         if (elapsed >= estimatedDuration) {
                             clearInterval(playbackInterval);
                         }
                     }, 200); // Update every 200ms
                 };
             }
-            
+
             let ssmlText = text;
-            
+
             // Use SSML for enhanced naturalness
             if (options.naturalness > 0.7) {
                 ssmlText = this.createSSML(text, options);
             }
-            
+
             if (options.onProgress) {
                 console.log('[Azure] SSML prepared, starting synthesis...');
                 options.onProgress(0.3); // 30% - SSML prepared
             }
-            
+
             console.log('🟢 [AZURE-SPEECH-START] =================================');
             console.log('🟢 [AZURE-SPEECH-START] Starting Azure speech synthesis');
             console.log(`🟢 [AZURE-SPEECH-START] Text length: ${text.length} characters`);
             console.log(`🟢 [AZURE-SPEECH-START] Voice: ${this.settings.voiceName}`);
             console.log(`🟢 [AZURE-SPEECH-START] Using SSML: ${options.naturalness > 0.7}`);
             console.log('🟢 [AZURE-SPEECH-START] =================================');
-            
+
             this.synthesizer.speakSsmlAsync(
                 ssmlText,
                 (result) => {
@@ -1801,13 +1840,13 @@ class AzureSpeechProvider {
                         resolve(); // Resolve even if stopped
                         return;
                     }
-                    
+
                     console.log('🟢 [AZURE-SPEECH-COMPLETE] Speech synthesis completed successfully');
                     console.log(`🟢 [AZURE-SPEECH-COMPLETE] Result reason: ${result.reason}`);
-                    
+
                     if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
                         this.isActivelyPlaying = false;
-                        
+
                         // Complete progress
                         if (options.onProgress) {
                             console.log('[Azure] Speech synthesis and playback completed');
@@ -1816,7 +1855,7 @@ class AzureSpeechProvider {
                         if (options.onComplete) {
                             options.onComplete();
                         }
-                        
+
                         resolve();
                     } else {
                         console.error('🔴 [AZURE-SPEECH-ERROR] Speech synthesis failed:', result.errorDetails);
@@ -1827,7 +1866,7 @@ class AzureSpeechProvider {
                         }
                         reject(error);
                     }
-                    
+
                     console.log('🟡 [AZURE-SPEECH-CLEANUP] Closing synthesizer after completion');
                     this.synthesizer.close();
                     this.synthesizer = null; // Clear reference
@@ -1835,7 +1874,7 @@ class AzureSpeechProvider {
                 (error) => {
                     console.error('🔴 [AZURE-SPEECH-ERROR] Speech synthesis error:', error);
                     this.isActivelyPlaying = false;
-                    
+
                     if (!this.shouldStop) {
                         const synthError = new Error(`Speech synthesis error: ${error}`);
                         if (options.onError) {
@@ -1846,7 +1885,7 @@ class AzureSpeechProvider {
                         console.log('🟡 [AZURE-SPEECH-STOPPED] Error occurred but synthesis was intentionally stopped');
                         resolve(); // Resolve if we intentionally stopped
                     }
-                    
+
                     console.log('🟡 [AZURE-SPEECH-CLEANUP] Closing synthesizer after error');
                     if (this.synthesizer) {
                         this.synthesizer.close();
@@ -1883,7 +1922,7 @@ class AzureSpeechProvider {
         const rate = this.mapRateToSSML(options.rate || 1.0);
         const volume = this.mapVolumeToSSML(options.volume || 1.0);
         const style = options.naturalness > 0.8 ? 'conversational' : 'general';
-        
+
         return `
             <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" 
                    xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="en-US">
@@ -1930,27 +1969,27 @@ class AzureSpeechProvider {
 
         return new Promise((resolve, reject) => {
             const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
-            
+
             // Use language identification if enabled
             if (options.enableLanguageDetection && options.candidateLanguages && options.candidateLanguages.length > 0) {
                 const autoDetectConfig = SpeechSDK.AutoDetectSourceLanguageConfig.fromLanguages(
                     options.candidateLanguages
                 );
-                
+
                 this.recognizer = SpeechSDK.SpeechRecognizer.FromConfig(
-                    this.speechConfig, 
+                    this.speechConfig,
                     autoDetectConfig,
                     audioConfig
                 );
             } else {
                 this.recognizer = new SpeechSDK.SpeechRecognizer(this.speechConfig, audioConfig);
             }
-            
+
             this.recognizer.recognizeOnceAsync(
                 (result) => {
                     if (result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
                         let response = { text: result.text };
-                        
+
                         // Include detected language if language identification was used
                         if (options.enableLanguageDetection) {
                             try {
@@ -1961,7 +2000,7 @@ class AzureSpeechProvider {
                                 console.warn('[AzureSpeech] Could not extract detected language:', error);
                             }
                         }
-                        
+
                         resolve(response);
                     } else {
                         reject(new Error(`Speech recognition failed: ${result.errorDetails}`));
@@ -1982,23 +2021,23 @@ class AzureSpeechProvider {
         }
 
         const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
-        
+
         // Configure for continuous language identification if enabled
         if (options.enableLanguageDetection && options.candidateLanguages) {
             const autoDetectConfig = SpeechSDK.AutoDetectSourceLanguageConfig.fromLanguages(
                 options.candidateLanguages
             );
-            
+
             // Enable continuous language identification
             if (options.continuousLanguageDetection) {
                 this.speechConfig.setProperty(
-                    SpeechSDK.PropertyId.SpeechServiceConnection_LanguageIdMode, 
+                    SpeechSDK.PropertyId.SpeechServiceConnection_LanguageIdMode,
                     "Continuous"
                 );
             }
-            
+
             this.recognizer = new SpeechSDK.SpeechRecognizer(
-                this.speechConfig, 
+                this.speechConfig,
                 autoDetectConfig,
                 audioConfig
             );
@@ -2011,7 +2050,7 @@ class AzureSpeechProvider {
             this.recognizer.recognizing = (s, e) => {
                 if (options.onRecognizing) {
                     let data = { text: e.result.text };
-                    
+
                     // Include detected language for continuous recognition
                     if (options.enableLanguageDetection) {
                         try {
@@ -2021,7 +2060,7 @@ class AzureSpeechProvider {
                             // Language detection might not be available for intermediate results
                         }
                     }
-                    
+
                     options.onRecognizing(data);
                 }
             };
@@ -2029,7 +2068,7 @@ class AzureSpeechProvider {
             this.recognizer.recognized = (s, e) => {
                 if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech && options.onRecognized) {
                     let data = { text: e.result.text };
-                    
+
                     // Include detected language
                     if (options.enableLanguageDetection) {
                         try {
@@ -2040,7 +2079,7 @@ class AzureSpeechProvider {
                             console.warn('[AzureSpeech] Could not extract detected language:', error);
                         }
                     }
-                    
+
                     options.onRecognized(data);
                 }
             };
@@ -2077,46 +2116,46 @@ class AzureSpeechProvider {
         console.log('🔴 [AZURE-PROVIDER-STOP] Azure speech provider stop() called');
         console.log('🔴 [AZURE-PROVIDER-STOP] Synthesizer available:', !!this.synthesizer);
         console.log('🔴 [AZURE-PROVIDER-STOP] Active synthesis in progress:', this.isActivelyPlaying);
-        
+
         // Set flag to indicate we want to stop
         this.shouldStop = true;
-        
+
         if (this.synthesizer) {
             try {
                 console.log('🟡 [AZURE-PROVIDER-STOP] Attempting advanced audio stopping technique');
                 const startTime = performance.now();
-                
+
                 // SOLUTION FROM GITHUB ISSUE #2647: Access internal audio object
                 // https://github.com/Azure-Samples/cognitive-services-speech-sdk/issues/2647
                 const audio = this.synthesizer.privAdapter?.privSessionAudioDestination?.privDestination?.privAudio;
-                
+
                 if (audio) {
                     console.log('🟢 [AZURE-PROVIDER-STOP] Found internal audio object, stopping playback');
-                    
+
                     // Pause the audio immediately
                     audio.pause();
-                    
+
                     // Reset audio position to beginning
                     audio.currentTime = 0;
-                    
+
                     console.log('🟢 [AZURE-PROVIDER-STOP] Audio paused and reset to beginning');
                 } else {
                     console.warn('🟡 [AZURE-PROVIDER-STOP] Internal audio object not found, using fallback method');
                 }
-                
+
                 // Close the synthesizer
                 this.synthesizer.close();
-                
+
                 const endTime = performance.now();
                 console.log(`🟢 [AZURE-PROVIDER-STOP] Stop sequence completed in ${(endTime - startTime).toFixed(2)}ms`);
-                
+
                 // Clear the synthesizer reference
                 this.synthesizer = null;
                 this.isActivelyPlaying = false;
                 console.log('🟢 [AZURE-PROVIDER-STOP] Synthesizer reference cleared and state reset');
             } catch (error) {
                 console.error('🔴 [AZURE-PROVIDER-STOP] Error during advanced stop sequence:', error);
-                
+
                 // Fallback: try basic close() method
                 try {
                     if (this.synthesizer) {
@@ -2132,7 +2171,7 @@ class AzureSpeechProvider {
         } else {
             console.log('🔴 [AZURE-PROVIDER-STOP] No synthesizer to stop');
         }
-        
+
         // Additional cleanup: try to stop any audio playback at browser level
         try {
             if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -2142,7 +2181,7 @@ class AzureSpeechProvider {
         } catch (fallbackError) {
             console.error('🔴 [AZURE-PROVIDER-STOP] Error in browser speechSynthesis.cancel():', fallbackError);
         }
-        
+
         console.log('🟢 [AZURE-PROVIDER-STOP] Azure provider stop() completed');
     }
 
@@ -2158,11 +2197,11 @@ class AzureSpeechProvider {
      */
     pause() {
         console.log('🟡 [AZURE-PROVIDER-PAUSE] Attempting to pause Azure TTS playback');
-        
+
         if (this.synthesizer) {
             try {
                 const audio = this.synthesizer.privAdapter?.privSessionAudioDestination?.privDestination?.privAudio;
-                
+
                 if (audio && !audio.paused) {
                     audio.pause();
                     console.log('🟢 [AZURE-PROVIDER-PAUSE] Audio playback paused successfully');
@@ -2190,11 +2229,11 @@ class AzureSpeechProvider {
      */
     resume() {
         console.log('🟡 [AZURE-PROVIDER-RESUME] Attempting to resume Azure TTS playback');
-        
+
         if (this.synthesizer) {
             try {
                 const audio = this.synthesizer.privAdapter?.privSessionAudioDestination?.privDestination?.privAudio;
-                
+
                 if (audio && audio.paused) {
                     audio.play();
                     console.log('🟢 [AZURE-PROVIDER-RESUME] Audio playback resumed successfully');

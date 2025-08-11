@@ -2,7 +2,6 @@
  * Agent Management Module
  * Handles multi-agent configuration, storage, and lifecycle management
  */
-
 import { SecureStorage } from '../utils/secureStorage.js';
 import { Utils } from '../utils/helpers.js';
 import { DOMUtils } from '../utils/domUtils.js';
@@ -101,14 +100,19 @@ export class AgentManager {
     }
 
     /**
-     * Load all agents from encrypted storage
+     * Load agents from storage
      * @returns {Promise<void>}
      */
     async loadAgents() {
         try {
             const agentsData = await SecureStorage.retrieve('agents');
             if (agentsData) {
-                this.agents = JSON.parse(agentsData);
+                // Check if agentsData is already an object or needs parsing
+                if (typeof agentsData === 'string') {
+                    this.agents = JSON.parse(agentsData);
+                } else {
+                    this.agents = agentsData;
+                }
                 console.log('Loaded agents:', this.agents);
             }
 
