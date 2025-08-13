@@ -131,14 +131,14 @@
             <h3 id="mobileTitle">Copilot Studio Companion</h3>
             <div class="mobile-actions">
                 <button id="mobileAiToggle" class="mobile-action-btn" style="display: none;" title="AI Companion"
-                    aria-label="AI Companion" data-icon="aiCompanion">
+                    aria-label="AI Companion">
                     <!-- Icon will be populated by JavaScript -->
                 </button>
                 <button id="mobileKnowledgeHubBtn" class="mobile-action-btn" title="Knowledge Hub"
-                    aria-label="Knowledge Hub" data-icon="knowledgeHub">
+                    aria-label="Knowledge Hub">
                     <!-- Icon will be populated by JavaScript -->
                 </button>
-                <button id="mobileNewChatBtn" class="mobile-action-btn" title="New chat" data-icon="newChat">
+                <button id="mobileNewChatBtn" class="mobile-action-btn" title="New chat">
                     <!-- Icon will be populated by JavaScript -->
                 </button>
             </div>
@@ -171,13 +171,18 @@
             <div id="agentChatPanel" class="chat-panel">
                 <div class="panel-header">
                     <h3 id="agentConversationTitle">Agent Conversation</h3>
+                    <div>
                     <div class="panel-controls">
                         <span id="agentStatus" class="status-indicator" data-tooltip="Agent: Disconnected"></span>
                         <span id="agentName" class="agent-name"></span>
-                        <button id="toggleLLMPanelBtn" class="icon-button" title="Toggle AI Companion Panel"
-                            style="display: none;" data-icon="aiCompanion">
+                        <button id="togglerightpanelbtn" class="icon-button" title="Toggle Right Panel"
+                            style="display: none;">
                         </button>
                     </div>
+                    <div class="panel-controls">
+                        <span id="llmStatus" class="status-indicator"></span>
+                        <span id="llmModelName" class="agent-name"></span>
+                    </div></div>
                 </div>
 
                 <!-- Chat Window -->
@@ -234,7 +239,7 @@
                         <!-- AI Companion Toggle Button -->
                         <button id="aiCompanionToggleBtn" class="voice-input-btn ai-companion-toggle"
                             title="AI Companion" aria-label="Toggle AI Companion mode"
-                            style="display: none; margin-right: 8px;" data-icon="aiCompanion">
+                            style="display: none; margin-right: 8px;">
                             <!-- Icon will be populated by JavaScript -->
                         </button>
                         <!-- Send Button -->
@@ -265,14 +270,11 @@
                 <div class="panel-header">
                     <div class="panel-title-section">
                         <button id="expandAiCompanionBtn" class="icon-button" title="Expand panel to 50/50 layout"
-                            aria-label="Expand AI Companion Panel" data-icon="expandPanel">
+                            aria-label="Expand AI Companion Panel">
                         </button>
-                        <h3>Agent Companion</h3>
+                        <h3>Agent Performance</h3>
                     </div>
-                    <div class="panel-controls">
-                        <span id="llmStatus" class="status-indicator"></span>
-                        <span id="llmModelName" class="agent-name"></span>
-                    </div>
+                    
                 </div>
 
                 <!-- Real-time KPI Section -->
@@ -329,6 +331,19 @@
                     </div>
                 </div>
 
+                <!-- KPI Explanation Area -->
+                <div id="kpiExplanationArea" class="kpi-explanation-area" style="display: none;">
+                    <div class="kpi-explanation-header">
+                        <h4>📊 KPI Analysis & Insights</h4>
+                        <button id="kpiExplanationToggle" class="kpi-explanation-toggle" title="Toggle KPI Explanation">
+                            <span>▼</span>
+                        </button>
+                    </div>
+                    <div id="kpiExplanationContent" class="kpi-explanation-content">
+                        <!-- KPI explanation will be dynamically inserted here -->
+                    </div>
+                </div>
+
                 <!-- KPI Detail Modal -->
                 <div id="kpiModal" class="kpi-modal">
                     <div class="kpi-modal-content">
@@ -360,7 +375,7 @@
                 <!-- AI Chat Window -->
                 <div id="llmChatWindow" class="chat-window">
                     <div class="companion-welcome">
-                        <div class="companion-icon" data-icon="aiCompanion" data-width="32" data-height="32">
+                        <div class="companion-icon" id="companionIcon">
                         </div>
                         <p>AI Companion ready to analyze conversations and provide insights.</p>
                     </div>
@@ -407,11 +422,8 @@
                 <!-- Upload Section -->
                 <div id="uploadSection" class="upload-section">
                     <div class="upload-area" id="uploadArea">
-                        <div class="upload-icon">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
-                                <path
-                                    d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                            </svg>
+                        <div class="upload-icon" data-icon="document" data-width="48" data-height="48">
+                            <!-- Icon will be populated by main.js unified icon system -->
                         </div>
                         <h3>Upload PDF Document</h3>
                         <p>Drag and drop a PDF file here or click to browse</p>
@@ -516,12 +528,8 @@
                                     <input type="password" id="secretInput"
                                         placeholder="Enter your DirectLine secret..." aria-describedby="secretHelp" />
                                     <button type="button" id="toggleSecretVisibility" title="Show/Hide secret"
-                                        aria-label="Toggle secret visibility">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"
-                                            id="eyeIcon">
-                                            <path
-                                                d="M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z" />
-                                        </svg>
+                                        aria-label="Toggle secret visibility" data-icon="eye">
+                                        <!-- Icon will be populated by main.js unified icon system -->
                                     </button>
                                 </div>
                                 <small id="secretHelp" class="help-text">DirectLine secret from Azure Bot Service for
@@ -1036,13 +1044,10 @@
                                         <span class="icon-name">Carter</span>
                                     </div>
                                     <div class="icon-option" data-icon="custom">
-                                        <div class="icon-preview custom-icon">
+                                        <div class="icon-preview custom-icon" data-icon="document">
                                             <input type="file" id="customIconInput" accept="image/*"
                                                 style="display: none;">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                                <path
-                                                    d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                                            </svg>
+                                            <!-- Icon will be populated by main.js unified icon system -->
                                         </div>
                                         <span class="icon-name">Custom</span>
                                     </div>
@@ -1054,7 +1059,6 @@
                         <!-- Color Theme Selection -->
                         <div class="form-group">
                             <label for="colorThemeSelection">
-                                <span data-icon="palette" style="margin-right: 8px;"></span>
                                 Color Theme:
                             </label>
                             <div class="color-theme-gallery">
@@ -1180,32 +1184,20 @@
     <div id="sideCommandBar">
         <!-- Primary functions - top aligned -->
         <button id="conversationsButton" class="side-command-btn" title="Conversations"
-            aria-label="Toggle conversations panel">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                    d="M20,2H4A2,2 0 0,0 2,4V16A2,2 0 0,0 4,18H18L22,22V4A2,2 0 0,0 20,2M6,9V7H18V9H6M14,11V13H6V11H14M16,15V17H6V15H16Z" />
-            </svg>
+            aria-label="Toggle conversations panel" data-icon="newChat">
+            <!-- Icon will be populated by main.js unified icon system -->
         </button>
 
         <!-- Secondary functions - bottom aligned -->
         <button id="documentationButton" class="side-command-btn" title="Documentation" aria-label="View Documentation">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                    d="M11,18H13V16H11V18M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,6A4,4 0 0,0 8,10H10A2,2 0 0,1 12,8A2,2 0 0,1 14,10C14,12 11,11.75 11,15H13C13,12.75 16,12.5 16,10A4,4 0 0,0 12,6Z" />
-            </svg>
+            <!-- Icon will be populated by main.js unified icon system -->
         </button>
         <button id="knowledgeHubButton" class="side-command-btn" title="Knowledge Hub" aria-label="Knowledge Hub">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path
-                    d="M4 3H5C6.05382 3 6.91812 3.8164 6.99451 4.85081L7 5V19C7 20.0538 6.1836 20.9181 5.14919 20.9945L5 21H4C2.94618 21 2.08188 20.1836 2.00549 19.1492L2 19V5C2 3.94618 2.8164 3.08188 3.85081 3.00549L4 3H5H4ZM10 3H11C12.0538 3 12.9181 3.8164 12.9945 4.85081L13 5V19C13 20.0538 12.1836 20.9181 11.1492 20.9945L11 21H10C8.94618 21 8.08188 20.1836 8.00549 19.1492L8 19V5C8 3.94618 8.8164 3.08188 9.85081 3.00549L10 3H11H10ZM16.9743 5.0005C17.8138 5.0005 18.5825 5.5311 18.8643 6.34636L18.9113 6.5025L21.9263 18.2485C22.1888 19.2689 21.613 20.3094 20.6295 20.6402L20.4863 20.6825L19.5173 20.9315C19.3513 20.9735 19.1833 20.9945 19.0193 20.9945C18.1807 20.9945 17.4112 20.463 17.1302 19.6476L17.0833 19.4915L14.0673 7.7465C13.8058 6.72514 14.3807 5.68555 15.3649 5.35484L15.5083 5.3125L16.4763 5.0635C16.6423 5.0205 16.8103 5.0005 16.9743 5.0005ZM5 4.5H4C3.75467 4.5 3.55042 4.67778 3.50806 4.91043L3.5 5V19C3.5 19.2444 3.67699 19.4494 3.91016 19.4919L4 19.5H5C5.24533 19.5 5.44958 19.3222 5.49194 19.0896L5.5 19V5C5.5 4.75556 5.32301 4.55062 5.08984 4.50809L5 4.5ZM11 4.5H10C9.75467 4.5 9.55042 4.67778 9.50806 4.91043L9.5 5V19C9.5 19.2444 9.67699 19.4494 9.91016 19.4919L10 19.5H11C11.2453 19.5 11.4496 19.3222 11.4919 19.0896L11.5 19V5C11.5 4.75556 11.323 4.55062 11.0898 4.50809L11 4.5ZM16.9753 6.5005L16.9119 6.50437L16.8493 6.5165L15.8813 6.7645C15.7063 6.8095 15.6143 6.9275 15.5743 6.9955C15.5431 7.0483 15.4985 7.14718 15.5049 7.27422L15.5203 7.3745L18.5363 19.1185C18.6023 19.3765 18.8333 19.4945 19.0193 19.4945L19.0818 19.4906L19.1443 19.4785L20.1133 19.2295C20.3515 19.1691 20.5052 18.9458 20.4879 18.7102L20.4733 18.6215L17.4583 6.8755C17.3913 6.6185 17.1613 6.5005 16.9753 6.5005Z" />
-            </svg>
+            <!-- Icon will be populated by main.js unified icon system -->
         </button>
         <!-- Logging button removed - using unified notification system -->
         <button id="settingsButton" class="side-command-btn" title="Settings" aria-label="Settings">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                    d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66Z" />
-            </svg>
+            <!-- Icon will be populated by main.js unified icon system -->
         </button>
     </div> <!-- Screen Reader Only Content -->
     <div class="sr-only">
@@ -1213,7 +1205,6 @@
     </div>
 
     <!-- Application Scripts -->
-    <script type="module" src="src/ui/iconInitializer.js"></script>
     <script type="module" src="src/main.js"></script>
 </body>
 

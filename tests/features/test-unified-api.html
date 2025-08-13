@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Icon API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .icon-demo {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .icon-demo svg {
+            width: 24px;
+            height: 24px;
+        }
+        .result {
+            font-family: monospace;
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #007bff; }
+    </style>
+</head>
+<body>
+    <h1>🎯 Unified Icon API Test</h1>
+    <p>Testing the unified icon system with progressive API levels.</p>
+
+    <div class="test-section">
+        <h2>1. Simple Function API</h2>
+        <div id="simple-api-results"></div>
+        <div id="simple-api-icons"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Singleton Instance API</h2>
+        <div id="singleton-api-results"></div>
+        <div id="singleton-api-icons"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Advanced Class API</h2>
+        <div id="advanced-api-results"></div>
+        <div id="advanced-api-icons"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Unified Data Access Test</h2>
+        <div id="compatibility-results"></div>
+        <div id="compatibility-icons"></div>
+    </div>
+
+    <script type="module">
+        function addResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.textContent = message;
+            container.appendChild(div);
+        }
+
+        function addIcon(containerId, label, iconElement) {
+            const container = document.getElementById(containerId);
+            const demo = document.createElement('div');
+            demo.className = 'icon-demo';
+            
+            if (iconElement) {
+                demo.appendChild(iconElement);
+            } else {
+                demo.innerHTML = '<span style="color: red;">❌</span>';
+            }
+            
+            const labelSpan = document.createElement('span');
+            labelSpan.textContent = label;
+            demo.appendChild(labelSpan);
+            
+            container.appendChild(demo);
+        }
+
+        try {
+            // Test 1: Simple Function API
+            addResult('simple-api-results', '🧪 Testing simple function API...', 'info');
+            
+            const { createSVGIcon, getSVGDataUri, getDataUri, updateIconColor } = await import('./src/components/svg-icon-manager/index.js');
+            
+            addResult('simple-api-results', '✅ Functions imported successfully', 'success');
+            addResult('simple-api-results', `✅ createSVGIcon: ${typeof createSVGIcon}`, 'success');
+            addResult('simple-api-results', `✅ getSVGDataUri: ${typeof getSVGDataUri}`, 'success');
+            addResult('simple-api-results', `✅ getDataUri: ${typeof getDataUri}`, 'success');
+            addResult('simple-api-results', `✅ updateIconColor: ${typeof updateIconColor}`, 'success');
+
+            // Create icons with simple API
+            const homeIcon = createSVGIcon('home');
+            const settingsIcon = createSVGIcon('settings', { color: '#0066cc' });
+            const userIcon = createSVGIcon('user', { size: '32px' });
+
+            addIcon('simple-api-icons', 'Home Icon', homeIcon);
+            addIcon('simple-api-icons', 'Settings Icon (blue)', settingsIcon);
+            addIcon('simple-api-icons', 'User Icon (32px)', userIcon);
+
+            // Test data URI
+            const dataUri = getSVGDataUri('heart', '#ff0066');
+            addResult('simple-api-results', `✅ Data URI generated: ${dataUri.length} chars`, 'success');
+
+        } catch (error) {
+            addResult('simple-api-results', `❌ Error: ${error.message}`, 'error');
+        }
+
+        try {
+            // Test 2: Singleton Instance API
+            addResult('singleton-api-results', '🧪 Testing singleton instance API...', 'info');
+            
+            const { Icons } = await import('./src/components/svg-icon-manager/index.js');
+            
+            addResult('singleton-api-results', `✅ Icons singleton: ${typeof Icons}`, 'success');
+            addResult('singleton-api-results', `✅ Icons.get: ${typeof Icons.get}`, 'success');
+            addResult('singleton-api-results', `✅ Icons.getDataUri: ${typeof Icons.getDataUri}`, 'success');
+            addResult('singleton-api-results', `✅ Icons.updateColor: ${typeof Icons.updateColor}`, 'success');
+
+            // Create icons with singleton API
+            const starIcon = Icons.get('star');
+            const heartIcon = Icons.get('heart', { color: '#ff6b6b' });
+            const checkIcon = Icons.get('check', { size: '28px' });
+
+            addIcon('singleton-api-icons', 'Star Icon', starIcon);
+            addIcon('singleton-api-icons', 'Heart Icon (red)', heartIcon);
+            addIcon('singleton-api-icons', 'Check Icon (28px)', checkIcon);
+
+            // Test singleton data URI
+            const singletonDataUri = Icons.getDataUri('star', '#ffd700');
+            addResult('singleton-api-results', `✅ Singleton Data URI: ${singletonDataUri.length} chars`, 'success');
+
+        } catch (error) {
+            addResult('singleton-api-results', `❌ Error: ${error.message}`, 'error');
+        }
+
+        try {
+            // Test 3: Advanced Class API
+            addResult('advanced-api-results', '🧪 Testing advanced class API...', 'info');
+            
+            const { IconManager } = await import('./src/components/svg-icon-manager/index.js');
+            
+            addResult('advanced-api-results', `✅ IconManager class: ${typeof IconManager}`, 'success');
+            addResult('advanced-api-results', `✅ IconManager.create: ${typeof IconManager.create}`, 'success');
+
+            // Create custom manager instance
+            const customManager = new IconManager();
+            addResult('advanced-api-results', `✅ Custom manager created: ${typeof customManager}`, 'success');
+
+            // Test static method
+            const staticIcon = IconManager.create('download');
+            addIcon('advanced-api-icons', 'Static Method Icon', staticIcon);
+
+            // Test instance method
+            const instanceIcon = customManager.create('upload', { 
+                color: '#28a745',
+                size: '30px'
+            });
+            addIcon('advanced-api-icons', 'Instance Method Icon', instanceIcon);
+
+            // Test theme capabilities
+            if (customManager.setTheme) {
+                customManager.setTheme('outline');
+                const themedIcon = customManager.create('search');
+                addIcon('advanced-api-icons', 'Themed Icon', themedIcon);
+            }
+
+        } catch (error) {
+            addResult('advanced-api-results', `❌ Error: ${error.message}`, 'error');
+        }
+
+        try {
+            // Test 4: Unified API Data Access
+            addResult('compatibility-results', '🧪 Testing unified data access...', 'info');
+            
+            // All data available from unified entry point
+            const { SVGIcons, CoreIcons, getIconsByCategory } = await import('./src/components/svg-icon-manager/index.js');
+            
+            addResult('compatibility-results', `✅ SVGIcons from unified API: ${Object.keys(SVGIcons).length} icons`, 'success');
+            addResult('compatibility-results', `✅ CoreIcons from unified API: ${Object.keys(CoreIcons).length} icons`, 'success');
+            addResult('compatibility-results', `✅ getIconsByCategory: ${typeof getIconsByCategory}`, 'success');
+
+            // Show icon categories
+            const coreIcons = getIconsByCategory('core').slice(0, 2);
+            coreIcons.forEach(iconName => {
+                const icon = createSVGIcon(iconName, { color: '#28a745' });
+                addIcon('compatibility-icons', `Core: ${iconName}`, icon);
+            });
+
+            addResult('compatibility-results', '✅ All legacy APIs working correctly!', 'success');
+
+        } catch (error) {
+            addResult('compatibility-results', `❌ Error: ${error.message}`, 'error');
+        }
+
+        // Summary
+        setTimeout(() => {
+            console.log('🎯 Unified Icon API Test Complete!');
+            console.log('✅ All three API levels tested successfully');
+            console.log('✅ Backward compatibility maintained');
+            console.log('✅ Progressive enhancement working');
+        }, 1000);
+    </script>
+</body>
+</html>

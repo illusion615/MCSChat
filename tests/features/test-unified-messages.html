@@ -419,7 +419,7 @@
     <script type="module">
         import { UnifiedMessageRenderer, MessageTypes } from './src/ui/unifiedMessageRenderer.js';
         import { DOMUtils } from './src/utils/domUtils.js';
-        import { initializeSVGIcons } from './src/ui/iconInitializer.js';
+        import { Icons } from './src/components/svg-icon-manager/index.js';
 
         let messageRenderer;
         let messageCounter = 0;
@@ -587,8 +587,9 @@
                 // The renderer expects chatWindow to already exist in the DOM
                 messageRenderer = new UnifiedMessageRenderer();
 
-                // Initialize icons
-                initializeSVGIcons();
+                // Initialize new SVG icon system
+                // Make Icons globally available for the renderer
+                window.Icons = Icons;
 
                 // Set up message lifecycle tracking
                 trackMessageLifecycle();

@@ -137,10 +137,7 @@ body {
     background-color: rgba(0, 0, 0, 0.1);
 }
 
-.icon-button svg {
-    width: 18px;
-    height: 18px;
-}
+/* Icon styling is now handled by the GlobalIconManager */
 
 /* AI Companion Expand Button */
 #expandAiCompanionBtn {
@@ -244,6 +241,8 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     transform-origin: right center;
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Expanded state for 50/50 layout */
@@ -293,6 +292,7 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
     align-items: center;
     justify-content: space-between;
     flex-shrink: 0;
+    min-height: 50px;
 }
 
 .panel-header h3 {
@@ -320,11 +320,9 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
     display: flex;
     align-items: center;
     gap: var(--spacing-lg);
-    padding: var(--spacing-sm) var(--spacing-md);
     background: transparent;
     border-radius: var(--radius-sm);
     transition: all 0.2s ease;
-    min-height: 28px;
     position: relative;
 }
 
@@ -785,6 +783,196 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
             #667eea 100%);
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* AI Companion Welcome Area - positioned above explanation area */
+.companion-welcome {
+    background: var(--gradient-light);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    padding: 16px;
+    margin: 16px 0;
+    text-align: center;
+    order: -1; /* Ensure it appears before explanation area */
+}
+
+.companion-welcome .companion-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    margin: 0 auto 12px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: white !important;
+}
+
+/* If the icon contains SVG or other elements, force them to be white */
+.companion-welcome .companion-icon * {
+    color: white !important;
+    fill: white !important;
+    
+}
+
+.companion-welcome p {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* KPI Explanation Area Styles */
+.kpi-explanation-area {
+    margin-top: 16px;
+    background: var(--gradient-light);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    order: 1; /* Position after companion welcome */
+}
+
+.kpi-explanation-header {
+    display: none; /* Header removed per user request */
+}
+
+.kpi-explanation-header h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.kpi-explanation-toggle {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.kpi-explanation-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.kpi-explanation-toggle span {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.kpi-explanation-content {
+    max-height: 400px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #667eea transparent;
+}
+
+.kpi-explanation-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.kpi-explanation-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.kpi-explanation-content::-webkit-scrollbar-thumb {
+    background: #667eea;
+    border-radius: 3px;
+}
+
+.kpi-explanation-content-wrapper {
+    padding: 16px;
+}
+
+.kpi-explanation-timestamp {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 12px;
+    text-align: right;
+    font-style: italic;
+}
+
+.kpi-explanation-text {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #333;
+}
+
+.kpi-explanation-text h3 {
+    color: #667eea;
+    font-size: 16px;
+    margin: 0 0 12px 0;
+}
+
+.kpi-explanation-text h4 {
+    color: #555;
+    font-size: 14px;
+    margin: 16px 0 8px 0;
+}
+
+.kpi-explanation-text p {
+    margin: 8px 0;
+}
+
+.kpi-explanation-text ul {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+
+.kpi-explanation-text li {
+    margin: 4px 0;
+}
+
+.kpi-summary-score {
+    background: linear-gradient(135deg, #f8f9ff 0%, #e8edff 100%);
+    padding: 12px;
+    border-radius: 8px;
+    margin: 12px 0;
+    border-left: 4px solid #667eea;
+}
+
+.kpi-summary-metrics {
+    margin: 16px 0;
+}
+
+.kpi-summary-conclusion {
+    background: #f0f4ff;
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 16px;
+}
+
+.kpi-explanation-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+    color: #666;
+}
+
+.loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #e0e0e0;
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 12px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.kpi-explanation-loading p {
+    margin: 0;
+    font-size: 13px;
 }
 
 /* DUPLICATE: Commented out redundant shimmer animation - keeping first one at line 303 */
@@ -1730,10 +1918,7 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
     border-radius: 0 1px 1px 0;
 }
 
-.side-command-btn svg {
-    width: 24px;
-    height: 24px;
-}
+/* Icon styling is now handled by the GlobalIconManager */
 
 /* When left panel is collapsed, only account for command bar */
 .leftPanelCollapsed #container {
@@ -1754,7 +1939,6 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
 
     #container {
         margin-left: 0 !important;
-        margin-top: 60px !important;
         height: calc(100vh - 60px) !important;
         /* Full height minus mobile header */
         border-radius: 0 !important;
@@ -2773,7 +2957,7 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
 
 /* Improve dropdown arrow styling */
 #ollamaModelSelect {
-    /* Will be set by iconInitializer.js using dropdown icon */
+    /* Will be set by main.js unified icon system using dropdown icon */
     background-repeat: no-repeat;
     background-position: right 12px center;
     background-size: 12px;
@@ -3105,31 +3289,11 @@ input[type="range"]::-moz-range-thumb:hover {
     justify-content: center;
 }
 
-.robot-avatar::before {
-    content: '';
-    width: 18px;
-    height: 18px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    /* Background image will be set by JavaScript */
-}
-
 .assistant-avatar {
     background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.assistant-avatar::before {
-    content: '';
-    width: 18px;
-    height: 18px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    /* Background image will be set by JavaScript */
 }
 
 .smart-avatar {
@@ -3139,31 +3303,11 @@ input[type="range"]::-moz-range-thumb:hover {
     justify-content: center;
 }
 
-.smart-avatar::before {
-    content: '';
-    width: 18px;
-    height: 18px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    /* Background image will be set by JavaScript */
-}
-
 .modern-avatar {
     background: linear-gradient(135deg, #FF5722 0%, #D84315 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.modern-avatar::before {
-    content: '';
-    width: 18px;
-    height: 18px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    /* Background image will be set by JavaScript */
 }
 
 .cute-avatar {
@@ -3185,16 +3329,6 @@ input[type="range"]::-moz-range-thumb:hover {
     justify-content: center;
 }
 
-.professional-avatar::before {
-    content: '';
-    width: 18px;
-    height: 18px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    /* Background image will be set by JavaScript */
-}
-
 .gaming-avatar {
     background: linear-gradient(135deg, #E91E63 0%, #C2185B 100%);
     display: flex;
@@ -3202,31 +3336,11 @@ input[type="range"]::-moz-range-thumb:hover {
     justify-content: center;
 }
 
-.gaming-avatar::before {
-    content: '';
-    width: 18px;
-    height: 18px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    /* Background image will be set by JavaScript */
-}
-
 .minimal-avatar {
     background: linear-gradient(135deg, #795548 0%, #5D4037 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.minimal-avatar::before {
-    content: '';
-    width: 18px;
-    height: 18px;
-    /* Will be set by iconInitializer.js using minimalAvatar icon */
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
 }
 
 .carter-avatar {
@@ -5612,6 +5726,13 @@ input[type="range"]::-moz-range-thumb:hover {
 /* Mobile Styles - Updated for better mobile support */
 @media screen and (max-width: 768px) {
 
+    /* Prevent viewport scrolling issues */
+    body {
+        overflow-x: hidden;
+        position: fixed;
+        width: 100%;
+    }
+
     /* Show mobile header */
     #mobileHeader {
         display: flex !important;
@@ -5621,8 +5742,8 @@ input[type="range"]::-moz-range-thumb:hover {
     #container {
         margin: 0;
         border-radius: 0;
-        margin-top: 0px;
-        height: 100vh;
+        margin-top: 60px; /* Account for fixed mobile header height */
+        height: calc(100vh - 60px); /* Subtract mobile header height from total height */
         padding-top: 0;
         /* Remove any default padding */
     }
@@ -5670,7 +5791,7 @@ input[type="range"]::-moz-range-thumb:hover {
         position: relative;
         z-index: 1;
         padding: 16px 20px;
-        margin-top: 0;
+        margin-top: 60px;
     }
 
     #agentChatPanel {

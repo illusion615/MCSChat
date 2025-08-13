@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>SVG Icon Test</title>
+</head>
+<body>
+      <h1>SVG Icon Library Test</h1>
+      
+      <h2>1. Basic Icon (Default)</h2>
+      <div id="basic-container"></div>
+      
+      <h2>2. Styled Icon (Background + Border Radius + Border Color)</h2>
+      <div id="styled-container"></div>
+      
+      <h2>3. Square with Rounded Corners</h2>
+      <div id="square-container"></div>
+      
+      <h2>4. Dashed Border Style</h2>
+      <div id="dashed-container"></div>
+      
+      <h2>5. Gradient Background</h2>
+      <div id="gradient-container"></div>
+      
+      <h2>6. All Size Variations</h2>
+      <div id="sizes-container"></div>
+      
+      <h2>7. All Theme Variations</h2>
+      <div id="themes-container"></div>
+
+      <h2>8. Direct Icon Creation (New Feature)</h2>
+      <div id="direct-container"></div>
+      
+      <h2>9. Icon Category Test</h2>
+      <div id="category-container"></div>
+
+      <script type="module">
+            // Import the SVG Icon Library
+            import { Icons, createSVGIcon, CoreIcons, getIconsByCategory } from './index.js';
+
+            console.log('Available Core Icons:', Object.keys(CoreIcons));
+            console.log('All icons by category:', getIconsByCategory('core'));
+
+            // Example 1: Basic icon with default options
+            const basicIcon = Icons.create('send', {
+                  size: 'medium',
+                  theme: 'default'
+            });
+            document.getElementById('basic-container').appendChild(basicIcon);
+
+            // Example 2: Icon with background and border styling
+            const styledIcon = Icons.create('microphone', {
+                  size: 'large',
+                  theme: 'outline',
+                  style: {
+                        backgroundColor: '#667eea',
+                        borderRadius: '50%',
+                        border: '2px solid #333333',
+                        color: '#ffffff',
+                        padding: '10px'
+                  }
+            });
+            document.getElementById('styled-container').appendChild(styledIcon);
+
+            // Example 3: Square background with rounded corners
+            const squareIcon = Icons.create('newChat', {
+                  size: 'xl',
+                  theme: 'filled',
+                  style: {
+                        backgroundColor: '#11998e',
+                        borderRadius: '8px',
+                        border: '3px solid #ff6b35',
+                        color: '#ffffff',
+                        padding: '12px'
+                  }
+            });
+            document.getElementById('square-container').appendChild(squareIcon);
+
+            // Example 4: Different theme and border styles
+            const dashedIcon = Icons.create('attach', {
+                  size: 'small',
+                  theme: 'rounded',
+                  style: {
+                        backgroundColor: 'transparent',
+                        borderRadius: '4px',
+                        border: '2px dashed #764ba2',
+                        color: '#764ba2',
+                        padding: '8px'
+                  }
+            });
+            document.getElementById('dashed-container').appendChild(dashedIcon);
+
+            // Example 5: Gradient background with custom styling
+            const gradientIcon = Icons.create('delete', {
+                  size: 'medium',
+                  theme: 'default',
+                  style: {
+                        background: 'linear-gradient(135deg, #ff9a9e, #fecfef)',
+                        borderRadius: '12px',
+                        border: '1px solid #e74c3c',
+                        color: '#333333',
+                        padding: '10px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  }
+            });
+            document.getElementById('gradient-container').appendChild(gradientIcon);
+
+            // Example 6: All size variations
+            const sizesContainer = document.getElementById('sizes-container');
+            const sizes = ['xs', 'small', 'medium', 'large', 'xl', 'xxl'];
+            sizes.forEach((size, index) => {
+                  const sizeIcon = Icons.create('dropdown', {
+                        size: size,
+                        theme: 'outline',
+                        style: {
+                              backgroundColor: index % 2 === 0 ? '#f8f9fa' : '#667eea',
+                              borderRadius: '6px',
+                              border: '1px solid #dee2e6',
+                              color: index % 2 === 0 ? '#333333' : '#ffffff',
+                              padding: '5px',
+                              margin: '5px',
+                              display: 'inline-block'
+                        }
+                  });
+                  sizesContainer.appendChild(sizeIcon);
+                  
+                  // Add size label
+                  const label = document.createElement('span');
+                  label.textContent = ` ${size} `;
+                  label.style.marginRight = '10px';
+                  sizesContainer.appendChild(label);
+            });
+
+            // Example 7: All theme variations
+            const themesContainer = document.getElementById('themes-container');
+            const themes = ['default', 'outline', 'filled', 'rounded'];
+            themes.forEach((theme, index) => {
+                  const themeIcon = Icons.create('expandPanel', {
+                        size: 'large',
+                        theme: theme,
+                        style: {
+                              backgroundColor: ['#ffffff', '#e3f2fd', '#667eea', '#11998e'][index],
+                              borderRadius: ['0px', '4px', '8px', '50%'][index],
+                              border: `2px solid ${['#333333', '#2196f3', '#ffffff', '#ffffff'][index]}`,
+                              color: ['#333333', '#2196f3', '#ffffff', '#ffffff'][index],
+                              padding: '10px',
+                              margin: '5px',
+                              display: 'inline-block'
+                        }
+                  });
+                  themesContainer.appendChild(themeIcon);
+                  
+                  // Add theme label
+                  const label = document.createElement('span');
+                  label.textContent = ` ${theme} `;
+                  label.style.marginRight = '15px';
+                  themesContainer.appendChild(label);
+            });
+            // Example 8: Direct icon creation (bypassing IconManager)
+            const directIcon = createSVGIcon('heart', {
+                  size: 'xl',
+                  className: 'direct-icon',
+                  fill: '#ff6b6b'
+            });
+            document.getElementById('direct-container').appendChild(directIcon);
+            
+            // Example 9: Show icons by category
+            const coreIcons = getIconsByCategory('core');
+            const categoryContainer = document.getElementById('category-container');
+            Object.keys(coreIcons).slice(0, 5).forEach(iconName => {
+                  const icon = createSVGIcon(iconName, { size: 'small' });
+                  const label = document.createElement('span');
+                  label.textContent = iconName;
+                  label.style.marginLeft = '8px';
+                  label.style.marginRight = '16px';
+                  
+                  const wrapper = document.createElement('div');
+                  wrapper.style.display = 'inline-flex';
+                  wrapper.style.alignItems = 'center';
+                  wrapper.style.margin = '4px';
+                  wrapper.appendChild(icon);
+                  wrapper.appendChild(label);
+                  
+                  categoryContainer.appendChild(wrapper);
+            });
+      </script>
+</body>
+</html>

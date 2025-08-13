@@ -69,17 +69,27 @@
     </div>
 
     <script type="module">
-        // Import and test the SVG system
-        import { SVGIcons, createSVGIcon } from './src/utils/svgIcons.js';
-        import { initializeSVGIcons } from './src/ui/iconInitializer.js';
+        // Import and test the NEW SVG Icon Manager system - using simplified global API
+        import('./src/components/svg-icon-manager/index.js').then(() => {
+            console.log('Global Icon manager available:', !!window.Icon);
+            
+            // Test creating an icon
+            if (window.Icon) {
+                const testIcon = window.Icon.create('settings', 'sideCommand');
+                console.log('Test icon created:', testIcon);
+            }
+        });
 
-        console.log('SVG Icons available:', Object.keys(SVGIcons));
-
-        // Initialize icons
-        initializeSVGIcons();
+        // Import main.js to get the initializeSVGIcons function
+        import('./src/main.js').then(() => {
+            // Initialize icons using the global function
+            if (window.initializeSVGIcons) {
+                window.initializeSVGIcons();
+            }
+        });
 
         // Test creating an icon manually
-        const testIcon = createSVGIcon('newChat');
+        const testIcon = window.Icon.create('newChat');
         if (testIcon) {
             console.log('✅ Icon creation test passed');
         } else {

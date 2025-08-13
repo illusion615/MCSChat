@@ -18,7 +18,8 @@ import { SecureStorage } from '../utils/secureStorage.js';
 import { EnhancedTypingIndicator } from '../ui/enhancedTypingIndicator.js';
 import { mobileUtils } from '../utils/mobileUtils.js';
 import { statusIndicator } from '../utils/statusIndicator.js';
-import { getSVGDataUri } from '../utils/svgIcons.js';
+// REMOVED: import { getSVGDataUri } from '../components/svg-icon-manager/index.js';
+// Now using global Icon manager: window.Icon.create() for DOM elements
 // Using simpler logging manager to fix the issue
 import LoggingManager from '../services/simpleLoggingManager.js';
 // import LoggingUIManager from '../ui/loggingUIManager.js';
@@ -119,6 +120,10 @@ export class Application {
             this.updateInitializationIndicator('Initializing AI companion...');
             aiCompanion.initialize();
             this.aiCompanion = aiCompanion; // Assign to instance for access throughout the class
+
+            // Initialize application icons that need the full icon collection
+            this.updateInitializationIndicator('Setting up application icons...');
+            await this.initializeApplicationIcons();
 
             // UNIFIED MESSAGE SYSTEM: Initialize the unified message system
             this.updateInitializationIndicator('Setting up unified message system...');
@@ -293,6 +298,34 @@ export class Application {
             });
             console.log('========================');
         };
+    }
+
+    /**
+     * Initialize application icons that require the full icon collection
+     * This runs after the AI companion is initialized to ensure icon manager is ready
+     * @private
+     */
+    async initializeApplicationIcons() {
+        try {
+            // Wait for the full icon collection to be loaded
+            if (window.Icon && window.Icon.waitForLoad) {
+                await window.Icon.waitForLoad();
+                console.log('[Application] Full icon collection loaded, initializing application icons...');
+            }
+
+            // Initialize AI Companion Toggle Button icon
+            if (this.elements.aiCompanionToggleBtn && this.elements.aiCompanionToggleBtn.children.length === 0) {
+                const aiCompanionIcon = window.Icon.create('aiCompanion', {
+                    size: '18px',
+                    color: '#333'
+                });
+                console.log('[Application] Created aiCompanionToggleBtn icon:', aiCompanionIcon);
+                this.elements.aiCompanionToggleBtn.appendChild(aiCompanionIcon);
+            }
+
+        } catch (error) {
+            console.warn('[Application] Error initializing application icons:', error);
+        }
     }
 
     /**
@@ -2891,7 +2924,7 @@ export class Application {
 
         // Update agent name display
         if (agentNameEl) {
-            agentNameEl.textContent = agentName || '';
+            agentNameEl.textContent = agentName ? `Agent: ${agentName}` : '';
         }
 
         if (agentTitleEl && agentName) {
@@ -3687,20 +3720,37 @@ export class Application {
                     icon.style.fontSize = "16px";
                     break;
                 case 'robot':
-                    icon.style.backgroundImage = getSVGDataUri('robotAvatar');
+                    // Create icon element and add to container with gradient background
+                    const robotIcon = window.Icon.create('robotAvatar', { color: 'white', size: '20px' });
                     icon.style.background = "linear-gradient(135deg, #607D8B 0%, #455A64 100%)";
+                    icon.style.display = "flex";
+                    icon.style.alignItems = "center";
+                    icon.style.justifyContent = "center";
+                    icon.appendChild(robotIcon);
                     break;
                 case 'assistant':
-                    icon.style.backgroundImage = getSVGDataUri('assistantAvatar');
+                    const assistantIcon = window.Icon.create('assistantAvatar', { color: 'white', size: '20px' });
                     icon.style.background = "linear-gradient(135deg, #2196F3 0%, #1976D2 100%)";
+                    icon.style.display = "flex";
+                    icon.style.alignItems = "center";
+                    icon.style.justifyContent = "center";
+                    icon.appendChild(assistantIcon);
                     break;
                 case 'smart':
-                    icon.style.backgroundImage = getSVGDataUri('smartAvatar');
+                    const smartIcon = window.Icon.create('smartAvatar', { color: 'white', size: '20px' });
                     icon.style.background = "linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)";
+                    icon.style.display = "flex";
+                    icon.style.alignItems = "center";
+                    icon.style.justifyContent = "center";
+                    icon.appendChild(smartIcon);
                     break;
                 case 'modern':
-                    icon.style.backgroundImage = getSVGDataUri('modernAvatar');
+                    const modernIcon = window.Icon.create('modernAvatar', { color: 'white', size: '20px' });
                     icon.style.background = "linear-gradient(135deg, #FF5722 0%, #D84315 100%)";
+                    icon.style.display = "flex";
+                    icon.style.alignItems = "center";
+                    icon.style.justifyContent = "center";
+                    icon.appendChild(modernIcon);
                     break;
                 case 'cute':
                     icon.style.background = "linear-gradient(135deg, #FF9800 0%, #F57C00 100%)";
@@ -3711,16 +3761,28 @@ export class Application {
                     icon.style.fontSize = "14px";
                     break;
                 case 'professional':
-                    icon.style.backgroundImage = getSVGDataUri('professionalAvatar');
+                    const professionalIcon = window.Icon.create('professionalAvatar', { color: 'white', size: '20px' });
                     icon.style.background = "linear-gradient(135deg, #34495e 0%, #2c3e50 100%)";
+                    icon.style.display = "flex";
+                    icon.style.alignItems = "center";
+                    icon.style.justifyContent = "center";
+                    icon.appendChild(professionalIcon);
                     break;
                 case 'gaming':
-                    icon.style.backgroundImage = getSVGDataUri('gamingAvatar');
+                    const gamingIcon = window.Icon.create('gamingAvatar', { color: 'white', size: '20px' });
                     icon.style.background = "linear-gradient(135deg, #E91E63 0%, #C2185B 100%)";
+                    icon.style.display = "flex";
+                    icon.style.alignItems = "center";
+                    icon.style.justifyContent = "center";
+                    icon.appendChild(gamingIcon);
                     break;
                 case 'minimal':
-                    icon.style.backgroundImage = getSVGDataUri('minimalAvatar');
+                    const minimalIcon = window.Icon.create('minimalAvatar', { color: 'white', size: '20px' });
                     icon.style.background = "linear-gradient(135deg, #795548 0%, #5D4037 100%)";
+                    icon.style.display = "flex";
+                    icon.style.alignItems = "center";
+                    icon.style.justifyContent = "center";
+                    icon.appendChild(minimalIcon);
                     break;
                 case 'carter':
                     icon.style.backgroundImage = "url('images/carter_30k.png')";

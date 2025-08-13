@@ -1,0 +1,3154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>SVG Icon Library - Universal Example</title>
+      <style>
+            * {
+                  margin: 0;
+                  padding: 0;
+                  box-sizing: border-box;
+            }
+
+            body {
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                  line-height: 1.6;
+                  color: #333;
+                  background: #f5f5f5;
+                  margin: 0;
+                  padding: 0;
+                  height: 100vh;
+                  overflow: hidden;
+                  display: flex;
+                  flex-direction: column;
+            }
+
+            .container {
+                  flex: 1;
+                  display: flex;
+                  flex-direction: column;
+                  background: white;
+                  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+                  overflow: hidden;
+            }
+
+            .header {
+                  background: linear-gradient(135deg, #667eea, #764ba2);
+                  color: white;
+                  padding: 1rem 2rem;
+                  flex-shrink: 0;
+            }
+
+            .header h1 {
+                  font-size: 1.5rem;
+                  margin: 0;
+                  font-weight: 700;
+                  text-align: left;
+            }
+
+            .header p {
+                  font-size: 0.9rem;
+                  opacity: 0.9;
+                  margin: 0.25rem 0 0;
+                  text-align: left;
+            }
+
+            .content {
+                  display: flex;
+                  flex: 1;
+                  overflow: hidden;
+            }
+
+            .left-panel {
+                  flex: 0 0 70%;
+                  border-right: 2px solid #e1e8ed;
+                  padding: 1.5rem;
+                  overflow-y: auto;
+                  display: flex;
+                  flex-direction: column;
+            }
+
+            .right-panel {
+                  flex: 0 0 30%;
+                  padding: 1.5rem;
+                  overflow-y: auto;
+                  background: #fafbfc;
+            }
+
+            .section {
+                  margin-bottom: 3rem;
+            }
+
+            .section h2 {
+                  font-size: 1.8rem;
+                  margin-bottom: 1rem;
+                  color: #2c3e50;
+                  border-bottom: 2px solid #667eea;
+                  padding-bottom: 0.5rem;
+            }
+
+            .section h3 {
+                  font-size: 1.3rem;
+                  margin: 1.5rem 0 1rem 0;
+                  color: #34495e;
+            }
+
+            .controls {
+                  flex-wrap: wrap;
+            }
+
+            .control-group {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 0.5rem;
+            }
+
+            .control-group label {
+                  font-weight: 600;
+                  color: #555;
+            }
+
+            select,
+            button,
+            input {
+                  padding: 0.75rem 1rem;
+                  border: 2px solid #e1e8ed;
+                  border-radius: 6px;
+                  font-size: 1rem;
+                  transition: all 0.3s ease;
+            }
+
+            select:focus,
+            input:focus {
+                  outline: none;
+                  border-color: #667eea;
+                  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            }
+
+            button {
+                  background: linear-gradient(135deg, #667eea, #764ba2);
+                  color: white;
+                  border: none;
+                  cursor: pointer;
+                  font-weight: 600;
+                  display: flex;
+                  align-items: center;
+                  gap: 0.5rem;
+                  padding: 0.5rem 1rem;
+                  border-radius: 6px;
+                  font-size: 0.9rem;
+                  transition: all 0.3s ease;
+            }
+
+            button:hover {
+                  transform: translateY(-2px);
+                  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            }
+
+            button:active {
+                  transform: translateY(0);
+            }
+
+            .icon-grid {
+                  display: grid;
+                  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                  gap: 1rem;
+                  margin-bottom: 2rem;
+            }
+
+            .icon-item {
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  padding: 1rem;
+                  border: 2px solid #e1e8ed;
+                  border-radius: 8px;
+                  transition: all 0.3s ease;
+                  cursor: pointer;
+            }
+
+            .icon-item:hover {
+                  border-color: #667eea;
+                  transform: translateY(-2px);
+                  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            }
+
+            .icon-item .icon-name {
+                  margin-top: 0.5rem;
+                  font-size: 0.9rem;
+                  color: #666;
+                  text-align: center;
+            }
+
+            .demo-area {
+                  background: #f8f9fa;
+                  padding: 2rem;
+                  border-radius: 8px;
+                  margin: 1rem 0;
+            }
+
+            .theme-switcher {
+                  display: flex;
+                  gap: 0.5rem;
+                  flex-wrap: wrap;
+                  margin-bottom: 1rem;
+            }
+
+            .theme-btn {
+                  padding: 0.5rem 1rem;
+                  border: 2px solid #e1e8ed;
+                  background: white;
+                  color: #333;
+                  border-radius: 20px;
+                  cursor: pointer;
+                  transition: all 0.3s ease;
+                  font-size: 0.9rem;
+                  font-weight: 500;
+            }
+
+            .theme-btn:hover {
+                  border-color: #667eea;
+                  background: #f8f9ff;
+                  color: #333;
+            }
+
+            .theme-btn.active {
+                  background: #667eea;
+                  color: white;
+                  border-color: #667eea;
+            }
+
+            .stats-grid {
+                  display: grid;
+                  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                  gap: 1rem;
+                  margin-top: 1rem;
+            }
+
+            .stat-card {
+                  background: linear-gradient(135deg, #667eea, #764ba2);
+                  color: white;
+                  padding: 1.5rem;
+                  border-radius: 8px;
+                  text-align: center;
+            }
+
+            .stat-value {
+                  font-size: 2rem;
+                  font-weight: 700;
+                  margin-bottom: 0.5rem;
+            }
+
+            .stat-label {
+                  font-size: 0.9rem;
+                  opacity: 0.9;
+            }
+
+            .code-block {
+                  background: #2d3748;
+                  color: #e2e8f0;
+                  padding: 1rem;
+                  border-radius: 6px;
+                  overflow-x: auto;
+                  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                  font-size: 0.9rem;
+            }
+
+            .log {
+                  background: #f1f3f5;
+                  border: 1px solid #e1e8ed;
+                  border-radius: 6px;
+                  padding: 1rem;
+                  max-height: 200px;
+                  overflow-y: auto;
+                  font-family: monospace;
+                  font-size: 0.9rem;
+            }
+
+            .log-entry {
+                  margin-bottom: 0.25rem;
+                  padding: 0.25rem;
+                  border-radius: 3px;
+            }
+
+            .log-entry.error {
+                  background: #ffe6e6;
+                  color: #d63031;
+            }
+
+            .log-entry.success {
+                  background: #e6ffe6;
+                  color: #00b894;
+            }
+
+            .log-entry.info {
+                  background: #e6f3ff;
+                  color: #0984e3;
+            }
+
+            .theme-preview {
+                  display: flex;
+                  gap: 1rem;
+                  align-items: center;
+                  flex-wrap: wrap;
+            }
+
+            .tabs-container {
+                  width: 100%;
+            }
+
+            .tab-navigation {
+                  display: flex;
+                  border-bottom: 2px solid #e1e8ed;
+                  margin-bottom: 2rem;
+                  overflow-x: auto;
+            }
+
+            .tab-button {
+                  padding: 1rem 1.5rem;
+                  border: none;
+                  background: transparent;
+                  color: #666;
+                  cursor: pointer;
+                  border-bottom: 3px solid transparent;
+                  transition: all 0.3s ease;
+                  white-space: nowrap;
+                  font-weight: 500;
+                  font-size: 0.95rem;
+            }
+
+            .tab-button:hover {
+                  color: #667eea;
+                  background: #f8f9ff;
+                  transform: none;
+                  box-shadow: none;
+            }
+
+            .tab-button.active {
+                  color: #667eea;
+                  border-bottom-color: #667eea;
+                  background: #f8f9ff;
+            }
+
+            .tab-content {
+                  display: none;
+                  animation: fadeIn 0.3s ease-in-out;
+            }
+
+            .tab-content.active {
+                  display: block;
+            }
+
+            @keyframes fadeIn {
+                  from {
+                        opacity: 0;
+                        transform: translateY(10px);
+                  }
+
+                  to {
+                        opacity: 1;
+                        transform: translateY(0);
+                  }
+            }
+
+            .background-themes {
+                  display: flex;
+                  gap: 0.5rem;
+                  flex-wrap: wrap;
+                  margin-bottom: 1rem;
+            }
+
+            .background-themes-compact {
+                  display: flex;
+                  gap: 0.25rem;
+                  flex-wrap: wrap;
+                  margin: 0.5rem 0;
+            }
+
+            .background-themes-compact .bg-theme-btn {
+                  width: 2rem;
+                  height: 2rem;
+                  border-radius: 50%;
+                  border: 2px solid #ddd;
+                  cursor: pointer;
+                  font-size: 0.8rem;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  background: white;
+                  transition: all 0.2s ease;
+            }
+
+            .background-themes-compact .bg-theme-btn:hover {
+                  transform: scale(1.1);
+                  border-color: #007acc;
+            }
+
+            .background-themes-compact .bg-theme-btn.active {
+                  border-color: #007acc;
+                  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+            }
+
+            .theme-switcher-compact {
+                  display: flex;
+                  gap: 0.25rem;
+                  flex-wrap: wrap;
+                  margin: 0.5rem 0;
+            }
+
+            .theme-switcher-compact .theme-btn {
+                  padding: 0.25rem 0.5rem;
+                  font-size: 0.8rem;
+                  border-radius: 4px;
+                  border: 1px solid #ddd;
+                  background: white;
+                  cursor: pointer;
+                  transition: all 0.2s ease;
+            }
+
+            .theme-switcher-compact .theme-btn:hover {
+                  border-color: #007acc;
+                  background: #f0f8ff;
+            }
+
+            .theme-switcher-compact .theme-btn.active {
+                  border-color: #007acc;
+                  background: #007acc;
+                  color: white;
+            }
+
+            .bg-theme-btn {
+                  padding: 0.5rem 1rem;
+                  border: 2px solid #e1e8ed;
+                  background: white;
+                  color: #333;
+                  border-radius: 15px;
+                  cursor: pointer;
+                  transition: all 0.3s ease;
+                  font-size: 0.85rem;
+                  font-weight: 500;
+                  position: relative;
+            }
+
+            .bg-theme-btn:hover {
+                  border-color: #667eea;
+                  transform: translateY(-1px);
+            }
+
+            .bg-theme-btn.active {
+                  border-color: #667eea;
+                  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+            }
+
+            .bg-theme-btn::before {
+                  content: '';
+                  display: inline-block;
+                  width: 12px;
+                  height: 12px;
+                  border-radius: 50%;
+                  margin-right: 0.5rem;
+                  border: 1px solid rgba(0, 0, 0, 0.2);
+            }
+
+            .bg-theme-btn[data-bg="light"]::before {
+                  background: #ffffff;
+            }
+
+            .bg-theme-btn[data-bg="dark"]::before {
+                  background: #2d3748;
+            }
+
+            .bg-theme-btn[data-bg="blue"]::before {
+                  background: linear-gradient(135deg, #667eea, #764ba2);
+            }
+
+            .bg-theme-btn[data-bg="green"]::before {
+                  background: linear-gradient(135deg, #11998e, #38ef7d);
+            }
+
+            .bg-theme-btn[data-bg="purple"]::before {
+                  background: linear-gradient(135deg, #667eea, #764ba2);
+            }
+
+            .bg-theme-btn[data-bg="orange"]::before {
+                  background: linear-gradient(135deg, #ff9a9e, #fecfef);
+            }
+
+            .bg-theme-btn[data-bg="gray"]::before {
+                  background: linear-gradient(135deg, #bdc3c7, #2c3e50);
+            }
+
+            .theme-preview-container {
+                  border-radius: 8px;
+                  padding: 2rem;
+                  transition: all 0.3s ease;
+                  margin: 1rem 0;
+            }
+
+            .theme-preview-container.bg-light {
+                  background: #ffffff;
+                  color: #333;
+                  border: 2px solid #e1e8ed;
+            }
+
+            .theme-preview-container.bg-dark {
+                  background: #2d3748;
+                  color: #e2e8f0;
+                  border: 2px solid #4a5568;
+            }
+
+            .theme-preview-container.bg-blue {
+                  background: linear-gradient(135deg, #667eea, #764ba2);
+                  color: white;
+                  border: 2px solid #667eea;
+            }
+
+            .theme-preview-container.bg-green {
+                  background: linear-gradient(135deg, #11998e, #38ef7d);
+                  color: white;
+                  border: 2px solid #11998e;
+            }
+
+            .theme-preview-container.bg-purple {
+                  background: linear-gradient(135deg, #8360c3, #2ebf91);
+                  color: white;
+                  border: 2px solid #8360c3;
+            }
+
+            .theme-preview-container.bg-orange {
+                  background: linear-gradient(135deg, #ff9a9e, #fecfef);
+                  color: #333;
+                  border: 2px solid #ff9a9e;
+            }
+
+            .theme-preview-container.bg-gray {
+                  background: linear-gradient(135deg, #bdc3c7, #2c3e50);
+                  color: white;
+                  border: 2px solid #bdc3c7;
+            }
+
+            .preview-section {
+                  margin-top: 2rem;
+            }
+
+            .size-comparison {
+                  display: flex;
+                  gap: 1rem;
+                  align-items: center;
+                  flex-wrap: wrap;
+                  margin-top: 1rem;
+            }
+
+            .use-cases {
+                  margin-top: 1rem;
+            }
+
+            .use-case-item {
+                  display: flex;
+                  align-items: center;
+                  gap: 0.5rem;
+                  margin: 0.5rem 0;
+                  padding: 0.5rem;
+                  border-radius: 4px;
+                  background: rgba(255, 255, 255, 0.1);
+            }
+
+            .icon-style-options {
+                  display: flex;
+                  gap: 1rem;
+                  flex-wrap: wrap;
+                  margin: 1rem 0;
+                  padding: 1rem;
+                  background: #f8f9fa;
+                  border-radius: 6px;
+            }
+
+            .style-group {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 0.5rem;
+                  min-width: 120px;
+            }
+
+            .style-group label {
+                  font-weight: 600;
+                  font-size: 0.9rem;
+                  color: #555;
+            }
+
+            .style-buttons {
+                  display: flex;
+                  gap: 0.25rem;
+                  flex-wrap: wrap;
+            }
+
+            .style-btn {
+                  padding: 0.25rem 0.5rem;
+                  border: 1px solid #e1e8ed;
+                  background: white;
+                  color: #333;
+                  border-radius: 4px;
+                  cursor: pointer;
+                  font-size: 0.8rem;
+                  transition: all 0.2s ease;
+            }
+
+            .style-btn:hover {
+                  border-color: #667eea;
+                  background: #f8f9ff;
+            }
+
+            .style-btn.active {
+                  background: #667eea;
+                  color: white;
+                  border-color: #667eea;
+            }
+
+            .color-input {
+                  width: 40px;
+                  height: 30px;
+                  border: 1px solid #e1e8ed;
+                  border-radius: 4px;
+                  cursor: pointer;
+            }
+
+            .styled-icon-preview {
+                  display: flex;
+                  gap: 1rem;
+                  align-items: center;
+                  flex-wrap: wrap;
+                  margin: 1rem 0;
+                  padding: 1rem;
+                  background: white;
+                  border-radius: 6px;
+                  border: 1px solid #e1e8ed;
+            }
+
+            .preview-item {
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 0.5rem;
+            }
+
+            .preview-label {
+                  font-size: 0.8rem;
+                  color: #666;
+                  text-align: center;
+            }
+
+            .sample-code-section {
+                  margin: 1rem 0;
+                  padding: 1rem;
+                  background: #f8f9fa;
+                  border-radius: 6px;
+                  border: 1px solid #e1e8ed;
+            }
+
+            .code-tabs {
+                  display: flex;
+                  gap: 0.5rem;
+                  margin-bottom: 1rem;
+            }
+
+            .code-tab-btn {
+                  padding: 0.5rem 1rem;
+                  border: 1px solid #e1e8ed;
+                  background: white;
+                  color: #333;
+                  border-radius: 4px 4px 0 0;
+                  cursor: pointer;
+                  font-size: 0.85rem;
+                  transition: all 0.2s ease;
+            }
+
+            .code-tab-btn:hover {
+                  background: #f8f9ff;
+                  border-color: #667eea;
+            }
+
+            .code-tab-btn.active {
+                  background: #667eea;
+                  color: white;
+                  border-color: #667eea;
+            }
+
+            .code-content {
+                  background: #2d3748;
+                  color: #e2e8f0;
+                  padding: 1rem;
+                  border-radius: 0 6px 6px 6px;
+                  overflow-x: auto;
+                  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                  font-size: 0.85rem;
+                  line-height: 1.4;
+                  white-space: pre-wrap;
+                  min-height: 120px;
+            }
+
+            .code-copy-btn {
+                  position: absolute;
+                  top: 0.5rem;
+                  right: 0.5rem;
+                  padding: 0.25rem 0.5rem;
+                  background: rgba(255, 255, 255, 0.1);
+                  border: 1px solid rgba(255, 255, 255, 0.2);
+                  color: #e2e8f0;
+                  border-radius: 3px;
+                  cursor: pointer;
+                  font-size: 0.75rem;
+                  transition: all 0.2s ease;
+            }
+
+            .code-copy-btn:hover {
+                  background: rgba(255, 255, 255, 0.2);
+            }
+
+            .code-section-wrapper {
+                  position: relative;
+            }
+
+            /* Compact styling controls for left panel */
+            .style-group-compact {
+                  margin-bottom: 0.75rem;
+            }
+
+            .compact-label {
+                  font-size: 0.8rem;
+                  font-weight: 600;
+                  color: #555;
+                  margin-bottom: 0.25rem;
+                  display: block;
+            }
+
+            .style-buttons-compact {
+                  display: flex;
+                  gap: 0.25rem;
+                  flex-wrap: wrap;
+                  align-items: center;
+            }
+
+            .style-btn-sm {
+                  padding: 0.25rem 0.5rem;
+                  border: 1px solid #e1e8ed;
+                  border-radius: 4px;
+                  background: #fff;
+                  color: #333;
+                  cursor: pointer;
+                  font-size: 0.75rem;
+                  transition: all 0.2s ease;
+                  min-width: 24px;
+                  height: 24px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+            }
+
+            .style-btn-sm:hover {
+                  border-color: #667eea;
+                  background: #f8f9ff;
+            }
+
+            .style-btn-sm.active {
+                  background: #667eea;
+                  color: white;
+                  border-color: #667eea;
+            }
+
+            .color-input-sm {
+                  width: 24px;
+                  height: 24px;
+                  border: 1px solid #e1e8ed;
+                  border-radius: 4px;
+                  cursor: pointer;
+                  padding: 0;
+            }
+
+            .action-btn-sm {
+                  padding: 0.375rem 0.75rem;
+                  border: 1px solid #e1e8ed;
+                  border-radius: 4px;
+                  background: #fff;
+                  color: #333;
+                  cursor: pointer;
+                  font-size: 0.8rem;
+                  transition: all 0.2s ease;
+            }
+
+            .action-btn-sm:hover {
+                  border-color: #667eea;
+                  background: #f8f9ff;
+            }
+
+            .style-actions-compact {
+                  display: flex;
+                  gap: 0.5rem;
+                  margin-top: 0.5rem;
+                  padding-top: 0.5rem;
+                  border-top: 1px solid #e1e8ed;
+            }
+
+            /* Color button specific styles */
+            .style-btn-sm[data-bg-color="#667eea"] {
+                  background: #667eea !important;
+            }
+
+            .style-btn-sm[data-bg-color="#11998e"] {
+                  background: #11998e !important;
+            }
+
+            .style-btn-sm[data-bg-color="#ff6b35"] {
+                  background: #ff6b35 !important;
+            }
+
+            .style-btn-sm[data-icon-color="#ffffff"] {
+                  background: #ffffff !important;
+                  color: #333 !important;
+            }
+
+            .style-btn-sm[data-icon-color="#333333"] {
+                  background: #333333 !important;
+            }
+
+            /* New organized left panel sections */
+            .panel-section {
+                  margin-bottom: .5rem;
+                  padding: .5rem;
+                  background: #f8f9fa;
+                  border: 1px solid #e9ecef;
+                  border-radius: 8px;
+            }
+
+            .section-header {
+                  font-size: 0.9rem;
+                  font-weight: 600;
+                  color: #495057;
+                  margin-bottom: 0.75rem;
+                  display: flex;
+                  align-items: center;
+                  gap: 0.5rem;
+            }
+
+            .section-header::before {
+                  content: '';
+                  width: 3px;
+                  height: 16px;
+                  background: linear-gradient(135deg, #667eea, #764ba2);
+                  border-radius: 2px;
+            }
+
+            /* Inline section headers for compact sections */
+            .section-header-inline {
+                  font-size: 0.8rem;
+                  font-weight: 600;
+                  color: #495057;
+                  margin-bottom: 0;
+                  display: flex;
+                  align-items: center;
+                  gap: 1rem;
+                  flex-shrink: 0;
+            }
+
+            .section-header-inline::before {
+                  content: '';
+                  width: 3px;
+                  height: 14px;
+                  background: linear-gradient(135deg, #667eea, #764ba2);
+                  border-radius: 2px;
+                  flex-shrink: 0;
+            }
+
+            .section-content-inline {
+                  display: flex;
+                  align-items: center;
+                  gap: 1rem;
+                  flex-wrap: wrap;
+            }
+
+            /* Icon Quick Style Section - Compact Single Row */
+            .quick-theme-grid {
+                  display: flex;
+                  gap: 0.5rem;
+                  flex-wrap: wrap;
+            }
+
+            .theme-card {
+                  flex: 1;
+                  min-width: 0;
+                  padding: 0.5rem 0.4rem;
+                  border: 1.5px solid #e9ecef;
+                  border-radius: 6px;
+                  background: white;
+                  cursor: pointer;
+                  transition: all 0.2s ease;
+                  text-align: center;
+                  position: relative;
+                  display: flex;
+                  flex-direction: row;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 0.4rem;
+            }
+
+            .theme-card:hover {
+                  border-color: #667eea;
+                  transform: translateY(-1px);
+                  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+            }
+
+            .theme-card.active {
+                  border-color: #667eea;
+                  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                  color: white;
+            }
+
+            .theme-card .theme-name {
+                  font-size: 0.7rem;
+                  font-weight: 500;
+                  line-height: 1;
+                  white-space: nowrap;
+                  text-align: left;
+            }
+
+            .theme-card .theme-icon {
+                  width: 16px;
+                  height: 16px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+            }
+
+            .theme-card .theme-icon svg {
+                  width: 16px;
+                  height: 16px;
+            }
+
+            /* Theme-specific sample icon styling */
+            .theme-card[data-theme="default"] .theme-icon svg {
+                  fill: currentColor;
+                  stroke: none;
+            }
+
+            .theme-card[data-theme="outline"] .theme-icon svg {
+                  fill: none;
+                  stroke: currentColor;
+                  stroke-width: 2;
+            }
+
+            .theme-card[data-theme="filled"] .theme-icon svg {
+                  fill: #667eea;
+                  stroke: none;
+            }
+
+            .theme-card[data-theme="filled"].active .theme-icon svg {
+                  fill: white;
+            }
+
+            .theme-card[data-theme="rounded"] .theme-icon svg {
+                  fill: currentColor;
+                  stroke: none;
+            }
+
+            /* Responsive adjustments for theme cards */
+            @media (max-width: 768px) {
+                  .quick-theme-grid {
+                        flex-direction: column;
+                        gap: 0.4rem;
+                  }
+
+                  .theme-card {
+                        flex-direction: row;
+                        justify-content: flex-start;
+                        gap: 0.5rem;
+                        padding: 0.6rem 0.8rem;
+                  }
+
+                  .theme-card .theme-name {
+                        font-size: 0.8rem;
+                        text-align: left;
+                  }
+
+                  .theme-card .theme-icon {
+                        flex-shrink: 0;
+                  }
+            }
+
+            /* Background Theme Section - Compact Single Row */
+            .bg-theme-grid {
+                  display: flex;
+                  gap: 0.3rem;
+                  flex-wrap: wrap;
+            }
+
+            .bg-theme-card {
+                  flex: 1;
+                  min-width: 24px;
+                  height: 24px;
+                  border: 2px solid #e9ecef;
+                  border-radius: 4px;
+                  cursor: pointer;
+                  transition: all 0.2s ease;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-size: 0.7rem;
+                  position: relative;
+            }
+
+            .bg-theme-card:hover {
+                  transform: scale(1.1);
+                  border-color: #667eea;
+                  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+            }
+
+            .bg-theme-card.active {
+                  border-color: #667eea;
+                  border-width: 3px;
+                  transform: scale(1.05);
+            }
+
+            .bg-theme-card.active::after {
+                  content: '✓';
+                  position: absolute;
+                  top: -8px;
+                  right: -8px;
+                  background: #667eea;
+                  color: white;
+                  border-radius: 50%;
+                  width: 14px;
+                  height: 14px;
+                  font-size: 9px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-weight: bold;
+            }
+
+            /* Specific background colors for theme cards */
+            .bg-theme-card[data-bg="light"] {
+                  background: #ffffff;
+                  color: #333;
+            }
+
+            .bg-theme-card[data-bg="dark"] {
+                  background: #1a1a1a;
+                  color: #fff;
+            }
+
+            .bg-theme-card[data-bg="blue"] {
+                  background: #667eea;
+                  color: #fff;
+            }
+
+            .bg-theme-card[data-bg="green"] {
+                  background: #11998e;
+                  color: #fff;
+            }
+
+            .bg-theme-card[data-bg="purple"] {
+                  background: #764ba2;
+                  color: #fff;
+            }
+
+            .bg-theme-card[data-bg="orange"] {
+                  background: #ff6b35;
+                  color: #fff;
+            }
+
+            .bg-theme-card[data-bg="gray"] {
+                  background: #6c757d;
+                  color: #fff;
+            }
+
+            .bg-theme-card[data-bg="gradient"] {
+                  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #ff6b35 100%);
+                  color: #fff;
+            }
+
+            /* Responsive adjustments for background theme */
+            @media (max-width: 768px) {
+                  .bg-theme-grid {
+                        flex-wrap: wrap;
+                  }
+
+                  .bg-theme-card {
+                        min-width: 28px;
+                        height: 28px;
+                  }
+            }
+
+            /* Icon Style Section - Compact Single Row */
+            .style-section {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 0.5rem;
+            }
+
+            .style-row-compact {
+                  display: flex;
+                  gap: 1rem;
+                  align-items: center;
+                  flex-wrap: wrap;
+            }
+
+            .style-group-compact {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 0.25rem;
+                  min-width: 0;
+            }
+
+            .style-label-compact {
+                  font-size: 0.65rem;
+                  font-weight: 600;
+                  color: #6c757d;
+                  text-transform: uppercase;
+                  letter-spacing: 0.3px;
+                  text-align: center;
+                  line-height: 1;
+            }
+
+            .style-controls-compact {
+                  display: flex;
+                  gap: 0.2rem;
+                  align-items: center;
+                  justify-content: center;
+            }
+
+            .style-btn-compact {
+                  padding: 0.3rem;
+                  border: 1.5px solid #dee2e6;
+                  border-radius: 4px;
+                  background: white;
+                  color: #495057;
+                  cursor: pointer;
+                  font-size: 0.7rem;
+                  font-weight: 500;
+                  transition: all 0.2s ease;
+                  width: 22px;
+                  height: 22px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+            }
+
+            .style-btn-compact:hover {
+                  border-color: #667eea;
+                  background: #f8f9ff;
+                  transform: translateY(-1px);
+            }
+
+            .style-btn-compact.active {
+                  background: #667eea;
+                  color: white;
+                  border-color: #667eea;
+                  box-shadow: 0 1px 3px rgba(102, 126, 234, 0.3);
+            }
+
+            .color-picker-compact {
+                  width: 22px;
+                  height: 22px;
+                  border: 1.5px solid #dee2e6;
+                  border-radius: 4px;
+                  cursor: pointer;
+                  padding: 0;
+                  background: none;
+            }
+
+            .color-picker-compact:hover {
+                  border-color: #667eea;
+                  transform: translateY(-1px);
+            }
+
+            /* Color button specific styles for compact controls */
+            .style-btn-compact[data-bg-color="#667eea"] {
+                  background: #667eea !important;
+                  color: white !important;
+            }
+
+            .style-btn-compact[data-bg-color="#11998e"] {
+                  background: #11998e !important;
+                  color: white !important;
+            }
+
+            .style-btn-compact[data-bg-color="#ff6b35"] {
+                  background: #ff6b35 !important;
+                  color: white !important;
+            }
+
+            .style-btn-compact[data-icon-color="#ffffff"] {
+                  background: #ffffff !important;
+                  color: #333 !important;
+            }
+
+            .style-btn-compact[data-icon-color="#333333"] {
+                  background: #333333 !important;
+                  color: white !important;
+            }
+
+            /* Responsive adjustments for icon style */
+            @media (max-width: 768px) {
+                  .style-row-compact {
+                        flex-direction: column;
+                        gap: 0.75rem;
+                  }
+
+                  .style-group-compact {
+                        width: 100%;
+                  }
+
+                  .style-controls-compact {
+                        justify-content: flex-start;
+                  }
+            }
+
+            /* Icon Gallery Section */
+            .gallery-section {
+                  background: white;
+                  border: 1px solid #e9ecef;
+                  border-radius: 8px;
+                  overflow: hidden;
+                  display: flex;
+                  flex-direction: column;
+                  height: 60vh;
+                  /* Set a fixed height for better layout */
+            }
+
+            .gallery-header {
+                  padding: 0.75rem 1rem;
+                  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                  border-bottom: 1px solid #dee2e6;
+                  flex-shrink: 0;
+            }
+
+            .gallery-filters {
+                  display: flex;
+                  gap: 0.5rem;
+                  margin-bottom: 0.5rem;
+            }
+
+            .filter-input {
+                  flex: 1;
+                  padding: 0.5rem 0.75rem;
+                  border: 1px solid #ced4da;
+                  border-radius: 6px;
+                  font-size: 0.85rem;
+            }
+
+            .filter-select {
+                  padding: 0.5rem 0.75rem;
+                  border: 1px solid #ced4da;
+                  border-radius: 6px;
+                  font-size: 0.85rem;
+                  min-width: 100px;
+            }
+
+            .gallery-content {
+                  flex: 1;
+                  overflow-y: auto;
+                  padding: 1rem;
+            }
+
+            .gallery-stats {
+                  font-size: 0.75rem;
+                  color: #6c757d;
+                  text-align: center;
+                  margin-bottom: 0.5rem;
+            }
+
+            @media (max-width: 768px) {
+                  .content {
+                        flex-direction: column;
+                        height: auto;
+                  }
+
+                  .left-panel {
+                        flex: none;
+                        border-right: none;
+                        border-bottom: 2px solid #e1e8ed;
+                        max-height: 50vh;
+                  }
+
+                  .right-panel {
+                        flex: none;
+                  }
+
+                  .container {
+                        margin: 0;
+                        border-radius: 0;
+                  }
+
+                  .controls {
+                        flex-direction: column;
+                  }
+
+                  .icon-grid {
+                        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                  }
+            }
+      </style>
+</head>
+
+<body>
+      <div class="container">
+            <div class="header">
+                  <h1>🎨 SVG Icon Library</h1>
+                  <p>Universal Testing & Demonstration Interface</p>
+            </div>
+
+            <div class="content">
+                  <!-- Left Panel: Redesigned with 4 organized sections -->
+                  <div class="left-panel">
+                        <!-- Section 1: Icon Quick Style -->
+                        <div class="panel-section">
+                              <div class="section-content-inline">
+                                    <div class="section-header-inline">
+                                          <span>Icon Quick Style</span>
+                                    </div>
+                                    <div class="quick-theme-grid">
+                                          <div class="theme-card active" data-theme="default">
+                                                <div class="theme-icon">
+                                                      <svg viewBox="0 0 24 24" fill="currentColor">
+                                                            <path
+                                                                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                                                      </svg>
+                                                </div>
+                                                <div class="theme-name">Default</div>
+                                          </div>
+                                          <div class="theme-card" data-theme="outline">
+                                                <div class="theme-icon">
+                                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                            stroke-width="2">
+                                                            <circle cx="12" cy="12" r="10" />
+                                                            <polyline points="16,12 12,8 8,12" />
+                                                      </svg>
+                                                </div>
+                                                <div class="theme-name">Outline</div>
+                                          </div>
+                                          <div class="theme-card" data-theme="filled">
+                                                <div class="theme-icon">
+                                                      <svg viewBox="0 0 24 24" fill="#667eea">
+                                                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                      </svg>
+                                                </div>
+                                                <div class="theme-name">Filled</div>
+                                          </div>
+                                          <div class="theme-card" data-theme="rounded">
+                                                <div class="theme-icon">
+                                                      <svg viewBox="0 0 24 24" fill="currentColor">
+                                                            <path
+                                                                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
+                                                      </svg>
+                                                </div>
+                                                <div class="theme-name">Rounded</div>
+                                          </div>
+                                    </div>
+                              </div>
+                        </div>
+
+                        <!-- Section 2: Background Theme -->
+                        <div class="panel-section">
+                              <div class="section-content-inline">
+                                    <div class="section-header-inline">
+                                          <span>Background Theme</span>
+                                    </div>
+                                    <div class="bg-theme-grid">
+                                          <div class="bg-theme-card active" data-bg="light" title="Light"></div>
+                                          <div class="bg-theme-card" data-bg="dark" title="Dark"></div>
+                                          <div class="bg-theme-card" data-bg="blue" title="Blue"></div>
+                                          <div class="bg-theme-card" data-bg="green" title="Green"></div>
+                                          <div class="bg-theme-card" data-bg="purple" title="Purple"></div>
+                                          <div class="bg-theme-card" data-bg="orange" title="Orange"></div>
+                                          <div class="bg-theme-card" data-bg="gray" title="Gray"></div>
+                                          <div class="bg-theme-card" data-bg="gradient" title="Gradient"></div>
+                                    </div>
+                              </div>
+                        </div>
+
+                        <!-- Section 3: Icon Style -->
+                        <div class="panel-section">
+                              <div class="section-content-inline">
+                                    <div class="section-header-inline">
+                                          <span>Icon Style</span>
+                                    </div>
+                                    <div class="style-section">
+                                          <div class="style-row-compact">
+                                                <!-- Shape Controls -->
+                                                <div class="style-group-compact">
+                                                      <div class="style-label-compact">Shape</div>
+                                                      <div class="style-controls-compact">
+                                                            <button class="style-btn-compact active" data-shape="none"
+                                                                  title="None">○</button>
+                                                            <button class="style-btn-compact" data-shape="circle"
+                                                                  title="Circle">●</button>
+                                                            <button class="style-btn-compact" data-shape="square"
+                                                                  title="Square">■</button>
+                                                            <button class="style-btn-compact" data-shape="rounded"
+                                                                  title="Rounded">▢</button>
+                                                            <button class="style-btn-compact" data-shape="hexagon"
+                                                                  title="Hexagon">⬡</button>
+                                                      </div>
+                                                </div>
+
+                                                <!-- Background Controls -->
+                                                <div class="style-group-compact">
+                                                      <div class="style-label-compact">Background</div>
+                                                      <div class="style-controls-compact">
+                                                            <input type="color" id="bgColorPicker"
+                                                                  class="color-picker-compact" value="#667eea"
+                                                                  title="Background color">
+                                                            <button class="style-btn-compact"
+                                                                  data-bg-color="transparent" title="None">⭕</button>
+                                                            <button class="style-btn-compact" data-bg-color="#667eea"
+                                                                  title="Blue">●</button>
+                                                            <button class="style-btn-compact" data-bg-color="#11998e"
+                                                                  title="Green">●</button>
+                                                            <button class="style-btn-compact" data-bg-color="#ff6b35"
+                                                                  title="Orange">●</button>
+                                                      </div>
+                                                </div>
+
+                                                <!-- Border Controls -->
+                                                <div class="style-group-compact">
+                                                      <div class="style-label-compact">Border</div>
+                                                      <div class="style-controls-compact">
+                                                            <button class="style-btn-compact active" data-border="none"
+                                                                  title="None">○</button>
+                                                            <button class="style-btn-compact" data-border="solid"
+                                                                  title="Solid">⚪</button>
+                                                            <button class="style-btn-compact" data-border="dashed"
+                                                                  title="Dashed">⚬</button>
+                                                            <button class="style-btn-compact" data-border="dotted"
+                                                                  title="Dotted">◦</button>
+                                                      </div>
+                                                </div>
+
+                                                <!-- Icon Color Controls -->
+                                                <div class="style-group-compact">
+                                                      <div class="style-label-compact">Icon Color</div>
+                                                      <div class="style-controls-compact">
+                                                            <input type="color" id="iconColorPicker"
+                                                                  class="color-picker-compact" value="#ffffff"
+                                                                  title="Icon color">
+                                                            <button class="style-btn-compact"
+                                                                  data-icon-color="currentColor"
+                                                                  title="Default">◐</button>
+                                                            <button class="style-btn-compact" data-icon-color="#ffffff"
+                                                                  title="White">●</button>
+                                                            <button class="style-btn-compact" data-icon-color="#333333"
+                                                                  title="Dark">●</button>
+                                                      </div>
+                                                </div>
+                                          </div>
+                                    </div>
+                              </div>
+
+
+                        </div>
+                        <!-- Section 4: Icon Gallery -->
+                        <div class="panel-section">
+                              <div class="section-header">
+                                    <span>Icon Gallery</span>
+                              </div>
+                              <div class="gallery-section">
+                                    <div class="gallery-header">
+                                          <div class="gallery-filters">
+                                                <input type="text" id="searchInput" class="filter-input"
+                                                      placeholder="Search icons..." />
+                                                <select id="categoryFilter" class="filter-select"
+                                                      title="Filter by category">
+                                                      <option value="">All</option>
+                                                      <option value="interface">Interface</option>
+                                                      <option value="communication">Communication</option>
+                                                      <option value="users">Users</option>
+                                                      <option value="navigation">Navigation</option>
+                                                      <option value="content">Content</option>
+                                                      <option value="actions">Actions</option>
+                                                </select>
+                                                <select id="sizeSelect" class="filter-select" title="Select icon size">
+                                                      <option value="xs">XS</option>
+                                                      <option value="small">SM</option>
+                                                      <option value="medium" selected>MD</option>
+                                                      <option value="large">LG</option>
+                                                      <option value="xl">XL</option>
+                                                      <option value="xxl">XXL</option>
+                                                </select>
+                                          </div>
+                                    </div>
+                                    <div class="gallery-content">
+                                          <div class="theme-preview-container bg-light" id="themePreviewContainer">
+                                                <div id="iconGrid" class="icon-grid"></div>
+                                          </div>
+                                    </div>
+                              </div>
+                        </div>
+
+
+                  </div>
+                  <!-- Right Panel: Tools and Controls -->
+                  <div class="right-panel">
+                        <div class="tabs-container">
+                              <!-- Tab Navigation -->
+                              <div class="tab-navigation">
+                                    <button class="tab-button active" data-tab="preview">🔍 Preview</button>
+                                    <button class="tab-button" data-tab="performance">📊 Performance</button>
+                                    <button class="tab-button" data-tab="developer">🛠️ Developer</button>
+                              </div>
+
+                              <!-- Preview Tab -->
+                              <div class="tab-content active" id="preview-tab">
+                                    <section class="section">                  
+                                          <div class="controls">
+                                                <div class="control-group" display="flex">
+                                                      <label for="testIconName">Selected Icon:</label>
+                                                      <input type="text" id="testIconName"
+                                                            placeholder="Click an icon from the gallery..." readonly />
+                                                </div>
+                                          </div>
+
+                                          <!-- Selected Icon Preview -->
+                                          <div class="styled-icon-preview">
+                                                <div class="preview-item">
+                                                      <div id="styledIconPreview"></div>
+                                                      <div class="preview-label">Styled Preview</div>
+                                                </div>
+                                                <div class="preview-item">
+                                                      <div id="originalIconPreview"></div>
+                                                      <div class="preview-label">Original</div>
+                                                </div>
+                                          </div>
+
+                                          <!-- Sample Code Section -->
+                                          <div class="sample-code-section">
+                                                <h3>📝 Implementation Code</h3>
+                                                <p>Copy-ready code for your current icon configuration:</p>
+
+                                                <div class="code-tabs">
+                                                      <button class="code-tab-btn active"
+                                                            data-code-type="javascript">JavaScript</button>
+                                                      <button class="code-tab-btn" data-code-type="css">CSS</button>
+                                                      <button class="code-tab-btn" data-code-type="html">HTML</button>
+                                                      <button class="code-tab-btn" data-code-type="react">React</button>
+                                                      <button class="code-tab-btn" data-code-type="vue">Vue</button>
+                                                </div>
+
+                                                <div class="code-section-wrapper">
+                                                      <div id="sampleCodeContent" class="code-content"></div>
+                                                      <button id="copySampleCode" class="code-copy-btn">📋
+                                                            Copy</button>
+                                                </div>
+                                          </div>
+                                    </section>
+                              </div>
+
+                              <!-- Performance Metrics Tab -->
+                              <div class="tab-content" id="performance-tab">
+                                    <section class="section">                                          
+                                          <div class="controls">
+                                                <button id="runBenchmark">🚀 Run Benchmark</button>
+                                                <button id="clearCache">🗑️ Clear Cache</button>
+                                                <button id="preloadIcons">⚡ Preload Common Icons</button>
+                                                <button id="exportData">💾 Export Data</button>
+                                          </div>
+                                          <div class="stats-grid" id="statsGrid"></div>
+                                    </section>
+                              </div>
+
+                              <!-- Developer Tools Tab -->
+                              <div class="tab-content" id="developer-tab">
+                                    <section class="section">                                          
+                                          <div class="controls">
+                                                <button id="validateLibrary">✅ Validate Library</button>
+                                                <button id="generateSprite">🎭 Generate Sprite</button>
+                                                <button id="showDebugInfo">🔍 Debug Info</button>
+                                                <button id="testErrorHandling">⚠️ Test Error Handling</button>
+                                          </div>
+                                          <div class="demo-area">
+                                                <h3>Code Examples</h3>
+                                                <div id="codeExamples" class="code-block"></div>
+                                          </div>
+                                          <div class="demo-area">
+                                                <h3>Console Log</h3>
+                                                <div id="console" class="log"></div>
+                                          </div>
+                                    </section>
+                              </div>
+                        </div>
+                  </div>
+            </div>
+
+            <script type="module">
+                  // Import the SVG Icon Library
+                  import { IconManager, IconThemes, Icons, IconUtils } from '../index.js';
+
+                  // Use the Icons instance for easier API access
+                  let icons = Icons;
+
+                  // Global variables
+                  let currentTheme = 'default';
+                  let currentSize = 'medium';
+                  let currentCodeType = 'javascript';
+                  let iconLibrary = []; // Store available icons
+                  let currentIconStyles = {
+                        shape: 'none',
+                        backgroundColor: 'transparent',
+                        borderStyle: 'none',
+                        borderColor: '#333333',
+                        iconColor: 'currentColor'
+                  };
+
+                  // Initialize the application
+                  document.addEventListener('DOMContentLoaded', () => {
+                        initializeApp();
+                        setupEventListeners();
+                        loadIconLibrary();
+                        loadThemes();
+                        updateStats();
+
+                        // Initialize theme preview sections
+                        updateSizeComparison();
+                        updateUseCases();
+                        updateIconPreview();
+                  });
+
+                  function initializeApp() {
+                        log('🚀 Initializing SVG Icon Library Demo...', 'info');
+
+                        // Configure icon manager
+                        icons.config.enableAnimations = true;
+
+                        log('✅ Icon Library initialized successfully', 'success');
+                  }
+
+                  function setupEventListeners() {
+                        // Tab navigation
+                        setupTabNavigation();
+
+                        // Background theme switching
+                        setupBackgroundThemes();
+
+                        // Icon styling options
+                        setupIconStyling();
+
+                        // Sample code functionality
+                        setupSampleCode();
+
+                        // Search and filter
+                        const searchInput = document.getElementById('searchInput');
+                        const categoryFilter = document.getElementById('categoryFilter');
+                        const sizeSelect = document.getElementById('sizeSelect');
+                        
+                        if (searchInput) searchInput.addEventListener('input', filterIcons);
+                        if (categoryFilter) categoryFilter.addEventListener('change', filterIcons);
+                        if (sizeSelect) {
+                              sizeSelect.addEventListener('change', (e) => {
+                                    currentSize = e.target.value;
+                                    loadIconLibrary();
+                              });
+                        }
+
+                        // Icon styling controls
+                        const previewStyledIconBtn = document.getElementById('previewStyledIcon');
+                        const copyStyledCodeBtn = document.getElementById('copyStyledCode');
+                        
+                        if (previewStyledIconBtn) previewStyledIconBtn.addEventListener('click', previewStyledIcon);
+                        if (copyStyledCodeBtn) copyStyledCodeBtn.addEventListener('click', copyStyledCode);
+
+                        // Sample code controls
+                        const copySampleCodeBtn = document.getElementById('copySampleCode');
+                        if (copySampleCodeBtn) copySampleCodeBtn.addEventListener('click', copySampleCodeToClipboard);
+
+                        // Performance controls
+                        const runBenchmarkBtn = document.getElementById('runBenchmark');
+                        const clearCacheBtn = document.getElementById('clearCache');
+                        const preloadIconsBtn = document.getElementById('preloadIcons');
+                        const exportDataBtn = document.getElementById('exportData');
+                        
+                        if (runBenchmarkBtn) runBenchmarkBtn.addEventListener('click', runBenchmark);
+                        if (clearCacheBtn) clearCacheBtn.addEventListener('click', clearCache);
+                        if (preloadIconsBtn) preloadIconsBtn.addEventListener('click', preloadIcons);
+                        if (exportDataBtn) exportDataBtn.addEventListener('click', exportData);
+
+                        // Developer tools
+                        const validateLibraryBtn = document.getElementById('validateLibrary');
+                        const generateSpriteBtn = document.getElementById('generateSprite');
+                        const showDebugInfoBtn = document.getElementById('showDebugInfo');
+                        const testErrorHandlingBtn = document.getElementById('testErrorHandling');
+                        
+                        if (validateLibraryBtn) validateLibraryBtn.addEventListener('click', validateLibrary);
+                        if (generateSpriteBtn) generateSpriteBtn.addEventListener('click', generateSprite);
+                        if (showDebugInfoBtn) showDebugInfoBtn.addEventListener('click', showDebugInfo);
+                        if (testErrorHandlingBtn) testErrorHandlingBtn.addEventListener('click', testErrorHandling);
+                  }
+
+                  function setupTabNavigation() {
+                        const tabButtons = document.querySelectorAll('.tab-button');
+                        const tabContents = document.querySelectorAll('.tab-content');
+
+                        tabButtons.forEach(button => {
+                              button.addEventListener('click', () => {
+                                    const targetTab = button.getAttribute('data-tab');
+
+                                    // Remove active class from all buttons and contents
+                                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                                    tabContents.forEach(content => content.classList.remove('active'));
+
+                                    // Add active class to clicked button and corresponding content
+                                    button.classList.add('active');
+                                    document.getElementById(`${targetTab}-tab`).classList.add('active');
+
+                                    // Log tab switch
+                                    log(`📂 Switched to ${targetTab} tab`, 'info');
+
+                                    // Update stats when switching to performance tab
+                                    if (targetTab === 'performance') {
+                                          updateStats();
+                                    }
+                              });
+                        });
+                  }
+
+                  function setupBackgroundThemes() {
+                        // Handle new background theme cards
+                        const bgCards = document.querySelectorAll('.bg-theme-card');
+                        const previewContainer = document.getElementById('themePreviewContainer');
+
+                        bgCards.forEach(card => {
+                              card.addEventListener('click', () => {
+                                    const bgTheme = card.getAttribute('data-bg');
+
+                                    // Remove active class from all background cards
+                                    bgCards.forEach(c => c.classList.remove('active'));
+
+                                    // Add active class to clicked card
+                                    card.classList.add('active');
+
+                                    // Remove all background classes
+                                    previewContainer.className = 'theme-preview-container';
+
+                                    // Add new background class
+                                    previewContainer.classList.add(`bg-${bgTheme}`);
+
+                                    // Update preview content
+                                    updateThemePreview();
+                                    updateSizeComparison();
+                                    updateUseCases();
+
+                                    log(`🎨 Switched to ${bgTheme} background theme`, 'info');
+                              });
+                        });
+
+                        // Handle theme cards for icon styles
+                        const themeCards = document.querySelectorAll('.theme-card');
+                        themeCards.forEach(card => {
+                              card.addEventListener('click', () => {
+                                    const theme = card.getAttribute('data-theme');
+
+                                    // Remove active class from all theme cards
+                                    themeCards.forEach(c => c.classList.remove('active'));
+
+                                    // Add active class to clicked card
+                                    card.classList.add('active');
+
+                                    // Update current theme
+                                    currentTheme = theme;
+
+                                    // Refresh icons with new theme
+                                    loadIconLibrary();
+                                    updateIconPreview();
+
+                                    log(`🎨 Switched to ${theme} icon theme`, 'info');
+                              });
+                        });
+
+                        // Update gallery stats
+                        updateGalleryStats();
+                  }
+
+                  function updateGalleryStats() {
+                        const statsElement = document.getElementById('galleryStats');
+                        const iconCount = iconLibrary.length;
+                        const filteredCount = document.querySelectorAll('.icon-item').length;
+
+                        if (statsElement) {
+                              statsElement.textContent = `${filteredCount} of ${iconCount} icons displayed`;
+                        }
+                  }
+
+                  function setupIconStyling() {
+                        // Shape buttons
+                        document.querySelectorAll('[data-shape]').forEach(btn => {
+                              btn.addEventListener('click', () => {
+                                    document.querySelectorAll('[data-shape]').forEach(b => b.classList.remove('active'));
+                                    btn.classList.add('active');
+                                    currentIconStyles.shape = btn.getAttribute('data-shape');
+                                    loadIconLibrary(); // Refresh all icons in gallery
+                              });
+                        });
+
+                        // Background color buttons and picker
+                        document.querySelectorAll('[data-bg-color]').forEach(btn => {
+                              btn.addEventListener('click', () => {
+                                    currentIconStyles.backgroundColor = btn.getAttribute('data-bg-color');
+                                    document.getElementById('bgColorPicker').value = currentIconStyles.backgroundColor !== 'transparent' ? currentIconStyles.backgroundColor : '#667eea';
+                                    loadIconLibrary(); // Refresh all icons in gallery
+                              });
+                        });
+
+                        document.getElementById('bgColorPicker').addEventListener('change', (e) => {
+                              currentIconStyles.backgroundColor = e.target.value;
+                              loadIconLibrary(); // Refresh all icons in gallery
+                        });
+
+                        // Border style buttons
+                        document.querySelectorAll('[data-border]').forEach(btn => {
+                              btn.addEventListener('click', () => {
+                                    document.querySelectorAll('[data-border]').forEach(b => b.classList.remove('active'));
+                                    btn.classList.add('active');
+                                    currentIconStyles.borderStyle = btn.getAttribute('data-border');
+                                    loadIconLibrary(); // Refresh all icons in gallery
+                              });
+                        });
+
+                        // Border color buttons and picker
+                        document.querySelectorAll('[data-border-color]').forEach(btn => {
+                              btn.addEventListener('click', () => {
+                                    currentIconStyles.borderColor = btn.getAttribute('data-border-color');
+                                    document.getElementById('borderColorPicker').value = currentIconStyles.borderColor;
+                                    loadIconLibrary(); // Refresh all icons in gallery
+                              });
+                        });
+
+                        document.getElementById('borderColorPicker').addEventListener('change', (e) => {
+                              currentIconStyles.borderColor = e.target.value;
+                              loadIconLibrary(); // Refresh all icons in gallery
+                        });
+
+                        // Icon color buttons and picker
+                        document.querySelectorAll('[data-icon-color]').forEach(btn => {
+                              btn.addEventListener('click', () => {
+                                    currentIconStyles.iconColor = btn.getAttribute('data-icon-color');
+                                    document.getElementById('iconColorPicker').value = currentIconStyles.iconColor !== 'currentColor' ? currentIconStyles.iconColor : '#ffffff';
+                                    loadIconLibrary(); // Refresh all icons in gallery
+                              });
+                        });
+
+                        document.getElementById('iconColorPicker').addEventListener('change', (e) => {
+                              currentIconStyles.iconColor = e.target.value;
+                              loadIconLibrary(); // Refresh all icons in gallery
+                        });
+
+                        // Icon name input change (if it exists)
+                        const testIconNameInput = document.getElementById('testIconName');
+                        if (testIconNameInput) {
+                              testIconNameInput.addEventListener('input', updateIconPreview);
+                        }
+                  }
+
+                  function setupSampleCode() {
+                        // Code type tab buttons
+                        document.querySelectorAll('.code-tab-btn').forEach(btn => {
+                              btn.addEventListener('click', () => {
+                                    document.querySelectorAll('.code-tab-btn').forEach(b => b.classList.remove('active'));
+                                    btn.classList.add('active');
+                                    currentCodeType = btn.getAttribute('data-code-type');
+                                    updateSampleCode();
+                              });
+                        });
+
+                        // Initial code generation
+                        updateSampleCode();
+                  }
+
+                  function updateIconPreview() {
+                        const iconName = document.getElementById('testIconName').value || 'send';
+                        const styledPreview = document.getElementById('styledIconPreview');
+                        const originalPreview = document.getElementById('originalIconPreview');
+
+                        // Clear previews
+                        styledPreview.innerHTML = '';
+                        originalPreview.innerHTML = '';
+
+                        if (icons.hasIcon(iconName)) {
+                              // Create original icon (always default theme)
+                              const originalIcon = icons.create(iconName, { size: 'xl' });
+                              applyThemeToIcon(originalIcon, 'default');
+                              originalPreview.appendChild(originalIcon);
+
+                              // Create themed icon
+                              const themedIcon = icons.create(iconName, { size: 'xl' });
+                              applyThemeToIcon(themedIcon, currentTheme);
+                              styledPreview.appendChild(themedIcon);
+                        }
+
+                        // Update sample code
+                        updateSampleCode();
+                  }
+
+                  function createStyledIcon(iconName, size = 'medium') {
+                        if (!icons.hasIcon(iconName)) {
+                              return null;
+                        }
+
+                        const icon = icons.create(iconName, { size: size });
+                        const wrapper = document.createElement('div');
+                        wrapper.style.display = 'inline-flex';
+                        wrapper.style.alignItems = 'center';
+                        wrapper.style.justifyContent = 'center';
+                        wrapper.style.position = 'relative';
+
+                        // Apply shape styling
+                        if (currentIconStyles.shape !== 'none') {
+                              const sizeMap = { xs: 16, small: 20, medium: 24, large: 28, xl: 36, xxl: 48 };
+                              const iconSize = sizeMap[size] || 24;
+                              const padding = iconSize * 0.3;
+                              const totalSize = iconSize + (padding * 2);
+
+                              wrapper.style.width = `${totalSize}px`;
+                              wrapper.style.height = `${totalSize}px`;
+                              wrapper.style.padding = `${padding}px`;
+
+                              // Apply background
+                              if (currentIconStyles.backgroundColor !== 'transparent') {
+                                    wrapper.style.backgroundColor = currentIconStyles.backgroundColor;
+                              }
+
+                              // Apply border
+                              if (currentIconStyles.borderStyle !== 'none') {
+                                    wrapper.style.border = `2px ${currentIconStyles.borderStyle} ${currentIconStyles.borderColor}`;
+                              }
+
+                              // Apply shape
+                              switch (currentIconStyles.shape) {
+                                    case 'circle':
+                                          wrapper.style.borderRadius = '50%';
+                                          break;
+                                    case 'square':
+                                          wrapper.style.borderRadius = '0';
+                                          break;
+                                    case 'rounded':
+                                          wrapper.style.borderRadius = `${totalSize * 0.2}px`;
+                                          break;
+                                    case 'hexagon':
+                                          wrapper.style.clipPath = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
+                                          break;
+                              }
+                        }
+
+                        // Apply icon color
+                        if (currentIconStyles.iconColor !== 'currentColor') {
+                              icon.style.color = currentIconStyles.iconColor;
+                              // Also set fill for SVG elements
+                              const svgElements = icon.querySelectorAll('svg, path, circle, rect, line, polygon');
+                              svgElements.forEach(el => {
+                                    el.style.fill = currentIconStyles.iconColor;
+                                    el.style.stroke = currentIconStyles.iconColor;
+                              });
+                        }
+
+                        wrapper.appendChild(icon);
+                        return wrapper;
+                  }
+
+                  function previewStyledIcon() {
+                        const iconName = document.getElementById('testIconName').value;
+                        if (!iconName) {
+                              log('❌ Please enter an icon name', 'error');
+                              return;
+                        }
+
+                        updateIconPreview();
+                        log(`🔍 Previewing styled icon: ${iconName}`, 'info');
+                  }
+
+                  function resetIconStyles() {
+                        currentIconStyles = {
+                              shape: 'none',
+                              backgroundColor: 'transparent',
+                              borderStyle: 'none',
+                              borderColor: '#333333',
+                              iconColor: 'currentColor'
+                        };
+
+                        // Reset UI
+                        document.querySelectorAll('[data-shape]').forEach(btn => btn.classList.remove('active'));
+                        document.querySelector('[data-shape="none"]').classList.add('active');
+
+                        document.querySelectorAll('[data-border]').forEach(btn => btn.classList.remove('active'));
+                        document.querySelector('[data-border="none"]').classList.add('active');
+
+                        document.getElementById('bgColorPicker').value = '#667eea';
+                        document.getElementById('borderColorPicker').value = '#333333';
+                        document.getElementById('iconColorPicker').value = '#ffffff';
+
+                        updateIconPreview();
+                        log('↺ Icon styles reset to default', 'info');
+                  }
+
+                  function copyStyledCode() {
+                        const iconName = document.getElementById('testIconName').value;
+                        if (!iconName) {
+                              log('❌ Please enter an icon name to copy code', 'error');
+                              return;
+                        }
+
+                        const codeSnippet = generateStyledIconCode(iconName);
+
+                        if (navigator.clipboard) {
+                              navigator.clipboard.writeText(codeSnippet).then(() => {
+                                    log('📋 Styled icon code copied to clipboard', 'success');
+                              }).catch(() => {
+                                    log('❌ Failed to copy to clipboard', 'error');
+                              });
+                        } else {
+                              // Fallback for older browsers
+                              const textArea = document.createElement('textarea');
+                              textArea.value = codeSnippet;
+                              document.body.appendChild(textArea);
+                              textArea.select();
+                              document.execCommand('copy');
+                              document.body.removeChild(textArea);
+                              log('📋 Styled icon code copied to clipboard (fallback)', 'success');
+                        }
+
+                        // Also display in code examples
+                        document.getElementById('codeExamples').textContent = codeSnippet;
+                  }
+
+                  function generateStyledIconCode(iconName) {
+                        const styles = currentIconStyles;
+                        let code = `// Styled SVG Icon - ${iconName}\n`;
+                        code += `import { Icons } from '@universal/svg-icon-library';\n\n`;
+                        code += `const styledIcon = Icons.create('${iconName}', {\n`;
+                        code += `  size: 'medium',\n`;
+
+                        if (styles.shape !== 'none') {
+                              code += `  wrapper: {\n`;
+                              code += `    style: {\n`;
+                              if (styles.backgroundColor !== 'transparent') {
+                                    code += `      backgroundColor: '${styles.backgroundColor}',\n`;
+                              }
+                              if (styles.borderStyle !== 'none') {
+                                    code += `      border: '2px ${styles.borderStyle} ${styles.borderColor}',\n`;
+                              }
+                              switch (styles.shape) {
+                                    case 'circle':
+                                          code += `      borderRadius: '50%',\n`;
+                                          break;
+                                    case 'rounded':
+                                          code += `      borderRadius: '20%',\n`;
+                                          break;
+                                    case 'hexagon':
+                                          code += `      clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',\n`;
+                                          break;
+                              }
+                              code += `      padding: '6px',\n`;
+                              code += `      display: 'inline-flex',\n`;
+                              code += `      alignItems: 'center',\n`;
+                              code += `      justifyContent: 'center'\n`;
+                              code += `    }\n`;
+                              code += `  },\n`;
+                        }
+
+                        if (styles.iconColor !== 'currentColor') {
+                              code += `  style: { color: '${styles.iconColor}' }\n`;
+                        }
+
+                        code += `});\n\n`;
+                        code += `// Alternative CSS approach:\n`;
+                        code += `.styled-icon {\n`;
+                        if (styles.backgroundColor !== 'transparent') {
+                              code += `  background-color: ${styles.backgroundColor};\n`;
+                        }
+                        if (styles.borderStyle !== 'none') {
+                              code += `  border: 2px ${styles.borderStyle} ${styles.borderColor};\n`;
+                        }
+                        if (styles.shape === 'circle') {
+                              code += `  border-radius: 50%;\n`;
+                        } else if (styles.shape === 'rounded') {
+                              code += `  border-radius: 20%;\n`;
+                        }
+                        code += `  padding: 6px;\n`;
+                        code += `  display: inline-flex;\n`;
+                        code += `  align-items: center;\n`;
+                        code += `  justify-content: center;\n`;
+                        if (styles.iconColor !== 'currentColor') {
+                              code += `  color: ${styles.iconColor};\n`;
+                        }
+                        code += `}`;
+
+                        return code;
+                  }
+
+                  function updateSampleCode() {
+                        const iconName = document.getElementById('testIconName').value || 'send';
+                        const codeContent = document.getElementById('sampleCodeContent');
+
+                        let code = '';
+
+                        switch (currentCodeType) {
+                              case 'javascript':
+                                    code = generateJavaScriptCode(iconName);
+                                    break;
+                              case 'css':
+                                    code = generateCSSCode(iconName);
+                                    break;
+                              case 'html':
+                                    code = generateHTMLCode(iconName);
+                                    break;
+                              case 'react':
+                                    code = generateReactCode(iconName);
+                                    break;
+                              case 'vue':
+                                    code = generateVueCode(iconName);
+                                    break;
+                              default:
+                                    code = generateJavaScriptCode(iconName);
+                        }
+
+                        // Format code with proper HTML for better readability
+                        const formattedCode = formatCodeForDisplay(code, currentCodeType);
+                        codeContent.innerHTML = formattedCode;
+                  }
+
+                  function formatCodeForDisplay(code, language) {
+                        // Convert escape characters to actual line breaks
+                        const cleanCode = code.replace(/\\n/g, '\n').replace(/\\'/g, "'");
+
+                        // Create syntax-highlighted HTML
+                        const lines = cleanCode.split('\n');
+                        let formattedLines = lines.map(line => {
+                              // Basic syntax highlighting for different languages
+                              let highlightedLine = line;
+
+                              if (language === 'javascript' || language === 'react' || language === 'vue') {
+                                    // Highlight keywords
+                                    highlightedLine = highlightedLine
+                                          .replace(/\b(import|from|const|let|var|function|return|if|else|for|while|class|extends)\b/g, '<span style="color: #ff79c6">$1</span>')
+                                          .replace(/\b(true|false|null|undefined)\b/g, '<span style="color: #bd93f9">$1</span>')
+                                          .replace(/'([^']*)'/g, '<span style="color: #f1fa8c">\'$1\'</span>')
+                                          .replace(/"([^"]*)"/g, '<span style="color: #f1fa8c">"$1"</span>')
+                                          .replace(/\/\/.*$/g, '<span style="color: #6272a4">$&</span>');
+                              } else if (language === 'css') {
+                                    // Highlight CSS
+                                    highlightedLine = highlightedLine
+                                          .replace(/([a-zA-Z-]+):/g, '<span style="color: #50fa7b">$1</span>:')
+                                          .replace(/:\s*([^;]+);/g, ': <span style="color: #f1fa8c">$1</span>;')
+                                          .replace(/\/\*.*?\*\//g, '<span style="color: #6272a4">$&</span>');
+                              } else if (language === 'html') {
+                                    // Highlight HTML
+                                    highlightedLine = highlightedLine
+                                          .replace(/&lt;(\/?[a-zA-Z][^&gt;]*)&gt;/g, '<span style="color: #ff79c6">&lt;$1&gt;</span>')
+                                          .replace(/([a-zA-Z-]+)=/g, '<span style="color: #50fa7b">$1</span>=')
+                                          .replace(/"([^"]*)"/g, '<span style="color: #f1fa8c">"$1"</span>');
+                              }
+
+                              return highlightedLine;
+                        });
+
+                        return formattedLines.join('\n');
+                  }
+
+                  function generateJavaScriptCode(iconName) {
+                        const styles = currentIconStyles;
+                        const hasStyles = styles.shape !== 'none' || styles.backgroundColor !== 'transparent' ||
+                              styles.borderStyle !== 'none' || styles.iconColor !== 'currentColor';
+
+                        let code = '// Import the SVG Icon Library\n';
+                        code += `import { Icons } from '@universal/svg-icon-library';\n\n`;
+
+                        if (hasStyles) {
+                              code += '// Create styled icon\n';
+                              code += `const icon = Icons.create('${iconName}', {\n`;
+                              code += `  size: '${currentSize}',\n`;
+
+                              if (styles.iconColor !== 'currentColor') {
+                                    code += `  style: { color: '${styles.iconColor}' },\n`;
+                              }
+
+                              if (styles.shape !== 'none') {
+                                    code += '  wrapper: {\n';
+                                    code += '    style: {\n';
+                                    code += '      display: \'inline-flex\',\n';
+                                    code += '      alignItems: \'center\',\n';
+                                    code += '      justifyContent: \'center\',\n';
+                                    code += '      padding: \'6px\',\n';
+
+                                    if (styles.backgroundColor !== 'transparent') {
+                                          code += `      backgroundColor: '${styles.backgroundColor}',\n`;
+                                    }
+
+                                    if (styles.borderStyle !== 'none') {
+                                          code += `      border: '2px ${styles.borderStyle} ${styles.borderColor}',\n`;
+                                    }
+
+                                    switch (styles.shape) {
+                                          case 'circle':
+                                                code += '      borderRadius: \'50%\',\n';
+                                                break;
+                                          case 'rounded':
+                                                code += '      borderRadius: \'8px\',\n';
+                                                break;
+                                          case 'hexagon':
+                                                code += '      clipPath: \'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)\',\n';
+                                                break;
+                                    }
+
+                                    code += '    }\n';
+                                    code += '  }\n';
+                              }
+
+                              code += '});\n\n';
+                        } else {
+                              code += '// Create basic icon\n';
+                              code += `const icon = Icons.create('${iconName}', {\n`;
+                              code += `  size: '${currentSize}',\n`;
+                              code += `  theme: '${currentTheme}'\n`;
+                              code += '});\n\n';
+                        }
+
+                        code += '// Add to DOM\n';
+                        code += 'document.getElementById(\'container\').appendChild(icon);';
+
+                        return code;
+                  }
+
+                  function generateCSSCode(iconName) {
+                        const styles = currentIconStyles;
+                        const hasStyles = styles.shape !== 'none' || styles.backgroundColor !== 'transparent' ||
+                              styles.borderStyle !== 'none' || styles.iconColor !== 'currentColor';
+
+                        let code = '/* CSS for styled icons */\n\n';
+
+                        // Theme-based styling
+                        code += `.icon-${currentTheme} {\n`;
+                        switch (currentTheme) {
+                              case 'outline':
+                                    code += '  fill: none;\n';
+                                    code += '  stroke: currentColor;\n';
+                                    code += '  stroke-width: 2px;\n';
+                                    break;
+                              case 'filled':
+                                    code += '  fill: #667eea;\n';
+                                    code += '  background-color: #f0f2ff;\n';
+                                    code += '  padding: 4px;\n';
+                                    code += '  border-radius: 4px;\n';
+                                    break;
+                              case 'rounded':
+                                    code += '  fill: currentColor;\n';
+                                    code += '  background-color: #e1e8ed;\n';
+                                    code += '  padding: 6px;\n';
+                                    code += '  border-radius: 50%;\n';
+                                    break;
+                              default:
+                                    code += '  fill: currentColor;\n';
+                                    code += '  stroke: none;\n';
+                        }
+                        code += '}\n\n';
+
+                        if (hasStyles) {
+                              code += `.styled-icon-${iconName} {\n`;
+                              code += '  display: inline-flex;\n';
+                              code += '  align-items: center;\n';
+                              code += '  justify-content: center;\n';
+                              code += '  padding: 6px;\n';
+
+                              if (styles.backgroundColor !== 'transparent') {
+                                    code += `  background-color: ${styles.backgroundColor};\n`;
+                              }
+
+                              if (styles.borderStyle !== 'none') {
+                                    code += `  border: 2px ${styles.borderStyle} ${styles.borderColor};\n`;
+                              }
+
+                              if (styles.iconColor !== 'currentColor') {
+                                    code += `  color: ${styles.iconColor};\n`;
+                              }
+
+                              switch (styles.shape) {
+                                    case 'circle':
+                                          code += '  border-radius: 50%;\n';
+                                          break;
+                                    case 'rounded':
+                                          code += '  border-radius: 8px;\n';
+                                          break;
+                                    case 'hexagon':
+                                          code += '  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);\n';
+                                          break;
+                              }
+
+                              code += '}\n\n';
+
+                              // SVG specific styles
+                              code += `.styled-icon-${iconName} svg {\n`;
+                              code += `  width: ${getSizePixels(currentSize)};\n`;
+                              code += `  height: ${getSizePixels(currentSize)};\n`;
+                              code += '  transition: all 0.3s ease;\n';
+                              code += '}';
+                        } else {
+                              code += `/* Basic icon styling */\n`;
+                              code += `.icon-${iconName} {\n`;
+                              code += `  width: ${getSizePixels(currentSize)};\n`;
+                              code += `  height: ${getSizePixels(currentSize)};\n`;
+                              code += '  display: inline-block;\n';
+                              code += '}';
+                        }
+
+                        return code;
+                  }
+
+                  function getSizePixels(size) {
+                        const sizeMap = {
+                              'xs': '12px',
+                              'sm': '16px',
+                              'medium': '20px',
+                              'lg': '24px',
+                              'xl': '32px',
+                              'xxl': '48px'
+                        };
+                        return sizeMap[size] || '20px';
+                  }
+
+                  function generateHTMLCode(iconName) {
+                        const styles = currentIconStyles;
+                        const hasStyles = styles.shape !== 'none' || styles.backgroundColor !== 'transparent' ||
+                              styles.borderStyle !== 'none' || styles.iconColor !== 'currentColor';
+
+                        let code = '&lt;!-- HTML structure for styled icons --&gt;\n\n';
+
+                        if (hasStyles) {
+                              code += `&lt;div class="styled-icon-${iconName}"&gt;\n`;
+                              code += '  &lt;!-- Icon will be inserted here by JavaScript --&gt;\n';
+                              code += '&lt;/div&gt;\n\n';
+                              code += '&lt;script type="module"&gt;\n';
+                              code += `import { Icons } from '@universal/svg-icon-library';\n\n`;
+                              code += `const container = document.querySelector('.styled-icon-${iconName}');\n`;
+                              code += `const icon = Icons.create('${iconName}', { \n`;
+                              code += `  size: '${currentSize}',\n`;
+                              code += `  theme: '${currentTheme}'\n`;
+                              code += '});\n';
+                              code += 'container.appendChild(icon);\n';
+                              code += '&lt;/script&gt;';
+                        } else {
+                              code += '&lt;div id="icon-container"&gt;\n';
+                              code += '  &lt;!-- Icon will be inserted here --&gt;\n';
+                              code += '&lt;/div&gt;\n\n';
+                              code += '&lt;script type="module"&gt;\n';
+                              code += `import { Icons } from '@universal/svg-icon-library';\n\n`;
+                              code += `const container = document.getElementById('icon-container');\n`;
+                              code += `const icon = Icons.create('${iconName}', { \n`;
+                              code += `  size: '${currentSize}',\n`;
+                              code += `  theme: '${currentTheme}'\n`;
+                              code += '});\n';
+                              code += 'container.appendChild(icon);\n';
+                              code += '&lt;/script&gt;';
+                        }
+
+                        return code;
+                  }
+
+                  function generateReactCode(iconName) {
+                        const styles = currentIconStyles;
+                        const hasStyles = styles.shape !== 'none' || styles.backgroundColor !== 'transparent' ||
+                              styles.borderStyle !== 'none' || styles.iconColor !== 'currentColor';
+
+                        let code = '// React Component with SVG Icon Library\n';
+                        code += `import React, { useEffect, useRef } from 'react';\n`;
+                        code += `import { Icons } from '@universal/svg-icon-library';\n\n`;
+
+                        code += `const IconComponent = () => {\n`;
+                        code += '  const iconRef = useRef(null);\n\n';
+                        code += '  useEffect(() => {\n';
+                        code += '    if (iconRef.current) {\n';
+                        code += `      const icon = Icons.create('${iconName}', {\n`;
+                        code += `        size: '${currentSize}',\n`;
+                        code += `        theme: '${currentTheme}'\n`;
+                        code += '      });\n';
+                        code += '      iconRef.current.appendChild(icon);\n';
+                        code += '    }\n';
+                        code += '  }, []);\n\n';
+
+                        if (hasStyles) {
+                              code += '  const containerStyle = {\n';
+                              code += '    display: \'inline-flex\',\n';
+                              code += '    alignItems: \'center\',\n';
+                              code += '    justifyContent: \'center\',\n';
+                              code += '    padding: \'6px\'\n';
+                              code += '  };\n\n';
+                              code += '  return (\n';
+                              code += '    &lt;div ref={iconRef} style={containerStyle}&gt;\n';
+                              code += '      {/* Icon will be inserted here */}\n';
+                              code += '    &lt;/div&gt;\n';
+                              code += '  );\n';
+                        } else {
+                              code += '  return (\n';
+                              code += '    &lt;div ref={iconRef}&gt;\n';
+                              code += '      {/* Icon will be inserted here */}\n';
+                              code += '    &lt;/div&gt;\n';
+                              code += '  );\n';
+                        }
+
+                        code += '};\n\n';
+                        code += 'export default IconComponent;';
+
+                        return code;
+                  }
+
+                  function generateVueCode(iconName) {
+                        const styles = currentIconStyles;
+                        const hasStyles = styles.shape !== 'none' || styles.backgroundColor !== 'transparent' ||
+                              styles.borderStyle !== 'none' || styles.iconColor !== 'currentColor';
+
+                        let code = '&lt;!-- Vue Component with SVG Icon Library --&gt;\n';
+                        code += '&lt;template&gt;\n';
+
+                        if (hasStyles) {
+                              code += '  &lt;div ref="iconContainer" class="styled-icon"&gt;&lt;/div&gt;\n';
+                        } else {
+                              code += '  &lt;div ref="iconContainer"&gt;&lt;/div&gt;\n';
+                        }
+
+                        code += '&lt;/template&gt;\n\n';
+                        code += '&lt;script&gt;\n';
+                        code += `import { Icons } from '@universal/svg-icon-library';\n\n`;
+                        code += 'export default {\n';
+                        code += `  name: 'IconComponent',\n`;
+                        code += '  mounted() {\n';
+                        code += `    const icon = Icons.create('${iconName}', {\n`;
+                        code += `      size: '${currentSize}',\n`;
+                        code += `      theme: '${currentTheme}'\n`;
+                        code += '    });\n';
+                        code += '    this.$refs.iconContainer.appendChild(icon);\n';
+                        code += '  }\n';
+                        code += '};\n';
+                        code += '&lt;/script&gt;\n\n';
+
+                        if (hasStyles) {
+                              code += '&lt;style scoped&gt;\n';
+                              code += '.styled-icon {\n';
+                              code += '  display: inline-flex;\n';
+                              code += '  align-items: center;\n';
+                              code += '  justify-content: center;\n';
+                              code += '  padding: 6px;\n';
+                              code += '}\n';
+                              code += '&lt;/style&gt;';
+                        }
+
+                        return code;
+                  }
+
+                  function copySampleCodeToClipboard() {
+                        const codeContent = document.getElementById('sampleCodeContent').textContent;
+
+                        if (navigator.clipboard) {
+                              navigator.clipboard.writeText(codeContent).then(() => {
+                                    log(`📋 ${currentCodeType.toUpperCase()} code copied to clipboard`, 'success');
+                              }).catch(() => {
+                                    log('❌ Failed to copy to clipboard', 'error');
+                              });
+                        } else {
+                              // Fallback for older browsers
+                              const textArea = document.createElement('textarea');
+                              textArea.value = codeContent;
+                              document.body.appendChild(textArea);
+                              textArea.select();
+                              document.execCommand('copy');
+                              document.body.removeChild(textArea);
+                              log(`📋 ${currentCodeType.toUpperCase()} code copied to clipboard (fallback)`, 'success');
+                        }
+                  }
+
+                  // Initialize icon library panel
+                  function initializeIconLibrary() {
+                        try {
+                              loadIconLibrary();
+                              setupIconSearch();
+                              log('📚 Icon library initialized', 'success');
+                        } catch (error) {
+                              log(`❌ Failed to initialize icon library: ${error.message}`, 'error');
+                        }
+                  }
+
+                  // Initialize theme testing panel
+                  function initializeThemeTesting() {
+                        try {
+                              loadThemes();
+                              setupThemeControls();
+                              log('🎨 Theme testing initialized', 'success');
+                        } catch (error) {
+                              log(`❌ Failed to initialize theme testing: ${error.message}`, 'error');
+                        }
+                  }
+
+                  // Initialize interactive testing panel
+                  function initializeInteractiveTesting() {
+                        try {
+                              setupInteractiveControls();
+                              setupStylingControls();
+                              log('🔧 Interactive testing initialized', 'success');
+                        } catch (error) {
+                              log(`❌ Failed to initialize interactive testing: ${error.message}`, 'error');
+                        }
+                  }
+
+                  // Initialize performance testing panel
+                  function initializePerformanceTesting() {
+                        try {
+                              setupPerformanceTests();
+                              log('⚡ Performance testing initialized', 'success');
+                        } catch (error) {
+                              log(`❌ Failed to initialize performance testing: ${error.message}`, 'error');
+                        }
+                  }
+
+                  // Initialize developer tools panel
+                  function initializeDeveloperTools() {
+                        try {
+                              setupDeveloperTools();
+                              log('🛠️ Developer tools initialized', 'success');
+                        } catch (error) {
+                              log(`❌ Failed to initialize developer tools: ${error.message}`, 'error');
+                        }
+                  }
+
+                  // Setup icon search functionality
+                  function setupIconSearch() {
+                        const searchInput = document.getElementById('searchInput');
+                        const categoryFilter = document.getElementById('categoryFilter');
+
+                        if (searchInput) {
+                              searchInput.addEventListener('input', filterIcons);
+                        }
+
+                        if (categoryFilter) {
+                              categoryFilter.addEventListener('change', filterIcons);
+                        }
+                  }
+
+                  // Filter icons by search query
+                  function filterIcons() {
+                        loadIconLibrary();
+                  }
+
+                  // Setup theme controls
+                  function setupThemeControls() {
+                        const themeButtons = document.querySelectorAll('.theme-btn');
+                        const backgroundSelect = document.getElementById('backgroundTheme');
+
+                        themeButtons.forEach(btn => {
+                              btn.addEventListener('click', () => {
+                                    const theme = btn.dataset.theme;
+                                    applyTheme(theme);
+                              });
+                        });
+
+                        if (backgroundSelect) {
+                              backgroundSelect.addEventListener('change', (e) => {
+                                    const background = e.target.value;
+                                    applyBackgroundTheme(background);
+                              });
+                        }
+                  }
+
+                  // Setup interactive controls
+                  function setupInteractiveControls() {
+                        const iconNameInput = document.getElementById('testIconName');
+                        const sizeSelect = document.getElementById('iconSize');
+                        const createBtn = document.getElementById('createTestIcon');
+
+                        if (iconNameInput) {
+                              iconNameInput.addEventListener('input', () => {
+                                    updateSampleCode();
+                              });
+                        }
+
+                        if (sizeSelect) {
+                              sizeSelect.addEventListener('change', (e) => {
+                                    currentSize = e.target.value;
+                                    updateSampleCode();
+                              });
+                        }
+
+                        if (createBtn) {
+                              createBtn.addEventListener('click', createTestIcon);
+                        }
+                  }
+
+                  // Setup styling controls
+                  function setupStylingControls() {
+                        const shapeSelect = document.getElementById('iconShape');
+                        const backgroundColorInput = document.getElementById('iconBackgroundColor');
+                        const borderStyleSelect = document.getElementById('iconBorderStyle');
+                        const borderColorInput = document.getElementById('iconBorderColor');
+                        const iconColorInput = document.getElementById('iconColor');
+
+                        if (shapeSelect) {
+                              shapeSelect.addEventListener('change', (e) => {
+                                    currentIconStyles.shape = e.target.value;
+                                    updateIconPreview();
+                                    updateSampleCode();
+                              });
+                        }
+
+                        if (backgroundColorInput) {
+                              backgroundColorInput.addEventListener('change', (e) => {
+                                    currentIconStyles.backgroundColor = e.target.value;
+                                    updateIconPreview();
+                                    updateSampleCode();
+                              });
+                        }
+
+                        if (borderStyleSelect) {
+                              borderStyleSelect.addEventListener('change', (e) => {
+                                    currentIconStyles.borderStyle = e.target.value;
+                                    updateIconPreview();
+                                    updateSampleCode();
+                              });
+                        }
+
+                        if (borderColorInput) {
+                              borderColorInput.addEventListener('change', (e) => {
+                                    currentIconStyles.borderColor = e.target.value;
+                                    updateIconPreview();
+                                    updateSampleCode();
+                              });
+                        }
+
+                        if (iconColorInput) {
+                              iconColorInput.addEventListener('change', (e) => {
+                                    currentIconStyles.iconColor = e.target.value;
+                                    updateIconPreview();
+                                    updateSampleCode();
+                              });
+                        }
+                  }
+
+                  // Setup performance tests
+                  function setupPerformanceTests() {
+                        const runTestBtn = document.getElementById('runPerformanceTest');
+                        const batchTestBtn = document.getElementById('runBatchTest');
+                        const memoryTestBtn = document.getElementById('runMemoryTest');
+
+                        if (runTestBtn) {
+                              runTestBtn.addEventListener('click', runPerformanceTest);
+                        }
+
+                        if (batchTestBtn) {
+                              batchTestBtn.addEventListener('click', runBatchCreationTest);
+                        }
+
+                        if (memoryTestBtn) {
+                              memoryTestBtn.addEventListener('click', runMemoryTest);
+                        }
+                  }
+
+                  // Setup developer tools
+                  function setupDeveloperTools() {
+                        const inspectBtn = document.getElementById('inspectIcon');
+                        const validateBtn = document.getElementById('validateLibrary');
+                        const exportBtn = document.getElementById('exportStats');
+                        const clearCacheBtn = document.getElementById('clearCache');
+
+                        if (inspectBtn) {
+                              inspectBtn.addEventListener('click', inspectSelectedIcon);
+                        }
+
+                        if (validateBtn) {
+                              validateBtn.addEventListener('click', validateIconLibrary);
+                        }
+
+                        if (exportBtn) {
+                              exportBtn.addEventListener('click', exportStatistics);
+                        }
+
+                        if (clearCacheBtn) {
+                              clearCacheBtn.addEventListener('click', clearIconCache);
+                        }
+                  }
+
+                  function loadIconLibrary() {
+                        const iconGrid = document.getElementById('iconGrid');
+                        iconGrid.innerHTML = '';
+
+                        // Use actual icon names from the SVG library
+                        const iconNames = [
+                              'newChat', 'delete', 'send', 'attach', 'microphone', 'user', 'agent',
+                              'aiCompanion', 'knowledgeHub', 'welcomeDocument', 'arrowLeft', 'arrowRight',
+                              'dropdown', 'robotAvatar', 'assistantAvatar', 'smartAvatar', 'modernAvatar',
+                              'professionalAvatar', 'gameAvatar', 'gamingAvatar', 'friendly'
+                        ];
+
+                        // Update global iconLibrary variable
+                        iconLibrary = iconNames;
+
+                        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+                        const categoryFilter = document.getElementById('categoryFilter').value;
+
+                        iconNames.forEach(name => {
+                              // Apply search filter
+                              if (searchTerm && !name.toLowerCase().includes(searchTerm)) return;
+
+                              // Apply category filter (simple categorization for demo)
+                              const category = getIconCategory(name);
+                              if (categoryFilter && category !== categoryFilter) return;
+
+                              const iconItem = document.createElement('div');
+                              iconItem.className = 'icon-item';
+                              iconItem.setAttribute('data-category', category);
+                              iconItem.addEventListener('click', () => selectIcon(name));
+
+                              try {
+                                    // Create icon with custom styling applied
+                                    const icon = createStyledIcon(name, currentSize);
+                                    if (icon) {
+                                          // Apply current theme styling on top of custom styling
+                                          applyThemeToIcon(icon, currentTheme);
+
+                                          const nameLabel = document.createElement('div');
+                                          nameLabel.className = 'icon-name';
+                                          nameLabel.textContent = name;
+
+                                          iconItem.appendChild(icon);
+                                          iconItem.appendChild(nameLabel);
+                                          iconGrid.appendChild(iconItem);
+                                    }
+                              } catch (error) {
+                                    // If icon doesn't exist, create a placeholder
+                                    const placeholder = document.createElement('div');
+                                    placeholder.style.width = '24px';
+                                    placeholder.style.height = '24px';
+                                    placeholder.style.backgroundColor = '#e1e8ed';
+                                    placeholder.style.borderRadius = '4px';
+                                    placeholder.style.display = 'flex';
+                                    placeholder.style.alignItems = 'center';
+                                    placeholder.style.justifyContent = 'center';
+                                    placeholder.style.fontSize = '10px';
+                                    placeholder.style.color = '#666';
+                                    placeholder.textContent = '?';
+
+                                    const nameLabel = document.createElement('div');
+                                    nameLabel.className = 'icon-name';
+                                    nameLabel.textContent = name;
+                                    nameLabel.style.color = '#999';
+
+                                    iconItem.appendChild(placeholder);
+                                    iconItem.appendChild(nameLabel);
+                                    iconGrid.appendChild(iconItem);
+                              }
+                        });
+
+                        log(`📚 Loaded ${iconGrid.children.length} icons`, 'info');
+
+                        // Update gallery statistics
+                        updateGalleryStats();
+                  }
+
+                  // Theme application function
+                  function applyThemeToIcon(iconElement, themeName) {
+                        // Remove any existing theme classes
+                        iconElement.classList.remove('theme-default', 'theme-outline', 'theme-filled', 'theme-rounded');
+
+                        // Apply the current theme class
+                        iconElement.classList.add(`theme-${themeName}`);
+
+                        // Apply specific styling based on theme
+                        switch (themeName) {
+                              case 'default':
+                                    iconElement.style.fill = 'currentColor';
+                                    iconElement.style.stroke = 'none';
+                                    iconElement.style.backgroundColor = 'transparent';
+                                    iconElement.style.borderRadius = '0';
+                                    iconElement.style.padding = '0';
+                                    break;
+
+                              case 'outline':
+                                    iconElement.style.fill = 'none';
+                                    iconElement.style.stroke = 'currentColor';
+                                    iconElement.style.strokeWidth = '2px';
+                                    iconElement.style.backgroundColor = 'transparent';
+                                    iconElement.style.borderRadius = '4px';
+                                    iconElement.style.padding = '2px';
+                                    break;
+
+                              case 'filled':
+                                    iconElement.style.fill = '#667eea';
+                                    iconElement.style.stroke = 'none';
+                                    iconElement.style.backgroundColor = '#f0f2ff';
+                                    iconElement.style.borderRadius = '4px';
+                                    iconElement.style.padding = '4px';
+                                    break;
+
+                              case 'rounded':
+                                    iconElement.style.fill = 'currentColor';
+                                    iconElement.style.stroke = 'none';
+                                    iconElement.style.backgroundColor = '#e1e8ed';
+                                    iconElement.style.borderRadius = '50%';
+                                    iconElement.style.padding = '6px';
+                                    break;
+                        }
+                  }
+
+                  function getIconCategory(iconName) {
+                        // Categorization based on actual available icons
+                        if (['user', 'robotAvatar', 'assistantAvatar', 'smartAvatar', 'modernAvatar', 'professionalAvatar', 'gameAvatar', 'gamingAvatar'].includes(iconName)) return 'users';
+                        if (['send', 'newChat', 'microphone', 'agent', 'aiCompanion'].includes(iconName)) return 'communication';
+                        if (['knowledgeHub', 'welcomeDocument'].includes(iconName)) return 'content';
+                        if (['arrowLeft', 'arrowRight', 'dropdown'].includes(iconName)) return 'navigation';
+                        if (['delete', 'attach', 'friendly'].includes(iconName)) return 'actions';
+                        return 'interface';
+                  }
+
+                  function selectIcon(name) {
+                        document.getElementById('testIconName').value = name;
+                        updateIconPreview();
+                        log(`🎯 Selected icon: ${name}`, 'info');
+                  }
+
+                  function loadThemes() {
+                        const themeSwitcher = document.getElementById('themeSwitcher');
+                        if (!themeSwitcher) return;
+
+                        // Simple theme list for demo
+                        const themes = [
+                              { name: 'default', label: 'Default' },
+                              { name: 'outline', label: 'Outline' },
+                              { name: 'filled', label: 'Filled' },
+                              { name: 'rounded', label: 'Rounded' }
+                        ];
+
+                        themeSwitcher.innerHTML = '';
+
+                        themes.forEach(theme => {
+                              const button = document.createElement('button');
+                              button.className = `theme-btn ${theme.name === currentTheme ? 'active' : ''}`;
+                              button.textContent = theme.label;
+                              button.addEventListener('click', () => switchTheme(theme.name));
+                              themeSwitcher.appendChild(button);
+                        });
+
+                        log('🎨 Themes loaded', 'info');
+                  }
+
+                  function switchTheme(themeName) {
+                        currentTheme = themeName;
+
+                        // Update theme buttons
+                        document.querySelectorAll('.theme-btn').forEach(btn => {
+                              btn.classList.remove('active');
+                        });
+
+                        // Set active theme button
+                        const activeBtn = Array.from(document.querySelectorAll('.theme-btn'))
+                              .find(btn => btn.textContent.toLowerCase() === themeName);
+                        if (activeBtn) {
+                              activeBtn.classList.add('active');
+                        }
+
+                        // Reload icon library with new theme
+                        loadIconLibrary();
+                        updateIconPreview();
+
+                        log(`🎨 Switched to ${themeName} theme`, 'info');
+                  }
+
+                  function updateThemePreview() {
+                        // This function is called by background theme switching
+                        // The preview is now handled by the icon grid itself
+                        log('🎨 Theme preview updated', 'info');
+                  }
+
+                  function updateSizeComparison() {
+                        // Size comparison is now handled in the interactive tab
+                        log('📏 Size comparison updated', 'info');
+                  }
+
+                  function updateUseCases() {
+                        // Use cases are demonstrated in the interactive testing area
+                        log('💼 Use cases updated', 'info');
+                  }
+
+                  function updateStats() {
+                        const stats = icons.getStats();
+                        const statsGrid = document.getElementById('statsGrid');
+
+                        statsGrid.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${stats.totalIcons || 0}</div>
+                    <div class="stat-label">Total Icons</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.cacheSize || 0}</div>
+                    <div class="stat-label">Cache Entries</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.currentTheme || 'default'}</div>
+                    <div class="stat-label">Current Theme</div>
+                </div>
+            `;
+                  }
+
+                  function runBenchmark() {
+                        log('🚀 Starting performance benchmark...', 'info');
+                        const startTime = performance.now();
+
+                        // Create 100 icons
+                        for (let i = 0; i < 100; i++) {
+                              const names = icons.getIcons();
+                              const randomName = names[Math.floor(Math.random() * names.length)];
+                              icons.create(randomName, { size: 'small' });
+                        }
+
+                        const duration = performance.now() - startTime;
+                        log(`⚡ Benchmark completed: 100 icons created in ${duration.toFixed(2)}ms`, 'success');
+                        updateStats();
+                  }
+
+                  function clearCache() {
+                        icons.reset();
+                        log('🗑️ Cache cleared', 'info');
+                        updateStats();
+                  }
+
+                  function preloadIcons() {
+                        const commonIcons = ['send', 'delete', 'user', 'agent', 'microphone', 'attach', 'newChat'];
+                        // Preload by creating icons without adding to DOM
+                        commonIcons.forEach(name => {
+                              if (icons.hasIcon(name)) {
+                                    icons.create(name, { size: 'small' });
+                              }
+                        });
+                        log(`⚡ Preloaded ${commonIcons.length} common icons`, 'success');
+                        updateStats();
+                  }
+
+                  function exportData() {
+                        const data = {
+                              icons: icons.getIcons(),
+                              stats: icons.getStats(),
+                              exportTime: Date.now()
+                        };
+                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `icon-manager-export-${new Date().toISOString().slice(0, 10)}.json`;
+                        a.click();
+
+                        URL.revokeObjectURL(url);
+                        log('💾 Data exported successfully', 'success');
+                  }
+
+                  function validateLibrary() {
+                        const validation = {
+                              iconCount: icons.getIcons().length,
+                              themes: icons.getThemes(),
+                              stats: icons.getStats(),
+                              valid: true,
+                              timestamp: Date.now()
+                        };
+                        const codeExamples = document.getElementById('codeExamples');
+
+                        codeExamples.textContent = JSON.stringify(validation, null, 2);
+
+                        if (validation.valid) {
+                              log('✅ Library validation passed', 'success');
+                        } else {
+                              log(`❌ Library validation failed: ${validation.library.issues.length} issues found`, 'error');
+                        }
+                  }
+
+                  function generateSprite() {
+                        const commonIcons = ['send', 'delete', 'user', 'agent', 'microphone'];
+
+                        // Create sprite container manually for demo
+                        const sprite = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                        sprite.style.display = 'none';
+                        sprite.setAttribute('aria-hidden', 'true');
+
+                        commonIcons.forEach(name => {
+                              if (icons.hasIcon(name)) {
+                                    const icon = icons.create(name);
+                                    const symbol = document.createElementNS('http://www.w3.org/2000/svg', 'symbol');
+                                    symbol.id = `sprite-${name}`;
+                                    symbol.setAttribute('viewBox', '0 0 24 24');
+                                    symbol.innerHTML = icon.innerHTML;
+                                    sprite.appendChild(symbol);
+                              }
+                        });
+
+                        // Add sprite to document head
+                        document.head.appendChild(sprite);
+
+                        // Create example usage
+                        const testArea = document.getElementById('testArea');
+                        const example = icons.create('send', { size: 'large' });
+                        testArea.appendChild(example);
+
+                        log(`🎭 Generated sprite with ${commonIcons.length} icons`, 'success');
+                  }
+
+                  function showDebugInfo() {
+                        const stats = icons.getStats();
+                        const debugInfo = {
+                              config: icons.config,
+                              stats: stats,
+                              themes: icons.getThemes(),
+                              iconCount: icons.getIcons().length,
+                              currentTheme: stats.currentTheme
+                        };
+
+                        document.getElementById('codeExamples').textContent = JSON.stringify(debugInfo, null, 2);
+                        log('🔍 Debug information displayed', 'info');
+                  }
+
+                  function testErrorHandling() {
+                        try {
+                              // Test with non-existent icon
+                              icons.create('non-existent-icon');
+                              log('⚠️ Error handling test: non-existent icon', 'info');
+
+                              // Test with invalid theme
+                              icons.setTheme('invalid-theme');
+                              log('⚠️ Error handling test: invalid theme', 'info');
+
+                              // Test with invalid element
+                              icons.replace(null, 'send');
+                              log('⚠️ Error handling test: null element', 'info');
+
+                        } catch (error) {
+                              log(`❌ Unexpected error in error handling test: ${error.message}`, 'error');
+                        }
+                  }
+
+                  // Developer Tools Functions
+                  function inspectSelectedIcon() {
+                        const iconName = document.getElementById('testIconName').value;
+                        if (!iconName) {
+                              log('❌ Please enter an icon name to inspect', 'error');
+                              return;
+                        }
+
+                        try {
+                              const hasIcon = icons.hasIcon(iconName);
+                              const iconInfo = {
+                                    name: iconName,
+                                    exists: hasIcon,
+                                    size: currentSize,
+                                    theme: currentTheme
+                              };
+
+                              if (hasIcon) {
+                                    log(`🔍 Icon "${iconName}" inspection: ${JSON.stringify(iconInfo, null, 2)}`, 'info');
+                              } else {
+                                    log(`❌ Icon "${iconName}" not found in library`, 'error');
+                              }
+                        } catch (error) {
+                              log(`❌ Error inspecting icon: ${error.message}`, 'error');
+                        }
+                  }
+
+                  function validateIconLibrary() {
+                        try {
+                              log('🔍 Validating icon library...', 'info');
+
+                              // Get all available icons from the actual library
+                              const availableIcons = Object.keys(icons.library?.icons || {});
+                              const validCount = availableIcons.length;
+
+                              if (validCount > 0) {
+                                    log(`✅ Icon library validation complete: ${validCount} icons available`, 'success');
+                                    log(`📋 Available icons: ${availableIcons.join(', ')}`, 'info');
+                              } else {
+                                    log('⚠️ No icons found in library', 'warning');
+                              }
+                        } catch (error) {
+                              log(`❌ Error validating library: ${error.message}`, 'error');
+                        }
+                  }
+
+                  function exportStatistics() {
+                        try {
+                              const stats = {
+                                    timestamp: new Date().toISOString(),
+                                    theme: currentTheme,
+                                    size: currentSize,
+                                    iconCount: Object.keys(icons.library?.icons || {}).length,
+                                    version: '1.0.0'
+                              };
+
+                              const blob = new Blob([JSON.stringify(stats, null, 2)], { type: 'application/json' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `svg-icon-stats-${Date.now()}.json`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+
+                              log('📊 Statistics exported successfully', 'success');
+                        } catch (error) {
+                              log(`❌ Error exporting statistics: ${error.message}`, 'error');
+                        }
+                  }
+
+                  function clearIconCache() {
+                        try {
+                              if (icons.clearCache) {
+                                    icons.clearCache();
+                                    log('🗑️ Icon cache cleared successfully', 'success');
+                              } else {
+                                    log('⚠️ Cache clearing not supported', 'warning');
+                              }
+                        } catch (error) {
+                              log(`❌ Error clearing cache: ${error.message}`, 'error');
+                        }
+                  }
+
+                  function log(message, type = 'info') {
+                        const consoleElement = document.getElementById('console');
+                        const entry = document.createElement('div');
+                        entry.className = `log-entry ${type}`;
+                        entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                        consoleElement.appendChild(entry);
+                        consoleElement.scrollTop = consoleElement.scrollHeight;
+
+                        // Also log to browser console
+                        window.console[type === 'error' ? 'error' : type === 'success' ? 'log' : 'info'](message);
+                  }
+
+                  // Initialize all functionality
+                  async function init() {
+                        try {
+                              log('🚀 Initializing SVG Icon Library Demo...', 'info');
+
+                              // Initialize components
+                              initializeIconLibrary();
+                              initializeThemeTesting();
+                              initializeInteractiveTesting();
+                              initializePerformanceTesting();
+                              initializeDeveloperTools();
+                              setupSampleCode();
+
+                              log('✅ SVG Icon Library Demo initialized successfully!', 'success');
+                        } catch (error) {
+                              log(`❌ Failed to initialize: ${error.message}`, 'error');
+                        }
+                  }
+
+                  // Update stats periodically
+                  setInterval(updateStats, 5000);
+
+                  // Global access for debugging
+                  window.icons = icons;
+                  window.IconManager = IconManager;
+                  window.IconThemes = IconThemes;
+                  window.IconUtils = IconUtils;
+
+                  // Start the application
+                  init();
+            </script>
+</body>
+
+</html>

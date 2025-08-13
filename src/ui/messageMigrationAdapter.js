@@ -10,7 +10,17 @@ export class MessageMigrationAdapter {
     constructor() {
         this.isUnifiedMode = false; // Start with legacy mode
         this.legacyRenderer = null;
+        this.unifiedRenderer = null;
         console.log('[MessageMigrationAdapter] Initialized');
+    }
+
+    /**
+     * Initialize the migration adapter with unified renderer
+     * @param {Object} unifiedRenderer - The unified message renderer instance
+     */
+    initialize(unifiedRenderer) {
+        this.unifiedRenderer = unifiedRenderer;
+        console.log('[MessageMigrationAdapter] Initialized with unified renderer');
     }
 
     /**
@@ -54,8 +64,13 @@ export class MessageMigrationAdapter {
      * @param {Object} messageData - Message data
      */
     async addUnifiedMessage(messageData) {
+        if (!this.unifiedRenderer) {
+            console.error('[MessageMigrationAdapter] Unified renderer not initialized');
+            return null;
+        }
+        
         const normalizedData = this.normalizeForUnified(messageData);
-        return await unifiedMessageRenderer.addMessage(normalizedData);
+        return await this.unifiedRenderer.addMessage(normalizedData);
     }
 
     /**

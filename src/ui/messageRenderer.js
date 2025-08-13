@@ -1175,8 +1175,6 @@ export class MessageRenderer {
             // Use SVG agent icon for agent messages
             iconElement.style.backgroundImage = '';
             iconElement.setAttribute('data-icon', 'agent');
-            iconElement.setAttribute('data-width', '28');
-            iconElement.setAttribute('data-height', '28');
 
             // Initialize this specific icon immediately
             this.initializeMessageIcon(iconElement);
@@ -1195,19 +1193,24 @@ export class MessageRenderer {
         console.log('Initializing message icon:', iconName, iconElement);
 
         if (iconName) {
-            // Use the SVG icon initialization directly
+            // Use the global Icon manager's create method directly
             setTimeout(() => {
-                // Import and apply the icon
-                import('../utils/svgIcons.js').then(({ getSVGDataUri }) => {
-                    const dataUri = getSVGDataUri(iconName, '#333'); // Use dark color for visibility
-                    console.log('Setting background image for', iconName, 'to', dataUri);
-                    iconElement.style.backgroundImage = dataUri;
-                    iconElement.style.backgroundSize = 'cover';
-                    iconElement.style.backgroundPosition = 'center';
-                    iconElement.style.backgroundRepeat = 'no-repeat';
-                }).catch(error => {
-                    console.error('Failed to load SVG icons:', error);
-                });
+                try {
+                    const iconSvgElement = window.Icon.create(iconName, { color: '#333', size: '28px' });
+                    console.log('Created icon element for', iconName, iconSvgElement);
+                    
+                    // Clear any existing content and styles
+                    iconElement.innerHTML = '';
+                    iconElement.style.backgroundImage = '';
+                    iconElement.style.backgroundSize = '';
+                    iconElement.style.backgroundPosition = '';
+                    iconElement.style.backgroundRepeat = '';
+                    
+                    // Add the created icon element
+                    iconElement.appendChild(iconSvgElement);
+                } catch (error) {
+                    console.error('Failed to create SVG icon:', iconName, error);
+                }
             }, 0);
         }
     }
@@ -1232,8 +1235,6 @@ export class MessageRenderer {
 
         // Set SVG user icon
         element.setAttribute('data-icon', 'user');
-        element.setAttribute('data-width', '28');
-        element.setAttribute('data-height', '28');
 
         // Initialize this specific icon immediately
         this.initializeMessageIcon(element);
@@ -2031,14 +2032,14 @@ export class MessageRenderer {
                 className: 'metadata-duration'
             }, timeSpent);
 
-            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' â€?'));
+            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' ï¿½?'));
             metadata.appendChild(timeSpentSpan);
         }
 
         // Add speaker button and progress bar for non-user messages
         if (!isUserMessage && activity) {
             // Add separator before speaker controls
-            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' â€?'));
+            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' ï¿½?'));
 
             // Create speaker controls container
             const speakerControls = DOMUtils.createElement('div', {

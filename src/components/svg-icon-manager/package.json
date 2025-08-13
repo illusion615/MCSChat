@@ -1,0 +1,54 @@
+{
+  "name": "@universal/svg-icon-library",
+  "version": "1.1.0",
+  "description": "A lightweight, universal SVG icon library for web applications",
+  "main": "index.js",
+  "type": "module",
+  "keywords": [
+    "svg",
+    "icons",
+    "ui",
+    "components",
+    "graphics",
+    "icon-library",
+    "universal",
+    "lightweight",
+    "web-components"
+  ],
+  "author": "Universal Components Team",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {},
+  "scripts": {
+    "demo": "python -m http.server 8000",
+    "test": "open examples/universal-example.html",
+    "build": "echo 'No build process needed for pure ES6 modules'",
+    "lint": "echo 'Linting not configured'"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./lib/*": "./lib/*",
+    "./themes/*": "./themes/*",
+    "./icons/*": "./icons/*"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/universal-components/svg-icon-manager"
+  },
+  "homepage": "https://universal-components.github.io/svg-icon-manager",
+  "bugs": {
+    "url": "https://github.com/universal-components/svg-icon-manager/issues"
+  },
+  "files": [
+    "index.js",
+    "lib/",
+    "themes/",
+    "icons/",
+    "examples/",
+    "README.md",
+    "CHANGELOG.md"
+  ]
+}

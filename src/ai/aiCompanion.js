@@ -7,8 +7,7 @@ import { DOMUtils } from '../utils/domUtils.js';
 import { Utils } from '../utils/helpers.js';
 import { SecureStorage } from '../utils/secureStorage.js';
 import { speechEngine } from '../services/speechEngine.js';
-import { getSVGPath } from '../utils/svgIcons.js';
-import { initializeSVGIcons } from '../ui/iconInitializer.js';
+import { getSVGPath } from '../components/svg-icon-manager/index.js';
 import { promptManager } from './promptManager.js';
 
 /**
@@ -19,38 +18,15 @@ import { promptManager } from './promptManager.js';
 function updateButtonIcon(button, iconName) {
     if (!button) return;
 
-    let svg = button.querySelector('svg');
-
-    // If no SVG exists, create one
-    if (!svg) {
-        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('width', '18');
-        svg.setAttribute('height', '18');
-        svg.setAttribute('viewBox', '0 0 24 24');
-        svg.setAttribute('fill', 'currentColor');
-
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        svg.appendChild(path);
-
-        // Clear button content and add SVG
-        button.innerHTML = '';
-        button.appendChild(svg);
-    }
-
-    const pathElement = svg.querySelector('path');
-    if (pathElement) {
-        let pathData = getSVGPath(iconName);
-
-        // For arrow icons, extract path data from the full SVG string
-        if (iconName === 'arrowLeft' || iconName === 'arrowRight') {
-            const pathMatch = pathData.match(/d=['"]([^'"]*)['"]/);
-            pathData = pathMatch ? pathMatch[1] : '';
-        }
-
-        if (pathData) {
-            pathElement.setAttribute('d', pathData);
-        }
-    }
+    // Use global Icon manager for consistent styling
+    const iconElement = window.Icon.create(iconName, {
+        size: '18px',
+        color: 'currentColor'
+    });
+    
+    // Replace existing content with new icon
+    button.innerHTML = '';
+    button.appendChild(iconElement);
 }
 
 export class AICompanion {
@@ -179,7 +155,7 @@ export class AICompanion {
             chatWindow: DOMUtils.getElementById('chatWindow'), // Main chat window for output migration
             llmStatus: DOMUtils.getElementById('llmStatus'),
             llmModelName: DOMUtils.getElementById('llmModelName'),
-            toggleButton: DOMUtils.getElementById('toggleLLMPanelBtn'),
+            toggleButton: DOMUtils.getElementById('togglerightpanelbtn'),
             expandButton: DOMUtils.getElementById('expandAiCompanionBtn'),
             agentConversationTitle: DOMUtils.getElementById('agentConversationTitle'),
             // AI Companion notification area
@@ -202,6 +178,10 @@ export class AICompanion {
             kpiModalDetails: DOMUtils.getElementById('kpiModalDetails'),
             kpiModalMessages: DOMUtils.getElementById('kpiModalMessages'),
             kpiModalClose: DOMUtils.getElementById('kpiModalClose'),
+            // KPI Explanation Area
+            kpiExplanationArea: DOMUtils.getElementById('kpiExplanationArea'),
+            kpiExplanationContent: DOMUtils.getElementById('kpiExplanationContent'),
+            kpiExplanationToggle: DOMUtils.getElementById('kpiExplanationToggle'),
             // KPI elements
             kpiConsumption: DOMUtils.getElementById('kpiConsumption'),
             kpiConsumptionBar: DOMUtils.getElementById('kpiConsumptionBar'),
@@ -215,6 +195,74 @@ export class AICompanion {
 
         // Setup KPI click handlers
         this.setupKPIClickHandlers();
+        
+        // Initialize icons after the full icon collection is loaded
+        this.initializeIconsWhenReady();
+    }
+
+    /**
+     * Initialize icons after waiting for the full icon collection to load
+     */
+    async initializeIconsWhenReady() {
+        try {
+            // Wait for the full SVGIconCollection to be loaded
+            if (window.Icon && window.Icon.waitForLoad) {
+                await window.Icon.waitForLoad();
+                console.log('[AICompanion] Full icon collection loaded, initializing icons...');
+            }
+            this.initializeIcons();
+        } catch (error) {
+            console.warn('[AICompanion] Error waiting for icon collection, using fallback icons:', error);
+            // Initialize with fallback icons anyway
+            this.initializeIcons();
+        }
+    }
+
+    /**
+     * Initialize icons for UI elements using the modern icon system
+     */
+    initializeIcons() {
+        console.log('[AICompanion] Initializing icons...');
+        console.log('[AICompanion] Available icons:', window.Icon ? window.Icon.list().slice(0, 10) : 'Icon manager not available');
+        
+        // Check if we have the correct aiCompanion icon
+        if (window.Icon && window.Icon.has('aiCompanion')) {
+            const iconSvg = window.Icon.icons.get('aiCompanion');
+            console.log('[AICompanion] aiCompanion icon preview:', iconSvg ? iconSvg.substring(0, 100) + '...' : 'Not found');
+        }
+        
+        // Initialize toggle button icon
+        if (this.elements.toggleButton && this.elements.toggleButton.children.length === 0) {
+            const toggleIcon = Icon.create('kpi', {
+                size: '18px',
+                color: '#333'  // Use consistent color with chat messages
+            });
+            console.log('[AICompanion] Created toggle button icon:', toggleIcon);
+            this.elements.toggleButton.appendChild(toggleIcon);
+        }
+
+        // Initialize expand button icon
+        if (this.elements.expandButton && this.elements.expandButton.children.length === 0) {
+            const expandIcon = Icon.create('expandPanel', {
+                size: '18px',
+                color: '#333'  // Use consistent color
+            });
+            console.log('[AICompanion] Created expand button icon:', expandIcon);
+            this.elements.expandButton.appendChild(expandIcon);
+        }
+
+        // Initialize companion icon
+        const companionIconElement = DOMUtils.getElementById('companionIcon');
+        if (companionIconElement && companionIconElement.children.length === 0) {
+            const companionIcon = Icon.create('aiCompanion', {
+                size: '32px',
+                color: '#333'  // Use consistent color with chat messages
+            });
+            console.log('[AICompanion] Created companion icon:', companionIcon);
+            companionIconElement.appendChild(companionIcon);
+        }
+        
+        console.log('[AICompanion] Icon initialization completed');
     }
 
     /**
@@ -829,7 +877,7 @@ export class AICompanion {
 
             // Update model name display
             if (this.elements.llmModelName) {
-                this.elements.llmModelName.textContent = ollamaModel !== 'No Model Selected' ? ollamaModel : '';
+                this.elements.llmModelName.textContent = ollamaModel !== 'No Model Selected' ? `Companion Model: ${ollamaModel}` : '';
             }
 
             // Test Ollama connection in real-time
@@ -843,9 +891,9 @@ export class AICompanion {
                 if (this.elements.llmModelName) {
                     if (this.currentProvider === 'azure') {
                         const deployment = localStorage.getItem('azureDeployment');
-                        this.elements.llmModelName.textContent = deployment ? `Azure: ${deployment}` : 'Azure OpenAI';
+                        this.elements.llmModelName.textContent = deployment ? `Companion Model: Azure: ${deployment}` : 'Companion Model: Azure OpenAI';
                     } else {
-                        this.elements.llmModelName.textContent = providerName || '';
+                        this.elements.llmModelName.textContent = providerName ? `Companion Model: ${providerName}` : '';
                     }
                 }
 
@@ -1970,9 +2018,8 @@ export class AICompanion {
             icon.style.backgroundSize = 'cover';
         } else {
             // Use AI companion icon for thinking and companion messages
-            icon.setAttribute('data-icon', 'aiCompanion');
-            // Initialize icon after setting data-icon
-            setTimeout(() => initializeSVGIcons(), 0);
+            const aiCompanionIcon = window.Icon.create('aiCompanion', { color: '#333', size: '28px' });
+            icon.appendChild(aiCompanionIcon);
         }
 
         return icon;
@@ -3582,9 +3629,8 @@ Analyze both responses considering the question type:
                 icon.style.backgroundSize = 'cover';
             } else if (isBot) {
                 // Set AI companion icon for bot messages
-                icon.setAttribute('data-icon', 'aiCompanion');
-                // Initialize icon after setting data-icon
-                setTimeout(() => initializeSVGIcons(), 0);
+                const aiCompanionIcon = window.Icon.create('aiCompanion', { color: '#333', size: '28px' });
+                icon.appendChild(aiCompanionIcon);
             }
 
             container.appendChild(icon);
@@ -6125,6 +6171,13 @@ Example good titles:
             });
         }
 
+        // KPI Explanation toggle handler
+        if (this.elements.kpiExplanationToggle) {
+            DOMUtils.addEventListener(this.elements.kpiExplanationToggle, 'click', () => {
+                this.toggleKPIExplanation();
+            });
+        }
+
         // Escape key to close modal
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.elements.kpiModal.classList.contains('show')) {
@@ -6170,6 +6223,27 @@ Example good titles:
 
         this.elements.kpiModal.classList.remove('show');
         document.body.style.overflow = '';
+    }
+
+    /**
+     * Toggle KPI explanation area visibility
+     * @private
+     */
+    toggleKPIExplanation() {
+        if (!this.elements.kpiExplanationArea || !this.elements.kpiExplanationToggle) return;
+
+        const isVisible = this.elements.kpiExplanationArea.style.display !== 'none';
+        const toggleIcon = this.elements.kpiExplanationToggle.querySelector('span');
+
+        if (isVisible) {
+            // Hide explanation
+            this.elements.kpiExplanationArea.style.display = 'none';
+            if (toggleIcon) toggleIcon.textContent = '▼';
+        } else {
+            // Show explanation
+            this.elements.kpiExplanationArea.style.display = 'block';
+            if (toggleIcon) toggleIcon.textContent = '▲';
+        }
     }
 
 
@@ -6609,16 +6683,17 @@ Example good titles:
      */
     getCurrentModelName() {
         if (this.currentProvider === 'ollama') {
-            return localStorage.getItem('ollamaSelectedModel') || 'No Model Selected';
+            const modelName = localStorage.getItem('ollamaSelectedModel') || 'No Model Selected';
+            return modelName !== 'No Model Selected' ? `Companion Model: ${modelName}` : 'No Model Selected';
         } else if (this.currentProvider === 'azure') {
             const deployment = localStorage.getItem('azureDeployment');
-            return deployment ? `Azure: ${deployment}` : 'Azure OpenAI';
+            return deployment ? `Companion Model: Azure: ${deployment}` : 'Companion Model: Azure OpenAI';
         } else if (this.currentProvider === 'openai') {
-            return 'OpenAI GPT';
+            return 'Companion Model: OpenAI GPT';
         } else if (this.currentProvider === 'anthropic') {
-            return 'Anthropic Claude';
+            return 'Companion Model: Anthropic Claude';
         }
-        return 'Unknown Model';
+        return 'Companion Model: Unknown Model';
     }
 
     /**
@@ -8281,13 +8356,19 @@ Analyze both responses considering the question type:
     }
 
     /**
-     * Generate and display KPI explanation using LLM
+     * Generate and display KPI explanation in the right panel
      * @param {Object} results - KPI analysis results
      * @private
      */
     async generateAndDisplayKPIExplanation(results) {
         try {
-            console.log('[AI Companion] Generating KPI explanation...');
+            console.log('[AI Companion] Generating KPI explanation for right panel...');
+
+            // Show the KPI explanation area if it's hidden
+            this.showKPIExplanationArea();
+
+            // Show loading indicator in the explanation area
+            this.showKPIExplanationLoading();
 
             // Create a prompt to explain the KPI values
             const kpiExplanationPrompt = this.buildKPIExplanationPrompt(results);
@@ -8296,16 +8377,18 @@ Analyze both responses considering the question type:
             const explanation = await this.getLLMEvaluation(kpiExplanationPrompt);
 
             if (explanation && explanation.trim()) {
-                // Display the explanation in the main chat window
-                this.renderMessage('assistant', explanation);
-                console.log('[AI Companion] KPI explanation displayed in chat');
+                // Display the explanation in the KPI explanation area
+                this.displayKPIExplanation(explanation);
+                console.log('[AI Companion] KPI explanation displayed in right panel');
             } else {
                 console.warn('[AI Companion] Empty KPI explanation received');
+                // Display a fallback explanation
+                this.displayFallbackKPIExplanationInPanel(results);
             }
         } catch (error) {
             console.error('[AI Companion] Error generating KPI explanation:', error);
-            // Display a fallback explanation
-            this.displayFallbackKPIExplanation(results);
+            // Display a fallback explanation in the panel
+            this.displayFallbackKPIExplanationInPanel(results);
         }
     }
 
@@ -8353,6 +8436,117 @@ Analyze both responses considering the question type:
 The conversation quality is currently **${avgScore >= 8 ? 'excellent' : avgScore >= 6 ? 'good' : avgScore >= 4 ? 'fair' : 'needs improvement'}** with a **${this.kpiData.trend}** trend.`;
 
         this.renderMessage('assistant', fallbackMessage);
+    }
+
+    /**
+     * Show KPI explanation area
+     * @private
+     */
+    showKPIExplanationArea() {
+        if (!this.elements.kpiExplanationArea) return;
+        
+        this.elements.kpiExplanationArea.style.display = 'block';
+        
+        // Update toggle button icon
+        const toggleIcon = this.elements.kpiExplanationToggle?.querySelector('span');
+        if (toggleIcon) toggleIcon.textContent = '▲';
+    }
+
+    /**
+     * Show loading indicator in KPI explanation area
+     * @private
+     */
+    showKPIExplanationLoading() {
+        if (!this.elements.kpiExplanationContent) return;
+        
+        this.elements.kpiExplanationContent.innerHTML = `
+            <div class="kpi-explanation-loading">
+                <div class="loading-spinner"></div>
+                <p>Generating KPI insights...</p>
+            </div>
+        `;
+    }
+
+    /**
+     * Display KPI explanation in the dedicated area
+     * @param {string} explanation - The explanation text (markdown)
+     * @private
+     */
+    displayKPIExplanation(explanation) {
+        if (!this.elements.kpiExplanationContent) return;
+        
+        // Process markdown if available
+        let processedContent;
+        try {
+            if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+                const htmlContent = marked.parse(explanation);
+                processedContent = DOMPurify.sanitize(htmlContent);
+            } else {
+                // Fallback: simple HTML conversion
+                processedContent = explanation
+                    .replace(/\n\n/g, '</p><p>')
+                    .replace(/\n/g, '<br>')
+                    .replace(/^\s*/, '<p>')
+                    .replace(/\s*$/, '</p>');
+            }
+        } catch (error) {
+            console.warn('[AI Companion] Error processing markdown:', error);
+            processedContent = explanation.replace(/\n/g, '<br>');
+        }
+        
+        // Add timestamp
+        const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        this.elements.kpiExplanationContent.innerHTML = `
+            <div class="kpi-explanation-content-wrapper">
+                <div class="kpi-explanation-timestamp">Generated at ${timestamp}</div>
+                <div class="kpi-explanation-text">${processedContent}</div>
+            </div>
+        `;
+    }
+
+    /**
+     * Display fallback KPI explanation in the panel when LLM fails
+     * @param {Object} results - KPI analysis results
+     * @private
+     */
+    displayFallbackKPIExplanationInPanel(results) {
+        const avgScore = ((results.accuracy + results.helpfulness + results.completeness + this.kpiData.efficiency) / 4).toFixed(1);
+        const trendEmoji = this.kpiData.trend === 'improving' ? '📈' :
+            this.kpiData.trend === 'declining' ? '📉' : '📊';
+
+        const fallbackMessage = `
+            <h3>📊 Conversation Quality Summary</h3>
+            <div class="kpi-summary-score">
+                <strong>Overall Score:</strong> ${avgScore}/10 ${trendEmoji}
+            </div>
+            
+            <div class="kpi-summary-metrics">
+                <h4>Key Metrics:</h4>
+                <ul>
+                    <li><strong>Accuracy:</strong> ${results.accuracy.toFixed(1)}/10</li>
+                    <li><strong>Helpfulness:</strong> ${results.helpfulness.toFixed(1)}/10</li>
+                    <li><strong>Completeness:</strong> ${results.completeness.toFixed(1)}/10</li>
+                    <li><strong>Efficiency:</strong> ${this.kpiData.efficiency.toFixed(1)}/10</li>
+                </ul>
+            </div>
+            
+            <div class="kpi-summary-conclusion">
+                <p>The conversation quality is currently <strong>${avgScore >= 8 ? 'excellent' : avgScore >= 6 ? 'good' : avgScore >= 4 ? 'fair' : 'needs improvement'}</strong> with a <strong>${this.kpiData.trend}</strong> trend.</p>
+            </div>
+        `;
+
+        // Add timestamp
+        const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        if (this.elements.kpiExplanationContent) {
+            this.elements.kpiExplanationContent.innerHTML = `
+                <div class="kpi-explanation-content-wrapper">
+                    <div class="kpi-explanation-timestamp">Generated at ${timestamp}</div>
+                    <div class="kpi-explanation-text">${fallbackMessage}</div>
+                </div>
+            `;
+        }
     }
 }
 

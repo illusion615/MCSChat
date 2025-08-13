@@ -6,7 +6,6 @@
 
 import { DOMUtils } from '../utils/domUtils.js';
 import { Utils } from '../utils/helpers.js';
-import { initializeSVGIcons } from './iconInitializer.js';
 
 /**
  * Message Types
@@ -146,14 +145,14 @@ export class UnifiedMessageRenderer {
             // Create message container with unified layout
             const messageContainer = this.createUnifiedMessageContainer(message);
 
-            // Add to DOM
-            this.elements.chatWindow.appendChild(messageContainer);
+            // Determine target window based on message type or container metadata
+            const targetWindow = this.getTargetWindow(message);
 
-            // Initialize icons
-            setTimeout(() => initializeSVGIcons(), 0);
+            // Add to DOM
+            targetWindow.appendChild(messageContainer);
 
             // Scroll to bottom
-            DOMUtils.scrollToBottom(this.elements.chatWindow);
+            DOMUtils.scrollToBottom(targetWindow);
 
             // Handle streaming if needed
             if (message.metadata.isStreaming) {
@@ -167,6 +166,33 @@ export class UnifiedMessageRenderer {
             console.error('[UnifiedMessageRenderer] Error rendering message:', error);
             message.status = MessageStatus.FAILED;
         }
+    }
+
+    /**
+     * Determine target window based on message type or container metadata
+     * @param {Object} message - Message data
+     * @returns {HTMLElement} Target window element
+     */
+    getTargetWindow(message) {
+        // Check container metadata first
+        if (message.metadata?.container === 'ai-companion' || 
+            message.originalData?.container === 'ai-companion') {
+            const aiCompanionWindow = DOMUtils.getElementById('llmChatWindow');
+            if (aiCompanionWindow) {
+                return aiCompanionWindow;
+            }
+        }
+
+        // Check message type
+        if (message.type === MessageTypes.AI_COMPANION) {
+            const aiCompanionWindow = DOMUtils.getElementById('llmChatWindow');
+            if (aiCompanionWindow) {
+                return aiCompanionWindow;
+            }
+        }
+
+        // Default to main chat window
+        return this.elements.chatWindow || DOMUtils.getElementById('chatWindow');
     }
 
     /**
@@ -276,38 +302,107 @@ export class UnifiedMessageRenderer {
         const iconsEnabled = localStorage.getItem('messageIconsEnabled') !== 'false';
         if (!iconsEnabled) return null;
 
-        const icon = DOMUtils.createElement('div', {
-            className: 'unified-message-icon messageIcon'
-        });
+        // Get Icons from global scope or fallback
+        const Icons = window.Icons;
+        if (!Icons) {
+            console.warn('SVG Icons library not available');
+            return null;
+        }
 
+        let iconName = 'send'; // default fallback
+        let iconSize = 'medium';
+        let iconTheme = 'default';
+
+        // Map message types to icon names with fallbacks
         switch (message.type) {
             case MessageTypes.USER:
-                icon.setAttribute('data-icon', 'user');
+                iconName = 'user';
+                iconSize = 'medium';
+                iconTheme = 'outline';
                 break;
 
             case MessageTypes.AGENT:
-                // Use agent icon from SVG library for agent messages
-                icon.setAttribute('data-icon', 'agent');
+                iconName = 'agent';
+                iconSize = 'medium';
+                iconTheme = 'filled';
                 break;
 
             case MessageTypes.AI_COMPANION:
-                // Use AI companion icon from SVG library
-                icon.setAttribute('data-icon', 'aiCompanion');
+                iconName = 'aiCompanion';
+                iconSize = 'large'; // 28x28px as mentioned in requirements
+                iconTheme = 'filled';
                 break;
 
             case MessageTypes.SYSTEM:
-                icon.setAttribute('data-icon', 'system');
+                // Use a generic system icon, fallback to microphone if not available
+                iconName = Icons.hasIcon && Icons.hasIcon('system') ? 'system' : 'microphone';
+                iconSize = 'small';
+                iconTheme = 'outline';
                 break;
 
             case MessageTypes.ERROR:
-                icon.setAttribute('data-icon', 'error');
+                // Use error icon, fallback to delete if not available
+                iconName = Icons.hasIcon && Icons.hasIcon('error') ? 'error' : 'delete';
+                iconSize = 'medium';
+                iconTheme = 'filled';
                 break;
 
             default:
-                icon.setAttribute('data-icon', 'assistant');
+                iconName = 'send';
+                iconSize = 'medium';
+                iconTheme = 'default';
         }
 
-        return icon;
+        // Create the icon using the new SVG library
+        try {
+            // Determine icon size in pixels based on message type
+            let iconPixelSize = '20px';
+            if (message.type === MessageTypes.AI_COMPANION) {
+                iconPixelSize = '20px'; // Slightly smaller icon inside 28x28 container
+            }
+
+            const iconElement = Icons.create(iconName, {
+                size: iconSize,
+                theme: iconTheme,
+                style: {
+                    width: iconPixelSize,
+                    height: iconPixelSize,
+                    display: 'block',
+                    margin: '0 auto'
+                }
+            });
+
+            if (iconElement) {
+                // Create container with the expected classes for CSS styling
+                const iconContainer = DOMUtils.createElement('div', {
+                    className: 'unified-message-icon messageIcon'
+                });
+                
+                // Add icon-specific styling based on message type
+                if (message.type === MessageTypes.USER) {
+                    iconContainer.style.color = '#ffffff';
+                } else if (message.type === MessageTypes.AGENT) {
+                    iconContainer.style.color = '#333333';
+                    iconContainer.style.backgroundColor = 'transparent';
+                } else if (message.type === MessageTypes.AI_COMPANION) {
+                    iconContainer.style.color = '#667eea';
+                } else if (message.type === MessageTypes.SYSTEM) {
+                    iconContainer.style.color = '#ffffff';
+                } else if (message.type === MessageTypes.ERROR) {
+                    iconContainer.style.color = '#ffffff';
+                }
+
+                iconContainer.appendChild(iconElement);
+                return iconContainer;
+            }
+        } catch (error) {
+            console.warn('Error creating SVG icon:', error);
+        }
+
+        // Fallback: return empty container if icon creation fails
+        return DOMUtils.createElement('div', {
+            className: 'unified-message-icon messageIcon fallback-icon'
+        });
     }
 
     /**
@@ -483,7 +578,15 @@ export class UnifiedMessageRenderer {
      * Clear all messages
      */
     clearAllMessages() {
+        // Clear main chat window
         this.elements.chatWindow.innerHTML = '';
+        
+        // Clear AI companion window if it exists
+        const aiCompanionWindow = DOMUtils.getElementById('llmChatWindow');
+        if (aiCompanionWindow) {
+            aiCompanionWindow.innerHTML = '';
+        }
+        
         this.messageQueue = [];
         this.streamingStates.clear();
         this.renderingInProgress.clear();
