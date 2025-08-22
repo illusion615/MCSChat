@@ -1,6 +1,6 @@
 /**
  * Enhanced Speech Engine with Multi-Language Support
- * Supports multiple speech providers: Enhanced Web Speech API, Local AI Models, and Azure Speech Services
+ * Supports multiple speech providers: Enhanced Web Speech API and Azure Speech Services
  * Features: Language auto-detection, voice switching, continuous recognition with language identification
  */
 
@@ -16,7 +16,6 @@ export class SpeechEngine {
     constructor() {
         this.providers = {
             WEB_SPEECH: 'web_speech',
-            LOCAL_AI: 'local_ai',
             AZURE: 'azure'
         };
 
@@ -40,11 +39,6 @@ export class SpeechEngine {
                 subscriptionKey: '',
                 region: 'eastus',
                 voiceName: 'en-US-JennyNeural'
-            },
-            localAISettings: {
-                modelPath: '/models/',
-                useWebWorker: true,
-                chunkSize: 200
             }
         };
 
@@ -59,7 +53,6 @@ export class SpeechEngine {
         };
 
         this.webSpeechProvider = null;
-        this.localAIProvider = null;
         this.azureProvider = null;
 
         this.initialize();
@@ -109,26 +102,6 @@ export class SpeechEngine {
         // Initialize Enhanced Web Speech API (always available)
         this.webSpeechProvider = new EnhancedWebSpeechProvider();
         await this.webSpeechProvider.initialize();
-
-        // Initialize Local AI Provider if requested
-        if (this.settings.provider === this.providers.LOCAL_AI) {
-            try {
-                console.log('[SpeechEngine] Attempting to initialize Local AI provider...');
-                this.localAIProvider = new LocalAISpeechProvider(this.settings.localAISettings);
-                await this.localAIProvider.initialize();
-                console.log('[SpeechEngine] Local AI provider initialized successfully');
-            } catch (error) {
-                console.warn('[SpeechEngine] Local AI provider failed to initialize:', error.message);
-                console.info('[SpeechEngine] This is expected - Local AI models require large downloads and may not work in all environments');
-
-                // Fallback to Web Speech API
-                this.settings.provider = this.providers.WEB_SPEECH;
-                this.saveSettings();
-
-                // Show user notification about fallback
-                this.showProviderFallbackNotification('Local AI models are experimental and failed to load. Using Enhanced Web Speech API instead. This provides excellent quality with immediate availability.');
-            }
-        }
 
         // Initialize Azure Provider if requested and configured
         if (this.settings.provider === this.providers.AZURE && this.settings.azureSettings.subscriptionKey) {
@@ -202,8 +175,6 @@ export class SpeechEngine {
      */
     getCurrentProvider() {
         switch (this.settings.provider) {
-            case this.providers.LOCAL_AI:
-                return this.localAIProvider || this.webSpeechProvider;
             case this.providers.AZURE:
                 return this.azureProvider || this.webSpeechProvider;
             default:
@@ -254,17 +225,7 @@ export class SpeechEngine {
         this.settings.provider = providerName;
 
         // Initialize new provider if not already done
-        if (providerName === this.providers.LOCAL_AI && !this.localAIProvider) {
-            try {
-                this.localAIProvider = new LocalAISpeechProvider(this.settings.localAISettings);
-                await this.localAIProvider.initialize();
-            } catch (error) {
-                console.warn('[SpeechEngine] Local AI provider failed to initialize during switch:', error.message);
-                // Fallback to Web Speech API
-                this.settings.provider = this.providers.WEB_SPEECH;
-                this.showProviderFallbackNotification('Local AI provider failed to initialize. Falling back to Web Speech API.');
-            }
-        } else if (providerName === this.providers.AZURE && !this.azureProvider) {
+        if (providerName === this.providers.AZURE && !this.azureProvider) {
             // Validate Azure configuration before attempting initialization
             if (!this.settings.azureSettings.subscriptionKey || this.settings.azureSettings.subscriptionKey.trim() === '') {
                 console.warn('[SpeechEngine] Azure Speech provider requires a subscription key');
@@ -324,11 +285,6 @@ export class SpeechEngine {
                 autoDetectLanguage: this.settings.autoDetectLanguage || options.autoDetectLanguage,
                 hasProgressCallback: !!options.onProgress
             });
-
-            // Initialize audio context for Local AI provider if needed
-            if (this.settings.provider === this.providers.LOCAL_AI && provider.initializeAudioContext) {
-                await provider.initializeAudioContext();
-            }
 
             const speechOptions = {
                 rate: this.settings.speechRate,
@@ -518,41 +474,6 @@ export class SpeechEngine {
             }
         }
 
-        // Dispose Local AI provider
-        if (this.localAIProvider) {
-            try {
-                console.log('🟡 [SPEECHENGINE-DISPOSE] Disposing Local AI provider...');
-
-                if (this.localAIProvider.stop) {
-                    this.localAIProvider.stop();
-                }
-
-                // Dispose worker if it exists
-                if (this.localAIProvider.worker) {
-                    try {
-                        this.localAIProvider.worker.terminate();
-                        this.localAIProvider.worker = null;
-                    } catch (error) {
-                        console.warn('🟡 [SPEECHENGINE-DISPOSE] Error terminating Local AI worker:', error);
-                    }
-                }
-
-                // Close audio context if it exists
-                if (this.localAIProvider.audioContext && this.localAIProvider.audioContext.state !== 'closed') {
-                    try {
-                        await this.localAIProvider.audioContext.close();
-                        this.localAIProvider.audioContext = null;
-                    } catch (error) {
-                        console.warn('🟡 [SPEECHENGINE-DISPOSE] Error closing Local AI audio context:', error);
-                    }
-                }
-
-                console.log('🟢 [SPEECHENGINE-DISPOSE] Local AI provider disposed');
-            } catch (error) {
-                console.error('🔴 [SPEECHENGINE-DISPOSE] Error disposing Local AI provider:', error);
-            }
-        }
-
         // Dispose Web Speech provider
         if (this.webSpeechProvider) {
             try {
@@ -574,7 +495,6 @@ export class SpeechEngine {
 
         // Clear all provider references
         this.webSpeechProvider = null;
-        this.localAIProvider = null;
         this.azureProvider = null;
 
         console.log('🟢 [SPEECHENGINE-DISPOSE] All providers disposed and references cleared');
@@ -719,12 +639,6 @@ export class SpeechEngine {
                 name: 'Enhanced Web Speech API',
                 description: 'Built-in browser speech with enhanced features'
             },
-            [this.providers.LOCAL_AI]: {
-                available: true,
-                configured: true,
-                name: 'Local AI Models',
-                description: 'Offline neural speech synthesis (experimental)'
-            },
             [this.providers.AZURE]: {
                 available: true,
                 configured: this.isAzureConfigurationValid(),
@@ -779,7 +693,7 @@ export class SpeechEngine {
             return languageDetector.getSupportedLanguagesForSpeechRecognition();
         }
 
-        // Web Speech API and Local AI have limited language support
+        // Web Speech API has limited language support
         return ['en-US', 'en-GB', 'es-ES', 'fr-FR', 'de-DE', 'it-IT', 'pt-BR', 'zh-CN', 'ja-JP'];
     }
 
@@ -1111,534 +1025,6 @@ class EnhancedWebSpeechProvider {
 
     get supportsSpeechRecognition() {
         return !!this.recognition;
-    }
-}
-
-/**
- * Local AI Speech Provider using Transformers.js
- */
-class LocalAISpeechProvider {
-    constructor(settings) {
-        this.settings = settings;
-        this.isOffline = true;
-        this.quality = 'high';
-        this.supportsNaturalness = true;
-        this.supportsSSML = false;
-        this.supportsVoiceSelection = true; // New capability
-        this.availableVoices = []; // Will be populated after initialization
-        this.currentVoice = 'neutral';
-        this.models = {
-            tts: null,
-            stt: null
-        };
-        this.isLoading = false;
-        this.audioContext = null; // Shared audio context for proper user gesture handling
-    }
-
-    async initialize() {
-        console.log('[LocalAISpeech] Initializing local AI speech...');
-
-        if (this.settings.useWebWorker) {
-            try {
-                await this.initializeWithWebWorker();
-            } catch (error) {
-                console.warn('[LocalAISpeech] Web Worker initialization failed, falling back to main thread:', error);
-                // Fallback to main thread if worker fails
-                await this.initializeInMainThread();
-            }
-        } else {
-            await this.initializeInMainThread();
-        }
-
-        console.log('[LocalAISpeech] Local AI speech initialized');
-    }
-
-    async initializeWithWebWorker() {
-        // Create web worker for model processing
-        this.worker = new Worker('/src/workers/speechWorker.js');
-
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                console.warn('[LocalAISpeech] Worker initialization timeout, falling back to main thread');
-                reject(new Error('Worker initialization timeout'));
-            }, 30000); // 30 second timeout
-
-            this.worker.onmessage = (event) => {
-                const { type, success, error } = event.data;
-
-                if (type === 'initialized') {
-                    clearTimeout(timeout);
-                    if (success) {
-                        resolve();
-                    } else {
-                        console.warn('[LocalAISpeech] Worker initialization failed:', error);
-                        reject(new Error(error));
-                    }
-                } else if (type === 'initialize_error') {
-                    clearTimeout(timeout);
-                    console.warn('[LocalAISpeech] Worker initialization error:', error);
-                    reject(new Error(error));
-                }
-            };
-
-            this.worker.onerror = (error) => {
-                clearTimeout(timeout);
-                console.warn('[LocalAISpeech] Worker error during initialization:', error);
-                reject(new Error('Worker initialization failed'));
-            };
-
-            this.worker.postMessage({
-                type: 'initialize',
-                modelPath: this.settings.modelPath
-            });
-        });
-    }
-
-    async initializeInMainThread() {
-        try {
-            // Dynamically import Transformers.js with correct version
-            const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
-
-            // Initialize text-to-speech model
-            console.log('[LocalAISpeech] Loading TTS model...');
-            this.models.tts = await pipeline('text-to-speech', 'Xenova/speecht5_tts', {
-                quantized: false,
-            });
-
-            // Initialize speech-to-text model
-            console.log('[LocalAISpeech] Loading STT model...');
-            this.models.stt = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
-                quantized: false,
-            });
-
-            console.log('[LocalAISpeech] Models loaded successfully');
-        } catch (error) {
-            console.error('[LocalAISpeech] Failed to load models:', error);
-            throw error;
-        }
-    }
-
-    async speak(text, options = {}) {
-        if (!this.models.tts && !this.worker) {
-            throw new Error('TTS model not loaded');
-        }
-
-        try {
-            // Show preparation progress
-            if (options.onProgress) {
-                console.log('[LocalAI] Starting speech preparation...');
-                options.onProgress(0.1); // 10% - Starting preparation
-            }
-
-            // Initialize audio context on first use (ensures user gesture compliance)
-            await this.initializeAudioContext();
-
-            if (options.onProgress) {
-                console.log('[LocalAI] Audio context initialized');
-                options.onProgress(0.2); // 20% - Audio context ready
-            }
-
-            // Handle voice selection from options
-            if (options.voice && options.voice !== this.currentVoice) {
-                console.log(`[LocalAISpeech] Switching voice from ${this.currentVoice} to ${options.voice}`);
-                await this.setVoice(options.voice);
-
-                if (options.onProgress) {
-                    console.log('[LocalAI] Voice configuration updated');
-                    options.onProgress(0.3); // 30% - Voice configured
-                }
-            }
-
-            // For Local AI, always process the complete text as a single unit for best quality
-            // This eliminates chunking artifacts and provides smooth, continuous speech
-            console.log(`[LocalAISpeech] Processing complete text as single unit (${text.length} characters) with voice: ${this.currentVoice}`);
-
-            if (options.onProgress) {
-                console.log('[LocalAI] Text preparation complete, starting synthesis...');
-                options.onProgress(0.4); // 40% - Text prepared, starting synthesis
-            }
-
-            if (this.worker) {
-                await this.speakWithWorker(text, options);
-            } else {
-                await this.speakWithModel(text, options);
-            }
-        } catch (error) {
-            if (options.onError) {
-                options.onError(error);
-            }
-            throw error;
-        }
-    }
-
-    async speakWithWorker(text, options) {
-        return new Promise((resolve, reject) => {
-            // Track synthesis progress with worker
-            let progressReported = false;
-
-            this.worker.onmessage = (event) => {
-                const { type, success, audioData, error, progress } = event.data;
-
-                if (type === 'synthesis_progress' && options.onProgress) {
-                    // Map worker progress (0-100) to our range (40-80%)
-                    const mappedProgress = 0.4 + (progress / 100) * 0.4;
-                    console.log(`[LocalAI] Synthesis progress: ${progress}% (mapped: ${Math.round(mappedProgress * 100)}%)`);
-                    options.onProgress(mappedProgress);
-                    progressReported = true;
-                } else if (type === 'tts_complete') {
-                    if (success) {
-                        if (options.onProgress) {
-                            console.log('[LocalAI] Synthesis complete, starting audio playback...');
-                            options.onProgress(0.85); // 85% - Synthesis done, starting playback
-                        }
-
-                        this.playAudioData(audioData, options).then(() => {
-                            resolve();
-                        }).catch(reject);
-                    } else {
-                        reject(new Error(error));
-                    }
-                }
-            };
-
-            // Include voice profile in options, but exclude callback functions 
-            // (functions cannot be cloned for worker communication)
-            const speechOptions = {
-                naturalness: options.naturalness,
-                voiceProfile: this.currentVoice,
-                forceSpeak: options.forceSpeak
-                // Note: onProgress, onComplete, onError callbacks are handled here, not in worker
-            };
-
-            this.worker.postMessage({
-                type: 'synthesize',
-                text,
-                options: speechOptions
-            });
-
-            // Fallback progress simulation if worker doesn't report progress
-            if (options.onProgress && !progressReported) {
-                console.log('[LocalAI] Starting fallback progress simulation');
-                let currentProgress = 0.4;
-                const progressInterval = setInterval(() => {
-                    if (currentProgress < 0.8) {
-                        currentProgress += 0.05;
-                        options.onProgress(currentProgress);
-                    } else {
-                        clearInterval(progressInterval);
-                    }
-                }, 500);
-            }
-        });
-    }
-
-    async speakWithModel(text, options) {
-        try {
-            if (options.onProgress) {
-                console.log('[LocalAI] Starting text-to-speech model synthesis...');
-                options.onProgress(0.5); // 50% - Model synthesis starting
-            }
-
-            const result = await this.models.tts(text);
-
-            if (options.onProgress) {
-                console.log('[LocalAI] Model synthesis complete, preparing audio...');
-                options.onProgress(0.85); // 85% - Synthesis done, preparing playback
-            }
-
-            await this.playAudioData(result.audio, options);
-        } catch (error) {
-            console.error('[LocalAISpeech] TTS synthesis failed:', error);
-            throw error;
-        }
-    }
-
-    async playAudioData(audioData, options = {}) {
-        try {
-            // Initialize audio context if needed (with user gesture handling)
-            if (!this.audioContext) {
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-
-            // Resume audio context if it's suspended (required for user gesture compliance)
-            if (this.audioContext.state === 'suspended') {
-                console.log('[LocalAISpeech] Resuming AudioContext after user gesture...');
-                await this.audioContext.resume();
-            }
-
-            // Create audio buffer and play
-            const audioBuffer = this.audioContext.createBuffer(1, audioData.length, 16000);
-            audioBuffer.getChannelData(0).set(audioData);
-
-            const source = this.audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(this.audioContext.destination);
-
-            // Track audio playback progress
-            if (options.onProgress) {
-                console.log('[LocalAI] Audio playback starting...');
-                options.onProgress(0.9); // 90% - Audio playback started
-
-                const duration = audioBuffer.duration;
-                const startTime = this.audioContext.currentTime;
-
-                // Track playback progress
-                const progressInterval = setInterval(() => {
-                    const elapsed = this.audioContext.currentTime - startTime;
-                    const progress = Math.min(0.99, 0.9 + (elapsed / duration) * 0.09); // 90-99%
-                    options.onProgress(progress);
-
-                    if (elapsed >= duration) {
-                        clearInterval(progressInterval);
-                    }
-                }, 100);
-
-                // Complete progress on audio end
-                source.onended = () => {
-                    clearInterval(progressInterval);
-                    console.log('[LocalAI] Audio playback completed');
-                    options.onProgress(1.0); // 100% - Complete
-                    if (options.onComplete) {
-                        options.onComplete();
-                    }
-                };
-            }
-
-            // Add error handling for playback
-            source.onerror = (error) => {
-                console.error('[LocalAISpeech] Audio playback error:', error);
-                if (options.onError) {
-                    options.onError(error);
-                }
-            };
-
-            source.start();
-            console.log('[LocalAISpeech] Audio playback started successfully');
-
-        } catch (error) {
-            console.error('[LocalAISpeech] Failed to play audio:', error);
-
-            // If audio context fails, try to provide user guidance
-            if (error.name === 'NotAllowedError' || error.message.includes('user gesture')) {
-                console.warn('[LocalAISpeech] Audio requires user interaction. Speech will be available after user clicks something.');
-                const userError = new Error('Audio playback requires user interaction. Please click somewhere on the page and try again.');
-                if (options.onError) {
-                    options.onError(userError);
-                }
-                throw userError;
-            }
-
-            if (options.onError) {
-                options.onError(error);
-            }
-            throw error;
-        }
-    }
-
-    /**
-     * Initialize audio context with user gesture (called when user first interacts with speech)
-     * @public
-     */
-    async initializeAudioContext() {
-        if (!this.audioContext) {
-            try {
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                console.log('[LocalAISpeech] AudioContext initialized');
-
-                // Ensure it's running
-                if (this.audioContext.state === 'suspended') {
-                    await this.audioContext.resume();
-                    console.log('[LocalAISpeech] AudioContext resumed');
-                }
-
-                return true;
-            } catch (error) {
-                console.error('[LocalAISpeech] Failed to initialize AudioContext:', error);
-                return false;
-            }
-        }
-        return true;
-    }
-
-    async recognize(options = {}) {
-        if (!this.models.stt && !this.worker) {
-            throw new Error('STT model not loaded');
-        }
-
-        // Get audio from microphone
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const audioData = await this.recordAudio(stream);
-
-        if (this.worker) {
-            return await this.recognizeWithWorker(audioData, options);
-        } else {
-            return await this.recognizeWithModel(audioData, options);
-        }
-    }
-
-    async recordAudio(stream) {
-        return new Promise((resolve) => {
-            const mediaRecorder = new MediaRecorder(stream);
-            const audioChunks = [];
-
-            mediaRecorder.ondataavailable = (event) => {
-                audioChunks.push(event.data);
-            };
-
-            mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunks);
-                const audioBuffer = await audioBlob.arrayBuffer();
-                resolve(new Float32Array(audioBuffer));
-            };
-
-            mediaRecorder.start();
-
-            // Stop recording after 5 seconds or when user stops
-            setTimeout(() => {
-                mediaRecorder.stop();
-                stream.getTracks().forEach(track => track.stop());
-            }, 5000);
-        });
-    }
-
-    async recognizeWithWorker(audioData, options) {
-        return new Promise((resolve, reject) => {
-            this.worker.onmessage = (event) => {
-                const { type, success, transcript, error } = event.data;
-
-                if (type === 'stt_complete') {
-                    if (success) {
-                        resolve(transcript);
-                    } else {
-                        reject(new Error(error));
-                    }
-                }
-            };
-
-            this.worker.postMessage({
-                type: 'recognize',
-                audioData,
-                options
-            });
-        });
-    }
-
-    async recognizeWithModel(audioData, options) {
-        try {
-            const result = await this.models.stt(audioData);
-            return result.text;
-        } catch (error) {
-            console.error('[LocalAISpeech] STT recognition failed:', error);
-            throw error;
-        }
-    }
-
-    splitTextIntoChunks(text, maxLength) {
-        const sentences = text.match(/[^\.!?]+[\.!?]+/g) || [text];
-        const chunks = [];
-        let currentChunk = '';
-
-        for (const sentence of sentences) {
-            if (currentChunk.length + sentence.length <= maxLength) {
-                currentChunk += sentence;
-            } else {
-                if (currentChunk) chunks.push(currentChunk.trim());
-                currentChunk = sentence;
-            }
-        }
-
-        if (currentChunk) chunks.push(currentChunk.trim());
-        return chunks;
-    }
-
-    stop() {
-        // Stop any ongoing synthesis
-        if (this.worker) {
-            this.worker.postMessage({ type: 'stop' });
-        }
-
-        // Stop any playing audio
-        if (this.audioContext && this.audioContext.state !== 'closed') {
-            // AudioContext doesn't have a direct stop method, but we can suspend it
-            this.audioContext.suspend().catch(error => {
-                console.warn('[LocalAISpeech] Error suspending AudioContext:', error);
-            });
-        }
-    }
-
-    stopRecognition() {
-        // Stop recognition
-        if (this.worker) {
-            this.worker.postMessage({ type: 'stop_recognition' });
-        }
-    }
-
-    async getVoices() {
-        if (this.worker) {
-            // Request voices from worker
-            return new Promise((resolve) => {
-                const timeout = setTimeout(() => {
-                    console.warn('[LocalAISpeech] Timeout getting voices, using defaults');
-                    resolve(this.getDefaultVoices());
-                }, 2000);
-
-                const handleMessage = (event) => {
-                    if (event.data.type === 'voices_list') {
-                        clearTimeout(timeout);
-                        this.worker.removeEventListener('message', handleMessage);
-
-                        this.availableVoices = event.data.voices;
-                        const voices = event.data.voices.map(voice => ({
-                            name: voice.name,
-                            description: voice.description,
-                            lang: 'en-US',
-                            localUri: voice.id,
-                            voiceURI: `local-ai-${voice.id}`,
-                            naturalness: 0.8,
-                            isDefault: voice.isDefault
-                        }));
-
-                        resolve(voices);
-                    }
-                };
-
-                this.worker.addEventListener('message', handleMessage);
-                this.worker.postMessage({ type: 'getVoices' });
-            });
-        } else {
-            return this.getDefaultVoices();
-        }
-    }
-
-    getDefaultVoices() {
-        return [{
-            name: 'Local AI Neural Voice',
-            description: 'High-quality neural voice',
-            lang: 'en-US',
-            localUri: 'neutral',
-            voiceURI: 'local-ai-neutral',
-            naturalness: 0.8,
-            isDefault: true
-        }];
-    }
-
-    async setVoice(voiceId) {
-        if (this.worker) {
-            this.currentVoice = voiceId;
-            this.worker.postMessage({
-                type: 'setVoice',
-                voiceId: voiceId
-            });
-            console.log(`[LocalAISpeech] Voice changed to: ${voiceId}`);
-        }
-    }
-
-    getCurrentVoice() {
-        return this.currentVoice;
-    }
-
-    get supportsSpeechRecognition() {
-        return !!this.models.stt || !!this.worker;
     }
 }
 

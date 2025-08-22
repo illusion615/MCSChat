@@ -1,0 +1,56 @@
+/* CSS Browser compatibility resets and vendor prefixes */
+
+/* Box sizing compatibility */
+*, *::before, *::after {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+/* Gap fallback for older browsers */
+@supports not (gap: 1px) {
+    .fallback-gap > * + * {
+        margin-left: 8px;
+    }
+    
+    .fallback-gap-vertical > * + * {
+        margin-top: 8px;
+    }
+}
+
+/* Backdrop filter fallback */
+@supports not (backdrop-filter: blur(1px)) {
+    .backdrop-blur {
+        background-color: rgba(255, 255, 255, 0.8);
+    }
+}
+
+/* Flexbox compatibility support */
+.flex {
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+}
+
+.flex-column {
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+}
+
+.align-center {
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+}
+
+.justify-center {
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+}

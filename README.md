@@ -2,7 +2,7 @@
 
 A sophisticated chatbot user interface that demonstrates how to create a customized chat experience with multiple AI backends, featuring Microsoft Copilot Studio integration via DirectLine API, AI companion analysis, and local Ollama model support with real-time streaming capabilities.
 
-![MCSChat Interface](image-5.png)
+![MCSChat Interface](images/image-5.png)
 
 ## 🚀 Quick Start
 
@@ -48,10 +48,11 @@ Ready to get started? Follow our quick setup guide:
 - **[Performance Optimization](docs/performance/)** - Performance tuning and optimization
 
 ### 🛠️ Troubleshooting & Support
-- **[Common Issues](docs/troubleshooting/common-issues.md)** - FAQ and solutions
-- **[Debug Guide](docs/troubleshooting/debugging.md)** - Troubleshooting tools and techniques
-- **[API Issues](docs/troubleshooting/api-issues.md)** - Provider-specific problems
-- **[Performance](docs/troubleshooting/performance.md)** - Optimization and monitoring
+- **[DirectLine Issues](docs/troubleshooting/DIRECTLINE_COMPLETE_FIX.md)** - Complete DirectLine connection troubleshooting
+- **[Connection Problems](docs/troubleshooting/CONNECTION_DEBUGGING_FIXES.md)** - Connection debugging and fixes
+- **[Performance Issues](docs/troubleshooting/RETRY_LOOP_BUG_FIX.md)** - Retry loops and stability problems
+- **[Mobile Issues](docs/troubleshooting/mobile-issues.md)** - Mobile platform specific problems
+- **[All Troubleshooting](docs/troubleshooting/README.md)** - Complete troubleshooting index
 
 ## 🌟 Key Features
 
@@ -91,13 +92,14 @@ Ready to get started? Follow our quick setup guide:
 - **[Release Notes](CHANGELOG.md)** - Latest updates and features
 - **[Project Tasks](TODO.md)** - Current development priorities
 
-## 🆕 Latest Updates (v3.5.0)
+## 🆕 Latest Updates (v3.6.0)
 
-- ✨ **Unified Icon System**: Consistent SVG icons across all components
-- ✨ **KPI Analytics**: Enhanced metrics with dedicated KPI icon
-- ✨ **Project Organization**: Clean file structure with organized documentation
-- ✨ **Test Suite Organization**: Structured test files in dedicated directories
-- ✨ **Performance Optimizations**: Streamlined codebase and improved loading
+- ✨ **Documentation Organization**: Consolidated and organized all documentation into logical categories
+- ✨ **Test File Organization**: Moved all test files from root to structured `/tests` directory
+- ✨ **Performance Documentation**: Comprehensive performance optimization guides
+- ✨ **Troubleshooting Guides**: Complete troubleshooting documentation with DirectLine fixes
+- ✨ **Feature Documentation**: Organized feature-specific documentation and guides
+- ✨ **Clean Project Structure**: Eliminated root directory clutter for better maintainability
 
 [→ Full Changelog](CHANGELOG.md)
 
@@ -113,8 +115,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Last Updated**: July 31, 2025  
-**Version**: 3.4.0  
+**Last Updated**: August 22, 2025  
+**Version**: 3.6.0  
 **Maintained by**: [MCSChat Contributors](https://github.com/illusion615/MCSChat/graphs/contributors)
 ```bash
 # Start the chat application server
@@ -161,7 +163,6 @@ node ollama-proxy.js
 ```
 MCSChat/
 ├── index.html              # Main application interface
-├── styles.css              # Application styling and responsive design
 ├── ollama-proxy.js         # CORS proxy server for local Ollama access
 ├── chat-server.js          # Development HTTP server
 ├── src/                    # Modular source code architecture
@@ -185,11 +186,6 @@ MCSChat/
 │       ├── secureStorage.js # Encrypted localStorage wrapper
 │       ├── domUtils.js     # DOM manipulation helpers
 │       └── helpers.js      # General utility functions
-├── tests/                  # Organized test files
-│   ├── components/         # Component-specific tests
-│   ├── features/           # Feature testing
-│   ├── icons/              # Icon system tests
-│   └── ui/                 # User interface tests
 ├── docs/                   # Comprehensive documentation
 │   ├── migration/          # Migration guides and documentation
 │   ├── performance/        # Performance optimization guides
@@ -271,12 +267,6 @@ python -m http.server 8000
 ```
 
 ### Running Tests
-Tests are organized in the `tests/` directory by category:
-- **Components**: Component-specific functionality
-- **Features**: Feature testing and validation
-- **Icons**: Icon system testing
-- **UI**: User interface and styling tests
-
 ### Contributing
 Please read our [Contributing Guide](docs/development/CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 

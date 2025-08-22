@@ -1,0 +1,165 @@
+/* Side Command Bar and Mobile Header */
+
+/* Side Command Bar - Vertical Activity Bar */
+#sideCommandBar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 48px;
+    background: #2d2d30;
+    border-right: 1px solid #3e3e42;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Primary buttons (conversations) - aligned to top */
+#sideCommandBar #conversationsButton {
+    margin-bottom: auto;
+    /* Push other buttons to bottom */
+}
+
+/* Secondary buttons (documentation, knowledge hub, settings) - aligned to bottom */
+#sideCommandBar #documentationButton,
+#sideCommandBar #knowledgeHubButton,
+#sideCommandBar #loggingButton,
+#sideCommandBar #settingsButton {
+    margin-top: 0;
+    margin-bottom: 4px;
+}
+
+.side-command-btn {
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    color: #cccccc;
+    margin-bottom: 4px;
+    position: relative;
+}
+
+.side-command-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+.side-command-btn.active {
+    background: #094771;
+    color: #ffffff;
+}
+
+.side-command-btn.active::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 20px;
+    background: #0078d4;
+}
+
+/* Mobile Header - Hidden on desktop */
+#mobileHeader {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.95);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    z-index: 1001;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+#mobileTitle {
+    font-size: 18px;
+    font-weight: 600;
+    color: #323130;
+    margin: 0;
+    text-align: center;
+    flex: 1;
+}
+
+.mobile-menu-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+
+.mobile-menu-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.hamburger-line {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background-color: #323130;
+    margin: 2px 0;
+    transition: 0.3s;
+    border-radius: 1px;
+}
+
+.mobile-menu-btn.active .hamburger-line:nth-child(1) {
+    transform: rotate(-45deg) translate(-4px, 4px);
+}
+
+.mobile-menu-btn.active .hamburger-line:nth-child(2) {
+    opacity: 0;
+}
+
+.mobile-menu-btn.active .hamburger-line:nth-child(3) {
+    transform: rotate(45deg) translate(-4px, -4px);
+}
+
+.mobile-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mobile-action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    color: #605e5c;
+}
+
+.mobile-action-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    color: #323130;
+}

@@ -1,0 +1,455 @@
+/* Chat Windows and Input Components */
+
+/* Chat window styles that apply to both panels */
+#chatWindow,
+#llmChatWindow {
+    flex: 1;
+    padding: 16px;
+    /* Reduced from 20px for compactness */
+    overflow-y: auto;
+    background: transparent;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    /* Reduced from 16px */
+}
+
+/* Compact styling for AI companion chat window */
+#llmChatWindow {
+    padding: 8px;
+    /* Reduced from 12px */
+    font-size: var(--companion-chat-font-size);
+    line-height: 1.4;
+}
+
+/* Make AI companion messages more compact */
+#llmChatWindow .message {
+    margin: 6px 0;
+}
+
+#llmChatWindow .messageContent {
+    padding: 10px 12px;
+    font-size: var(--companion-chat-font-size);
+    line-height: 1.4;
+    margin: 6px 0;
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    max-width: 100%;
+    border-radius: 0%;
+}
+
+/* AI Companion user message styling - match agent chat style */
+#llmChatWindow .userMessage {
+    justify-content: flex-end;
+}
+
+#llmChatWindow .userMessage .messageDiv {
+    max-width: 70%;
+    margin: 10px 0;
+}
+
+#llmChatWindow .userMessage .messageText {
+    background: var(--gradient-microsoft);
+    padding: 16px 20px;
+    color: #ffffff;
+    text-align: left;
+    border-radius: 20px 20px 4px 20px;
+    box-shadow: 0 2px 8px rgba(0, 120, 212, 0.3);
+    font-weight: 500;
+    font-size: var(--companion-chat-font-size);
+    line-height: 1.5;
+}
+
+/* AI Companion assistant message styling - match agent chat style */
+#llmChatWindow .assistantMessage {
+    justify-content: flex-start;
+}
+
+#llmChatWindow .assistantMessage .messageDiv {
+    max-width: 100%;
+    margin: 10px 0;
+}
+
+#llmChatWindow .assistantMessage .messageText {
+    color: #323130;
+    text-align: left;
+    padding: 16px 20px;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    font-size: var(--companion-chat-font-size);
+    line-height: 1.5;
+}
+
+/* AI Companion message icons - match agent chat style */
+#llmChatWindow .messageContainer .messageIcon {
+    width: 32px;
+    height: 32px;
+    margin: 8px;
+    margin-top: 14px;
+    /* Adjusted to align with first line of text content */
+    border-radius: 50%;
+    background-size: cover;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+    /* Prevent icon from shrinking */
+}
+
+/* Adjust user message icon positioning for companion chat */
+#llmChatWindow .userMessage .messageIcon {
+    display: block;
+    order: 2;
+    margin-left: 8px;
+    margin-right: 0;
+    background-size: cover;
+}
+
+/* AI Companion error message styling */
+#llmChatWindow .errorMessage .messageText {
+    background: linear-gradient(135deg, #d83b01 0%, #c239007a 100%);
+    color: #ffffff;
+    padding: 16px 20px;
+    border-radius: 20px 20px 20px 4px;
+    box-shadow: 0 2px 8px rgba(216, 59, 1, 0.3);
+    font-size: var(--companion-chat-font-size);
+    line-height: 1.5;
+    max-width: 70%;
+    margin: 10px 0;
+}
+
+#llmChatWindow .errorMessage {
+    justify-content: flex-start;
+}
+
+/* Custom scrollbar for chat windows */
+#chatWindow::-webkit-scrollbar,
+#llmChatWindow::-webkit-scrollbar {
+    width: 6px;
+}
+
+#chatWindow::-webkit-scrollbar-track,
+#llmChatWindow::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#chatWindow::-webkit-scrollbar-thumb,
+#llmChatWindow::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+}
+
+#chatWindow::-webkit-scrollbar-thumb:hover,
+#llmChatWindow::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.message {
+    border-radius: 10px;
+    max-width: 70%;
+}
+
+.userMessage {
+    background-color: #ffffff00;
+    color: #fff;
+    align-self: flex-end;
+    text-align: right;
+}
+
+.botMessage {
+    background-color: #e1e1e100;
+    color: #000;
+    align-self: flex-start;
+    text-align: left;
+}
+
+/* Input Container */
+#inputContainer {
+    display: flex;
+    padding: 10px 16px;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.95);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    margin: 0 -4px;
+}
+
+#fileUploadContainer {
+    display: flex;
+    align-items: center;
+    margin-right: 12px;
+}
+
+#attachButton {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    color: #8a8886;
+}
+
+#attachButton:hover {
+    background: rgba(0, 120, 212, 0.1);
+    border-color: #0078d4;
+    color: #0078d4;
+    transform: scale(1.05);
+}
+
+#filePreviewContainer {
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 120, 212, 0.3);
+    border-radius: 12px;
+    margin: 8px 0;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+#filePreview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #323130;
+}
+
+#fileName {
+    font-weight: 500;
+    color: #0078d4;
+}
+
+#fileSize {
+    font-size: 12px;
+    color: #8a8886;
+}
+
+#removeFileButton {
+    background: rgba(255, 0, 0, 0.1);
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    color: #d13438;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    transition: all 0.2s ease;
+}
+
+#removeFileButton:hover {
+    background: rgba(255, 0, 0, 0.2);
+    transform: scale(1.1);
+}
+
+/* User Input */
+#userInput {
+    flex: 1;
+    padding: 14px 18px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 24px;
+    margin-right: 12px;
+    font-size: 15px;
+    font-family: inherit;
+    background: rgba(255, 255, 255, 0.9);
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+#userInput:focus {
+    border-color: #0078d4;
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+    background: rgba(255, 255, 255, 1);
+}
+
+#userInput::placeholder {
+    color: #8a8886;
+    font-weight: 400;
+}
+
+/* AI Companion Mode - Change input border to indicate talking to AI agent */
+.ai-companion-active #userInput {
+    border-color: #6c5ce7;
+    background: rgba(108, 92, 231, 0.05);
+}
+
+.ai-companion-active #userInput:focus {
+    border-color: #6c5ce7;
+    box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.2);
+    background: rgba(108, 92, 231, 0.08);
+}
+
+.ai-companion-active #userInput::placeholder {
+    color: #6c5ce7;
+    font-weight: 500;
+}
+
+/* Send Button */
+#sendButton {
+    padding: 12px;
+    border: none;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 120, 212, 0.3);
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#sendButton:hover {
+    background: linear-gradient(135deg, #106ebe 0%, #005a9e 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0, 120, 212, 0.4);
+}
+
+#sendButton:active {
+    transform: translateY(0);
+}
+
+/* Suggested Actions Container */
+#suggestedActionsContainer {
+    padding: 0;
+    width: 100%;
+}
+
+.suggested-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 0;
+    margin: 10px 16px;
+}
+
+.suggestedAction {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.9);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 120, 212, 0.2);
+    border-radius: 20px;
+    color: #323130;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    min-height: 36px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.suggestedAction:hover {
+    background: rgba(0, 120, 212, 0.1);
+    border-color: rgba(0, 120, 212, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 120, 212, 0.2);
+}
+
+.suggestedAction:active {
+    transform: translateY(0);
+    background: rgba(0, 120, 212, 0.15);
+}
+
+/* LLM Quick Actions Container */
+#llmQuickActionsContainer {
+    margin-bottom: 8px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+    max-height: 0;
+    overflow: hidden;
+}
+
+#llmQuickActionsContainer.expanded {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 100px;
+    margin-bottom: 12px;
+}
+
+.llm-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 8px 0;
+    margin: 0 16px;
+}
+
+.quick-action-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, rgba(106, 90, 205, 0.1) 0%, rgba(255, 255, 255, 0.8) 100%);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(106, 90, 205, 0.3);
+    border-radius: 16px;
+    color: #6a5acd;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    min-height: 32px;
+    box-shadow: 0 1px 3px rgba(106, 90, 205, 0.2);
+}
+
+.quick-action-btn:hover {
+    background: linear-gradient(135deg, rgba(106, 90, 205, 0.2) 0%, rgba(255, 255, 255, 0.9) 100%);
+    border-color: rgba(106, 90, 205, 0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(106, 90, 205, 0.3);
+    color: #5d4fc4;
+}
+
+.quick-action-btn:active {
+    transform: translateY(0);
+    background: linear-gradient(135deg, rgba(106, 90, 205, 0.25) 0%, rgba(255, 255, 255, 0.85) 100%);
+}
+
+/* AI Companion Welcome Area - Horizontal Layout */
+.companion-welcome {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0px 20px;
+}
+
+.companion-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    color: var(--text-color);
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.companion-welcome p {
+    margin: 0;
+    color: var(--text-color);
+    font-size: var(--companion-chat-font-size);
+    line-height: 1.4;
+    opacity: 0.8;
+}

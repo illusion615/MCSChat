@@ -108,7 +108,7 @@ export class AICompanion {
         this.speechSettings = {
             autoSpeak: false,
             voiceInput: false,
-            provider: 'web_speech', // 'web_speech', 'local_ai', 'azure'
+            provider: 'web_speech', // 'web_speech', 'azure'
             selectedVoice: '',
             speechRate: 1.0,
             speechVolume: 1.0,
@@ -155,6 +155,7 @@ export class AICompanion {
             chatWindow: DOMUtils.getElementById('chatWindow'), // Main chat window for output migration
             llmStatus: DOMUtils.getElementById('llmStatus'),
             llmModelName: DOMUtils.getElementById('llmModelName'),
+            companionStatusPanel: DOMUtils.getElementById('companionStatusPanel'), // Container for companion status elements
             toggleButton: DOMUtils.getElementById('togglerightpanelbtn'),
             expandButton: DOMUtils.getElementById('expandAiCompanionBtn'),
             agentConversationTitle: DOMUtils.getElementById('agentConversationTitle'),
@@ -178,10 +179,6 @@ export class AICompanion {
             kpiModalDetails: DOMUtils.getElementById('kpiModalDetails'),
             kpiModalMessages: DOMUtils.getElementById('kpiModalMessages'),
             kpiModalClose: DOMUtils.getElementById('kpiModalClose'),
-            // KPI Explanation Area
-            kpiExplanationArea: DOMUtils.getElementById('kpiExplanationArea'),
-            kpiExplanationContent: DOMUtils.getElementById('kpiExplanationContent'),
-            kpiExplanationToggle: DOMUtils.getElementById('kpiExplanationToggle'),
             // KPI elements
             kpiConsumption: DOMUtils.getElementById('kpiConsumption'),
             kpiConsumptionBar: DOMUtils.getElementById('kpiConsumptionBar'),
@@ -864,12 +861,28 @@ export class AICompanion {
         if (!this.elements.llmStatus) return;
 
         if (!this.isEnabled) {
-            this.elements.llmStatus.className = 'status-indicator disabled';
-            // Clear model name when disabled
-            if (this.elements.llmModelName) {
-                this.elements.llmModelName.textContent = '';
+            // Hide the entire companion status panel when AI Companion is disabled
+            if (this.elements.companionStatusPanel) {
+                this.elements.companionStatusPanel.style.display = 'none';
+            } else {
+                // Fallback: hide individual elements if panel container not found
+                this.elements.llmStatus.style.display = 'none';
+                if (this.elements.llmModelName) {
+                    this.elements.llmModelName.style.display = 'none';
+                }
             }
             return;
+        }
+
+        // Show the companion status panel when AI Companion is enabled
+        if (this.elements.companionStatusPanel) {
+            this.elements.companionStatusPanel.style.display = '';
+        } else {
+            // Fallback: show individual elements if panel container not found
+            this.elements.llmStatus.style.display = '';
+            if (this.elements.llmModelName) {
+                this.elements.llmModelName.style.display = '';
+            }
         }
 
         if (this.currentProvider === 'ollama') {
@@ -2083,17 +2096,10 @@ export class AICompanion {
         try {
             if (this.currentThinkingMessage && this.currentThinkingMessage.parentNode) {
                 console.log('[AICompanion] Manually clearing thinking message from main chat');
-                // Fade out the thinking message before removing
-                this.currentThinkingMessage.style.transition = 'opacity 0.3s ease-out';
-                this.currentThinkingMessage.style.opacity = '0';
-
-                setTimeout(() => {
-                    if (this.currentThinkingMessage && this.currentThinkingMessage.parentNode) {
-                        this.currentThinkingMessage.parentNode.removeChild(this.currentThinkingMessage);
-                        console.log('[AICompanion] Thinking message manually removed from DOM');
-                    }
-                    this.currentThinkingMessage = null;
-                }, 300);
+                // Immediately remove thinking message to prevent overlap with streaming response
+                this.currentThinkingMessage.parentNode.removeChild(this.currentThinkingMessage);
+                console.log('[AICompanion] Thinking message immediately removed from DOM');
+                this.currentThinkingMessage = null;
             } else {
                 console.log('[AICompanion] No thinking message to clear');
             }
@@ -6171,13 +6177,6 @@ Example good titles:
             });
         }
 
-        // KPI Explanation toggle handler
-        if (this.elements.kpiExplanationToggle) {
-            DOMUtils.addEventListener(this.elements.kpiExplanationToggle, 'click', () => {
-                this.toggleKPIExplanation();
-            });
-        }
-
         // Escape key to close modal
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.elements.kpiModal.classList.contains('show')) {
@@ -6224,29 +6223,6 @@ Example good titles:
         this.elements.kpiModal.classList.remove('show');
         document.body.style.overflow = '';
     }
-
-    /**
-     * Toggle KPI explanation area visibility
-     * @private
-     */
-    toggleKPIExplanation() {
-        if (!this.elements.kpiExplanationArea || !this.elements.kpiExplanationToggle) return;
-
-        const isVisible = this.elements.kpiExplanationArea.style.display !== 'none';
-        const toggleIcon = this.elements.kpiExplanationToggle.querySelector('span');
-
-        if (isVisible) {
-            // Hide explanation
-            this.elements.kpiExplanationArea.style.display = 'none';
-            if (toggleIcon) toggleIcon.textContent = '▼';
-        } else {
-            // Show explanation
-            this.elements.kpiExplanationArea.style.display = 'block';
-            if (toggleIcon) toggleIcon.textContent = '▲';
-        }
-    }
-
-
 
     /**
      * Get KPI details for modal display
@@ -7435,7 +7411,7 @@ Example good titles:
                     // If not, reset to default for the new provider
                     if (this.speechSettings.selectedVoice && Array.isArray(this.speechState.availableVoices)) {
                         const selectedVoiceExists = this.speechState.availableVoices.some(voice => {
-                            const voiceValue = (newProvider === 'local_ai' && voice.localUri) ? voice.localUri : (voice.name || voice.voiceURI);
+                            const voiceValue = voice.name || voice.voiceURI;
                             return voiceValue === this.speechSettings.selectedVoice;
                         });
 
@@ -7732,13 +7708,8 @@ Example good titles:
             this.speechState.availableVoices.forEach(voice => {
                 const option = document.createElement('option');
 
-                // For Local AI models, use localUri as the value (voice ID like "neutral", "warm", etc.)
-                // For other providers, use the voice name or voiceURI
-                if (voice.localUri && this.speechSettings.provider === 'local_ai') {
-                    option.value = voice.localUri;
-                } else {
-                    option.value = voice.name || voice.voiceURI;
-                }
+                // Use the voice name or voiceURI
+                option.value = voice.name || voice.voiceURI;
 
                 option.textContent = `${voice.name} (${voice.lang})`;
                 if (voice.naturalness) {
@@ -7828,11 +7799,6 @@ Example good titles:
                 this.updateSpeakerButtons();
             } else {
                 console.warn('[AICompanion] Speech synthesis failed');
-
-                // Show user-friendly message for Local AI audio issues
-                if (this.speechSettings.provider === 'local_ai') {
-                    this.showNotification('system', 'Speech synthesis failed. If using Local AI, please ensure you\'ve clicked somewhere on the page first to enable audio.', 4000);
-                }
             }
 
             return success;
@@ -7977,6 +7943,63 @@ Example good titles:
     }
 
     /**
+     * Play audio notification sound for voice input
+     * @private
+     */
+    playVoiceInputNotification() {
+        try {
+            // Create a short beep sound using Web Audio API
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create oscillator for the beep sound
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            // Connect oscillator to gain to destination
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            // Configure the beep sound - pleasant start recording tone
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // 800Hz tone
+            oscillator.type = 'sine';
+            
+            // Configure volume - start quiet, peak, then fade
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.05);
+            gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.15);
+            
+            // Play the beep for 150ms
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.15);
+            
+            console.log('[AICompanion] Voice input notification sound played');
+        } catch (error) {
+            console.warn('[AICompanion] Failed to play voice input notification:', error);
+            // Fallback: visual notification if audio fails
+            this.showVoiceInputVisualFeedback();
+        }
+    }
+
+    /**
+     * Show visual feedback when audio notification fails
+     * @private
+     */
+    showVoiceInputVisualFeedback() {
+        const voiceButton = document.getElementById('voiceInputBtn');
+        if (voiceButton) {
+            // Add a brief flash effect
+            voiceButton.style.transition = 'all 0.1s ease';
+            voiceButton.style.transform = 'scale(1.1)';
+            voiceButton.style.boxShadow = '0 0 20px rgba(0, 120, 212, 0.5)';
+            
+            setTimeout(() => {
+                voiceButton.style.transform = 'scale(1)';
+                voiceButton.style.boxShadow = '';
+            }, 150);
+        }
+    }
+
+    /**
      * Start voice input using enhanced speech engine
      * @public
      */
@@ -7998,6 +8021,10 @@ Example good titles:
 
         try {
             console.log('[AICompanion] Starting enhanced speech recognition...');
+            
+            // Play notification sound to indicate recording has started
+            this.playVoiceInputNotification();
+            
             this.speechState.isRecording = true;
             this.updateVoiceInputButton();
 
@@ -8356,19 +8383,13 @@ Analyze both responses considering the question type:
     }
 
     /**
-     * Generate and display KPI explanation in the right panel
+     * Generate and display KPI explanation in the AI companion chat window
      * @param {Object} results - KPI analysis results
      * @private
      */
     async generateAndDisplayKPIExplanation(results) {
         try {
-            console.log('[AI Companion] Generating KPI explanation for right panel...');
-
-            // Show the KPI explanation area if it's hidden
-            this.showKPIExplanationArea();
-
-            // Show loading indicator in the explanation area
-            this.showKPIExplanationLoading();
+            console.log('[AI Companion] Generating KPI explanation for chat window...');
 
             // Create a prompt to explain the KPI values
             const kpiExplanationPrompt = this.buildKPIExplanationPrompt(results);
@@ -8377,18 +8398,25 @@ Analyze both responses considering the question type:
             const explanation = await this.getLLMEvaluation(kpiExplanationPrompt);
 
             if (explanation && explanation.trim()) {
-                // Display the explanation in the KPI explanation area
-                this.displayKPIExplanation(explanation);
-                console.log('[AI Companion] KPI explanation displayed in right panel');
+                // Add KPI explanation as an AI companion message in the chat window
+                const { MessageAPI } = await import('../ui/messageAPI.js');
+                await MessageAPI.addAICompanionMessage(
+                    `📊 **KPI Analysis & Insights**\n\n${explanation}`,
+                    { 
+                        timestamp: new Date().toISOString(),
+                        metadata: { source: 'AI Companion', type: 'kpi-explanation' }
+                    }
+                );
+                console.log('[AI Companion] KPI explanation displayed in chat window');
             } else {
                 console.warn('[AI Companion] Empty KPI explanation received');
                 // Display a fallback explanation
-                this.displayFallbackKPIExplanationInPanel(results);
+                this.displayFallbackKPIExplanationInChat(results);
             }
         } catch (error) {
             console.error('[AI Companion] Error generating KPI explanation:', error);
-            // Display a fallback explanation in the panel
-            this.displayFallbackKPIExplanationInPanel(results);
+            // Display a fallback explanation in the chat
+            this.displayFallbackKPIExplanationInChat(results);
         }
     }
 
@@ -8438,114 +8466,38 @@ The conversation quality is currently **${avgScore >= 8 ? 'excellent' : avgScore
         this.renderMessage('assistant', fallbackMessage);
     }
 
-    /**
-     * Show KPI explanation area
-     * @private
-     */
-    showKPIExplanationArea() {
-        if (!this.elements.kpiExplanationArea) return;
-        
-        this.elements.kpiExplanationArea.style.display = 'block';
-        
-        // Update toggle button icon
-        const toggleIcon = this.elements.kpiExplanationToggle?.querySelector('span');
-        if (toggleIcon) toggleIcon.textContent = '▲';
-    }
+
 
     /**
-     * Show loading indicator in KPI explanation area
-     * @private
-     */
-    showKPIExplanationLoading() {
-        if (!this.elements.kpiExplanationContent) return;
-        
-        this.elements.kpiExplanationContent.innerHTML = `
-            <div class="kpi-explanation-loading">
-                <div class="loading-spinner"></div>
-                <p>Generating KPI insights...</p>
-            </div>
-        `;
-    }
-
-    /**
-     * Display KPI explanation in the dedicated area
-     * @param {string} explanation - The explanation text (markdown)
-     * @private
-     */
-    displayKPIExplanation(explanation) {
-        if (!this.elements.kpiExplanationContent) return;
-        
-        // Process markdown if available
-        let processedContent;
-        try {
-            if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-                const htmlContent = marked.parse(explanation);
-                processedContent = DOMPurify.sanitize(htmlContent);
-            } else {
-                // Fallback: simple HTML conversion
-                processedContent = explanation
-                    .replace(/\n\n/g, '</p><p>')
-                    .replace(/\n/g, '<br>')
-                    .replace(/^\s*/, '<p>')
-                    .replace(/\s*$/, '</p>');
-            }
-        } catch (error) {
-            console.warn('[AI Companion] Error processing markdown:', error);
-            processedContent = explanation.replace(/\n/g, '<br>');
-        }
-        
-        // Add timestamp
-        const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        
-        this.elements.kpiExplanationContent.innerHTML = `
-            <div class="kpi-explanation-content-wrapper">
-                <div class="kpi-explanation-timestamp">Generated at ${timestamp}</div>
-                <div class="kpi-explanation-text">${processedContent}</div>
-            </div>
-        `;
-    }
-
-    /**
-     * Display fallback KPI explanation in the panel when LLM fails
+     * Display fallback KPI explanation in the chat window when LLM fails
      * @param {Object} results - KPI analysis results
      * @private
      */
-    displayFallbackKPIExplanationInPanel(results) {
+    async displayFallbackKPIExplanationInChat(results) {
         const avgScore = ((results.accuracy + results.helpfulness + results.completeness + this.kpiData.efficiency) / 4).toFixed(1);
         const trendEmoji = this.kpiData.trend === 'improving' ? '📈' :
             this.kpiData.trend === 'declining' ? '📉' : '📊';
 
-        const fallbackMessage = `
-            <h3>📊 Conversation Quality Summary</h3>
-            <div class="kpi-summary-score">
-                <strong>Overall Score:</strong> ${avgScore}/10 ${trendEmoji}
-            </div>
-            
-            <div class="kpi-summary-metrics">
-                <h4>Key Metrics:</h4>
-                <ul>
-                    <li><strong>Accuracy:</strong> ${results.accuracy.toFixed(1)}/10</li>
-                    <li><strong>Helpfulness:</strong> ${results.helpfulness.toFixed(1)}/10</li>
-                    <li><strong>Completeness:</strong> ${results.completeness.toFixed(1)}/10</li>
-                    <li><strong>Efficiency:</strong> ${this.kpiData.efficiency.toFixed(1)}/10</li>
-                </ul>
-            </div>
-            
-            <div class="kpi-summary-conclusion">
-                <p>The conversation quality is currently <strong>${avgScore >= 8 ? 'excellent' : avgScore >= 6 ? 'good' : avgScore >= 4 ? 'fair' : 'needs improvement'}</strong> with a <strong>${this.kpiData.trend}</strong> trend.</p>
-            </div>
-        `;
+        const fallbackMessage = `**📊 Conversation Quality Summary**
 
-        // Add timestamp
-        const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        
-        if (this.elements.kpiExplanationContent) {
-            this.elements.kpiExplanationContent.innerHTML = `
-                <div class="kpi-explanation-content-wrapper">
-                    <div class="kpi-explanation-timestamp">Generated at ${timestamp}</div>
-                    <div class="kpi-explanation-text">${fallbackMessage}</div>
-                </div>
-            `;
+**Overall Score:** ${avgScore}/10 ${trendEmoji}
+
+**Key Metrics:**
+• **Accuracy:** ${results.accuracy.toFixed(1)}/10
+• **Helpfulness:** ${results.helpfulness.toFixed(1)}/10  
+• **Completeness:** ${results.completeness.toFixed(1)}/10
+• **Efficiency:** ${this.kpiData.efficiency.toFixed(1)}/10
+
+**Assessment:** The conversation quality is currently **${avgScore >= 8 ? 'excellent' : avgScore >= 6 ? 'good' : avgScore >= 4 ? 'fair' : 'needs improvement'}** with a **${this.kpiData.trend}** trend.`;
+
+        try {
+            const { MessageAPI } = await import('../ui/messageAPI.js');
+            await MessageAPI.addAICompanionMessage(fallbackMessage, {
+                timestamp: new Date().toISOString(),
+                metadata: { source: 'AI Companion', type: 'kpi-explanation-fallback' }
+            });
+        } catch (error) {
+            console.error('[AI Companion] Error displaying fallback KPI explanation in chat:', error);
         }
     }
 }

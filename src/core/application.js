@@ -252,10 +252,6 @@ export class Application {
             companionFontSize: DOMUtils.getElementById('companionFontSize'),
             companionFontSizeValue: DOMUtils.getElementById('companionFontSizeValue'),
 
-            // User icon selection
-            currentUserIconPreview: DOMUtils.getElementById('currentUserIconPreview'),
-            customIconInput: DOMUtils.getElementById('customIconInput'),
-
             // Side browser elements
             sideBrowser: DOMUtils.getElementById('sideBrowser'),
 
@@ -2388,9 +2384,6 @@ export class Application {
         // Load font size settings
         this.loadFontSizeSettings();
 
-        // Setup user icon selection
-        this.setupUserIconSelection();
-
         // Setup color theme selection
         this.setupColorThemeSelection();
 
@@ -3485,9 +3478,6 @@ export class Application {
             console.warn('Companion font size element not found');
         }
 
-        // Load user icon setting
-        this.loadUserIconSetting();
-
         console.log('Font size settings loaded');
     }
 
@@ -3546,301 +3536,15 @@ export class Application {
         // For now, just log for debugging
     }
 
-    /**
-     * Setup user icon selection functionality
-     * @private
-     */
-    setupUserIconSelection() {
-        console.log('Setting up user icon selection...');
 
-        // Get all icon option elements
-        const iconOptions = document.querySelectorAll('.icon-option');
-        console.log('Found icon options:', iconOptions.length);
 
-        iconOptions.forEach(option => {
-            DOMUtils.addEventListener(option, 'click', () => {
-                const iconType = option.getAttribute('data-icon');
-                console.log('Icon option clicked:', iconType);
 
-                if (iconType === 'custom') {
-                    // Trigger file input for custom icon
-                    if (this.elements.customIconInput) {
-                        this.elements.customIconInput.click();
-                    }
-                } else {
-                    this.selectUserIcon(iconType);
-                }
-            });
-        });
 
-        // Handle custom icon file upload
-        if (this.elements.customIconInput) {
-            DOMUtils.addEventListener(this.elements.customIconInput, 'change', (e) => {
-                const file = e.target.files[0];
-                if (file && file.type.startsWith('image/')) {
-                    this.handleCustomIconUpload(file);
-                }
-            });
-        }
 
-        console.log('User icon selection setup complete');
-    }
 
-    /**
-     * Select a user icon
-     * @param {string} iconType - The type of icon selected
-     */
-    selectUserIcon(iconType) {
-        console.log('Selecting user icon:', iconType);
 
-        // Update visual selection
-        const iconOptions = document.querySelectorAll('.icon-option');
-        iconOptions.forEach(option => {
-            option.classList.remove('selected');
-            if (option.getAttribute('data-icon') === iconType) {
-                option.classList.add('selected');
-            }
-        });
 
-        // Update preview
-        this.updateUserIconPreview(iconType);
 
-        // Save selection with -avatar suffix for storage consistency
-        localStorage.setItem('userIcon', iconType + '-avatar');
-
-        // Apply to existing messages (use base iconType without -avatar for applyUserIcon)
-        this.applyUserIcon(iconType);
-    }
-
-    /**
-     * Handle custom icon file upload
-     * @param {File} file - The uploaded image file
-     */
-    handleCustomIconUpload(file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const imageData = e.target.result;
-
-            // Save custom icon data
-            localStorage.setItem('customUserIconData', imageData);
-
-            // Select custom icon
-            this.selectUserIcon('custom');
-
-            // Update custom icon display
-            const customIconElements = document.querySelectorAll('.custom-icon');
-            customIconElements.forEach(element => {
-                element.style.backgroundImage = `url(${imageData})`;
-                element.classList.add('has-image');
-            });
-        };
-        reader.readAsDataURL(file);
-    }
-
-    /**
-     * Update the user icon preview
-     * @param {string} iconType - The type of icon
-     */
-    updateUserIconPreview(iconType) {
-        if (!this.elements.currentUserIconPreview) return;
-
-        // Clear existing classes and styles
-        this.elements.currentUserIconPreview.className = 'icon-preview';
-        this.elements.currentUserIconPreview.style.backgroundImage = '';
-
-        // Apply icon-specific styling
-        switch (iconType) {
-            case 'friendly':
-                this.elements.currentUserIconPreview.classList.add('friendly-avatar');
-                break;
-            case 'robot':
-                this.elements.currentUserIconPreview.classList.add('robot-avatar');
-                break;
-            case 'assistant':
-                this.elements.currentUserIconPreview.classList.add('assistant-avatar');
-                break;
-            case 'smart':
-                this.elements.currentUserIconPreview.classList.add('smart-avatar');
-                break;
-            case 'modern':
-                this.elements.currentUserIconPreview.classList.add('modern-avatar');
-                break;
-            case 'cute':
-                this.elements.currentUserIconPreview.classList.add('cute-avatar');
-                break;
-            case 'professional':
-                this.elements.currentUserIconPreview.classList.add('professional-avatar');
-                break;
-            case 'gaming':
-                this.elements.currentUserIconPreview.classList.add('gaming-avatar');
-                break;
-            case 'minimal':
-                this.elements.currentUserIconPreview.classList.add('minimal-avatar');
-                break;
-            case 'carter':
-                this.elements.currentUserIconPreview.classList.add('carter-avatar');
-                break;
-            case 'custom':
-                this.elements.currentUserIconPreview.classList.add('custom-icon');
-                const customIconData = localStorage.getItem('customUserIconData');
-                if (customIconData) {
-                    this.elements.currentUserIconPreview.style.backgroundImage = `url(${customIconData})`;
-                    this.elements.currentUserIconPreview.classList.add('has-image');
-                }
-                break;
-        }
-    }
-
-    /**
-     * Apply user icon to message displays
-     * @param {string} iconType - The type of icon
-     */
-    applyUserIcon(iconType) {
-        const userMessageIcons = document.querySelectorAll('.userMessage .messageIcon');
-        console.log('Applying user icon:', iconType, 'to', userMessageIcons.length, 'user message icons');
-
-        userMessageIcons.forEach(icon => {
-            // Clear all existing styles and content
-            icon.style.backgroundImage = '';
-            icon.style.background = '';
-            icon.style.display = '';
-            icon.style.alignItems = '';
-            icon.style.justifyContent = '';
-            icon.style.fontSize = '';
-            icon.innerHTML = '';
-
-            // Apply new icon based on type
-            switch (iconType) {
-                case 'friendly':
-                    icon.style.background = "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)";
-                    icon.style.display = "flex";
-                    icon.style.alignItems = "center";
-                    icon.style.justifyContent = "center";
-                    icon.innerHTML = "😊";
-                    icon.style.fontSize = "16px";
-                    break;
-                case 'robot':
-                    // Create icon element and add to container with gradient background
-                    const robotIcon = window.Icon.create('robotAvatar', { color: 'white', size: '20px' });
-                    icon.style.background = "linear-gradient(135deg, #607D8B 0%, #455A64 100%)";
-                    icon.style.display = "flex";
-                    icon.style.alignItems = "center";
-                    icon.style.justifyContent = "center";
-                    icon.appendChild(robotIcon);
-                    break;
-                case 'assistant':
-                    const assistantIcon = window.Icon.create('assistantAvatar', { color: 'white', size: '20px' });
-                    icon.style.background = "linear-gradient(135deg, #2196F3 0%, #1976D2 100%)";
-                    icon.style.display = "flex";
-                    icon.style.alignItems = "center";
-                    icon.style.justifyContent = "center";
-                    icon.appendChild(assistantIcon);
-                    break;
-                case 'smart':
-                    const smartIcon = window.Icon.create('smartAvatar', { color: 'white', size: '20px' });
-                    icon.style.background = "linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)";
-                    icon.style.display = "flex";
-                    icon.style.alignItems = "center";
-                    icon.style.justifyContent = "center";
-                    icon.appendChild(smartIcon);
-                    break;
-                case 'modern':
-                    const modernIcon = window.Icon.create('modernAvatar', { color: 'white', size: '20px' });
-                    icon.style.background = "linear-gradient(135deg, #FF5722 0%, #D84315 100%)";
-                    icon.style.display = "flex";
-                    icon.style.alignItems = "center";
-                    icon.style.justifyContent = "center";
-                    icon.appendChild(modernIcon);
-                    break;
-                case 'cute':
-                    icon.style.background = "linear-gradient(135deg, #FF9800 0%, #F57C00 100%)";
-                    icon.style.display = "flex";
-                    icon.style.alignItems = "center";
-                    icon.style.justifyContent = "center";
-                    icon.innerHTML = "🤖";
-                    icon.style.fontSize = "14px";
-                    break;
-                case 'professional':
-                    const professionalIcon = window.Icon.create('professionalAvatar', { color: 'white', size: '20px' });
-                    icon.style.background = "linear-gradient(135deg, #34495e 0%, #2c3e50 100%)";
-                    icon.style.display = "flex";
-                    icon.style.alignItems = "center";
-                    icon.style.justifyContent = "center";
-                    icon.appendChild(professionalIcon);
-                    break;
-                case 'gaming':
-                    const gamingIcon = window.Icon.create('gamingAvatar', { color: 'white', size: '20px' });
-                    icon.style.background = "linear-gradient(135deg, #E91E63 0%, #C2185B 100%)";
-                    icon.style.display = "flex";
-                    icon.style.alignItems = "center";
-                    icon.style.justifyContent = "center";
-                    icon.appendChild(gamingIcon);
-                    break;
-                case 'minimal':
-                    const minimalIcon = window.Icon.create('minimalAvatar', { color: 'white', size: '20px' });
-                    icon.style.background = "linear-gradient(135deg, #795548 0%, #5D4037 100%)";
-                    icon.style.display = "flex";
-                    icon.style.alignItems = "center";
-                    icon.style.justifyContent = "center";
-                    icon.appendChild(minimalIcon);
-                    break;
-                case 'carter':
-                    icon.style.backgroundImage = "url('images/carter_30k.png')";
-                    break;
-                case 'custom':
-                    const customIconData = localStorage.getItem('customUserIconData');
-                    if (customIconData) {
-                        icon.style.backgroundImage = `url(${customIconData})`;
-                    }
-                    break;
-            }
-        });
-
-        console.log('User icon application completed');
-    }
-
-    /**
-     * Load saved user icon setting
-     * @private
-     */
-    loadUserIconSetting() {
-        console.log('Loading user icon setting...');
-
-        const savedIcon = localStorage.getItem('userIcon') || 'friendly-avatar';
-        console.log('Saved user icon:', savedIcon);
-
-        // Extract the base icon type (remove -avatar suffix for UI matching)
-        const iconType = savedIcon.replace('-avatar', '');
-
-        // Update UI selection
-        const iconOptions = document.querySelectorAll('.icon-option');
-        iconOptions.forEach(option => {
-            option.classList.remove('selected');
-            if (option.getAttribute('data-icon') === iconType) {
-                option.classList.add('selected');
-            }
-        });
-
-        // Update preview
-        this.updateUserIconPreview(iconType);
-
-        // If custom icon, restore the image
-        if (iconType === 'custom') {
-            const customIconData = localStorage.getItem('customUserIconData');
-            if (customIconData) {
-                const customIconElements = document.querySelectorAll('.custom-icon');
-                customIconElements.forEach(element => {
-                    element.style.backgroundImage = `url(${customIconData})`;
-                    element.classList.add('has-image');
-                });
-            }
-        }
-
-        // Apply to existing messages (use base iconType without -avatar for applyUserIcon)
-        this.applyUserIcon(iconType);
-
-        console.log('User icon setting loaded');
-    }
 
     /**
      * Setup color theme selection
@@ -3885,9 +3589,6 @@ export class Application {
             }
         });
 
-        // Update current theme preview
-        this.updateCurrentThemePreview(themeName);
-
         // Apply theme immediately
         this.applyColorTheme(themeName);
 
@@ -3925,42 +3626,6 @@ export class Application {
     }
 
     /**
-     * Update the current theme preview display
-     * @param {string} themeName - The name of the theme to preview
-     */
-    updateCurrentThemePreview(themeName) {
-        const currentThemePreview = document.getElementById('currentThemePreview');
-        if (!currentThemePreview) return;
-
-        const themeGradient = currentThemePreview.querySelector('.theme-gradient');
-        const themeName_element = currentThemePreview.querySelector('.theme-name');
-
-        if (themeGradient && themeName_element) {
-            // Remove all existing theme classes
-            themeGradient.className = 'theme-gradient';
-
-            // Add the new theme class
-            themeGradient.classList.add(`${themeName}-theme`);
-
-            // Update the theme name text
-            const themeNames = {
-                'default': 'Default',
-                'ocean': 'Ocean',
-                'sunset': 'Sunset',
-                'forest': 'Forest',
-                'cosmic': 'Cosmic',
-                'aurora': 'Aurora',
-                'minimal': 'Minimal',
-                'dark': 'Dark'
-            };
-
-            themeName_element.textContent = themeNames[themeName] || 'Unknown';
-
-            console.log('Updated current theme preview to:', themeName);
-        }
-    }
-
-    /**
      * Load saved color theme setting
      * @private
      */
@@ -3981,9 +3646,6 @@ export class Application {
                 option.classList.add('selected');
             }
         });
-
-        // Update current theme preview
-        this.updateCurrentThemePreview(savedTheme);
 
         // Apply the theme immediately
         this.applyColorTheme(savedTheme);
@@ -4007,9 +3669,6 @@ export class Application {
                 option.classList.add('selected');
             }
         });
-
-        // Update current theme preview if it exists
-        this.updateCurrentThemePreview(currentTheme);
 
         console.log('Theme UI selection updated');
     }
@@ -4051,14 +3710,7 @@ export class Application {
             iconToggle.checked = enabled;
         }
 
-        // Show/hide user icon setting section based on message icons enabled state
-        const userIconGroup = document.getElementById('userIconGroup');
-        if (userIconGroup) {
-            userIconGroup.style.display = enabled ? '' : 'none';
-        }
-
         console.log('Message icons', enabled ? 'enabled' : 'disabled');
-        console.log('User icon section', enabled ? 'shown' : 'hidden');
     }
 
     /**

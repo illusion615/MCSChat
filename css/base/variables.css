@@ -1,0 +1,139 @@
+/* CSS Custom Properties for consistent theming */
+:root {
+    /* Semantic color system */
+    --color-success: #107c10;
+    --color-warning: #ff8c00;
+    --color-danger: #d13438;
+    --color-info: #0078d4;
+    --color-neutral: #8a8886;
+    --color-disabled: #6c757d;
+
+    /* Status shadows */
+    --shadow-success: 0 0 8px rgba(16, 124, 16, 0.3);
+    --shadow-warning: 0 0 8px rgba(255, 140, 0, 0.3);
+    --shadow-danger: 0 0 8px rgba(209, 52, 56, 0.3);
+
+    /* Reusable gradients */
+    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-light: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    --gradient-neutral: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    --gradient-kpi: linear-gradient(135deg, #ffffff 0%, #f7fafc 100%);
+    --gradient-shimmer: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+    --gradient-success: linear-gradient(135deg, #10b981 0%, #34d399 50%, #6ee7b7 100%);
+    --gradient-info: linear-gradient(135deg, #3b82f6 0%, #60a5fa 50%, #93c5fd 100%);
+    --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #fcd34d 100%);
+    --gradient-error: linear-gradient(135deg, #ef4444 0%, #f87171 50%, #fca5a5 100%);
+    --gradient-dark: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    --gradient-dark-secondary: linear-gradient(135deg, #334155 0%, #475569 100%);
+    --gradient-microsoft: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+    --gradient-copilot: linear-gradient(135deg, #0078d4 0%, #8b5fbf 100%);
+    --gradient-copilot-vibrant: linear-gradient(135deg, #0066cc 0%, #8b5fbf 100%);
+
+    /* Theme background gradient - can be dynamically changed */
+    --theme-background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+    /* UNIFIED: Common spacing and sizing variables */
+    --spacing-xs: 4px;
+    --spacing-sm: 6px;
+    --spacing-md: 8px;
+    --spacing-lg: 12px;
+    --spacing-xl: 16px;
+    --spacing-xxl: 24px;
+
+    /* UNIFIED: Common border radius values */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+
+    /* UNIFIED: Common font sizes */
+    --font-size-xs: 12px;
+    --font-size-sm: 13px;
+    --font-size-md: 14px;
+
+    /* MESSAGE CONTENT: Design tokens for message styling */
+    --msg-border-radius: 20px;
+    --msg-border-radius-compact: 10px;
+    --msg-line-height: 1.5;
+    --msg-max-width: 70%;
+    --msg-max-width-mobile: 85%;
+    --msg-max-width-expanded: 90%;
+    --msg-max-width-full: 100%;
+    
+    /* MESSAGE CONTENT: Color scheme for different message types */
+    --msg-user-bg: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+    --msg-user-color: #ffffff;
+    --msg-user-shadow: 0 2px 8px rgba(0, 120, 212, 0.3);
+    --msg-user-border-radius: 20px 20px 4px 20px;
+    
+    --msg-bot-bg: rgba(248, 249, 250, 0.9);
+    --msg-bot-color: #323130;
+    --msg-bot-border: 1px solid rgba(0, 0, 0, 0.08);
+    --msg-bot-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    --msg-bot-border-radius: 20px 20px 20px 4px;
+    
+    --msg-companion-user-bg: linear-gradient(135deg, #8b5fbf 0%, #744c9e 100%);
+    --msg-companion-user-color: #ffffff;
+    --msg-companion-user-border: 1px solid rgba(139, 95, 191, 0.3);
+    --msg-companion-user-shadow: 0 2px 8px rgba(139, 95, 191, 0.4);
+    
+    --msg-companion-response-bg: rgba(248, 249, 250, 0.95);
+    --msg-companion-response-color: #323130;
+    --msg-companion-response-border: 1px solid rgba(139, 95, 191, 0.3);
+    --msg-companion-response-shadow: 0 2px 8px rgba(139, 95, 191, 0.12);
+    
+    /* MESSAGE CONTENT: Typography elements */
+    --msg-code-bg: rgba(0, 0, 0, 0.08);
+    --msg-code-bg-user: rgba(255, 255, 255, 0.2);
+    --msg-code-font: 'Consolas', 'Monaco', 'Courier New', monospace;
+    --msg-code-size: 0.9em;
+    
+    --msg-pre-bg: rgba(0, 0, 0, 0.05);
+    --msg-pre-bg-user: rgba(255, 255, 255, 0.15);
+    --msg-pre-border: 1px solid rgba(0, 0, 0, 0.1);
+    --msg-pre-border-user: 1px solid rgba(255, 255, 255, 0.2);
+    
+    --msg-quote-border: 4px solid rgba(0, 0, 0, 0.2);
+    --msg-quote-border-user: 4px solid rgba(255, 255, 255, 0.5);
+    --msg-quote-color: rgba(0, 0, 0, 0.7);
+    --msg-quote-color-user: rgba(255, 255, 255, 0.9);
+    
+    --msg-link-color: #0078d4;
+    --msg-link-color-user: rgba(255, 255, 255, 0.9);
+    --msg-link-color-user-border: rgba(255, 255, 255, 0.3);
+    --msg-link-color-user-hover: #ffffff;
+    
+    /* MESSAGE CONTENT: Table styling */
+    --msg-table-font-size: 0.9em;
+    --msg-table-border: 1px solid rgba(0, 0, 0, 0.1);
+    --msg-table-border-user: 1px solid rgba(255, 255, 255, 0.2);
+    --msg-table-header-bg: rgba(0, 0, 0, 0.05);
+    --msg-table-header-bg-user: rgba(255, 255, 255, 0.15);
+    
+    /* MESSAGE CONTENT: Text colors */
+    --msg-text-color: #333;
+    --msg-text-color-user: #ffffff;
+    
+    /* MESSAGE CONTENT: Horizontal rules */
+    --msg-hr-color: rgba(0, 0, 0, 0.1);
+    --msg-hr-color-user: rgba(255, 255, 255, 0.3);
+    
+    /* MESSAGE CONTENT: Thinking message styling */
+    --msg-thinking-bg: var(--msg-companion-response-bg);
+    --msg-thinking-color: var(--msg-companion-response-color);
+    --msg-thinking-border: var(--msg-companion-response-border);
+    --msg-thinking-shadow: var(--msg-companion-response-shadow);
+    --msg-thinking-max-width: var(--msg-max-width-expanded);
+    --msg-thinking-opacity: 0.9;
+    --msg-thinking-font-style: italic;
+    
+    /* MESSAGE CONTENT: Text flow settings for different message types */
+    --msg-text-flow-default: break-word;
+    --msg-text-flow-streaming: normal;
+    --msg-hyphens-default: auto;
+    --msg-hyphens-streaming: none;
+    --msg-whitespace-default: normal;
+    --msg-whitespace-streaming: pre-wrap;
+
+    --font-size-lg: 16px;
+}

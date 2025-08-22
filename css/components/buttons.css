@@ -1,0 +1,201 @@
+/* Button and Icon Components */
+
+.icon-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #605e5c;
+    flex-shrink: 0;
+}
+
+.icon-button:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: #323130;
+}
+
+.icon-button:active {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* AI Companion Expand Button */
+#expandAiCompanionBtn {
+    position: relative;
+}
+
+#expandAiCompanionBtn:hover {
+    background-color: rgba(0, 120, 212, 0.1);
+    color: #0078d4;
+}
+
+/* Panel Toggle Button - Always visible */
+.panel-toggle-btn {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    z-index: 1000;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    color: #8a8886;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.panel-toggle-btn:hover {
+    background: rgba(0, 120, 212, 0.1);
+    border-color: #0078d4;
+    color: #0078d4;
+    transform: scale(1.05);
+}
+
+/* Hide toggle button when panel is visible */
+body:not(.leftPanelCollapsed) .panel-toggle-btn {
+    display: none;
+}
+
+/* Action Buttons */
+.actionButton {
+    padding: 12px 18px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #323130;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: left;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.actionButton:hover {
+    background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+    color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
+}
+
+/* Actions Container */
+.actionsContainer {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/* Input Button - Base styling for input controls */
+.input-button {
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    color: #605e5c;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+}
+
+.input-button:hover {
+    background: rgba(0, 120, 212, 0.1);
+    border-color: rgba(0, 120, 212, 0.3);
+    color: #0078d4;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 120, 212, 0.2);
+}
+
+.input-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.input-button.primary {
+    background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+    color: white;
+    border-color: transparent;
+}
+
+.input-button.primary:hover {
+    background: linear-gradient(135deg, #106ebe 0%, #005a9e 100%);
+    color: white;
+}
+
+/* Voice Input Button - Updated to match input-button style when inactive */
+.voice-input-btn {
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    color: #605e5c;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+}
+
+.voice-input-btn:hover {
+    background: rgba(0, 120, 212, 0.1);
+    border-color: rgba(0, 120, 212, 0.3);
+    color: #0078d4;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 120, 212, 0.2);
+}
+
+.voice-input-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Voice input button recording state */
+.voice-input-btn.recording {
+    background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+    color: white;
+    border-color: transparent;
+    animation: pulse-recording 1.5s ease-in-out infinite;
+}
+
+.voice-input-btn.recording:hover {
+    background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
+    color: white;
+}
+
+/* Recording pulse animation */
+@keyframes pulse-recording {
+    0%, 100% {
+        box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+    }
+    50% {
+        box-shadow: 0 4px 20px rgba(220, 38, 38, 0.6);
+        transform: translateY(-1px) scale(1.05);
+    }
+}

@@ -4,7 +4,7 @@
 <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>SVG Icon Library - Universal Example</title>
+      <title>SVG Icon Library - Management & Preview</title>
       <style>
             * {
                   margin: 0;
@@ -39,13 +39,29 @@
                   color: white;
                   padding: 1rem 2rem;
                   flex-shrink: 0;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
             }
 
             .header h1 {
                   font-size: 1.5rem;
                   margin: 0;
                   font-weight: 700;
-                  text-align: left;
+            }
+
+            .header .stats {
+                  display: flex;
+                  gap: 1rem;
+                  align-items: center;
+                  font-size: 0.9rem;
+                  opacity: 0.9;
+            }
+
+            .stat-item {
+                  background: rgba(255, 255, 255, 0.1);
+                  padding: 0.25rem 0.75rem;
+                  border-radius: 1rem;
             }
 
             .header p {
@@ -1580,17 +1596,22 @@
             </div>
 
             <script type="module">
-                  // Import the SVG Icon Library
-                  import { IconManager, IconThemes, Icons, IconUtils } from '../index.js';
+                  // Import the SVG Icon Library with correct imports
+                  import Icon, { 
+                        getAvailableIcons, 
+                        hasIcon, 
+                        createSVGIcon,
+                        getIconCategory,
+                        getIconsByCategory,
+                        searchIcons
+                  } from '../index.js';
 
-                  // Use the Icons instance for easier API access
-                  let icons = Icons;
-
-                  // Global variables
+                  // Global variables  
                   let currentTheme = 'default';
                   let currentSize = 'medium';
                   let currentCodeType = 'javascript';
                   let iconLibrary = []; // Store available icons
+                  let selectedIcon = null;
                   let currentIconStyles = {
                         shape: 'none',
                         backgroundColor: 'transparent',
@@ -1600,24 +1621,30 @@
                   };
 
                   // Initialize the application
-                  document.addEventListener('DOMContentLoaded', () => {
-                        initializeApp();
-                        setupEventListeners();
-                        loadIconLibrary();
-                        loadThemes();
-                        updateStats();
-
-                        // Initialize theme preview sections
-                        updateSizeComparison();
-                        updateUseCases();
-                        updateIconPreview();
+                  document.addEventListener('DOMContentLoaded', async () => {
+                        log('🚀 Initializing SVG Icon Library Demo...', 'info');
+                        
+                        try {
+                              // Wait for icons to load
+                              await Icon.waitForLoad();
+                              
+                              initializeApp();
+                              setupEventListeners();
+                              loadIconLibrary();
+                              updateStats();
+                              updateIconPreview();
+                              
+                              log('✅ Demo ready!', 'success');
+                        } catch (error) {
+                              log(`❌ Initialization failed: ${error.message}`, 'error');
+                        }
                   });
 
                   function initializeApp() {
-                        log('🚀 Initializing SVG Icon Library Demo...', 'info');
-
-                        // Configure icon manager
-                        icons.config.enableAnimations = true;
+                        // Get available icons from the Icon manager
+                        iconLibrary = getAvailableIcons();
+                        log(`� Found ${iconLibrary.length} icons in the library`, 'info');
+                  }
 
                         log('✅ Icon Library initialized successfully', 'success');
                   }
@@ -1888,23 +1915,44 @@
                   }
 
                   function createStyledIcon(iconName, size = 'medium') {
-                        if (!icons.hasIcon(iconName)) {
+                        if (!hasIcon(iconName)) {
+                              log(`⚠️  Icon '${iconName}' not found in library`, 'warn');
                               return null;
                         }
 
-                        const icon = icons.create(iconName, { size: size });
+                        // Use the Icon manager to create the icon
+                        const sizeMap = { 
+                              xs: '16px', 
+                              small: '20px', 
+                              medium: '24px', 
+                              large: '28px', 
+                              xl: '36px', 
+                              xxl: '48px' 
+                        };
+                        
+                        const iconSize = sizeMap[size] || '24px';
+                        
+                        const icon = Icon.create(iconName, { 
+                              size: iconSize,
+                              color: currentIconStyles.iconColor 
+                        });
+                        
+                        if (!icon) {
+                              log(`❌ Failed to create icon '${iconName}'`, 'error');
+                              return null;
+                        }
+
                         const wrapper = document.createElement('div');
                         wrapper.style.display = 'inline-flex';
                         wrapper.style.alignItems = 'center';
                         wrapper.style.justifyContent = 'center';
                         wrapper.style.position = 'relative';
 
-                        // Apply shape styling
+                        // Apply shape styling if specified
                         if (currentIconStyles.shape !== 'none') {
-                              const sizeMap = { xs: 16, small: 20, medium: 24, large: 28, xl: 36, xxl: 48 };
-                              const iconSize = sizeMap[size] || 24;
-                              const padding = iconSize * 0.3;
-                              const totalSize = iconSize + (padding * 2);
+                              const iconSizePx = parseInt(iconSize);
+                              const padding = iconSizePx * 0.3;
+                              const totalSize = iconSizePx + (padding * 2);
 
                               wrapper.style.width = `${totalSize}px`;
                               wrapper.style.height = `${totalSize}px`;
@@ -1937,7 +1985,9 @@
                               }
                         }
 
-                        // Apply icon color
+                        wrapper.appendChild(icon);
+                        return wrapper;
+                  }
                         if (currentIconStyles.iconColor !== 'currentColor') {
                               icon.style.color = currentIconStyles.iconColor;
                               // Also set fill for SVG elements
@@ -2670,54 +2720,92 @@
 
                   function loadIconLibrary() {
                         const iconGrid = document.getElementById('iconGrid');
+                        if (!iconGrid) {
+                              log('❌ Icon grid element not found', 'error');
+                              return;
+                        }
+                        
                         iconGrid.innerHTML = '';
 
-                        // Use actual icon names from the SVG library
-                        const iconNames = [
-                              'newChat', 'delete', 'send', 'attach', 'microphone', 'user', 'agent',
-                              'aiCompanion', 'knowledgeHub', 'welcomeDocument', 'arrowLeft', 'arrowRight',
-                              'dropdown', 'robotAvatar', 'assistantAvatar', 'smartAvatar', 'modernAvatar',
-                              'professionalAvatar', 'gameAvatar', 'gamingAvatar', 'friendly'
-                        ];
+                        // Get all available icons from the Icon manager
+                        const availableIcons = getAvailableIcons();
+                        iconLibrary = availableIcons;
+                        
+                        log(`📦 Loading ${iconLibrary.length} icons`, 'info');
 
-                        // Update global iconLibrary variable
-                        iconLibrary = iconNames;
+                        const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+                        const categoryFilter = document.getElementById('categoryFilter')?.value || '';
 
-                        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-                        const categoryFilter = document.getElementById('categoryFilter').value;
-
-                        iconNames.forEach(name => {
+                        let displayedCount = 0;
+                        iconLibrary.forEach(name => {
                               // Apply search filter
                               if (searchTerm && !name.toLowerCase().includes(searchTerm)) return;
 
-                              // Apply category filter (simple categorization for demo)
+                              // Apply category filter
                               const category = getIconCategory(name);
                               if (categoryFilter && category !== categoryFilter) return;
 
                               const iconItem = document.createElement('div');
                               iconItem.className = 'icon-item';
                               iconItem.setAttribute('data-category', category);
+                              iconItem.setAttribute('data-icon-name', name);
                               iconItem.addEventListener('click', () => selectIcon(name));
 
                               try {
-                                    // Create icon with custom styling applied
+                                    // Create icon using the Icon manager
                                     const icon = createStyledIcon(name, currentSize);
                                     if (icon) {
-                                          // Apply current theme styling on top of custom styling
-                                          applyThemeToIcon(icon, currentTheme);
-
                                           const nameLabel = document.createElement('div');
                                           nameLabel.className = 'icon-name';
                                           nameLabel.textContent = name;
 
+                                          const categoryLabel = document.createElement('div');
+                                          categoryLabel.className = 'icon-category';
+                                          categoryLabel.textContent = category;
+                                          categoryLabel.style.fontSize = '0.75rem';
+                                          categoryLabel.style.color = '#999';
+                                          categoryLabel.style.marginTop = '0.25rem';
+
                                           iconItem.appendChild(icon);
                                           iconItem.appendChild(nameLabel);
+                                          iconItem.appendChild(categoryLabel);
                                           iconGrid.appendChild(iconItem);
+                                          displayedCount++;
                                     }
                               } catch (error) {
-                                    // If icon doesn't exist, create a placeholder
+                                    log(`❌ Error creating icon '${name}': ${error.message}`, 'error');
+                                    
+                                    // Create a placeholder for missing icons
                                     const placeholder = document.createElement('div');
-                                    placeholder.style.width = '24px';
+                                    placeholder.style.cssText = `
+                                          width: 24px; 
+                                          height: 24px; 
+                                          background: #f0f0f0; 
+                                          border: 2px dashed #ccc; 
+                                          border-radius: 4px;
+                                          display: flex;
+                                          align-items: center;
+                                          justify-content: center;
+                                          font-size: 12px;
+                                          color: #999;
+                                    `;
+                                    placeholder.textContent = '?';
+
+                                    const nameLabel = document.createElement('div');
+                                    nameLabel.className = 'icon-name';
+                                    nameLabel.textContent = `${name} (missing)`;
+                                    nameLabel.style.color = '#ff6b6b';
+
+                                    iconItem.appendChild(placeholder);
+                                    iconItem.appendChild(nameLabel);
+                                    iconGrid.appendChild(iconItem);
+                                    displayedCount++;
+                              }
+                        });
+                        
+                        log(`✅ Displayed ${displayedCount} icons`, 'success');
+                        updateStats();
+                  }
                                     placeholder.style.height = '24px';
                                     placeholder.style.backgroundColor = '#e1e8ed';
                                     placeholder.style.borderRadius = '4px';

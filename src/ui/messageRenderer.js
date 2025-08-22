@@ -2032,14 +2032,14 @@ export class MessageRenderer {
                 className: 'metadata-duration'
             }, timeSpent);
 
-            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' �?'));
+            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • '));
             metadata.appendChild(timeSpentSpan);
         }
 
         // Add speaker button and progress bar for non-user messages
         if (!isUserMessage && activity) {
             // Add separator before speaker controls
-            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' �?'));
+            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • '));
 
             // Create speaker controls container
             const speakerControls = DOMUtils.createElement('div', {

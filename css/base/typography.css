@@ -1,0 +1,15 @@
+/* Base typography and body styles */
+
+body {
+    font-family: "Segoe UI", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Roboto", "Helvetica Neue", Arial, sans-serif;
+    background: var(--theme-background);
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    flex-direction: column;
+    color: #323130;
+}

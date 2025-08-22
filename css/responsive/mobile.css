@@ -1,0 +1,615 @@
+/* Mobile responsive layout styles */
+
+/* Global mobile viewport reset */
+@media (max-width: 768px) {
+    /* Full screen mobile layout reset */
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        overflow-x: hidden !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Ensure app takes full screen */
+    #app, #root, .app-container {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+}
+
+/* KPI Mobile Styles */
+@media (max-width: 768px) {
+    .kpi-section {
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+
+    .kpi-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .kpi-item {
+        padding: 10px 8px;
+    }
+
+    .kpi-value {
+        font-size: 16px;
+    }
+
+    .kpi-header h4 {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .kpi-section {
+        padding: 12px;
+        border-radius: 12px;
+    }
+
+    .kpi-item {
+        padding: 12px 10px;
+        border-radius: 8px;
+    }
+
+    .kpi-value {
+        font-size: 22px;
+    }
+
+    .kpi-bar {
+        height: 4px;
+    }
+}
+
+/* KPI Modal Mobile Styles */
+@media (max-width: 768px) {
+    .kpi-modal-content {
+        width: 95%;
+        max-height: 90vh;
+        margin: 10px;
+        border-radius: 12px;
+    }
+
+    .kpi-modal-header {
+        padding: 16px 20px;
+    }
+
+    .kpi-modal-header h3 {
+        font-size: 18px;
+    }
+
+    .kpi-modal-body {
+        padding: 16px 20px;
+        max-height: calc(90vh - 70px);
+    }
+
+    .kpi-score-display {
+        padding: 16px;
+        margin-bottom: 20px;
+    }
+
+    .kpi-score-value {
+        font-size: 28px;
+    }
+
+    .kpi-explanation,
+    .conversation-context {
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .context-messages {
+        max-height: 200px;
+    }
+
+    .kpi-modal-close {
+        width: 32px;
+        height: 32px;
+        font-size: 24px;
+    }
+}
+
+/* Side Command Bar Mobile Hide */
+@media screen and (max-width: 768px) {
+    #sideCommandBar {
+        display: none;
+        /* Hide on mobile, use mobile header instead */
+    }
+
+    #container {
+        margin-left: 0;
+        height: calc(100vh - 60px);
+        /* Full height minus mobile header */
+        border-radius: 0;
+        padding: 0;
+    }
+
+    #leftPanel {
+        left: 0;
+    }
+}
+
+/* Main Mobile Layout */
+@media screen and (max-width: 768px) {
+
+    /* Enhanced mobile reset for full screen */
+    html, body {
+        height: 100%;
+        height: 100vh;
+        height: 100dvh; /* Dynamic viewport height for modern browsers */
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+        position: relative;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* Ensure no margin/padding that might create extra space */
+    * {
+        box-sizing: border-box;
+    }
+
+    /* Remove any default spacing from root elements */
+    #app, #root, main {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    /* Show mobile header */
+    #mobileHeader {
+        display: flex;
+    }
+
+    /* Adjust main container for mobile - take full height minus header */
+    #container {
+        margin: 0;
+        padding: 0;
+        border-radius: 0;
+        margin-top: 60px; /* Account for fixed mobile header height */
+        height: calc(100vh - 60px);
+        height: calc(100dvh - 60px); /* Dynamic viewport height minus header */
+        max-height: calc(100vh - 60px);
+        max-height: calc(100dvh - 60px);
+        width: 100%;
+        max-width: 100%;
+        position: relative;
+        left: 0;
+        right: 0;
+        display: flex;
+        flex-direction: row; /* Maintain horizontal layout */
+        overflow: hidden;
+        background: white; /* Remove gradient background in mobile */
+    }
+
+    /* Transform left panel to mobile sidebar */
+    #leftPanel {
+        position: fixed;
+        top: 0;
+        left: -100%;
+        width: 280px;
+        height: 100vh;
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.98);
+        -webkit-backdrop-filter: blur(15px);
+        backdrop-filter: blur(15px);
+        border-right: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 0;
+        padding: 70px 24px 24px 24px;
+        transition: left 0.3s ease;
+        box-shadow: 2px 0 15px rgba(0, 0, 0, 0.1);
+    }
+
+    #leftPanel.mobile-open {
+        left: 0;
+    }
+
+    /* Main chat area takes full width and height */
+    #mainChatArea {
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    /* Adjust chat panels for mobile */
+    #agentChatPanel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        margin: 0;
+        border-radius: 0;
+        height: 100%;
+        overflow: hidden;
+        background: white;
+    }
+
+    /* Fix panel header positioning */
+    .panel-header {
+        position: relative;
+        z-index: 1;
+        padding: 16px 20px;
+        flex-shrink: 0;
+        background: white;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    /* Ensure chat window fills remaining space */
+    #chatWindow {
+        margin-top: 0;
+        padding: 8px 0 0 0;
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Remove any container padding that creates blue space */
+    #container {
+        margin: 0;
+        border-radius: 0;
+        margin-top: 0px;
+        height: 100vh;
+        padding-top: 0;
+        background: white;
+        /* Ensure no blue background */
+    }
+
+    /* Mobile message adjustments */
+    .messageContent {
+        max-width: 85%;
+        padding: 12px 16px;
+        font-size: 15px;
+        line-height: 1.5;
+    }
+
+    /* Hide message icons on mobile to save space */
+    .messageIcon {
+        display: none;
+    }
+
+    /* Adjust message container layout without icons */
+    .messageContainer.userMessage,
+    .messageContainer.botMessage {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .messageContainer.userMessage .messageContent {
+        max-width: 90%;
+        /* Increase max-width since icon is hidden */
+    }
+
+    .messageContainer.botMessage .messageContent {
+        max-width: 90%;
+        /* Increase max-width since icon is hidden */
+    }
+
+    /* Mobile input adjustments */
+    #userInput {
+        font-size: 16px;
+        /* Prevent zoom on iOS */
+        padding: 12px 16px;
+    }
+
+    #inputContainer {
+        padding: 12px 16px;
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+        border-radius: 0;
+        margin: 0;
+        background: white;
+        flex-shrink: 0;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+        position: relative; /* Change from sticky to relative */
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Chat window layout - fills space between header and input */
+    #chatWindow {
+        margin: 0;
+        padding: 16px;
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        min-height: 0; /* Allow flex item to shrink */
+        background: white;
+    }
+
+    /* Ensure messages container has proper layout */
+    .chat-window {
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Welcome message - don't center vertically to avoid unwanted space */
+    .welcome-message {
+        padding: 24px 0;
+        text-align: center;
+        /* Remove margin: auto 0 that was causing spacing issues */
+    }
+
+    .welcome-message h4 {
+        font-size: 20px;
+        margin: 16px 0 12px 0;
+    }
+
+    .welcome-message p {
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    /* Session list mobile adjustments */
+    .sessionItem {
+        padding: 12px 16px;
+        margin-bottom: 8px;
+        border-radius: 8px;
+    }
+
+    .sessionItem:hover {
+        transform: none;
+        /* Disable hover transform on mobile */
+    }
+
+    /* AI companion panel mobile - make visible but keep basic styling */
+    #llmAnalysisPanel {
+        position: fixed;
+        top: 60px;
+        right: -100%;
+        width: 90%;
+        max-width: 400px;
+        height: calc(100vh - 60px);
+        z-index: 998;
+        transition: right 0.3s ease;
+    }
+
+    #llmAnalysisPanel.mobile-open {
+        right: 0;
+    }
+
+    /* KPI panel mobile adjustments */
+    .kpi-panel {
+        padding: 12px;
+        margin: 8px;
+        border-radius: 8px;
+    }
+
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .kpi-item {
+        padding: 12px;
+    }
+
+    .kpi-value {
+        font-size: 22px;
+    }
+
+    .kpi-label {
+        font-size: 11px;
+    }
+}
+
+/* Small Mobile Devices */
+@media (max-width: 480px) {
+
+    /* Smaller sidebar on very small screens */
+    #leftPanel {
+        width: 260px;
+        padding: 70px 16px 16px 16px;
+    }
+
+    /* Tighter spacing */
+    #agentChatPanel {
+        padding: 12px;
+    }
+
+    .messageContent {
+        max-width: 90%;
+        padding: 10px 14px;
+        font-size: 14px;
+    }
+
+    #userInput {
+        font-size: 16px;
+        padding: 10px 14px;
+    }
+
+    #inputContainer {
+        padding: 10px 12px;
+    }
+
+    .welcome-message {
+        padding: 20px 12px;
+    }
+
+    .welcome-message h4 {
+        font-size: 18px;
+    }
+
+    .welcome-message p {
+        font-size: 13px;
+    }
+
+    /* Single column KPI grid */
+    .kpi-grid {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+
+    .kpi-item {
+        padding: 10px;
+    }
+
+    /* History header mobile adjustments */
+    #historyHeader {
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    #historyHeader h3 {
+        font-size: 16px;
+        width: 100%;
+        margin-bottom: 8px;
+    }
+
+    .icon-button {
+        padding: 4px;
+    }
+}
+
+/* Landscape mobile orientation */
+@media (max-width: 768px) and (orientation: landscape) {
+    #container {
+        margin-top: 50px;
+        height: calc(100vh - 50px);
+    }
+
+    #mobileHeader {
+        height: 50px;
+        padding: 0 12px;
+    }
+
+    #leftPanel {
+        padding: 60px 20px 20px 20px;
+    }
+
+    .welcome-message {
+        padding: 16px;
+    }
+}
+
+/* Touch-friendly adjustments */
+@media (hover: none) and (pointer: coarse) {
+    .sessionItem {
+        min-height: 44px;
+        /* Minimum touch target size */
+    }
+
+    .icon-button {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 10px;
+    }
+
+    .mobile-menu-btn,
+    .mobile-action-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .mobile-actions {
+        gap: 4px;
+        /* Reduce gap on smaller screens */
+    }
+
+    /* Larger touch targets for buttons */
+    #sendButton,
+    .actionButton {
+        min-height: 44px;
+        padding: 12px 16px;
+    }
+
+    /* Mobile adjustments for action containers */
+    #suggestedActionsContainer {
+        margin: 12px 16px;
+        padding: 0;
+    }
+
+    .suggested-actions {
+        gap: 6px;
+        padding: 0;
+    }
+
+    .suggestedAction {
+        min-height: 44px; /* Touch-friendly height */
+        padding: 10px 14px;
+        font-size: 14px;
+        border-radius: 22px;
+    }
+
+    #llmQuickActionsContainer {
+        margin: 0 16px 8px 16px;
+    }
+
+    .llm-quick-actions {
+        gap: 4px;
+        padding: 6px 0;
+    }
+
+    .quick-action-btn {
+        min-height: 40px; /* Touch-friendly height */
+        padding: 8px 12px;
+        font-size: 13px;
+        border-radius: 20px;
+    }
+
+    /* Mobile voice input button */
+    .voice-input-btn {
+        width: 48px; /* Larger touch target */
+        height: 48px;
+        margin-right: 6px !important; /* Override inline styles */
+    }
+
+    /* Mobile speech controls */
+    .speech-controls {
+        margin: 12px 16px;
+        padding: 16px;
+    }
+
+    .slider-container {
+        gap: 8px;
+    }
+
+    .speech-slider {
+        height: 8px; /* Larger slider for easier touch interaction */
+    }
+
+    .speech-slider::-webkit-slider-thumb {
+        width: 24px; /* Larger thumb for touch */
+        height: 24px;
+    }
+
+    .speech-slider::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+    }
+
+    .slider-value {
+        min-width: 60px;
+        font-size: 14px;
+    }
+
+    /* Mobile message speaker button */
+    .message-speaker-btn {
+        width: 36px; /* Larger touch target */
+        height: 36px;
+        padding: 8px;
+        margin-left: 6px;
+    }
+
+    .message-speaker-btn.metadata-speaker-btn {
+        width: 28px; /* Larger touch target for metadata version */
+        height: 28px;
+        padding: 6px;
+        margin-left: 4px;
+    }
+}

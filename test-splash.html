@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splash Screen Test</title>
+    
+    <!-- Critical Splash Screen CSS - Inline for instant loading -->
+    <style>
+        /* Splash Screen Critical CSS - Embedded for immediate display */
+        #splashScreen{position:fixed;top:0;left:0;width:100vw;height:100vh;background:linear-gradient(135deg,#0078d4 0%,#8b5fbf 100%);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:10000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;transition:opacity .5s ease-out,visibility .5s ease-out}#splashScreen.hidden{opacity:0;visibility:hidden}.splash-logo{width:120px;height:120px;margin-bottom:2rem;background:rgba(255,255,255,.15);border-radius:20px;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);animation:pulse 2s ease-in-out infinite}.splash-logo svg{width:64px;height:64px;color:#fff;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.2))}.splash-title{font-size:2.2rem;font-weight:300;margin-bottom:.5rem;text-align:center;line-height:1.2}.splash-subtitle{font-size:1.1rem;opacity:.8;margin-bottom:3rem;text-align:center}.splash-progress{width:320px;max-width:80vw;margin-bottom:1.5rem}.splash-progress-bar{width:100%;height:4px;background:rgba(255,255,255,.2);border-radius:2px;overflow:hidden;margin-bottom:1rem}.splash-progress-fill{height:100%;background:linear-gradient(90deg,#fff 0%,#f0f0f0 100%);border-radius:2px;transition:width .3s ease;width:0%;box-shadow:0 0 10px rgba(255,255,255,.5)}.splash-status{font-size:.9rem;opacity:.7;text-align:center;min-height:1.2rem;display:flex;align-items:center;justify-content:center}.splash-spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top:2px solid #fff;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px}@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}@media (max-width:768px){.splash-logo{width:80px;height:80px;margin-bottom:1.5rem}.splash-logo svg{width:48px;height:48px}.splash-title{font-size:1.6rem}.splash-subtitle{font-size:1rem;margin-bottom:2rem}.splash-progress{width:280px}}
+    </style>
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div id="splashScreen">
+        <div class="splash-logo">
+            <svg width="64" height="64" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5.21 2.816A1.75 1.75 0 0 1 6.69 2H9.5a.5.5 0 0 1 0 1H6.69a.75.75 0 0 0-.635.35L2.114 9.6a.75.75 0 0 0 0 .8l3.863 6.126a1.015 1.015 0 0 0 1.84-.28l3.401-12.753a2.01 2.01 0 0 1 3.65-.545l3.92 6.297a1.43 1.43 0 0 1 0 1.51l-3.996 6.42a1.75 1.75 0 0 1-1.486.825H10.5a.5.5 0 0 1 0-1h2.806c.26 0 .5-.134.637-.354l3.997-6.42a.43.43 0 0 0 0-.453l-3.92-6.296a1.011 1.011 0 0 0-1.836.274l-3.4 12.753a2.015 2.015 0 0 1-3.653.556l-3.863-6.126a1.75 1.75 0 0 1 0-1.868z"/>
+            </svg>
+        </div>
+        <h1 class="splash-title">Microsoft Copilot Studio Companion</h1>
+        <p class="splash-subtitle">Testing Splash Screen...</p>
+        <div class="splash-progress">
+            <div class="splash-progress-bar">
+                <div class="splash-progress-fill" id="splashProgressFill"></div>
+            </div>
+            <div class="splash-status" id="splashStatus">
+                <div class="splash-spinner"></div>
+                Testing...
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Content -->
+    <div style="padding: 20px; display: none;" id="mainContent">
+        <h1>Main Application</h1>
+        <p>This is the main content that appears after the splash screen.</p>
+        <button onclick="showSplash()">Show Splash Again</button>
+        <button onclick="hideSplash()">Hide Splash</button>
+    </div>
+
+    <!-- Load SplashScreen class -->
+    <script src="src/ui/splashScreen.js"></script>
+    
+    <script>
+        let splashScreen;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof SplashScreen !== 'undefined') {
+                splashScreen = new SplashScreen();
+                splashScreen.show();
+                
+                // Simulate app loading and then hide splash
+                setTimeout(() => {
+                    splashScreen.hide();
+                    document.getElementById('mainContent').style.display = 'block';
+                }, 4000); // Show splash for 4 seconds
+            }
+        });
+        
+        function showSplash() {
+            document.getElementById('mainContent').style.display = 'none';
+            if (splashScreen) {
+                splashScreen.show();
+                setTimeout(() => {
+                    splashScreen.hide();
+                    document.getElementById('mainContent').style.display = 'block';
+                }, 3000);
+            }
+        }
+        
+        function hideSplash() {
+            if (splashScreen) {
+                splashScreen.hide();
+            }
+        }
+    </script>
+</body>
+</html>

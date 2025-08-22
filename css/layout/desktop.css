@@ -1,0 +1,305 @@
+/* Main container and layout structure */
+
+#container {
+    display: flex;
+    height: 100vh;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0;
+    margin: 0;
+    margin-left: 48px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+/* Left panel styles */
+#leftPanel {
+    width: 280px;
+    min-width: 280px;
+    max-width: 280px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.95);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    border-radius: 0;
+    transition: all 0.3s ease;
+}
+
+#historyHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+    gap: 8px;
+}
+
+#leftPanel h3 {
+    margin: 0;
+    color: #323130;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    flex: 1;
+    text-align: left;
+}
+
+#sessionList {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 8px;
+    margin-right: -8px;
+}
+
+/* Custom scrollbar for session list */
+#sessionList::-webkit-scrollbar {
+    width: 6px;
+}
+
+#sessionList::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#sessionList::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+}
+
+#sessionList::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* Main chat area */
+#mainChatArea {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    position: relative;
+    padding: 24px;
+    transition: all 0.3s ease;
+}
+
+/* Panel Toggle Button - Always visible */
+.panel-toggle-btn {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    z-index: 1000;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    color: #8a8886;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.panel-toggle-btn:hover {
+    background: rgba(0, 120, 212, 0.1);
+    border-color: #0078d4;
+    color: #0078d4;
+    transform: scale(1.05);
+}
+
+/* Hide toggle button when panel is visible */
+body:not(.leftPanelCollapsed) .panel-toggle-btn {
+    display: none;
+}
+
+/* Chat panels */
+.chat-panel {
+    background: rgba(255, 255, 255, 0.98);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#agentChatPanel {
+    flex: 1;
+    min-width: 400px;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#llmAnalysisPanel {
+    width: 400px;
+    min-width: 350px;
+    max-width: 500px;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: right center;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Expanded state for 50/50 layout */
+#llmAnalysisPanel.expanded {
+    width: 50%;
+    min-width: 50%;
+    max-width: 50%;
+}
+
+/* Adjust agent chat panel when AI companion is expanded */
+#agentChatPanel.companion-expanded {
+    flex: none;
+    width: 50%;
+    max-width: 50%;
+}
+
+/* Adjust agent chat panel when AI companion is hidden/collapsed */
+#agentChatPanel.companion-hidden {
+    flex: none;
+    width: 100%;
+    max-width: 100%;
+}
+
+/* LLM Analysis Panel Collapsed State */
+#llmAnalysisPanel.collapsed {
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    opacity: 0;
+}
+
+/* Adjust KPI grid to 6 columns when AI companion is expanded */
+.expanded .kpi-grid {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+}
+
+.expanded .kpi-item {
+    padding: 6px 4px;
+}
+
+.expanded .kpi-value {
+    font-size: 18px;
+}
+
+.expanded .kpi-label {
+    font-size: 9px;
+}
+
+/* Panel headers */
+.panel-header {
+    padding: 10px 20px;
+    background: var(--gradient-neutral);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    min-height: 60px;
+}
+
+.panel-header h3 {
+    margin: 0;
+    color: #323130;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.panel-title-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.panel-title-section h3 {
+    margin: 0;
+    color: #323130;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* ===== LEFT PANEL COLLAPSED STATES ===== */
+
+/* Default left panel positioning (to account for side command bar) */
+#leftPanel {
+    left: 48px;
+}
+
+/* When left panel is collapsed, only account for command bar */
+.leftPanelCollapsed #container {
+    margin-left: 48px; /* Only command bar width */
+}
+
+/* Left panel collapsed state - hide the panel */
+.leftPanelCollapsed #leftPanel {
+    display: none;
+}
+
+/* Mobile adjustments for side command bar */
+@media screen and (max-width: 768px) {
+    #sideCommandBar {
+        display: none; /* Hide on mobile, use mobile header instead */
+    }
+
+    #container {
+        margin-left: 0;
+        height: calc(100vh - 60px); /* Full height minus mobile header */
+        border-radius: 0;
+        padding: 0;
+    }
+
+    #leftPanel {
+        left: 0;
+    }
+}
+
+/* Chat container layout */
+.chatContainer {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0;
+    margin: 0;
+    margin-left: 48px; /* Only account for the command bar */
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+/* ===== MEDIUM SCREEN RESPONSIVE STYLES ===== */
+
+/* Medium screens - adjust LLM analysis panel */
+@media (max-width: 1200px) {
+    #llmAnalysisPanel {
+        width: 350px;
+        min-width: 300px;
+    }
+}
+
+/* Small desktop screens - stack panels vertically */
+@media (max-width: 900px) {
+    #mainChatArea {
+        flex-direction: column;
+    }
+
+    #llmAnalysisPanel {
+        width: 100%;
+        max-width: none;
+        border-left: none;
+        border-top: 2px solid #0078d4;
+    }
+}

@@ -1,0 +1,685 @@
+/* Utility Components and State Classes */
+
+/* Global Checkbox Fallback Styles */
+input[type="checkbox"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #e1e5e9;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+input[type="checkbox"]:hover {
+    border-color: #0078d4;
+}
+
+input[type="checkbox"]:checked {
+    background: #0078d4;
+    border-color: #0078d4;
+}
+
+input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 0px;
+    width: 6px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+input[type="checkbox"]:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.1);
+}
+
+/* Loading States */
+.loading-sessions {
+    padding: 20px;
+    text-align: center;
+    color: #605e5c;
+    font-style: italic;
+    opacity: 0.8;
+}
+
+/* Upload Progress */
+.upload-progress {
+    margin-top: 16px;
+    padding: 12px;
+    background: #f3f2f1;
+    border-radius: 8px;
+    border-left: 4px solid #0078d4;
+}
+
+.upload-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e1e5e9;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.upload-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0078d4, #40e0d0);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+/* Gallery Section */
+.gallery-section {
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+    margin-top: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.gallery-item {
+    background: #f8f8f8;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    border: 1px solid #e1e5e9;
+    transition: all 0.2s ease;
+}
+
+.gallery-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.gallery-item img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+}
+
+/* Connection Status */
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    font-size: 13px;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+}
+
+.connection-status .status-text {
+    color: #323130;
+    font-weight: 500;
+}
+
+/* Side Browser Error */
+.side-browser-error {
+    padding: 20px;
+    text-align: center;
+    background: #fff4ce;
+    border: 1px solid #ffb900;
+    border-radius: 8px;
+    margin: 16px;
+    color: #8a6914;
+}
+
+.side-browser-error h3 {
+    margin: 0 0 8px 0;
+    color: #8a6914;
+    font-size: 16px;
+}
+
+.side-browser-error p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* AI Companion Toggle - Updated to match input-button style when inactive */
+.ai-companion-toggle {
+    position: relative;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.9);
+    color: #605e5c;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.ai-companion-toggle:hover {
+    background: rgba(139, 95, 191, 0.1);
+    border-color: rgba(139, 95, 191, 0.3);
+    color: #8b5fbf;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 95, 191, 0.2);
+}
+
+.ai-companion-toggle.active {
+    background: linear-gradient(135deg, #8b5fbf 0%, #744c9e 100%);
+    border-color: transparent;
+    color: white;
+    box-shadow: 0 2px 8px rgba(139, 95, 191, 0.3);
+}
+
+.ai-companion-toggle.active:hover {
+    background: linear-gradient(135deg, #744c9e 0%, #6a4492 100%);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 95, 191, 0.4);
+}
+
+/* Ensure icons inside active AI companion toggle are white */
+.ai-companion-toggle.active svg,
+.ai-companion-toggle.active .icon,
+.ai-companion-toggle.active [class*="icon"],
+.ai-companion-toggle.active i {
+    color: white !important;
+    fill: white !important;
+}
+
+.ai-companion-toggle.active:hover svg,
+.ai-companion-toggle.active:hover .icon,
+.ai-companion-toggle.active:hover [class*="icon"],
+.ai-companion-toggle.active:hover i {
+    color: white !important;
+    fill: white !important;
+}
+
+/* Notification Badge */
+.notification-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #e53e3e;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* AI Companion Notifications Area */
+.ai-notifications-area {
+    position: relative;
+    margin: 12px 0;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    min-height: 60px;
+    transition: all 0.3s ease;
+}
+
+.ai-notifications-area:empty {
+    display: none;
+}
+
+.ai-notifications-area:not(:empty) {
+    padding: 16px;
+    animation: slideInUp 0.3s ease-out;
+}
+
+/* AI Notification Items */
+.ai-notification {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    margin: 8px 0;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(139, 95, 191, 0.2);
+    border-radius: 8px;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 2px 8px rgba(139, 95, 191, 0.1);
+    transition: all 0.2s ease;
+}
+
+.ai-notification:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 95, 191, 0.15);
+}
+
+.ai-notification.success {
+    border-left: 4px solid #107c10;
+    background: linear-gradient(90deg, rgba(16, 124, 16, 0.1), rgba(255, 255, 255, 0.9));
+}
+
+.ai-notification.warning {
+    border-left: 4px solid #ffb900;
+    background: linear-gradient(90deg, rgba(255, 185, 0, 0.1), rgba(255, 255, 255, 0.9));
+}
+
+.ai-notification.error {
+    border-left: 4px solid #d13438;
+    background: linear-gradient(90deg, rgba(209, 52, 56, 0.1), rgba(255, 255, 255, 0.9));
+}
+
+.ai-notification.info {
+    border-left: 4px solid #8b5fbf;
+    background: linear-gradient(90deg, rgba(139, 95, 191, 0.1), rgba(255, 255, 255, 0.9));
+}
+
+.ai-notification.progress {
+    border-left: 4px solid #0078d4;
+    background: linear-gradient(90deg, rgba(0, 120, 212, 0.1), rgba(255, 255, 255, 0.9));
+}
+
+/* AI Notification Progress Specific Styling */
+.ai-notification-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+    margin: 6px 0;
+    background: linear-gradient(135deg, rgba(0, 120, 212, 0.08) 0%, rgba(255, 255, 255, 0.95) 100%);
+    border: 1px solid rgba(0, 120, 212, 0.2);
+    border-left: 4px solid #0078d4;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 120, 212, 0.12);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.ai-notification-progress:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 120, 212, 0.18);
+}
+
+.ai-notification-progress .progress-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ai-notification-progress .progress-icon {
+    width: 20px;
+    height: 20px;
+    background: #0078d4;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 12px;
+    animation: progress-pulse 2s infinite;
+}
+
+.ai-notification-progress .progress-text {
+    flex: 1;
+    font-size: 13px;
+    color: #323130;
+    font-weight: 500;
+}
+
+.ai-notification-progress .progress-bar-container {
+    width: 100%;
+    height: 4px;
+    background: rgba(0, 120, 212, 0.2);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+}
+
+.ai-notification-progress .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0078d4, #106ebe);
+    border-radius: 2px;
+    transition: width 0.5s ease;
+    width: 0%;
+    position: relative;
+}
+
+.ai-notification-progress .progress-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: progress-shimmer 2s infinite;
+}
+
+.ai-notification-progress .progress-percentage {
+    font-size: 11px;
+    color: #605e5c;
+    text-align: right;
+    margin-top: 4px;
+}
+
+/* Progress animations */
+@keyframes progress-pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+@keyframes progress-shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* AI Notification Icon */
+.ai-notification-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #8b5fbf;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.ai-notification.success .ai-notification-icon {
+    background: #107c10;
+}
+
+.ai-notification.warning .ai-notification-icon {
+    background: #ffb900;
+    color: #323130;
+}
+
+.ai-notification.error .ai-notification-icon {
+    background: #d13438;
+}
+
+.ai-notification.progress .ai-notification-icon {
+    background: #0078d4;
+    animation: progress-icon-spin 2s linear infinite;
+}
+
+@keyframes progress-icon-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* AI Notification Content */
+.ai-notification-content {
+    flex: 1;
+    line-height: 1.4;
+}
+
+.ai-notification-title {
+    font-weight: 600;
+    color: #323130;
+    margin: 0 0 4px 0;
+    font-size: 14px;
+}
+
+.ai-notification-message {
+    color: #605e5c;
+    margin: 0;
+    font-size: 13px;
+}
+
+/* AI Progress Notification */
+.ai-progress-notification {
+    margin-top: 8px;
+}
+
+.ai-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(139, 95, 191, 0.2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.ai-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #8b5fbf, #744c9e);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+/* AI Notification Dismiss Button */
+.ai-notification-dismiss {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: #605e5c;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    line-height: 1;
+    margin-left: 8px;
+    transition: all 0.2s ease;
+}
+
+.ai-notification-dismiss:hover {
+    background: rgba(139, 95, 191, 0.1);
+    color: #8b5fbf;
+}
+
+/* AI Notification Close Button */
+.ai-notification-close {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: #605e5c;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: normal;
+    line-height: 1;
+    margin-left: 8px;
+    transition: all 0.2s ease;
+    padding: 0;
+    outline: none;
+}
+
+.ai-notification-close:hover {
+    background: rgba(209, 52, 56, 0.1);
+    color: #d13438;
+    transform: scale(1.1);
+}
+
+.ai-notification-close:active {
+    background: rgba(209, 52, 56, 0.2);
+    transform: scale(0.95);
+}
+
+.ai-notification-close:focus {
+    outline: 2px solid rgba(0, 120, 212, 0.3);
+    outline-offset: 1px;
+}
+
+/* Animation for notifications */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.ai-notification {
+    animation: slideInUp 0.3s ease-out;
+}
+
+/* Spinner/Loading Animation */
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #0078d4;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Success/Error/Warning States */
+.success-message {
+    padding: 12px 16px;
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+    border-radius: 8px;
+    margin: 8px 0;
+}
+
+.error-message {
+    padding: 12px 16px;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    border-radius: 8px;
+    margin: 8px 0;
+}
+
+.warning-message {
+    padding: 12px 16px;
+    background: #fff4ce;
+    border: 1px solid #ffb900;
+    color: #8a6914;
+    border-radius: 8px;
+    margin: 8px 0;
+}
+
+/* Tooltip */
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 200px;
+    background-color: #323130;
+    color: white;
+    text-align: center;
+    border-radius: 6px;
+    padding: 8px 12px;
+    position: absolute;
+    z-index: 1000;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.tooltip .tooltiptext::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #323130 transparent transparent transparent;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Mobile-specific utilities */
+@media (max-width: 768px) {
+    .gallery-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 12px;
+    }
+    
+    .upload-progress {
+        margin: 12px 8px;
+        padding: 8px;
+    }
+    
+    .side-browser-error {
+        margin: 8px;
+        padding: 16px;
+    }
+    
+    .ai-notification-progress {
+        margin: 4px 0;
+        padding: 10px 12px;
+    }
+    
+    .ai-notification-progress .progress-text {
+        font-size: 12px;
+    }
+    
+    .ai-notification-progress .progress-icon {
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
+    }
+    
+    .ai-notification-progress .progress-percentage {
+        font-size: 10px;
+    }
+    
+    .ai-notification-close {
+        width: 28px;
+        height: 28px;
+        font-size: 16px;
+        margin-left: 4px;
+    }
+}

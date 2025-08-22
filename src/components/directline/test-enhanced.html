@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced DirectLine Manager Test - MCSChat</title>
+    
+    <!-- Load DirectLine library -->
+    <script src="https://cdn.botframework.com/botframework-directline/latest/directline.js"></script>
+    
+    <!-- Import main application modules if available -->
+    <script>
+        // Try to load main application modules for secret access
+        window.loadMainAppModules = async function() {
+            try {
+                // Check if we can access parent window modules
+                if (window.parent && window.parent !== window && window.parent.agentManager) {
+                    console.log('Found AgentManager in parent window');
+                    window.agentManager = window.parent.agentManager;
+                    window.SecureStorage = window.parent.SecureStorage;
+                    return true;
+                }
+                
+                // Try to load from main application path
+                const agentManagerPath = '../../components/AgentManager.js';
+                const secureStoragePath = '../../components/SecureStorage.js';
+                
+                try {
+                    const { AgentManager } = await import(agentManagerPath);
+                    const { SecureStorage } = await import(secureStoragePath);
+                    
+                    window.agentManager = new AgentManager();
+                    window.SecureStorage = SecureStorage;
+                    console.log('Loaded main application modules directly');
+                    return true;
+                } catch (e) {
+                    console.log('Could not load main modules directly:', e.message);
+                }
+                
+                return false;
+            } catch (error) {
+                console.log('Error loading main app modules:', error);
+                return false;
+            }
+        };
+    </script>
+    
+    <!-- Import existing styles -->
+    <link rel="stylesheet" href="../../legacy/styles-legacy.css">
+    <link rel="stylesheet" href="./DirectLineManager.css">
+    
+    <style>
+        :root {
+            --primary: #0078d4;
+            --success: #107c10;
+            --warning: #ff8c00;
+            --error: #d13438;
+            --bg: #f5f5f5;
+            --border: #e1e1e1;
+        }
+
+        * { box-sizing: border-box; }
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .test-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .test-header {
+            background: linear-gradient(135deg, var(--primary), #106ebe);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .test-header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 300;
+        }
+
+        .test-main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 350px 1fr 300px;
+            gap: 0;
+            overflow: hidden;
+        }
+
+        .control-panel, .chat-panel, .debug-panel {
+            padding: 15px;
+            overflow-y: auto;
+            border-right: 1px solid var(--border);
+        }
+
+        .debug-panel { border-right: none; }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 500;
+            font-size: 13px;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 2px;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-error { background: var(--error); color: white; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .test-header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 0.8rem;
+        }
+
+        .test-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr 350px;
+            gap: 0;
+            flex: 1;
+            height: calc(100vh - 60px);
+            overflow: hidden;
+        }
+
+        @media (max-width: 1200px) {
+            .test-grid {
+                grid-template-columns: 280px 1fr 320px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .test-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr auto;
+            }
+        }
+
+        .test-panel {
+            background: white;
+            border-right: 1px solid var(--test-border);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .test-panel:last-child {
+            border-right: none;
+            border-left: 1px solid var(--test-border);
+        }
+
+        .test-panel-header {
+            background: var(--test-bg);
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--test-border);
+            font-weight: 600;
+            color: #333;
+            flex-shrink: 0;
+            font-size: 14px;
+        }
+
+        .test-panel-content {
+            padding: 15px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .config-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .form-group label {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 8px 12px;
+            border: 1px solid var(--test-border);
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--test-primary);
+            box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+        }
+
+        .form-help {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--test-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #106ebe;
+        }
+
+        .btn-success {
+            background: var(--test-success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #0e6d0e;
+        }
+
+        .btn-warning {
+            background: var(--test-warning);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #e67c00;
+        }
+
+        .btn-error {
+            background: var(--test-error);
+            color: white;
+        }
+
+        .btn-error:hover {
+            background: #b52d32;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status-panel {
+            background: var(--test-bg);
+            border: 1px solid var(--test-border);
+            border-radius: 6px;
+            padding: 12px;
+            margin: 12px 0;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 4px 0;
+            padding: 4px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 12px;
+        }
+
+        .status-item:last-child {
+            border-bottom: none;
+        }
+
+        .status-label {
+            font-weight: 500;
+            color: #666;
+        }
+
+        .status-value {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #333;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 6px;
+            margin: 12px 0;
+        }
+
+        .right-panel-section {
+            border-bottom: 1px solid var(--test-border);
+            margin-bottom: 0;
+        }
+
+        .right-panel-section:last-child {
+            border-bottom: none;
+        }
+
+        .right-panel-header {
+            background: var(--test-bg);
+            padding: 8px 15px;
+            border-bottom: 1px solid var(--test-border);
+            font-weight: 600;
+            color: #333;
+            font-size: 12px;
+        }
+
+        .right-panel-content {
+            padding: 12px 15px;
+        }
+
+        .status-online {
+            color: var(--test-success);
+            font-weight: 600;
+        }
+
+        .status-offline {
+            color: var(--test-error);
+            font-weight: 600;
+        }
+
+        .status-connecting {
+            color: var(--test-warning);
+            font-weight: 600;
+        }
+
+        .chat-container {
+            background: white;
+            border-right: 1px solid var(--test-border);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: var(--test-bg);
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--test-border);
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            font-size: 14px;
+        }
+
+        .chat-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-controls .btn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background: #fafafa;
+        }
+
+        .chat-input-container {
+            border-top: 1px solid var(--test-border);
+            padding: 15px;
+            background: white;
+            flex-shrink: 0;
+        }
+
+        .chat-input-form {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 8px 10px;
+            border: 1px solid var(--test-border);
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .logs-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .logs-header {
+            background: #333;
+            padding: 10px 15px;
+            border-bottom: 1px solid #555;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            font-size: 12px;
+        }
+
+        .logs-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+            word-wrap: break-word;
+            line-height: 1.3;
+        }
+
+        .logs-header .btn {
+            padding: 4px 8px;
+            font-size: 10px;
+            border-radius: 3px;
+        }
+
+        .log-info { color: #d4d4d4; }
+        .log-success { color: #4ec9b0; }
+        .log-warning { color: #dcdcaa; }
+        .log-error { color: #f48771; }
+
+        .logs-header {
+            background: #333;
+            padding: 10px 15px;
+            border-bottom: 1px solid #555;
+            color: white;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logs-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .logs-header .btn {
+            padding: 4px 8px;
+            font-size: 10px;
+            border-radius: 3px;
+        }
+
+        .logs-content {
+            padding: 15px;
+            overflow-y: auto;
+            max-height: 350px;
+        }
+
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+
+        .log-info {
+            color: #4fc3f7;
+        }
+
+        .log-success {
+            color: #81c784;
+        }
+
+        .log-warning {
+            color: #ffb74d;
+        }
+
+        .log-error {
+            color: #e57373;
+        }
+
+        .log-debug {
+            color: #ba68c8;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 6px;
+            margin: 12px 0;
+        }
+
+        .metric-card {
+            background: white;
+            border: 1px solid var(--test-border);
+            border-radius: 4px;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--test-primary);
+            margin: 2px 0;
+        }
+
+        .metric-label {
+            font-size: 10px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .feature-list li {
+            padding: 6px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+
+        .feature-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 8px;
+        }
+
+        .feature-enabled {
+            background: var(--test-success);
+        }
+
+        .feature-disabled {
+            background: #ccc;
+        }
+
+        .alert {
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .alert-info {
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #bbdefb;
+        }
+
+        .alert-success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+
+        .alert-warning {
+            background: #fff3e0;
+            color: #f57c00;
+            border: 1px solid #ffcc02;
+        }
+
+        .alert-error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--test-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .test-container {
+                height: 100vh;
+            }
+            
+            .test-header {
+                padding: 8px 15px;
+                height: 50px;
+            }
+            
+            .test-header h1 {
+                font-size: 1.2rem;
+            }
+            
+            .test-header p {
+                font-size: 0.7rem;
+            }
+            
+            .test-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr auto;
+                height: calc(100vh - 50px);
+            }
+            
+            .test-panel-content {
+                padding: 10px;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 4px;
+            }
+
+            .metric-value {
+                font-size: 14px;
+            }
+
+            .metric-label {
+                font-size: 9px;
+            }
+
+            .chat-container {
+                order: 2;
+                border-right: none;
+                border-top: 1px solid var(--test-border);
+                border-bottom: 1px solid var(--test-border);
+            }
+
+            .test-panel:first-child {
+                order: 1;
+            }
+
+            .test-panel:last-child {
+                order: 3;
+                border-left: none;
+                border-top: 1px solid var(--test-border);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <!-- Header -->
+        <div class="test-header">
+            <h1>🚀 Enhanced DirectLine Manager</h1>
+            <p>Test page for enhanced DirectLine implementation with official Microsoft library integration</p>
+        </div>
+
+        <!-- Main Three-Column Layout -->
+        <div class="test-grid">
+            <!-- Left Column: Configuration Panel -->
+            <div class="test-panel">
+                <div class="test-panel-header">
+                    ⚙️ Configuration
+                </div>
+                <div class="test-panel-content">
+                    <form class="config-form" id="configForm">
+                        <div class="form-group">
+                            <label for="directlineSecret">DirectLine Secret:</label>
+                            <input type="password" id="directlineSecret" placeholder="Enter your DirectLine secret">
+                            <small class="form-help">
+                                Get this from your Azure Bot Service DirectLine channel
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="userId">User ID (optional):</label>
+                            <input type="text" id="userId" placeholder="user123" value="testuser">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Enhanced Features:</label>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="autoTokenRefresh" checked>
+                                <label for="autoTokenRefresh">Auto Token Refresh</label>
+                            </div>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="networkOptimization" checked>
+                                <label for="networkOptimization">Network Optimization</label>
+                            </div>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="adaptiveFeatures" checked>
+                                <label for="adaptiveFeatures">Adaptive Features</label>
+                            </div>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="debugMode">
+                                <label for="debugMode">Debug Mode</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="timeout">Timeout (ms):</label>
+                            <input type="number" id="timeout" value="20000" min="5000" max="60000">
+                        </div>
+
+                        <div class="form-group">
+                            <button type="button" class="btn btn-success" id="loadSecretsBtn">
+                                📥 Load from Agent Settings
+                            </button>
+                            <button type="button" class="btn btn-info" id="useDemoSecretBtn">
+                                🧪 Use Demo Secret
+                            </button>
+                            <small class="form-help">
+                                Load DirectLine secret from your existing agent configuration or use a demo secret for testing
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <button type="button" class="btn btn-primary" id="connectBtn">
+                                <span class="btn-text">Connect</span>
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="testSecretBtn">
+                                Test Secret
+                            </button>
+                            <button type="button" class="btn btn-warning" id="disconnectBtn" disabled>
+                                Disconnect
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="alert alert-info">
+                        <strong>Note:</strong> This test page uses the existing agent secret settings from your application.
+                        You can also manually enter a DirectLine secret above.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle Column: Chat Interface -->
+            <div class="chat-container">
+                <div class="chat-header">
+                    <span>💬 Chat Interface</span>
+                    <div class="chat-controls">
+                        <button class="btn btn-warning" id="clearChatBtn">Clear Chat</button>
+                        <button class="btn btn-primary" id="testMessagesBtn">Send Test Messages</button>
+                    </div>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="alert alert-info">
+                        Connect to the bot to start chatting. The chat interface uses the existing message rendering components.
+                    </div>
+                </div>
+                <div class="chat-input-container">
+                    <form class="chat-input-form" id="chatForm">
+                        <input type="text" class="chat-input" id="messageInput" placeholder="Type your message..." disabled>
+                        <button type="submit" class="btn btn-primary" id="sendBtn" disabled>Send</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Column: Status and Debug -->
+            <div class="test-panel">
+                <div class="right-panel-section">
+                    <div class="right-panel-header">
+                        📊 Connection Status
+                    </div>
+                    <div class="right-panel-content">
+                        <div class="status-panel">
+                            <div class="status-item">
+                                <span class="status-label">Status:</span>
+                                <span class="status-value" id="connectionStatus">Not Connected</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">DirectLine Version:</span>
+                                <span class="status-value" id="directlineVersion">Unknown</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Conversation ID:</span>
+                                <span class="status-value" id="conversationId">-</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Network Quality:</span>
+                                <span class="status-value" id="networkQuality">Unknown</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Retry Count:</span>
+                                <span class="status-value" id="retryCount">0</span>
+                            </div>
+                        </div>
+
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <div class="metric-value" id="messagesCount">0</div>
+                                <div class="metric-label">Messages</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value" id="uptime">0s</div>
+                                <div class="metric-label">Uptime</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value" id="latency">0ms</div>
+                                <div class="metric-label">Latency</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value" id="reconnectCount">0</div>
+                                <div class="metric-label">Reconnects</div>
+                            </div>
+                        </div>
+
+                        <ul class="feature-list">
+                            <li>
+                                Auto Token Refresh
+                                <span class="feature-status feature-enabled" id="tokenRefreshStatus"></span>
+                            </li>
+                            <li>
+                                Network Optimization
+                                <span class="feature-status feature-enabled" id="networkOptStatus"></span>
+                            </li>
+                            <li>
+                                Adaptive Typing
+                                <span class="feature-status feature-enabled" id="adaptiveStatus"></span>
+                            </li>
+                            <li>
+                                Health Monitoring
+                                <span class="feature-status feature-enabled" id="healthStatus"></span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Debug Logs Section -->
+                <div class="right-panel-section">
+                    <div class="logs-container">
+                        <div class="logs-header">
+                            <span>🔍 Debug Logs</span>
+                            <div class="logs-controls">
+                                <button class="btn btn-info" id="copyLogsBtn">📋 Copy</button>
+                                <button class="btn btn-error" id="clearLogsBtn">🗑️ Clear</button>
+                            </div>
+                        </div>
+                        <div class="logs-content" id="debugLogs">
+                            <div class="log-entry log-info">[INFO] Enhanced DirectLine Manager Test Page Loaded</div>
+                            <div class="log-entry log-info">[INFO] Ready to test enhanced features</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load existing utilities and components -->
+    <script type="module">
+        // Import the enhanced DirectLine manager and integration helper
+        import { EnhancedDirectLineManager } from './DirectLineManagerEnhanced.js';
+        import TestIntegrationHelper from './TestIntegrationHelper.js';
+        
+        // State management
+        let enhancedManager = null;
+        let isConnected = false;
+        let messageCount = 0;
+        let startTime = null;
+
+        // DOM elements
+        const elements = {
+            // Configuration form
+            configForm: document.getElementById('configForm'),
+            directlineSecret: document.getElementById('directlineSecret'),
+            userId: document.getElementById('userId'),
+            autoTokenRefresh: document.getElementById('autoTokenRefresh'),
+            networkOptimization: document.getElementById('networkOptimization'),
+            adaptiveFeatures: document.getElementById('adaptiveFeatures'),
+            debugMode: document.getElementById('debugMode'),
+            timeout: document.getElementById('timeout'),
+            
+            // Connection buttons
+            loadSecretsBtn: document.getElementById('loadSecretsBtn'),
+            useDemoSecretBtn: document.getElementById('useDemoSecretBtn'),
+            connectBtn: document.getElementById('connectBtn'),
+            testSecretBtn: document.getElementById('testSecretBtn'),
+            disconnectBtn: document.getElementById('disconnectBtn'),
+            
+            // Status displays
+            connectionStatus: document.getElementById('connectionStatus'),
+            directlineVersion: document.getElementById('directlineVersion'),
+            conversationId: document.getElementById('conversationId'),
+            networkQuality: document.getElementById('networkQuality'),
+            retryCount: document.getElementById('retryCount'),
+            
+            // Metrics
+            messagesCount: document.getElementById('messagesCount'),
+            uptime: document.getElementById('uptime'),
+            latency: document.getElementById('latency'),
+            reconnectCount: document.getElementById('reconnectCount'),
+            
+            // Feature status
+            tokenRefreshStatus: document.getElementById('tokenRefreshStatus'),
+            networkOptStatus: document.getElementById('networkOptStatus'),
+            adaptiveStatus: document.getElementById('adaptiveStatus'),
+            healthStatus: document.getElementById('healthStatus'),
+            
+            // Chat interface
+            chatMessages: document.getElementById('chatMessages'),
+            chatForm: document.getElementById('chatForm'),
+            messageInput: document.getElementById('messageInput'),
+            sendBtn: document.getElementById('sendBtn'),
+            clearChatBtn: document.getElementById('clearChatBtn'),
+            testMessagesBtn: document.getElementById('testMessagesBtn'),
+            
+            // Debug logs
+            debugLogs: document.getElementById('debugLogs'),
+            copyLogsBtn: document.getElementById('copyLogsBtn'),
+            clearLogsBtn: document.getElementById('clearLogsBtn')
+        };
+
+        // Logging functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${timestamp}] [${type.toUpperCase()}] ${message}`;
+            elements.debugLogs.appendChild(logEntry);
+            elements.debugLogs.scrollTop = elements.debugLogs.scrollHeight;
+            
+            // Also log to console for debugging
+            console.log(`[Enhanced DirectLine Test] ${message}`);
+        }
+
+        function logError(message, error) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry log-error';
+            logEntry.textContent = `[${timestamp}] [ERROR] ${message}: ${error?.message || error}`;
+            elements.debugLogs.appendChild(logEntry);
+            elements.debugLogs.scrollTop = elements.debugLogs.scrollHeight;
+            
+            console.error(`[Enhanced DirectLine Test] ${message}:`, error);
+        }
+
+        // Simplified secret loading with consolidated strategies
+        async function loadExistingSecrets() {
+            try {
+                log('Loading DirectLine secret from existing configuration...');
+                
+                // Strategy 1: Use TestIntegrationHelper (primary method)
+                const secretData = await TestIntegrationHelper.loadAgentSecrets();
+                if (secretData && secretData.secret) {
+                    elements.directlineSecret.value = secretData.secret;
+                    log(`Loaded secret from ${secretData.source}`, 'success');
+                    if (secretData.agentName) log(`Agent: ${secretData.agentName}`, 'info');
+                    return true;
+                }
+                
+                // Strategy 2: Try localStorage test data
+                const testKeys = ['enhancedDirectLineTestSecrets', 'testDirectLineSecret', 'directlineTestSecret'];
+                for (const key of testKeys) {
+                    try {
+                        const data = localStorage.getItem(key);
+                        if (data) {
+                            const parsed = JSON.parse(data);
+                            const secret = parsed.directlineSecret || parsed.secret;
+                            if (secret) {
+                                elements.directlineSecret.value = secret;
+                                log(`Loaded secret from test storage: ${key}`, 'success');
+                                return true;
+                            }
+                        }
+                    } catch (e) { /* Continue */ }
+                }
+                
+                // Strategy 3: Check main app modules if available
+                if (window.agentManager) {
+                    try {
+                        const currentAgent = window.agentManager.getCurrentAgent();
+                        if (currentAgent && currentAgent.directlineSecret) {
+                            elements.directlineSecret.value = currentAgent.directlineSecret;
+                            log('Loaded secret from AgentManager', 'success');
+                            return true;
+                        }
+                    } catch (e) { /* Continue */ }
+                }
+                
+                // No secret found - show guidance
+                log('No existing secret found. Manual entry required.', 'warning');
+                log('Get your DirectLine secret from: Azure Portal → Bot → Channels → DirectLine', 'info');
+                return false;
+                
+            } catch (error) {
+                logError('Failed to load existing secrets', error);
+                return false;
+            }
+        }
+
+        // Update UI based on connection status
+        function updateConnectionUI(status) {
+            const statusElement = elements.connectionStatus;
+            statusElement.textContent = status;
+            
+            // Remove existing status classes
+            statusElement.classList.remove('status-online', 'status-offline', 'status-connecting');
+            
+            // Add appropriate status class
+            if (status === 'online') {
+                statusElement.classList.add('status-online');
+                elements.connectBtn.disabled = true;
+                elements.disconnectBtn.disabled = false;
+                elements.messageInput.disabled = false;
+                elements.sendBtn.disabled = false;
+                isConnected = true;
+                
+                if (!startTime) {
+                    startTime = Date.now();
+                    updateMetrics();
+                }
+            } else if (status === 'connecting') {
+                statusElement.classList.add('status-connecting');
+                elements.connectBtn.innerHTML = '<span class="spinner"></span>Connecting...';
+                elements.connectBtn.disabled = true;
+            } else {
+                statusElement.classList.add('status-offline');
+                elements.connectBtn.disabled = false;
+                elements.connectBtn.innerHTML = 'Connect';
+                elements.disconnectBtn.disabled = true;
+                elements.messageInput.disabled = true;
+                elements.sendBtn.disabled = true;
+                isConnected = false;
+                startTime = null;
+            }
+        }
+
+        // Update feature status indicators
+        function updateFeatureStatus() {
+            if (!enhancedManager) return;
+
+            const config = enhancedManager.getConfig();
+            
+            elements.tokenRefreshStatus.className = `feature-status ${config.autoTokenRefresh ? 'feature-enabled' : 'feature-disabled'}`;
+            elements.networkOptStatus.className = `feature-status ${config.networkOptimization ? 'feature-enabled' : 'feature-disabled'}`;
+            elements.adaptiveStatus.className = `feature-status ${config.adaptiveFeatures ? 'feature-enabled' : 'feature-disabled'}`;
+            elements.healthStatus.className = `feature-status ${config.adaptiveFeatures ? 'feature-enabled' : 'feature-disabled'}`;
+        }
+
+        // Update metrics display
+        function updateMetrics() {
+            if (!isConnected || !enhancedManager) return;
+
+            const metrics = enhancedManager.getStreamingMetrics();
+            
+            elements.messagesCount.textContent = messageCount;
+            
+            if (startTime) {
+                const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
+                elements.uptime.textContent = `${uptimeSeconds}s`;
+            }
+            
+            if (metrics.averageLatency) {
+                elements.latency.textContent = `${Math.round(metrics.averageLatency)}ms`;
+            }
+
+            // Update reconnect count
+            if (metrics.reconnectCount !== undefined) {
+                elements.reconnectCount.textContent = metrics.reconnectCount;
+            }
+
+            // Update network quality
+            elements.networkQuality.textContent = metrics.networkQuality || 'Unknown';
+        }
+
+        // Add message to chat interface
+        function addMessageToChat(message, sender = 'bot', metadata = {}) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            
+            let content = `
+                <div class="message-header">
+                    <span class="message-sender">${sender === 'bot' ? '🤖 Bot' : '👤 You'}</span>
+                    <span class="message-time">${timestamp}</span>
+                </div>
+                <div class="message-content">
+                    ${message.text || message}
+                </div>
+            `;
+
+            if (metadata.isStreaming) {
+                content += `<div class="streaming-indicator">📡 Streaming chunk #${metadata.chunkNumber}</div>`;
+            }
+
+            if (message.attachments && message.attachments.length > 0) {
+                content += '<div class="message-attachments">';
+                message.attachments.forEach(attachment => {
+                    content += `<div class="attachment">📎 ${attachment.name || 'Attachment'}</div>`;
+                });
+                content += '</div>';
+            }
+
+            if (message.suggestedActions && message.suggestedActions.actions) {
+                content += '<div class="suggested-actions">';
+                message.suggestedActions.actions.forEach(action => {
+                    content += `<button class="suggested-action" onclick="sendSuggestedAction('${action.value}')">${action.title}</button>`;
+                });
+                content += '</div>';
+            }
+
+            messageDiv.innerHTML = content;
+            elements.chatMessages.appendChild(messageDiv);
+            elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+
+            if (sender === 'bot') {
+                messageCount++;
+                updateMetrics();
+            }
+        }
+
+        // Send suggested action
+        window.sendSuggestedAction = function(value) {
+            if (enhancedManager && isConnected) {
+                sendMessage(value);
+            }
+        };
+
+        // Send message function
+        async function sendMessage(text) {
+            if (!enhancedManager || !isConnected) {
+                log('Cannot send message: not connected', 'error');
+                return;
+            }
+
+            try {
+                // Add user message to chat
+                addMessageToChat(text, 'user');
+                
+                // Send message through enhanced manager
+                const messageId = await enhancedManager.sendMessage(text);
+                log(`Message sent successfully, ID: ${messageId}`);
+                
+                // Clear input
+                elements.messageInput.value = '';
+                
+            } catch (error) {
+                logError('Failed to send message', error);
+                addMessageToChat(`❌ Failed to send message: ${error.message}`, 'system');
+            }
+        }
+
+        // Simplified connect function with minimal debugging
+        async function connect() {
+            const secret = elements.directlineSecret.value.trim();
+            if (!secret) {
+                log('DirectLine secret is required', 'error');
+                alert('Please enter your DirectLine secret');
+                return;
+            }
+
+            try {
+                updateConnectionUI('connecting');
+                log('Connecting to DirectLine...');
+
+                // Pre-validate secret
+                log('Validating secret...');
+                const validation = await validateDirectLineSecret(secret, false);
+                if (!validation.valid) {
+                    throw new Error(`Secret validation failed: ${validation.error}`);
+                }
+                log('Secret validation passed', 'success');
+                
+                // Create enhanced manager with minimal configuration
+                const config = {
+                    autoTokenRefresh: elements.autoTokenRefresh.checked,
+                    networkOptimization: elements.networkOptimization.checked,
+                    adaptiveFeatures: elements.adaptiveFeatures.checked,
+                    debugMode: elements.debugMode.checked,
+                    timeout: parseInt(elements.timeout.value),
+                    webSocket: true
+                };
+
+                enhancedManager = new EnhancedDirectLineManager(config);
+                setupEventListeners();
+                
+                // Initialize connection
+                const success = await enhancedManager.initialize(secret, {
+                    userId: elements.userId.value || undefined
+                });
+
+                if (success) {
+                    log('DirectLine connected successfully!', 'success');
+                    updateFeatureStatus();
+                    
+                    const info = enhancedManager.getConnectionInfo();
+                    elements.directlineVersion.textContent = info.directLineVersion;
+                } else {
+                    throw new Error('Failed to initialize DirectLine manager');
+                }
+
+            } catch (error) {
+                logError('Connection failed', error);
+                updateConnectionUI('failed');
+                alert(`Connection failed: ${error.message}`);
+            }
+        }
+
+        // Unified secret validation function
+        async function validateDirectLineSecret(secret, showUI = false) {
+            if (!secret) {
+                if (showUI) alert('Please enter a DirectLine secret to test');
+                return { valid: false, error: 'Secret is empty' };
+            }
+            
+            const cleanSecret = secret.trim();
+            if (showUI) {
+                log('Testing DirectLine secret...', 'info');
+                elements.testSecretBtn.disabled = true;
+                elements.testSecretBtn.innerHTML = 'Testing...';
+            }
+            
+            try {
+                const tokenUrl = 'https://directline.botframework.com/v3/directline/tokens/generate';
+                const response = await fetch(tokenUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${cleanSecret}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                if (response.ok) {
+                    const tokenData = await response.json();
+                    const message = '✅ Secret is valid! Token generated successfully';
+                    log(message, 'success');
+                    
+                    if (showUI) {
+                        const expiryTime = new Date(tokenData.expires_in * 1000 + Date.now()).toLocaleString();
+                        log(`Token expires: ${expiryTime}`, 'info');
+                        addMessageToChat('✅ DirectLine secret test passed!', 'system');
+                        addMessageToChat(`Token generated successfully. Expires: ${expiryTime}`, 'system');
+                    }
+                    
+                    return { valid: true, error: null, tokenData };
+                } else {
+                    const errorText = await response.text();
+                    const errorMsg = `❌ Secret test failed: ${response.status} ${response.statusText}`;
+                    log(errorMsg, 'error');
+                    
+                    if (showUI) {
+                        let suggestion = '';
+                        switch (response.status) {
+                            case 401:
+                                suggestion = 'The DirectLine secret is invalid or expired. Please check your secret in Azure Portal.';
+                                break;
+                            case 403:
+                                suggestion = 'DirectLine channel may not be enabled or configured properly.';
+                                break;
+                            case 404:
+                                suggestion = 'Bot not found. Check if the bot is deployed and the DirectLine channel is configured.';
+                                break;
+                            default:
+                                suggestion = 'Check Azure Portal for bot service status and DirectLine configuration.';
+                        }
+                        
+                        addMessageToChat(errorMsg, 'system');
+                        addMessageToChat(`💡 ${suggestion}`, 'system');
+                    }
+                    
+                    return { valid: false, error: `${response.status}: ${errorText}` };
+                }
+                
+            } catch (error) {
+                const errorMsg = `❌ Secret test error: ${error.message}`;
+                log(errorMsg, 'error');
+                
+                if (showUI) {
+                    addMessageToChat(errorMsg, 'system');
+                    addMessageToChat('💡 This could indicate network connectivity issues or CORS restrictions.', 'system');
+                }
+                
+                return { valid: false, error: error.message };
+            } finally {
+                if (showUI) {
+                    elements.testSecretBtn.disabled = false;
+                    elements.testSecretBtn.innerHTML = 'Test Secret';
+                }
+            }
+        }
+
+        // Simplified test function that uses the unified validator
+        async function testDirectLineSecret() {
+            const secret = elements.directlineSecret.value.trim();
+            await validateDirectLineSecret(secret, true);
+        }
+
+        // Disconnect from DirectLine
+        function disconnect() {
+            if (enhancedManager) {
+                enhancedManager.disconnect();
+                enhancedManager = null;
+            }
+            
+            updateConnectionUI('disconnected');
+            elements.conversationId.textContent = '-';
+            elements.networkQuality.textContent = 'Unknown';
+            elements.retryCount.textContent = '0';
+            
+            messageCount = 0;
+            startTime = null;
+            updateMetrics();
+            
+            log('Disconnected from Enhanced DirectLine', 'warning');
+        }
+
+        // Simplified event listeners setup
+        function setupEventListeners() {
+            if (!enhancedManager) return;
+
+            // Core connection events
+            window.addEventListener('connectionStatus', (event) => {
+                const { status, message, retryCount } = event.detail;
+                log(`Connection: ${message}`);
+                updateConnectionUI(status);
+                elements.retryCount.textContent = retryCount || '0';
+            });
+
+            // Message handling
+            window.addEventListener('messageReceived', (event) => {
+                const activity = event.detail;
+                addMessageToChat(activity, 'bot', activity.streamingMetadata || {});
+            });
+
+            // Typing indicators
+            window.addEventListener('showTypingIndicator', () => {
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'typing-indicator';
+                typingDiv.id = 'currentTyping';
+                typingDiv.innerHTML = '🤖 Bot is typing...';
+                elements.chatMessages.appendChild(typingDiv);
+                elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+            });
+
+            window.addEventListener('hideTypingIndicator', () => {
+                const typingDiv = document.getElementById('currentTyping');
+                if (typingDiv) typingDiv.remove();
+            });
+
+            // Error handling
+            window.addEventListener('connectionError', (event) => {
+                const { error } = event.detail;
+                logError('Connection error', error);
+                addMessageToChat(`❌ Connection error: ${error}`, 'system');
+            });
+
+            window.addEventListener('directLineError', (event) => {
+                const { error, category, suggestion } = event.detail;
+                logError(`DirectLine Error [${category}]`, error);
+                addMessageToChat(`❌ ${category}: ${error}`, 'system');
+                if (suggestion) addMessageToChat(`💡 ${suggestion}`, 'system');
+            });
+        }
+
+        // Test utility functions
+        function sendTestMessages() {
+            if (!enhancedManager || !isConnected) {
+                log('Cannot send test messages: not connected', 'error');
+                return;
+            }
+
+            const testMessages = [
+                'Hello, this is a test message',
+                'Can you explain how artificial intelligence works?',
+                'What are the benefits of using chatbots?',
+                'How can I improve my productivity?',
+                'Thank you for the information!'
+            ];
+
+            log('Sending test message sequence...', 'info');
+
+            testMessages.forEach((message, index) => {
+                setTimeout(() => {
+                    sendMessage(message);
+                }, index * 2000); // Send every 2 seconds
+            });
+        }
+
+        // Clear chat messages
+        function clearChat() {
+            elements.chatMessages.innerHTML = `
+                <div class="alert alert-info">
+                    Chat cleared. ${isConnected ? 'You can continue chatting.' : 'Connect to the bot to start chatting.'}
+                </div>
+            `;
+            messageCount = 0;
+            updateMetrics();
+            log('Chat messages cleared');
+        }
+
+        // Clear debug logs
+        function clearLogs() {
+            elements.debugLogs.innerHTML = `
+                <div class="log-entry log-info">[INFO] Debug logs cleared</div>
+            `;
+        }
+
+        // Copy debug logs to clipboard
+        async function copyLogs() {
+            try {
+                // Get all log entries
+                const logEntries = elements.debugLogs.querySelectorAll('.log-entry');
+                const logText = Array.from(logEntries)
+                    .map(entry => entry.textContent)
+                    .join('\n');
+
+                // Add header information
+                const headerInfo = [
+                    '=== Enhanced DirectLine Manager Debug Logs ===',
+                    `Generated: ${new Date().toLocaleString()}`,
+                    `User Agent: ${navigator.userAgent}`,
+                    `URL: ${window.location.href}`,
+                    '=' .repeat(50),
+                    ''
+                ].join('\n');
+
+                const fullLogText = headerInfo + logText;
+
+                // Copy to clipboard using the Clipboard API
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(fullLogText);
+                    
+                    // Update button to show success
+                    const originalText = elements.copyLogsBtn.innerHTML;
+                    elements.copyLogsBtn.innerHTML = '✅ Copied!';
+                    elements.copyLogsBtn.disabled = true;
+                    
+                    setTimeout(() => {
+                        elements.copyLogsBtn.innerHTML = originalText;
+                        elements.copyLogsBtn.disabled = false;
+                    }, 2000);
+                    
+                    log('Debug logs copied to clipboard', 'success');
+                } else {
+                    // Fallback for older browsers or non-secure contexts
+                    const textArea = document.createElement('textarea');
+                    textArea.value = fullLogText;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-999999px';
+                    textArea.style.top = '-999999px';
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    
+                    try {
+                        document.execCommand('copy');
+                        
+                        // Update button to show success
+                        const originalText = elements.copyLogsBtn.innerHTML;
+                        elements.copyLogsBtn.innerHTML = '✅ Copied!';
+                        elements.copyLogsBtn.disabled = true;
+                        
+                        setTimeout(() => {
+                            elements.copyLogsBtn.innerHTML = originalText;
+                            elements.copyLogsBtn.disabled = false;
+                        }, 2000);
+                        
+                        log('Debug logs copied to clipboard (fallback method)', 'success');
+                    } catch (err) {
+                        log('Failed to copy logs to clipboard', 'error');
+                        
+                        // Show error state
+                        const originalText = elements.copyLogsBtn.innerHTML;
+                        elements.copyLogsBtn.innerHTML = '❌ Failed';
+                        
+                        setTimeout(() => {
+                            elements.copyLogsBtn.innerHTML = originalText;
+                        }, 2000);
+                    }
+                    
+                    document.body.removeChild(textArea);
+                }
+            } catch (error) {
+                logError('Error copying logs to clipboard', error);
+                
+                // Show error state
+                const originalText = elements.copyLogsBtn.innerHTML;
+                elements.copyLogsBtn.innerHTML = '❌ Error';
+                
+                setTimeout(() => {
+                    elements.copyLogsBtn.innerHTML = originalText;
+                }, 2000);
+            }
+        }
+
+        // Show troubleshooting panel with structured guidance
+        function showTroubleshootingPanel(troubleshootingSteps) {
+            if (!troubleshootingSteps || troubleshootingSteps.length === 0) return;
+            
+            // Log detailed troubleshooting to debug panel
+            log('=== CONNECTION TROUBLESHOOTING ===', 'error');
+            log('Connection failed after multiple attempts. Here\'s what to check:', 'error');
+            log('', 'info');
+            
+            troubleshootingSteps.forEach((category, index) => {
+                log(`${index + 1}. ${category.category.toUpperCase()}:`, 'warning');
+                category.steps.forEach(step => {
+                    log(`   • ${step}`, 'info');
+                });
+                log('', 'info');
+            });
+            
+            log('If the issue persists, copy these logs and contact support.', 'warning');
+            log('=== END TROUBLESHOOTING ===', 'error');
+            
+            // Create a temporary visual indicator in the status panel
+            const statusContent = document.querySelector('.panel-content');
+            if (statusContent) {
+                const troubleshootingAlert = document.createElement('div');
+                troubleshootingAlert.className = 'alert alert-error';
+                troubleshootingAlert.style.marginTop = '10px';
+                troubleshootingAlert.innerHTML = `
+                    <strong>⚠️ Connection Failed</strong><br>
+                    Check the debug logs below for detailed troubleshooting steps.
+                    <br><br>
+                    <button onclick="copyLogs()" class="btn btn-secondary btn-sm">
+                        📋 Copy Full Logs
+                    </button>
+                `;
+                
+                // Insert at the top of status panel
+                statusContent.insertBefore(troubleshootingAlert, statusContent.firstChild);
+                
+                // Auto-remove after 30 seconds
+                setTimeout(() => {
+                    if (troubleshootingAlert.parentNode) {
+                        troubleshootingAlert.parentNode.removeChild(troubleshootingAlert);
+                    }
+                }, 30000);
+            }
+        }
+
+        // Event listeners for UI
+        elements.loadSecretsBtn.addEventListener('click', async () => {
+            elements.loadSecretsBtn.innerHTML = '<span class="spinner"></span>Loading...';
+            elements.loadSecretsBtn.disabled = true;
+            
+            const success = await loadExistingSecretsEnhanced();
+            
+            elements.loadSecretsBtn.innerHTML = '📥 Load from Agent Settings';
+            elements.loadSecretsBtn.disabled = false;
+            
+            if (success) {
+                elements.loadSecretsBtn.innerHTML = '✅ Loaded Successfully';
+                setTimeout(() => {
+                    elements.loadSecretsBtn.innerHTML = '📥 Load from Agent Settings';
+                }, 2000);
+            } else {
+                elements.loadSecretsBtn.innerHTML = '❌ No Secrets Found';
+                setTimeout(() => {
+                    elements.loadSecretsBtn.innerHTML = '📥 Load from Agent Settings';
+                }, 2000);
+            }
+        });
+        
+        elements.useDemoSecretBtn.addEventListener('click', () => {
+            // Use a placeholder demo secret for testing UI functionality
+            const demoSecret = 'demo_' + Date.now().toString(36);
+            elements.directlineSecret.value = demoSecret;
+            elements.userId.value = 'demo_user_' + Date.now().toString(36);
+            
+            log('Demo credentials loaded for UI testing', 'info');
+            log('⚠️ Demo secret will not establish real connection', 'warning');
+            log('Use this to test the interface and retry logic', 'info');
+            
+            elements.useDemoSecretBtn.innerHTML = '✅ Demo Loaded';
+            setTimeout(() => {
+                elements.useDemoSecretBtn.innerHTML = '🧪 Use Demo Secret';
+            }, 2000);
+        });
+        
+        elements.connectBtn.addEventListener('click', connect);
+        elements.testSecretBtn.addEventListener('click', testDirectLineSecret);
+        elements.disconnectBtn.addEventListener('click', disconnect);
+        elements.clearChatBtn.addEventListener('click', clearChat);
+        elements.testMessagesBtn.addEventListener('click', sendTestMessages);
+        elements.copyLogsBtn.addEventListener('click', copyLogs);
+        elements.clearLogsBtn.addEventListener('click', clearLogs);
+
+        // Chat form submission
+        elements.chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const message = elements.messageInput.value.trim();
+            if (message) {
+                sendMessage(message);
+            }
+        });
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async () => {
+            log('Enhanced DirectLine Manager Test Page Initialized');
+            
+            // Try enhanced loading first, fall back to basic if needed
+            await loadExistingSecretsEnhanced();
+            
+            // Update metrics every second
+            setInterval(updateMetrics, 1000);
+            
+            // Add CSS for message styling
+            const messageStyles = document.createElement('style');
+            messageStyles.textContent = `
+                .message {
+                    margin: 10px 0;
+                    padding: 12px 15px;
+                    border-radius: 8px;
+                    max-width: 80%;
+                }
+                
+                .bot-message {
+                    background: #f0f9ff;
+                    border: 1px solid #0ea5e9;
+                    margin-right: auto;
+                }
+                
+                .user-message {
+                    background: #f0fdf4;
+                    border: 1px solid #22c55e;
+                    margin-left: auto;
+                }
+                
+                .system-message {
+                    background: #fef3c7;
+                    border: 1px solid #f59e0b;
+                    text-align: center;
+                    margin: 5px auto;
+                    max-width: 60%;
+                    font-style: italic;
+                }
+                
+                .message-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 8px;
+                    font-size: 12px;
+                    opacity: 0.7;
+                }
+                
+                .message-content {
+                    line-height: 1.4;
+                }
+                
+                .streaming-indicator {
+                    font-size: 10px;
+                    color: #0ea5e9;
+                    margin-top: 5px;
+                    font-style: italic;
+                }
+                
+                .message-attachments {
+                    margin-top: 8px;
+                    padding-top: 8px;
+                    border-top: 1px solid #e0e0e0;
+                }
+                
+                .attachment {
+                    font-size: 12px;
+                    color: #666;
+                    margin: 2px 0;
+                }
+                
+                .suggested-actions {
+                    margin-top: 10px;
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 5px;
+                }
+                
+                .suggested-action {
+                    padding: 5px 10px;
+                    border: 1px solid #0ea5e9;
+                    background: white;
+                    color: #0ea5e9;
+                    border-radius: 15px;
+                    font-size: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                
+                .suggested-action:hover {
+                    background: #0ea5e9;
+                    color: white;
+                }
+                
+                .typing-indicator {
+                    margin: 10px 0;
+                    padding: 8px 12px;
+                    background: #f3f4f6;
+                    border-radius: 15px;
+                    font-style: italic;
+                    color: #6b7280;
+                    animation: pulse 1.5s infinite;
+                }
+                
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.5; }
+                }
+            `;
+            document.head.appendChild(messageStyles);
+        });
+
+        // Export for debugging
+        window.enhancedDirectLineTest = {
+            manager: () => enhancedManager,
+            connect,
+            disconnect,
+            sendMessage,
+            log,
+            elements
+        };
+    </script>
+</body>
+</html>

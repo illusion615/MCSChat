@@ -1,0 +1,1100 @@
+/* Message Components */
+
+/* Message icons toggle */
+.hideMessageIcons .user-avatar,
+.hideMessageIcons .bot-avatar {
+    display: none;
+}
+
+.hideMessageIcons .userMessage,
+.hideMessageIcons .botMessage {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* Adjust metadata margin when icons are hidden */
+.hideMessageIcons .message-metadata {
+    margin-left: 0;
+}
+
+/* User message metadata alignment */
+.userMessage + .message-metadata,
+.messageContainer.userMessage ~ .message-metadata {
+    justify-content: flex-end;
+    margin-right: 40px; /* Align with user message (icon width + margin) */
+    margin-left: 0;
+}
+
+/* Adjust user metadata when icons are hidden */
+.hideMessageIcons .userMessage + .message-metadata,
+.hideMessageIcons .messageContainer.userMessage ~ .message-metadata {
+    margin-right: 0;
+}
+
+/* Message metadata */
+.message-metadata {
+    display: flex; /* Visible by default when showMetadata is true */
+    align-items: center;
+    gap: 4px;
+    margin: 2px 0 8px 40px; /* Align with message content (icon width + margin) */
+    padding: 0 4px;
+    font-size: 11px;
+    color: rgba(96, 94, 92, 0.8);
+    font-weight: 400;
+    line-height: 1.2;
+}
+
+.metadata-time {
+    color: rgba(96, 94, 92, 0.9);
+    font-variant-numeric: tabular-nums;
+}
+
+.metadata-source {
+    color: rgba(96, 94, 92, 0.7);
+    font-weight: 500;
+}
+
+.metadata-separator {
+    color: rgba(96, 94, 92, 0.5);
+    font-weight: 300;
+}
+
+/* Message Speaker Button */
+.message-speaker-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    transition: all 0.2s ease;
+    color: rgba(96, 94, 92, 0.7);
+    background: rgba(255, 255, 255, 0.8);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(96, 94, 92, 0.2);
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
+.message-speaker-btn:hover {
+    background: rgba(0, 120, 212, 0.1);
+    border-color: rgba(0, 120, 212, 0.3);
+    color: #0078d4;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 120, 212, 0.2);
+}
+
+.message-speaker-btn:active {
+    transform: translateY(0);
+    background: rgba(0, 120, 212, 0.15);
+}
+
+/* Speaker button when playing */
+.message-speaker-btn.playing {
+    background: rgba(0, 120, 212, 0.2);
+    border-color: rgba(0, 120, 212, 0.4);
+    color: #0078d4;
+    animation: speaker-pulse 1.5s ease-in-out infinite;
+}
+
+/* Metadata speaker button (smaller for metadata section) */
+.message-speaker-btn.metadata-speaker-btn {
+    width: 24px;
+    height: 24px;
+    padding: 4px;
+    margin-left: 6px;
+    font-size: 12px;
+}
+
+/* Speaker pulse animation */
+@keyframes speaker-pulse {
+    0%, 100% {
+        box-shadow: 0 2px 8px rgba(0, 120, 212, 0.2);
+    }
+    50% {
+        box-shadow: 0 4px 16px rgba(0, 120, 212, 0.4);
+        transform: translateY(-1px) scale(1.05);
+    }
+}
+
+/* Message containers */
+.messageContainer {
+    display: flex;
+    align-items: flex-start;
+    margin: 4px 0;
+    /* Reduced from 10px to 4px for compactness */
+    max-width: 100%;
+    overflow-wrap: break-word;
+}
+
+.messageContainer.userMessage {
+    justify-content: flex-end;
+}
+
+.messageContainer.botMessage {
+    justify-content: flex-start;
+}
+
+/* Message icons */
+.messageIcon {
+    width: 24px;
+    /* Reduced from 32px */
+    height: 24px;
+    /* Reduced from 32px */
+    margin: 4px;
+    /* Base margin for all sides */
+    margin-top: 14px;
+    /* Adjusted to align with first line of text content */
+    border-radius: 50%;
+    background-size: cover;
+    background-color: rgba(255, 255, 255, 0.9);
+    flex-shrink: 0;
+    /* Prevent icon from shrinking */
+}
+
+/* Add extra spacing between icon and message content */
+.botMessage .messageIcon {
+    margin-right: 12px;
+    /* Extra space for bot messages (icon on left) */
+}
+
+.userMessage .messageIcon {
+    margin-left: 12px;
+    /* Extra space for user messages (icon on right) */
+}
+
+/* Message content - Unified base styles (conservative defaults) */
+.messageContent {
+    /* Common layout properties */
+    max-width: var(--msg-max-width);
+    padding: 12px;
+    margin: 6px 0;
+    
+    /* Common typography */
+    line-height: var(--msg-line-height);
+    font-size: var(--agent-chat-font-size);
+    
+    /* Conservative word wrapping for regular messages */
+    word-wrap: var(--msg-text-flow-default);
+    word-break: var(--msg-text-flow-default);
+    overflow-wrap: var(--msg-text-flow-default);
+    white-space: var(--msg-whitespace-default);
+    -webkit-hyphens: var(--msg-hyphens-default);
+    -ms-hyphens: var(--msg-hyphens-default);
+    hyphens: var(--msg-hyphens-default);
+    
+    /* Common visual properties */
+    border-radius: var(--msg-border-radius-compact);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.userMessage .messageContent {
+    /* User message styling using CSS variables */
+    background: var(--msg-user-bg);
+    color: var(--msg-user-color);
+    border-radius: var(--msg-user-border-radius);
+    box-shadow: var(--msg-user-shadow);
+    
+    /* User-specific adjustments */
+    padding: 10px 16px;
+    text-align: left;
+    font-weight: 500;
+    max-width: var(--msg-max-width-expanded);
+}
+
+/* AI Companion User Message Styling - Different look when chatting with AI Companion */
+.ai-companion-user-message .messageContent {
+    background: var(--msg-companion-user-bg);
+    color: var(--msg-companion-user-color);
+    border: var(--msg-companion-user-border);
+    box-shadow: var(--msg-companion-user-shadow);
+}
+
+.botMessage .messageContent {
+    /* Bot message styling using CSS variables */
+    background: var(--msg-bot-bg);
+    color: var(--msg-bot-color);
+    border: var(--msg-bot-border);
+    border-radius: var(--msg-bot-border-radius);
+    box-shadow: var(--msg-bot-shadow);
+    
+    /* Bot-specific adjustments */
+    padding: 10px 16px;
+    text-align: left;
+    max-width: var(--msg-max-width-expanded);
+}
+
+/* PROFESSIONAL SYSTEM MODE - Full width message styling for professional interface */
+.full-width-messages .botMessage .messageContent {
+    max-width: var(--msg-max-width-full);
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: var(--spacing-md) 0;
+    margin: var(--spacing-sm) 0;
+    box-shadow: none;
+}
+
+.full-width-messages .botMessage {
+    justify-content: stretch;
+    background: transparent;
+    margin: 0;
+    padding: 0;
+}
+
+/* PROFESSIONAL: Hide agent icons for system-like appearance */
+.full-width-messages .botMessage .messageIcon {
+    display: none;
+}
+
+/* PROFESSIONAL: Show metadata in full-width mode with proper alignment */
+.full-width-messages .message-metadata {
+    display: flex;
+    /* Show metadata in full-width mode */
+    margin-left: 0;
+    /* Remove icon offset since icons are hidden */
+    opacity: 0.6;
+    /* Make it more subtle */
+    font-size: 10px;
+    /* Slightly smaller for professional look */
+}
+
+/* PROFESSIONAL: Ensure user message metadata aligns properly in full-width mode */
+.full-width-messages .userMessage+.message-metadata,
+.full-width-messages .messageContainer.userMessage~.message-metadata {
+    margin-right: 0;
+    /* Remove icon offset since icons are hidden */
+    justify-content: flex-start;
+    /* Align to left like bot messages in full-width mode */
+}
+
+/* PROFESSIONAL: Speaker button adjustments for full-width mode */
+.full-width-messages .message-speaker-btn {
+    opacity: 0.7;
+    margin-left: 4px;
+}
+
+.full-width-messages .message-speaker-btn:hover {
+    opacity: 1;
+}
+
+/* AI Companion Response Styling - Elegant bubble style with subtle purple theme */
+.companion-response {
+    justify-content: flex-start;
+}
+
+.companion-response .messageContent {
+    /* AI Companion response styling using CSS variables */
+    background: var(--msg-companion-response-bg);
+    color: var(--msg-companion-response-color);
+    border: var(--msg-companion-response-border);
+    border-radius: var(--msg-bot-border-radius);
+    box-shadow: var(--msg-companion-response-shadow);
+    
+    /* Companion-specific adjustments */
+    padding: 10px 16px;
+    text-align: left;
+}
+
+/* AI Companion Thinking Messages - Specialized streaming-friendly styling */
+.messageContainer.thinking-message .messageContent.thinking-content {
+    /* Visual identity using design tokens */
+    background: var(--msg-thinking-bg);
+    color: var(--msg-thinking-color);
+    border: var(--msg-thinking-border);
+    border-radius: var(--msg-bot-border-radius);
+    box-shadow: var(--msg-thinking-shadow);
+    
+    /* Layout and typography */
+    padding: 10px 16px;
+    text-align: left;
+    max-width: var(--msg-thinking-max-width);
+    opacity: var(--msg-thinking-opacity);
+    font-style: var(--msg-thinking-font-style);
+    
+    /* Streaming-optimized text flow using design tokens */
+    white-space: var(--msg-whitespace-streaming);
+    word-break: var(--msg-text-flow-streaming);
+    overflow-wrap: var(--msg-text-flow-streaming);
+    word-wrap: var(--msg-text-flow-streaming);
+    -webkit-hyphens: var(--msg-hyphens-streaming);
+    -ms-hyphens: var(--msg-hyphens-streaming);
+    hyphens: var(--msg-hyphens-streaming);
+}
+
+/* ===== INLINE REFERENCES STYLING ===== */
+
+/* Inline reference styling for citations */
+.inline-reference {
+    display: inline-block;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 5px;
+    border-radius: 3px;
+    margin: 0 2px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    vertical-align: baseline;
+    text-decoration: none;
+    /* Remove any default underline */
+}
+
+.inline-reference:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+    color: white;
+    /* Ensure text stays white on hover */
+}
+
+/* ===== CITATIONS AND REFERENCES STYLING ===== */
+
+.citations-container {
+    margin-top: 6px;
+    /* Reduced from 12px for compactness */
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    background-color: rgba(248, 249, 250, 0.8);
+    overflow: hidden;
+    width: 100%;
+    /* Ensure full width */
+    box-sizing: border-box;
+    /* Include border in width calculation */
+    order: 10;
+    /* Ensure citations appear after message content */
+    clear: both;
+    /* Ensure citations don't float alongside other content */
+}
+
+.citations-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background-color: rgba(240, 242, 245, 0.9);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.citations-header:hover {
+    background-color: rgba(232, 236, 241, 0.9);
+}
+
+.citations-icon {
+    margin-right: 6px;
+    font-size: 14px;
+    flex-shrink: 0;
+    /* Prevent icon from shrinking */
+}
+
+.citations-title {
+    font-weight: 500;
+    font-size: 13px;
+    color: #374151;
+    flex: 1;
+    white-space: nowrap;
+    /* Prevent text wrapping */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.citations-toggle {
+    background: none;
+    border: none;
+    font-size: 12px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+    flex-shrink: 0;
+    /* Prevent button from shrinking */
+}
+
+.citations-toggle:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.citations-list {
+    display: block;
+    max-height: 300px;
+    overflow-y: auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.citation-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.citation-item:last-child {
+    border-bottom: none;
+}
+
+.citation-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    width: 100%;
+}
+
+.citation-number {
+    background-color: #3b82f6;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 8px;
+    min-width: 24px;
+    text-align: center;
+    flex-shrink: 0;
+    /* Prevent number from shrinking */
+}
+
+.citation-source {
+    font-weight: 500;
+    font-size: 13px;
+    color: #1f2937;
+    word-break: break-word;
+    flex: 1;
+    /* Allow source to take remaining space */
+}
+
+.citation-details {
+    margin-left: 32px;
+    width: calc(100% - 32px);
+    box-sizing: border-box;
+}
+
+.citation-detail-item {
+    margin-bottom: 6px;
+    padding: 6px 0;
+    width: 100%;
+}
+
+.citation-detail-item:last-child {
+    margin-bottom: 0;
+}
+
+.citation-page {
+    display: inline-block;
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-bottom: 4px;
+}
+
+.citation-content {
+    font-size: 12px;
+    color: #4b5563;
+    line-height: 1.4;
+    margin: 4px 0 6px 0;
+    padding: 6px 8px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-left: 2px solid #e5e7eb;
+    border-radius: 3px;
+    word-wrap: break-word;
+    /* Ensure long text wraps properly */
+    overflow-wrap: break-word;
+}
+
+.citation-link {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.citation-link:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.citation-link:active {
+    transform: translateY(0);
+}
+
+/* ===== MESSAGE CONTENT FORMATTING STYLES ===== */
+
+/* Unified code styling using CSS variables */
+.messageContent code,
+.messageText code {
+    background: var(--msg-code-bg);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: var(--msg-code-font);
+    font-size: var(--msg-code-size);
+    color: inherit;
+}
+
+/* User message code override */
+.userMessage .messageContent code,
+.userMessage .messageText code {
+    background: var(--msg-code-bg-user);
+}
+
+/* Unified pre-formatted code blocks */
+.messageContent pre,
+.messageText pre {
+    background: var(--msg-pre-bg);
+    border: var(--msg-pre-border);
+    border-radius: 6px;
+    padding: 12px;
+    margin: 12px 0;
+    overflow-x: auto;
+    font-family: var(--msg-code-font);
+    font-size: var(--msg-code-size);
+    line-height: 1.4;
+}
+
+/* User message pre blocks */
+.userMessage .messageContent pre,
+.userMessage .messageText pre {
+    background: var(--msg-pre-bg-user);
+    border: var(--msg-pre-border-user);
+}
+
+/* Code within pre blocks */
+.messageContent pre code,
+.messageText pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+}
+
+/* Unified blockquotes */
+.messageContent blockquote,
+.messageText blockquote {
+    border-left: var(--msg-quote-border);
+    margin: 12px 0;
+    padding: 8px 0 8px 16px;
+    color: var(--msg-quote-color);
+    font-style: italic;
+}
+
+/* User message blockquotes */
+.userMessage .messageContent blockquote,
+.userMessage .messageText blockquote {
+    border-left: var(--msg-quote-border-user);
+    color: var(--msg-quote-color-user);
+}
+
+/* Unified lists */
+.messageContent ul,
+.messageContent ol,
+.messageText ul,
+.messageText ol {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+
+.messageContent li,
+.messageText li {
+    margin: 4px 0;
+    color: var(--msg-text-color);
+    line-height: var(--msg-line-height);
+}
+
+/* User message lists */
+.userMessage .messageContent li,
+.userMessage .messageText li {
+    color: var(--msg-text-color-user);
+}
+
+/* Unified links */
+.messageContent a,
+.messageText a {
+    color: var(--msg-link-color);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-bottom 0.2s ease;
+}
+
+.messageContent a:hover,
+.messageText a:hover {
+    border-bottom-color: var(--msg-link-color);
+}
+
+/* User message links */
+.userMessage .messageContent a,
+.userMessage .messageText a {
+    color: var(--msg-link-color-user);
+    border-bottom-color: var(--msg-link-color-user-border);
+}
+
+.userMessage .messageContent a:hover,
+.userMessage .messageText a:hover {
+    border-bottom-color: var(--msg-link-color-user-hover);
+}
+
+/* Unified tables */
+.messageContent table,
+.messageText table {
+    border-collapse: collapse;
+    margin: 12px 0;
+    width: 100%;
+    font-size: var(--msg-table-font-size);
+}
+
+.messageContent th,
+.messageContent td,
+.messageText th,
+.messageText td {
+    border: 1px solid var(--msg-table-border);
+    padding: 8px 12px;
+    text-align: left;
+}
+
+.messageContent th,
+.messageText th {
+    background: var(--msg-table-header-bg);
+    font-weight: 600;
+}
+
+/* User message tables */
+.userMessage .messageContent th,
+.userMessage .messageContent td,
+.userMessage .messageText th,
+.userMessage .messageText td {
+    border-color: var(--msg-table-border-user);
+}
+
+.userMessage .messageContent th,
+.userMessage .messageText th {
+    background: var(--msg-table-header-bg-user);
+}
+
+/* Unified horizontal rules */
+.messageContent hr,
+.messageText hr {
+    border: none;
+    border-top: 1px solid var(--msg-hr-color);
+    margin: 16px 0;
+}
+
+.userMessage .messageContent hr,
+.userMessage .messageText hr {
+    border-top-color: var(--msg-hr-color-user);
+}
+
+/* Images */
+.messageContent img,
+.messageText img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    margin: 8px 0;
+}
+
+/* ===== ATTACHMENT STYLES ===== */
+
+.generic-attachment {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    margin: 8px 0;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    background: rgba(248, 249, 250, 0.8);
+    transition: all 0.2s ease;
+}
+
+.generic-attachment:hover {
+    background: rgba(240, 242, 245, 0.9);
+    border-color: rgba(0, 120, 212, 0.3);
+}
+
+.attachment-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.attachment-name {
+    font-weight: 500;
+    font-size: 14px;
+    color: #323130;
+    word-break: break-word;
+}
+
+.attachment-type {
+    font-size: 12px;
+    color: #605e5c;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.attachment-link {
+    background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.attachment-link:hover {
+    background: linear-gradient(135deg, #106ebe 0%, #005a9e 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 120, 212, 0.3);
+    color: white;
+}
+
+.attachment-link:active {
+    transform: translateY(0);
+}
+
+/* ===== STREAMING MESSAGE STYLES ===== */
+
+.messageContent.streaming {
+    border-left: 3px solid #0073e6;
+    transition: border-left 0.3s ease;
+}
+
+.streaming-indicator {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 16px;
+    color: #0073e6;
+    opacity: 0.8;
+}
+
+.streaming-indicator .cursor {
+    animation: blink 1s infinite;
+    font-weight: bold;
+}
+
+@keyframes blink {
+    0%, 50% {
+        opacity: 1;
+    }
+    51%, 100% {
+        opacity: 0;
+    }
+}
+
+/* ===== MARKDOWN CONTENT STYLING ===== */
+
+/* Paragraphs */
+.messageContent p,
+.messageText p {
+    margin: 0 0 12px 0;
+    line-height: 1.6;
+}
+
+.messageContent p:last-child,
+.messageText p:last-child {
+    margin-bottom: 0;
+}
+
+/* Headings */
+.messageContent h1,
+.messageContent h2,
+.messageContent h3,
+.messageContent h4,
+.messageContent h5,
+.messageContent h6,
+.messageText h1,
+.messageText h2,
+.messageText h3,
+.messageText h4,
+.messageText h5,
+.messageText h6 {
+    margin: 16px 0 8px 0;
+    line-height: 1.3;
+    font-weight: 600;
+}
+
+.messageContent h1:first-child,
+.messageContent h2:first-child,
+.messageContent h3:first-child,
+.messageContent h4:first-child,
+.messageContent h5:first-child,
+.messageContent h6:first-child,
+.messageText h1:first-child,
+.messageText h2:first-child,
+.messageText h3:first-child,
+.messageText h4:first-child,
+.messageText h5:first-child,
+.messageText h6:first-child {
+    margin-top: 0;
+}
+
+.messageContent h1,
+.messageText h1 {
+    font-size: 1.5em;
+}
+
+.messageContent h2,
+.messageText h2 {
+    font-size: 1.4em;
+}
+
+.messageContent h3,
+.messageText h3 {
+    font-size: 1.3em;
+}
+
+.messageContent h4,
+.messageText h4 {
+    font-size: 1.2em;
+}
+
+.messageContent h5,
+.messageText h5 {
+    font-size: 1.1em;
+}
+
+.messageContent h6,
+.messageText h6 {
+    font-size: 1em;
+}
+
+/* Text emphasis */
+.messageContent strong,
+.messageContent b,
+.messageText strong,
+.messageText b {
+    font-weight: 700;
+}
+
+.messageContent em,
+.messageContent i,
+.messageText em,
+.messageText i {
+    font-style: italic;
+}
+
+/* ===== SPEECH PROGRESS INDICATOR STYLES ===== */
+
+/* Speaker Controls Container - horizontal layout */
+.speaker-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Speech Progress Bar */
+.speech-progress-container {
+    width: 60px;
+    height: 6px;
+    /* Increased height for better visibility */
+    background: #e5e7eb;
+    /* Darker background for better contrast */
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid #d1d5db;
+    /* Add border for definition */
+}
+
+.speech-progress-bar {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.speech-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+    border-radius: 2px;
+    transition: width 0.2s ease;
+    /* Faster transition for more responsive feel */
+    position: relative;
+    min-width: 0;
+    /* Ensure it can start from 0 */
+    /* Add a subtle shadow for depth */
+    box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
+    /* Ensure the width property is respected */
+    display: block;
+}
+
+/* Speech progress styling - use higher specificity instead of !important */
+.speaker-controls .speech-progress .speech-progress-fill {
+    background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+}
+
+.speech-progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 8px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
+    border-radius: 0 2px 2px 0;
+}
+
+/* Enhanced Typing Indicator Styles */
+.enhanced-typing-indicator {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    margin: 8px 0;
+    background: rgba(248, 249, 250, 0.95);
+    border: 1px solid rgba(0, 120, 212, 0.2);
+    border-radius: 20px 20px 20px 4px;
+    box-shadow: 0 2px 8px rgba(0, 120, 212, 0.12);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.enhanced-typing-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.typing-main-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.enhanced-dots {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.typing-dot {
+    width: 8px;
+    height: 8px;
+    background: #0078d4;
+    border-radius: 50%;
+    animation: enhanced-typing-bounce 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.typing-dot:nth-child(2) {
+    animation-delay: -0.16s;
+}
+
+.typing-dot:nth-child(3) {
+    animation-delay: 0s;
+}
+
+.typing-status-area {
+    flex: 1;
+    font-size: 13px;
+    color: #605e5c;
+    font-style: italic;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.typing-status-area.visible {
+    opacity: 1;
+}
+
+.typing-status-area.phase-immediate {
+    color: #0078d4;
+}
+
+.typing-status-area.phase-thinking {
+    color: #8b5fbf;
+}
+
+.typing-status-area.phase-processing {
+    color: #107c10;
+}
+
+.typing-status-area.phase-finalizing {
+    color: #d83b01;
+}
+
+.typing-progress-container {
+    margin-top: 6px;
+    width: 100%;
+}
+
+.typing-progress-bar {
+    width: 100%;
+    height: 3px;
+    background: rgba(0, 120, 212, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.typing-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0078d4, #8b5fbf);
+    border-radius: 2px;
+    transition: width 0.5s ease;
+    width: 0%;
+}
+
+/* Animation for typing dots */
+@keyframes enhanced-typing-bounce {
+    0%, 80%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Enhanced typing indicator responsive design */
+@media (max-width: 768px) {
+    .enhanced-typing-indicator {
+        padding: 10px 12px;
+        margin: 6px 0;
+        font-size: 12px;
+    }
+    
+    .typing-dot {
+        width: 6px;
+        height: 6px;
+    }
+    
+    .typing-status-area {
+        font-size: 12px;
+    }
+}

@@ -100,8 +100,9 @@ async function setupSideCommandBar() {
         
         if (conversationsBtn && conversationsBtn.children.length === 0) {
             conversationsBtn.innerHTML = ''; // Clear any existing content
-            const conversationsIcon = Icon.sideCommand('newChat');
-            console.log('[Main] Created conversationsButton icon:', conversationsIcon);
+            const iconName = conversationsBtn.getAttribute('data-icon') || 'newChat';
+            const conversationsIcon = Icon.sideCommand(iconName);
+            console.log('[Main] Created conversationsButton icon:', iconName, conversationsIcon);
             conversationsBtn.appendChild(conversationsIcon);
         }
         

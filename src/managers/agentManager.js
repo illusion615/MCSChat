@@ -518,6 +518,7 @@ export class AgentManager {
         }
 
         this.isEditingAgent = true;
+        this.currentEditingAgentId = agentId; // Fix: Set the agent ID being edited
     }
 
     /**

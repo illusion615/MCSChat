@@ -1,0 +1,443 @@
+/* Panel Controls and Status Indicators */
+
+/* UNIFIED: Enhanced panel-controls for both agent and LLM contexts */
+.panel-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    background: transparent;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.panel-controls:hover {
+    background: rgba(248, 249, 250, 0.5);
+}
+
+/* UNIFIED: Enhanced agent-name styles for all contexts (agent and LLM panels) */
+.agent-name {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    background-color: transparent;
+    color: #605e5c;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.agent-name:empty {
+    display: none;
+}
+
+.agent-name:hover {
+    color: #323130;
+}
+
+/* Unified Status Indicator System */
+.status-indicator,
+.agent-status-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-danger);
+    /* default/disconnected */
+    position: relative;
+    cursor: help;
+    transition: all 0.3s ease;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.status-indicator:hover,
+.agent-status-indicator:hover {
+    transform: scale(1.2);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+}
+
+.status-indicator.connected,
+.agent-status-indicator.connected {
+    background: var(--color-success);
+    box-shadow: var(--shadow-success);
+}
+
+.status-indicator.connecting,
+.agent-status-indicator.connecting {
+    background: var(--color-warning);
+    animation: statusPulse 1.5s infinite;
+}
+
+.status-indicator.disconnected,
+.agent-status-indicator.disconnected {
+    background: var(--color-danger);
+}
+
+.status-indicator.disabled {
+    background: var(--color-disabled);
+}
+
+.status-indicator.error {
+    background: var(--color-danger);
+    animation: statusPulse 1.5s infinite;
+}
+
+/* Unified pulse animation */
+@keyframes statusPulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* ===== SIDE BROWSER STYLES ===== */
+
+/* Main Side Browser Panel */
+.side-browser {
+    position: fixed;
+    top: 0;
+    right: -40%;
+    width: 40%;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.98);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border-left: 1px solid rgba(255, 255, 255, 0.3);
+    z-index: 1000;
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
+}
+
+.side-browser.open {
+    right: 0;
+}
+
+/* Side Browser Header */
+.side-browser-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background: rgba(255, 255, 255, 0.9);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    min-height: 70px;
+    flex-shrink: 0;
+}
+
+.side-browser-header h3 {
+    margin: 0;
+    color: #323130;
+    font-size: 18px;
+    font-weight: 600;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+/* Side Browser Close Button */
+.side-browser-close {
+    background: rgba(0, 0, 0, 0.05);
+    border: none;
+    font-size: 20px;
+    color: #605e5c;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    line-height: 1;
+    min-width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    position: relative;
+    z-index: 10;
+    pointer-events: auto;
+}
+
+.side-browser-close:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #323130;
+    transform: scale(1.05);
+}
+
+/* Side Browser Content */
+.side-browser-content {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.side-browser-content iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #ffffff;
+}
+
+/* Side Browser Loading State */
+.side-browser-loader {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #605e5c;
+    background: rgba(255, 255, 255, 0.95);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    padding: 32px;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.side-browser-loader p {
+    margin: 16px 0 0 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #605e5c;
+}
+
+/* Loading Spinner */
+.loader-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(102, 126, 234, 0.2);
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    animation: modernSpin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+    margin: 0 auto;
+}
+
+@keyframes modernSpin {
+    0% {
+        transform: rotate(0deg);
+        scale: 1;
+    }
+    50% {
+        scale: 1.1;
+    }
+    100% {
+        transform: rotate(360deg);
+        scale: 1;
+    }
+}
+
+/* Side Browser Error State */
+.side-browser-error {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #605e5c;
+    padding: 32px;
+    background: rgba(255, 255, 255, 0.95);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    max-width: 280px;
+}
+
+.side-browser-error p {
+    margin: 0 0 20px 0;
+    color: #d13438;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.side-browser-error .btn {
+    background: var(--gradient-primary, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-block;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    position: relative;
+    z-index: 10;
+    pointer-events: auto;
+}
+
+.side-browser-error .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+/* ===== RIGHT PANEL STYLES ===== */
+
+/* Legacy Right Panel Support */
+#rightPanel {
+    display: none;
+    width: 460px;
+    min-width: 460px;
+    overflow: auto;
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    background: rgba(255, 255, 255, 0.95);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-top-right-radius: 16px;
+    border-bottom-right-radius: 16px;
+}
+
+#rightPanel iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+#closeButton {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(0, 0, 0, 0.1);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 400;
+    color: #605e5c;
+    transition: all 0.2s ease;
+    z-index: 10;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+}
+
+#closeButton:hover {
+    background: rgba(0, 0, 0, 0.15);
+    color: #323130;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+/* Side Browser Responsive */
+@media (max-width: 1200px) {
+    .side-browser {
+        width: 50%;
+        right: -50%;
+    }
+}
+
+@media (max-width: 768px) {
+    .side-browser {
+        width: 100%;
+        right: -100%;
+        border-left: none;
+        box-shadow: 0 0 32px rgba(0, 0, 0, 0.2);
+    }
+
+    .side-browser-header {
+        padding: 16px 20px;
+        min-height: 60px;
+    }
+
+    .side-browser-header h3 {
+        font-size: 16px;
+    }
+
+    .side-browser-close {
+        min-width: 32px;
+        height: 32px;
+        font-size: 18px;
+    }
+
+    .side-browser-loader,
+    .side-browser-error {
+        padding: 24px;
+        max-width: calc(100vw - 48px);
+    }
+}
+
+/* ===== SESSION LIST ITEMS ===== */
+
+/* Individual Session Items */
+.sessionItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 16px 16px;
+    cursor: pointer;
+    border-radius: 12px;
+    margin-bottom: 4px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    transition: all 0.2s ease;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.sessionItem span:first-child {
+    flex: 1;
+    min-width: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    font-size: 14px;
+    line-height: 1.4;
+    padding-right: 8px; /* Add some spacing from delete icon */
+}
+
+.sessionItem:hover {
+    background: rgba(255, 255, 255, 0.8);
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.sessionItem.active {
+    background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+    color: white;
+    box-shadow: 0 2px 12px rgba(0, 120, 212, 0.3);
+}
+
+.sessionItem.active .deleteIcon {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.sessionItem.active .deleteIcon:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Delete Icon for Session Items */
+.deleteIcon {
+    cursor: pointer;
+    margin-left: 12px;
+    margin-top: -2px; /* Align with first line of text */
+    font-size: 16px;
+    opacity: 0.6;
+    padding: 4px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    flex-shrink: 0; /* Prevent icon from shrinking */
+}
+
+.deleteIcon:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}

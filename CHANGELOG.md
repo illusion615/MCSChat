@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Microsoft Copilot Studio Branding**: Updated splash screen with official Microsoft Copilot gradient colors and SVG agent icon for professional Microsoft Copilot Studio Companion branding
+- **Enhanced Splash Screen System**: Intelligent loading progress tracking with library detection (marked, DOMPurify, katex) and smooth fade transitions
+- **CSS Thinking Message Fix**: Resolved CSS cascade conflicts affecting thinking message display using semantic design tokens instead of !important declarations
+- **Project Structure Optimization**: Complete cleanup of root directory with documentation consolidation and removal of development artifacts
+
+### Removed  
+- **Tests Directory Cleanup**: Removed entire `/tests/` folder (41 test files) with zero impact on main application functionality after comprehensive dependency analysis
+- **Development Artifacts**: Eliminated test-related documentation sections and references for cleaner production-ready codebase
+
+### Changed
+- **Documentation Consolidation**: Reorganized all migration and development documentation following English/Chinese bilingual structure in `docs/` folder
+- **Root Directory Cleanup**: Moved all non-essential markdown files to appropriate documentation folders for cleaner project structure
+- **CSS Architecture Enhancement**: Implemented design token system in `css/base/variables.css` with Microsoft Copilot gradient support
+- **Splash Screen Integration**: Unified loading experience with Microsoft branding and intelligent progress tracking
+
+### Fixed
+- **CSS Cascade Issues**: Resolved thinking message display problems using proper CSS specificity and semantic design tokens
+- **Splash Screen Timing**: Fixed element reference and initialization timing issues in splash screen system
+- **Documentation Organization**: Standardized bilingual documentation structure for better maintainability
+
 - **KPI Grid Layout Optimization**: Improved agent KPI section from 4 columns to 3 columns in non-expanded state for better visual balance and readability
 - **Enhanced Speech Recognition Error Handling**: Fixed critical bug where transcript processing could fail with non-string data types, improving voice input reliability across all speech providers
 - **Robust Speech Input Validation**: Added comprehensive type checking and data sanitization for speech recognition results, supporting string, object, and mixed-type responses

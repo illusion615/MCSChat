@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG Icon Library - Management & Preview</title>
+    <link rel="stylesheet" href="icon-manager.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🎨 SVG Icon Library Manager</h1>
+            <div class="stats">
+                <div class="stat-item">
+                    <span id="totalIcons" class="stat-number">0</span>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-item">
+                    <span id="displayedIcons" class="stat-number">0</span>
+                    <div class="stat-label">Displayed</div>
+                </div>
+                <div class="stat-item">
+                    <span id="totalCategories" class="stat-number">0</span>
+                    <div class="stat-label">Categories</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="control-group">
+                <label for="searchInput">🔍 Search:</label>
+                <input type="text" id="searchInput" class="search-input" placeholder="Search icons...">
+            </div>
+            <div class="control-group">
+                <label for="categoryFilter">📁 Category:</label>
+                <select id="categoryFilter" class="category-select">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="sizeSelect">📏 Size:</label>
+                <select id="sizeSelect" class="size-select">
+                    <option value="xs">Extra Small (16px)</option>
+                    <option value="small">Small (20px)</option>
+                    <option value="medium" selected>Medium (24px)</option>
+                    <option value="large">Large (28px)</option>
+                    <option value="xl">Extra Large (36px)</option>
+                    <option value="xxl">XXL (48px)</option>
+                </select>
+            </div>
+            <div class="actions">
+                <button id="refreshBtn" class="btn btn-primary">🔄 Refresh</button>
+                <button id="exportBtn" class="btn btn-secondary">📤 Export</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Panel: Icon Library -->
+            <div class="left-panel">
+                <div class="icon-library">
+                    <h2 class="section-title">Icon Library</h2>
+                    <div id="iconGrid" class="icon-grid">
+                        <div class="loading">Loading icons...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Preview & Management -->
+            <div class="right-panel">
+                <!-- Icon Preview -->
+                <div class="section">
+                    <h2>Icon Preview</h2>
+                    <div class="section-content">
+                        <div id="iconPreview" class="icon-preview">
+                            <div class="text-muted">Select an icon to preview</div>
+                        </div>
+                        <div id="selectedIconName" class="text-center fw-bold mb-2"></div>
+                        <div class="size-controls">
+                            <button class="size-btn" data-size="xs">XS</button>
+                            <button class="size-btn" data-size="small">S</button>
+                            <button class="size-btn active" data-size="medium">M</button>
+                            <button class="size-btn" data-size="large">L</button>
+                            <button class="size-btn" data-size="xl">XL</button>
+                            <button class="size-btn" data-size="xxl">XXL</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Code Generation -->
+                <div class="section">
+                    <h2>Code Generation</h2>
+                    <div class="section-content">
+                        <div class="code-type-selector">
+                            <label for="codeTypeSelector" class="mb-1">Code Type:</label>
+                            <select id="codeTypeSelector" class="code-type-select">
+                                <option value="javascript">JavaScript</option>
+                                <option value="html">HTML</option>
+                            </select>
+                        </div>
+                        <div id="codePreview" class="code-preview hidden">
+                            Select an icon to see code example
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Management -->
+                <div class="section">
+                    <h2>Management</h2>
+                    <div class="section-content">
+                        <div class="management-actions">
+                            <button id="copyNameBtn">📋 Copy Name</button>
+                            <button id="copyCodeBtn">💾 Copy Code</button>
+                            <button id="downloadSVGBtn">📥 Download SVG</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Debug Console -->
+                <div class="section">
+                    <h2>Debug Console</h2>
+                    <div class="section-content">
+                        <div class="management-actions">
+                            <button id="clearLogBtn">🗑️ Clear</button>
+                            <button id="testIconBtn">🧪 Test</button>
+                            <button id="debugInfoBtn">🔍 Debug Info</button>
+                        </div>
+                        <div id="console" class="log">
+                            <div class="log-entry info">Ready to manage icons...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include the Icon Manager as a module -->
+    <script type="module">
+        // Import the Icon Manager
+        import Icon, { 
+            getAvailableIcons, 
+            hasIcon, 
+            getIconCategory
+        } from '../index.js';
+
+        // Make Icon available globally for the rest of the script
+        window.Icon = Icon;
+        window.getAvailableIcons = getAvailableIcons;
+        window.hasIcon = hasIcon;
+        window.getIconCategory = getIconCategory;
+
+        // Dispatch event when Icon is loaded
+        window.dispatchEvent(new CustomEvent('iconManagerLoaded'));
+    </script>
+    
+    <script>
+        // Global variables
+        let currentSize = 'medium';
+        let selectedIcon = null;
+        let iconLibrary = [];
+        let categories = new Set();
+
+        // Check if Icon manager is loaded
+        function checkIconManager() {
+            if (typeof Icon === 'undefined') {
+                console.error('Icon manager not loaded! Please ensure index.js is included.');
+                document.getElementById('iconGrid').innerHTML = '<div class="error">Icon manager not loaded!</div>';
+                return false;
+            }
+            return true;
+        }
+
+        // Initialize the application
+        function initializeIconManager() {
+            if (!checkIconManager()) return;
+
+            // Initialize on DOM ready or when Icon manager is available
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', startApp);
+            } else {
+                startApp();
+            }
+        }
+
+        // Wait for Icon manager to be loaded
+        if (typeof Icon !== 'undefined') {
+            initializeIconManager();
+        } else {
+            window.addEventListener('iconManagerLoaded', initializeIconManager);
+        }
+
+        async function startApp() {
+            log('🚀 Initializing SVG Icon Library Manager...', 'info');
+            
+            try {
+                // Test basic Icon functionality first
+                log('🔧 Testing Icon manager...', 'info');
+                
+                if (typeof Icon !== 'undefined' && Icon.create) {
+                    const testIcon = Icon.create('newChat', { size: '16px' });
+                    if (testIcon) {
+                        log('✅ Icon.create() works!', 'success');
+                    } else {
+                        log('❌ Icon.create() returned null', 'error');
+                    }
+                } else {
+                    log('❌ Icon manager not available', 'error');
+                }
+
+                // Wait for icons to load if available
+                if (typeof Icon !== 'undefined' && Icon.waitForLoad) {
+                    log('⏳ Waiting for icons to load...', 'info');
+                    await Icon.waitForLoad();
+                    log('✅ Icons loaded!', 'success');
+                }
+
+                initializeApp();
+                setupEventListeners();
+                await loadIconLibrary();
+                updateStats();
+
+                log('✅ Icon library manager ready!', 'success');
+            } catch (error) {
+                log('❌ Initialization failed: ' + error.message, 'error');
+                console.error('Full error:', error);
+            }
+        }
+
+        function initializeApp() {
+            log('🔍 Getting available icons...', 'info');
+
+            // Test the Icon manager directly
+            log('📦 Icon manager exists: ' + !!Icon, 'info');
+            if (Icon && Icon.list) {
+                log('📦 Icon.list exists: ' + (typeof Icon.list === 'function'), 'info');
+
+                // Try direct icon access
+                const iconList = Icon.list();
+                log('📦 Icon.list() returned: ' + iconList.length + ' icons', 'info');
+                if (iconList.length > 0) {
+                    log('📦 First few icons: ' + iconList.slice(0, 5).join(', '), 'info');
+                }
+
+                iconLibrary = iconList;
+            } else if (typeof getAvailableIcons === 'function') {
+                // Try the imported function
+                iconLibrary = getAvailableIcons();
+                log('📦 getAvailableIcons() returned: ' + iconLibrary.length + ' icons', 'info');
+            } else {
+                log('❌ No icon listing method available', 'error');
+                iconLibrary = [];
+            }
+
+            // Extract categories
+            iconLibrary.forEach(iconName => {
+                const category = getIconCategoryFallback(iconName);
+                categories.add(category);
+            });
+
+            log('📁 Found ' + categories.size + ' categories: ' + Array.from(categories).join(', '), 'info');
+
+            // Populate category filter
+            const categoryFilter = document.getElementById('categoryFilter');
+            categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category.charAt(0).toUpperCase() + category.slice(1);
+                categoryFilter.appendChild(option);
+            });
+        }
+
+        function setupEventListeners() {
+            // Search and filter
+            document.getElementById('searchInput').addEventListener('input', loadIconLibrary);
+            document.getElementById('categoryFilter').addEventListener('change', loadIconLibrary);
+            document.getElementById('sizeSelect').addEventListener('change', (e) => {
+                currentSize = e.target.value;
+                loadIconLibrary();
+            });
+
+            // Size controls
+            document.querySelectorAll('.size-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    currentSize = e.target.dataset.size;
+                    updateIconPreview(currentSize);
+                });
+            });
+
+            // Code type selector
+            document.getElementById('codeTypeSelector').addEventListener('change', updateCodePreview);
+
+            // Management buttons
+            document.getElementById('copyNameBtn').addEventListener('click', copyIconName);
+            document.getElementById('copyCodeBtn').addEventListener('click', copyIconCode);
+            document.getElementById('downloadSVGBtn').addEventListener('click', downloadIconSVG);
+            document.getElementById('refreshBtn').addEventListener('click', () => {
+                loadIconLibrary();
+                log('🔄 Refreshed icon library', 'info');
+            });
+            document.getElementById('exportBtn').addEventListener('click', exportIconList);
+
+            // Debug buttons
+            document.getElementById('clearLogBtn').addEventListener('click', clearLog);
+            document.getElementById('testIconBtn').addEventListener('click', testRandomIcon);
+            document.getElementById('debugInfoBtn').addEventListener('click', showDebugInfo);
+        }
+
+        async function loadIconLibrary() {
+            log('🔄 Loading icon library...', 'info');
+
+            const iconGrid = document.getElementById('iconGrid');
+            iconGrid.innerHTML = '';
+
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const categoryFilter = document.getElementById('categoryFilter').value;
+
+            log('🔍 Filtering icons. Search: "' + searchTerm + '", Category: "' + categoryFilter + '"', 'info');
+
+            let displayedCount = 0;
+            const filteredIcons = iconLibrary.filter(name => {
+                // Apply search filter
+                if (searchTerm && !name.toLowerCase().includes(searchTerm)) return false;
+
+                // Apply category filter
+                const category = getIconCategoryFallback(name);
+                if (categoryFilter && category !== categoryFilter) return false;
+
+                return true;
+            });
+
+            log('📊 Filtered to ' + filteredIcons.length + ' icons from ' + iconLibrary.length + ' total', 'info');
+
+            if (filteredIcons.length === 0) {
+                iconGrid.innerHTML = '<div class="empty-state">No icons found matching your criteria</div>';
+                updateStats(0);
+                return;
+            }
+
+            for (const name of filteredIcons) {
+                try {
+                    const iconItem = document.createElement('div');
+                    iconItem.className = 'icon-item';
+                    iconItem.setAttribute('data-icon-name', name);
+                    iconItem.addEventListener('click', () => selectIcon(name));
+
+                    // Create icon
+                    const icon = createIconElement(name, currentSize);
+
+                    // Create labels
+                    const nameLabel = document.createElement('div');
+                    nameLabel.className = 'icon-name';
+                    nameLabel.textContent = name;
+
+                    const categoryLabel = document.createElement('div');
+                    categoryLabel.className = 'icon-category';
+                    categoryLabel.textContent = getIconCategoryFallback(name);
+
+                    iconItem.appendChild(icon);
+                    iconItem.appendChild(nameLabel);
+                    iconItem.appendChild(categoryLabel);
+                    iconGrid.appendChild(iconItem);
+                    displayedCount++;
+                } catch (error) {
+                    log('❌ Error creating icon \'' + name + '\': ' + error.message, 'error');
+                }
+            }
+
+            updateStats(displayedCount);
+            log('✅ Displayed ' + displayedCount + ' icons', 'success');
+        }
+
+        function createIconElement(iconName, size = 'medium') {
+            const sizeMap = {
+                xs: '16px',
+                small: '20px',
+                medium: '24px',
+                large: '28px',
+                xl: '36px',
+                xxl: '48px'
+            };
+
+            const iconSize = sizeMap[size] || '24px';
+
+            if (Icon && Icon.create) {
+                try {
+                    return Icon.create(iconName, { size: iconSize, color: 'currentColor' });
+                } catch (error) {
+                    log('❌ Failed to create icon \'' + iconName + '\': ' + error.message, 'error');
+                }
+            }
+
+            // Fallback placeholder
+            const placeholder = document.createElement('div');
+            placeholder.style.cssText = 
+                'width: ' + iconSize + '; ' +
+                'height: ' + iconSize + '; ' +
+                'background: #f0f0f0; ' +
+                'border: 2px dashed #ccc; ' +
+                'border-radius: 4px; ' +
+                'display: flex; ' +
+                'align-items: center; ' +
+                'justify-content: center; ' +
+                'font-size: 12px; ' +
+                'color: #999;';
+            placeholder.textContent = '?';
+            return placeholder;
+        }
+
+        function selectIcon(iconName) {
+            selectedIcon = iconName;
+
+            // Update UI
+            document.querySelectorAll('.icon-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+
+            const selectedItem = document.querySelector(`[data-icon-name="${iconName}"]`);
+            if (selectedItem) {
+                selectedItem.classList.add('selected');
+            }
+
+            document.getElementById('selectedIconName').textContent = iconName;
+
+            updateIconPreview();
+            updateCodePreview();
+
+            log('🎯 Selected icon: ' + iconName, 'info');
+        }
+
+        function updateIconPreview(size = 'medium') {
+            if (!selectedIcon) return;
+
+            try {
+                const previewContainer = document.getElementById('iconPreview');
+                const icon = createIconElement(selectedIcon, size);
+
+                previewContainer.innerHTML = '';
+                previewContainer.appendChild(icon);
+            } catch (error) {
+                const previewContainer = document.getElementById('iconPreview');
+                previewContainer.innerHTML = `<div class="text-muted">Error: ${error.message}</div>`;
+            }
+        }
+
+        function updateCodePreview() {
+            if (!selectedIcon) {
+                const codePreview = document.getElementById('codePreview');
+                codePreview.classList.add('hidden');
+                return;
+            }
+
+            const codeType = document.getElementById('codeTypeSelector').value;
+            const codePreview = document.getElementById('codePreview');
+            codePreview.classList.remove('hidden');
+
+            let code = '';
+
+            switch (codeType) {
+                case 'javascript':
+                    code = '// Create icon using the Icon manager\n' +
+                           'const icon = Icon.create(\'' + selectedIcon + '\', { \n' +
+                           '    size: \'24px\', \n' +
+                           '    color: \'currentColor\' \n' +
+                           '});\n\n' +
+                           '// Append to DOM\n' +
+                           'document.getElementById(\'container\').appendChild(icon);';
+                    break;
+
+                case 'html':
+                    code = '<!-- Include the icon manager script -->\n' +
+                           '<script src="../index.js"><\/script>\n\n' +
+                           '<!-- Create a container for the icon -->\n' +
+                           '<div id="icon-container"><\/div>\n\n' +
+                           '<script>\n' +
+                           'const icon = Icon.create(\'' + selectedIcon + '\', { size: \'24px\' });\n' +
+                           'document.getElementById(\'icon-container\').appendChild(icon);\n' +
+                           '<\/script>';
+                    break;
+            }
+
+            codePreview.textContent = code;
+        }
+
+        function updateStats(displayed = null) {
+            document.getElementById('totalIcons').textContent = iconLibrary.length;
+            document.getElementById('totalCategories').textContent = categories.size;
+
+            if (displayed !== null) {
+                document.getElementById('displayedIcons').textContent = displayed;
+            }
+        }
+
+        // Management functions
+        async function copyIconName() {
+            if (!selectedIcon) return;
+
+            try {
+                await navigator.clipboard.writeText(selectedIcon);
+                log('📋 Copied icon name: ' + selectedIcon, 'success');
+            } catch (error) {
+                log('❌ Failed to copy: ' + error.message, 'error');
+            }
+        }
+
+        async function copyIconCode() {
+            if (!selectedIcon) return;
+
+            const codeType = document.getElementById('codeTypeSelector').value;
+            const code = document.getElementById('codePreview').textContent;
+
+            try {
+                await navigator.clipboard.writeText(code);
+                log('💾 Copied ' + codeType + ' code for: ' + selectedIcon, 'success');
+            } catch (error) {
+                log('❌ Failed to copy code: ' + error.message, 'error');
+            }
+        }
+
+        function downloadIconSVG() {
+            if (!selectedIcon) return;
+
+            try {
+                const svgElement = Icon.create(selectedIcon, { size: '24px' });
+                const svgString = svgElement.outerHTML;
+
+                const blob = new Blob([svgString], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${selectedIcon}.svg`;
+                link.click();
+
+                URL.revokeObjectURL(url);
+                log('📥 Downloaded: ' + selectedIcon + '.svg', 'success');
+            } catch (error) {
+                log('❌ Download failed: ' + error.message, 'error');
+            }
+        }
+
+        function exportIconList() {
+            const iconData = iconLibrary.map(name => ({
+                name,
+                category: getIconCategoryFallback(name),
+                available: true
+            }));
+
+            const json = JSON.stringify(iconData, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'icon-library.json';
+            link.click();
+
+            URL.revokeObjectURL(url);
+            log('📤 Exported icon library data', 'success');
+        }
+
+        // Debug functions
+        function clearLog() {
+            document.getElementById('console').innerHTML = '<div class="log-entry info">Console cleared</div>';
+        }
+
+        function testRandomIcon() {
+            if (iconLibrary.length === 0) {
+                log('❌ No icons available to test', 'error');
+                return;
+            }
+            
+            const randomIcon = iconLibrary[Math.floor(Math.random() * iconLibrary.length)];
+            selectIcon(randomIcon);
+            log('🧪 Testing random icon: ' + randomIcon, 'info');
+        }
+
+        function showDebugInfo() {
+            const info = {
+                totalIcons: iconLibrary.length,
+                categories: Array.from(categories),
+                selectedIcon,
+                iconManagerLoaded: !!Icon,
+                hasCreateFunction: !!(Icon && Icon.create),
+                hasListFunction: !!(Icon && Icon.list)
+            };
+
+            log('🔍 Debug Info:', 'info');
+            log(JSON.stringify(info, null, 2), 'info');
+        }
+
+        // Helper functions
+        function getIconCategoryFallback(iconName) {
+            // Try to use the imported function first
+            if (typeof getIconCategory === 'function') {
+                return getIconCategory(iconName);
+            }
+            
+            // Fallback categorization based on icon name
+            if (['newChat', 'delete', 'send', 'attach', 'search'].includes(iconName)) return 'core';
+            if (['play', 'pause', 'stop', 'record'].includes(iconName)) return 'media';
+            if (['home', 'back', 'forward', 'menu'].includes(iconName)) return 'navigation';
+            if (['user', 'avatar', 'profile'].includes(iconName)) return 'users';
+            if (['edit', 'copy', 'paste', 'save'].includes(iconName)) return 'content';
+            return 'ui';
+        }
+
+        // Logging function
+        function log(message, type = 'info') {
+            const console = document.getElementById('console');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = '[' + new Date().toLocaleTimeString() + '] ' + message;
+            console.appendChild(entry);
+            console.scrollTop = console.scrollHeight;
+
+            // Also log to browser console
+            window.console[type === 'error' ? 'error' : 'log']('[Icon Manager] ' + message);
+        }
+    </script>
+</body>
+</html>
