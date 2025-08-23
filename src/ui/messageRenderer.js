@@ -581,39 +581,41 @@ export class MessageRenderer {
                 const isCompanionResponse = messageContainer.classList.contains('companion-response');
 
                 if (isUser) {
-                    // User messages: content first, then icon (icon on right)
+                    // User messages: content first, then icon (icon on right) - ORIGINAL STRUCTURE
                     messageContainer.appendChild(messageDiv);
                     if (messageIcon) {
                         messageContainer.appendChild(messageIcon);
                     }
-                } else if (isCompanionResponse) {
-                    // Companion responses: icon first, then content (with AI companion icon)
-                    if (messageIcon) {
-                        // Set AI companion icon for companion responses
-                        messageIcon.style.backgroundImage = '';
-                        messageIcon.setAttribute('data-icon', 'aiCompanion');
-                        messageIcon.setAttribute('data-width', '28');
-                        messageIcon.setAttribute('data-height', '28');
-                        messageContainer.appendChild(messageIcon);
-                        // Initialize icon after setting data-icon
-                        this.initializeMessageIcon(messageIcon);
-                    }
-                    messageContainer.appendChild(messageDiv);
                 } else {
-                    // Regular bot messages: icon first, then content (icon on left)
-                    if (messageIcon) {
-                        messageContainer.appendChild(messageIcon);
-                    }
-
-                    // Create a content wrapper for message content only
-                    const contentWrapper = DOMUtils.createElement('div', {
-                        className: 'message-content-wrapper',
-                        style: 'display: flex; align-items: flex-start; flex: 1;'
+                    // Bot messages use new wrapper structure
+                    // Create message wrapper to contain content and metadata
+                    const messageWrapper = DOMUtils.createElement('div', {
+                        className: 'message-wrapper'
                     });
 
-                    contentWrapper.appendChild(messageDiv);
+                    // Add messageDiv to wrapper
+                    messageWrapper.appendChild(messageDiv);
 
-                    messageContainer.appendChild(contentWrapper);
+                    if (isCompanionResponse) {
+                        // Companion responses: icon first, then wrapper (with AI companion icon)
+                        if (messageIcon) {
+                            // Set AI companion icon for companion responses
+                            messageIcon.style.backgroundImage = '';
+                            messageIcon.setAttribute('data-icon', 'aiCompanion');
+                            messageIcon.setAttribute('data-width', '28');
+                            messageIcon.setAttribute('data-height', '28');
+                            messageContainer.appendChild(messageIcon);
+                            // Initialize icon after setting data-icon
+                            this.initializeMessageIcon(messageIcon);
+                        }
+                        messageContainer.appendChild(messageWrapper);
+                    } else {
+                        // Regular bot messages: icon first, then wrapper (icon on left)
+                        if (messageIcon) {
+                            messageContainer.appendChild(messageIcon);
+                        }
+                        messageContainer.appendChild(messageWrapper);
+                    }
                 }
 
                 // Insert at end to avoid reordering issues that cause flickering
@@ -792,16 +794,29 @@ export class MessageRenderer {
             await this.stopStreamingSpeech();
 
             // Create new streaming state for this message
+            const messageContainer = this.createMessageContainer(activity);
+            const messageDiv = this.createMessageDiv(activity);
+
+            let messageWrapper = null;
+            if (!isUser) {
+                // Only create wrapper for bot messages
+                messageWrapper = DOMUtils.createElement('div', {
+                    className: 'message-wrapper'
+                });
+                // Add messageDiv to wrapper
+                messageWrapper.appendChild(messageDiv);
+            }
+
             streamingState = {
                 startTime: Date.now(),
-                messageContainer: this.createMessageContainer(activity),
-                messageDiv: this.createMessageDiv(activity),
+                messageContainer: messageContainer,
+                messageWrapper: messageWrapper, // null for user messages
+                messageDiv: messageDiv,
                 content: '',
                 isStreaming: true,
                 lastUpdate: Date.now()
             };
 
-            const isUser = activity.from && activity.from.id === 'user';
             const messageIconsEnabled = localStorage.getItem('messageIconsEnabled') !== 'false';
             const messageIcon = messageIconsEnabled ? this.createMessageIcon(isUser) : null;
 
@@ -809,13 +824,13 @@ export class MessageRenderer {
             const isCompanionResponse = streamingState.messageContainer.classList.contains('companion-response');
 
             if (isUser) {
-                // User messages: content first, then icon (icon on right)
+                // User messages: content first, then icon (icon on right) - ORIGINAL STRUCTURE
                 streamingState.messageContainer.appendChild(streamingState.messageDiv);
                 if (messageIcon) {
                     streamingState.messageContainer.appendChild(messageIcon);
                 }
             } else if (isCompanionResponse) {
-                // Companion responses: icon first, then content (with AI companion icon)
+                // Companion responses: icon first, then wrapper (with AI companion icon)
                 if (messageIcon) {
                     // Set AI companion icon for companion responses
                     messageIcon.style.backgroundImage = '';
@@ -826,22 +841,13 @@ export class MessageRenderer {
                     // Initialize icon after setting data-icon
                     this.initializeMessageIcon(messageIcon);
                 }
-                streamingState.messageContainer.appendChild(streamingState.messageDiv);
+                streamingState.messageContainer.appendChild(messageWrapper);
             } else {
-                // Regular bot messages: icon first, then content (icon on left)
+                // Regular bot messages: icon first, then wrapper (icon on left)
                 if (messageIcon) {
                     streamingState.messageContainer.appendChild(messageIcon);
                 }
-
-                // Create a content wrapper for message content only
-                const contentWrapper = DOMUtils.createElement('div', {
-                    className: 'message-content-wrapper',
-                    style: 'display: flex; align-items: flex-start; flex: 1;'
-                });
-
-                contentWrapper.appendChild(streamingState.messageDiv);
-
-                streamingState.messageContainer.appendChild(contentWrapper);
+                streamingState.messageContainer.appendChild(messageWrapper);
             }
 
             // Insert at end to avoid reordering issues that cause flickering
@@ -991,10 +997,24 @@ export class MessageRenderer {
             console.log(`[Streaming] Starting streaming display with complete content (${activity.text.length} chars)`);
 
             // Create isolated streaming state for this message
+            const messageContainer = this.createMessageContainer(activity);
+            const messageDiv = this.createMessageDiv(activity);
+
+            let messageWrapper = null;
+            if (!isUserMessage) {
+                // Only create wrapper for bot messages
+                messageWrapper = DOMUtils.createElement('div', {
+                    className: 'message-wrapper'
+                });
+                // Add messageDiv to wrapper
+                messageWrapper.appendChild(messageDiv);
+            }
+
             const streamingState = {
                 startTime: Date.now(),
-                messageContainer: this.createMessageContainer(activity),
-                messageDiv: this.createMessageDiv(activity),
+                messageContainer: messageContainer,
+                messageWrapper: messageWrapper, // null for user messages
+                messageDiv: messageDiv,
                 content: '',
                 isStreaming: true,
                 lastUpdate: Date.now()
@@ -1015,12 +1035,13 @@ export class MessageRenderer {
 
             // Build message structure
             if (isUser) {
+                // User messages: content first, then icon (icon on right) - ORIGINAL STRUCTURE
                 streamingState.messageContainer.appendChild(streamingState.messageDiv);
                 if (messageIcon) {
                     streamingState.messageContainer.appendChild(messageIcon);
                 }
             } else if (isCompanionResponse) {
-                // Companion responses: icon first, then content (with AI companion icon)
+                // Companion responses: icon first, then wrapper (with AI companion icon)
                 if (messageIcon) {
                     // Set AI companion icon for companion responses
                     messageIcon.style.backgroundImage = '';
@@ -1029,21 +1050,13 @@ export class MessageRenderer {
                     // Initialize icon after setting data-icon
                     this.initializeMessageIcon(messageIcon);
                 }
-                streamingState.messageContainer.appendChild(streamingState.messageDiv);
+                streamingState.messageContainer.appendChild(messageWrapper);
             } else {
+                // Regular bot messages: icon first, then wrapper (icon on left)
                 if (messageIcon) {
                     streamingState.messageContainer.appendChild(messageIcon);
                 }
-
-                // Create a content wrapper for message content only
-                const contentWrapper = DOMUtils.createElement('div', {
-                    className: 'message-content-wrapper',
-                    style: 'display: flex; align-items: flex-start; flex: 1;'
-                });
-
-                contentWrapper.appendChild(streamingState.messageDiv);
-
-                streamingState.messageContainer.appendChild(contentWrapper);
+                streamingState.messageContainer.appendChild(messageWrapper);
             }
 
             // Insert at end to avoid reordering flicker
@@ -1987,99 +2000,127 @@ export class MessageRenderer {
     }
 
     /**
-     * Add response metadata outside the message bubble
+     * Add response metadata - handles both old structure (user messages) and new structure (bot messages)
      * @param {HTMLElement} messageContainer - Message container element  
      * @param {Object} activity - Activity object that might contain entities/citations
      * @param {number} streamingStartTime - Start time for streaming calculation (optional)
      * @private
      */
     addResponseMetadata(messageContainer, activity = null, streamingStartTime = null) {
-        // Create wrapper for message and metadata
-        const messageWrapper = DOMUtils.createElement('div', {
-            className: 'message-wrapper'
-        });
+        const isUserMessage = activity?.from && activity.from.id === 'user';
 
-        // Move the message container into the wrapper
-        const parent = messageContainer.parentNode;
-        if (parent) {
-            parent.insertBefore(messageWrapper, messageContainer);
-            messageWrapper.appendChild(messageContainer);
+        // For user messages, use the old structure (metadata outside message container)
+        if (isUserMessage) {
+            // Create wrapper for message and metadata (original structure for user messages)
+            const messageWrapper = DOMUtils.createElement('div', {
+                className: 'message-wrapper'
+            });
+
+            // Move the message container into the wrapper
+            const parent = messageContainer.parentNode;
+            if (parent) {
+                parent.insertBefore(messageWrapper, messageContainer);
+                messageWrapper.appendChild(messageContainer);
+            }
+
+            // Create metadata element outside the message bubble
+            const metadata = DOMUtils.createElement('div', {
+                className: 'message-metadata'
+            });
+
+            const messageTime = activity?.timestamp ? new Date(activity.timestamp) : new Date();
+            const timeSpan = DOMUtils.createElement('span', {
+                className: 'metadata-time'
+            }, messageTime.toLocaleTimeString());
+
+            metadata.appendChild(timeSpan);
+
+            // Add metadata after the message container
+            messageWrapper.appendChild(metadata);
+        } else {
+            // For bot messages, use the new structure (metadata inside message wrapper)
+            const messageWrapper = messageContainer.querySelector('.message-wrapper');
+            if (!messageWrapper) {
+                console.warn('Message wrapper not found in bot message container');
+                return;
+            }
+
+            // Create metadata element inside the message wrapper
+            const metadata = DOMUtils.createElement('div', {
+                className: 'message-metadata'
+            });
+
+            // Calculate time spent only for assistant messages
+            const messageTime = activity?.timestamp ? new Date(activity.timestamp) : new Date();
+            const timeSpent = 'Response time: ' + this.calculateTimeSpent(activity, streamingStartTime);
+
+            const timeSpan = DOMUtils.createElement('span', {
+                className: 'metadata-time'
+            }, messageTime.toLocaleTimeString());
+
+            const sourceSpan = DOMUtils.createElement('span', {
+                className: 'metadata-source'
+            }, 'Copilot Studio');
+
+            metadata.appendChild(timeSpan);
+
+            // Show response time for assistant messages
+            if (timeSpent) {
+                const timeSpentSpan = DOMUtils.createElement('span', {
+                    className: 'metadata-duration'
+                }, timeSpent);
+
+                metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • '));
+                metadata.appendChild(timeSpentSpan);
+            }
+
+            // Add speaker button and progress bar for bot messages
+            if (activity) {
+                // Add separator before speaker controls
+                metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • '));
+
+                // Create speaker controls container
+                const speakerControls = DOMUtils.createElement('div', {
+                    className: 'speaker-controls'
+                });
+
+                // Create progress bar container (initially hidden)
+                const progressContainer = DOMUtils.createElement('div', {
+                    className: 'speech-progress-container',
+                    style: 'display: none;'
+                });
+
+                const progressBar = DOMUtils.createElement('div', {
+                    className: 'speech-progress-bar'
+                });
+
+                const progressFill = DOMUtils.createElement('div', {
+                    className: 'speech-progress-fill',
+                    style: 'width: 0%;'
+                });
+
+                progressBar.appendChild(progressFill);
+                progressContainer.appendChild(progressBar);
+
+                // Create enhanced speaker button
+                const speakerButton = this.createEnhancedSpeakerButton(activity, progressContainer, progressFill);
+
+                speakerControls.appendChild(speakerButton);
+                speakerControls.appendChild(progressContainer);
+
+                metadata.appendChild(speakerControls);
+            }
+
+            // Add metadata to the message wrapper (after content)
+            messageWrapper.appendChild(metadata);
         }
-
-        // Create metadata element outside the message bubble
-        const metadata = DOMUtils.createElement('div', {
-            className: 'message-metadata'
-        });
-
-        // Calculate time spent only for assistant messages
-        const messageTime = activity?.timestamp ? new Date(activity.timestamp) : new Date();
-        const isUserMessage = activity.from && activity.from.id === 'user';
-        const timeSpent = isUserMessage ? null : 'Response time: ' + this.calculateTimeSpent(activity, streamingStartTime);
-
-        const timeSpan = DOMUtils.createElement('span', {
-            className: 'metadata-time'
-        }, messageTime.toLocaleTimeString());
-
-        const sourceSpan = DOMUtils.createElement('span', {
-            className: 'metadata-source'
-        }, 'Copilot Studio');
-
-        metadata.appendChild(timeSpan);
-
-        // Only show response time for assistant messages, not user messages
-        if (!isUserMessage && timeSpent) {
-            const timeSpentSpan = DOMUtils.createElement('span', {
-                className: 'metadata-duration'
-            }, timeSpent);
-
-            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • '));
-            metadata.appendChild(timeSpentSpan);
-        }
-
-        // Add speaker button and progress bar for non-user messages
-        if (!isUserMessage && activity) {
-            // Add separator before speaker controls
-            metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • '));
-
-            // Create speaker controls container
-            const speakerControls = DOMUtils.createElement('div', {
-                className: 'speaker-controls'
-            });
-
-            // Create progress bar container (initially hidden)
-            const progressContainer = DOMUtils.createElement('div', {
-                className: 'speech-progress-container',
-                style: 'display: none;'
-            });
-
-            const progressBar = DOMUtils.createElement('div', {
-                className: 'speech-progress-bar'
-            });
-
-            const progressFill = DOMUtils.createElement('div', {
-                className: 'speech-progress-fill',
-                style: 'width: 0%;'
-            });
-
-            progressBar.appendChild(progressFill);
-            progressContainer.appendChild(progressBar);
-
-            // Create enhanced speaker button
-            const speakerButton = this.createEnhancedSpeakerButton(activity, progressContainer, progressFill);
-
-            speakerControls.appendChild(speakerButton);
-            speakerControls.appendChild(progressContainer);
-
-            metadata.appendChild(speakerControls);
-        }
-
-        // Add metadata after the message container
-        messageWrapper.appendChild(metadata);
 
         // Check for entities/citations in the activity - add to message content div
         if (activity && this.hasCitations(activity)) {
-            // Find the messageDiv within the messageContainer and add citations there
-            const messageDiv = messageContainer.querySelector('.messageContent');
+            // Find the messageDiv within the messageWrapper and add citations there
+            const messageDiv = isUserMessage ? 
+                messageContainer.querySelector('.messageContent') : 
+                messageContainer.querySelector('.message-wrapper .messageContent');
             if (messageDiv) {
                 this.addCitationsSection(messageDiv, activity);
             }

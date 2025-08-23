@@ -971,6 +971,195 @@ export class AICompanion {
     }
 
     /**
+     * Start thinking preparation immediately for faster LLM response times
+     * This method begins the thinking process without displaying messages yet
+     * @param {string} userMessage - The user's message to think about
+     * @returns {Promise} Promise that resolves when thinking is complete
+     * @public
+     */
+    async startThinkingPreparation(userMessage) {
+        console.log('[AICompanion] Starting thinking preparation immediately for faster response...');
+        
+        // If thinking is already active, don't restart
+        if (this.isThinkingSimulationActive) {
+            console.log('[AICompanion] Thinking already active, continuing...');
+            return this.thinkingCompletionPromise;
+        }
+
+        // Set up the thinking process but don't show messages yet
+        this.isThinkingSimulationActive = true;
+        this.shouldEndThinkingNaturally = false;
+        this.currentThinkingContent = '';
+        this.thinkingPromptIndex = 0;
+        this.currentUserMessage = userMessage;
+        this.thinkingDisplayActive = false; // Flag to track if display is active
+
+        // Create completion promise
+        this.thinkingCompletionPromise = new Promise(resolve => {
+            this.thinkingCompletionResolve = resolve;
+        });
+
+        // Start generating thinking prompts in background
+        try {
+            this.backgroundThinkingPrompts = await this.generateThinkingPrompts(userMessage);
+            console.log('[AICompanion] Background thinking prompts generated:', this.backgroundThinkingPrompts.length);
+        } catch (error) {
+            console.error('[AICompanion] Error generating background thinking prompts:', error);
+            this.backgroundThinkingPrompts = this.getFallbackThinkingPrompts();
+        }
+
+        return this.thinkingCompletionPromise;
+    }
+
+    /**
+     * Display thinking simulation using pre-generated prompts
+     * This method shows the thinking messages after the delay period
+     * @param {string} userMessage - The user's message (for consistency)
+     * @returns {Promise} Promise that resolves when display is complete
+     * @public
+     */
+    async displayThinkingSimulation(userMessage) {
+        console.log('[AICompanion] Starting to display thinking simulation...');
+        
+        // If thinking preparation wasn't started, start it now
+        if (!this.isThinkingSimulationActive || !this.backgroundThinkingPrompts) {
+            console.log('[AICompanion] No preparation found, starting full thinking process...');
+            return this.simulateThinkingProcess(userMessage);
+        }
+
+        // Mark display as active
+        this.thinkingDisplayActive = true;
+
+        try {
+            // Use the pre-generated prompts
+            const thinkingPrompts = this.backgroundThinkingPrompts;
+            
+            // Ensure we have thinking prompts
+            if (!thinkingPrompts || thinkingPrompts.length === 0) {
+                console.error('[AICompanion] No thinking prompts available for display!');
+                return;
+            }
+
+            // Create thinking message in the main chat window only if it doesn't exist
+            if (!this.currentThinkingDiv) {
+                const thinkingActivity = this.createThinkingActivity(''); // Start with empty content
+                const messageContainer = this.createMainChatMessageContainer(thinkingActivity);
+
+                // Create message wrapper that will contain both message and metadata
+                const messageWrapper = DOMUtils.createElement('div', {
+                    className: 'message-wrapper'
+                });
+
+                this.currentThinkingDiv = this.createMainChatMessageDiv();
+
+                // Build the message structure (thinking messages use bot style)
+                const messageIcon = this.createMainChatMessageIcon(false); // false = bot message
+                if (messageIcon) {
+                    messageContainer.appendChild(messageIcon);
+                }
+
+                messageWrapper.appendChild(this.currentThinkingDiv);
+
+                // Add metadata for thinking messages inside the message wrapper
+                const metadata = this.createMessageMetadata('thinking');
+                if (metadata) {
+                    messageWrapper.appendChild(metadata);
+                }
+
+                messageContainer.appendChild(messageWrapper);
+
+                // Add to main chat window
+                const chatWindow = DOMUtils.getElementById('chatWindow');
+                if (!chatWindow) {
+                    console.error('[AICompanion] Chat window not found!');
+                    return;
+                }
+
+                chatWindow.appendChild(messageContainer);
+                
+                // Initialize with placeholder content to ensure visibility
+                this.currentThinkingDiv.innerHTML = this.formatThinkingContentForHTML('');
+                
+                this.scrollMainChatToBottom();
+                console.log('[AICompanion] Thinking message display container created');
+            }
+
+            // Start displaying the pre-generated thinking content
+            await this.continueThinkingStream(thinkingPrompts);
+
+            console.log('[AICompanion] Thinking display simulation finished');
+        } catch (error) {
+            console.error('[AICompanion] Error in thinking display simulation:', error);
+        } finally {
+            // Reset display state but keep thinking active until agent responds
+            this.thinkingDisplayActive = false;
+        }
+    }
+
+    /**
+     * Complete thinking preparation in background for quick responses
+     * This allows the thinking process to finish even if not displayed
+     * @public
+     */
+    completeThinkingPreparationInBackground() {
+        console.log('[AICompanion] Completing thinking preparation in background...');
+        
+        if (this.thinkingCompletionResolve) {
+            this.thinkingCompletionResolve();
+            this.thinkingCompletionResolve = null;
+            this.thinkingCompletionPromise = null;
+        }
+
+        // Reset thinking state
+        this.isThinkingSimulationActive = false;
+        this.shouldEndThinkingNaturally = false;
+        this.currentThinkingDiv = null;
+        this.currentThinkingContent = '';
+        this.thinkingPromptIndex = 0;
+        this.currentUserMessage = null;
+        this.backgroundThinkingPrompts = null;
+        this.thinkingDisplayActive = false;
+    }
+
+    /**
+     * Get fallback thinking prompts when AI generation fails
+     * @returns {Array<string>} Array of fallback thinking prompts
+     * @private
+     */
+    getFallbackThinkingPrompts() {
+        return [
+            "Let me think about this question carefully...",
+            "I need to consider the context and provide a helpful response...",
+            "Analyzing the request to give you the best possible answer...",
+            "Processing the information to ensure accuracy...",
+            "Almost ready with a comprehensive response..."
+        ];
+    }
+
+    /**
+     * Adds a helpful timeout message when thinking times out without agent response
+     */
+    async addThinkingTimeoutMessage() {
+        console.log('[AICompanion] Adding thinking timeout message for user');
+        
+        const timeoutMessages = [
+            "I've searched thoroughly but couldn't find specific information related to your question. Please try rephrasing your query or asking about something more specific.",
+            "After extensive analysis, I couldn't locate relevant information for your request. Could you try asking your question differently or provide more context?",
+            "I've explored various approaches but haven't found a satisfactory answer. Please consider rephrasing your question or trying a different angle.",
+            "Despite my best efforts, I couldn't find information that directly addresses your question. Try being more specific or asking about related topics.",
+            "I've completed my search but couldn't find relevant results. Please rephrase your question or provide additional details to help me assist you better."
+        ];
+        
+        const randomTimeoutMessage = timeoutMessages[Math.floor(Math.random() * timeoutMessages.length)];
+        
+        // Add this as the final thinking message
+        await this.addThinkingMessage(randomTimeoutMessage);
+        
+        // Brief pause before ending the thinking simulation
+        await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+
+    /**
      * Simulate AI companion thinking process while waiting for agent response
      * This method is called from the main application when users send messages to the agent,
      * not when users interact with the AI companion's own chat interface.
@@ -991,7 +1180,7 @@ export class AICompanion {
         });
 
         try {
-            console.log('[AICompanion] Starting thinking simulation for user message:', userMessage.substring(0, 100));
+            console.log('[AICompanion] Starting thinking simulation for user message:', userMessage?.substring(0, 100));
 
             // Set simulation state
             this.isThinkingSimulationActive = true;
@@ -1015,9 +1204,9 @@ export class AICompanion {
                 const thinkingActivity = this.createThinkingActivity(''); // Start with empty content
                 const messageContainer = this.createMainChatMessageContainer(thinkingActivity);
 
-                // Create content wrapper that will contain both message and metadata
-                const contentWrapper = DOMUtils.createElement('div', {
-                    className: 'message-content-wrapper'
+                // Create message wrapper that will contain both message and metadata
+                const messageWrapper = DOMUtils.createElement('div', {
+                    className: 'message-wrapper'
                 });
 
                 this.currentThinkingDiv = this.createMainChatMessageDiv();
@@ -1028,15 +1217,15 @@ export class AICompanion {
                     messageContainer.appendChild(messageIcon);
                 }
 
-                contentWrapper.appendChild(this.currentThinkingDiv);
+                messageWrapper.appendChild(this.currentThinkingDiv);
 
-                // Add metadata for thinking messages inside the content wrapper
+                // Add metadata for thinking messages inside the message wrapper
                 const metadata = this.createMessageMetadata('thinking');
                 if (metadata) {
-                    contentWrapper.appendChild(metadata);
+                    messageWrapper.appendChild(metadata);
                 }
 
-                messageContainer.appendChild(contentWrapper);
+                messageContainer.appendChild(messageWrapper);
 
                 // Add to main chat window
                 const chatWindow = DOMUtils.getElementById('chatWindow');
@@ -1046,6 +1235,10 @@ export class AICompanion {
                 }
 
                 chatWindow.appendChild(messageContainer);
+                
+                // Initialize with placeholder content to ensure visibility
+                this.currentThinkingDiv.innerHTML = this.formatThinkingContentForHTML('');
+                
                 this.scrollMainChatToBottom();
                 console.log('[AICompanion] Thinking message added to chat window');
             }
@@ -1150,6 +1343,11 @@ export class AICompanion {
     async continuousThinkingLoop() {
         let continuousThoughtIndex = 0;
 
+        // Safety mechanism: Add maximum thinking duration timeout
+        const maxThinkingDuration = 120000; // 2 minutes maximum to prevent infinite loops
+        const thinkingStartTime = Date.now();
+        console.log('[AICompanion] Starting continuous thinking with safety timeout:', maxThinkingDuration / 1000, 'seconds');
+
         // Check if AI is available for context-aware thinking generation
         const useAI = this.isEnabled && await this.isAIConfigured().catch(() => false);
 
@@ -1175,17 +1373,39 @@ export class AICompanion {
             "Almost ready with a complete and helpful answer..."
         ];
 
-        while (this.isThinkingSimulationActive && !this.shouldEndThinkingNaturally) {
+        while (this.isThinkingSimulationActive && 
+               !this.shouldEndThinkingNaturally &&
+               (Date.now() - thinkingStartTime) < maxThinkingDuration) {
+            
+            // Safety check: Stop if we've been thinking for too long
+            const elapsedTime = Date.now() - thinkingStartTime;
+            if (elapsedTime >= maxThinkingDuration) {
+                console.log('[AICompanion] Thinking safety timeout reached, showing timeout message to user');
+                this.shouldEndThinkingNaturally = true;
+                
+                // Add helpful timeout message for user
+                await this.addThinkingTimeoutMessage();
+                break;
+            }
+
             // Add a longer pause before generating additional thoughts
-            console.log('[AICompanion] Starting delay before next continuous thought...');
+            console.log('[AICompanion] Starting delay before next continuous thought... (elapsed:', Math.round(elapsedTime / 1000), 's)');
             await this.delayWithInterruption(2000 + Math.random() * 3000); // 2-5 seconds between additional thoughts
 
             // Double-check flags after delay
             if (!this.isThinkingSimulationActive || this.shouldEndThinkingNaturally) {
                 console.log('[AICompanion] Thinking simulation flags indicate stopping after delay:', {
                     isThinkingSimulationActive: this.isThinkingSimulationActive,
-                    shouldEndThinkingNaturally: this.shouldEndThinkingNaturally
+                    shouldEndThinkingNaturally: this.shouldEndThinkingNaturally,
+                    elapsedTime: Math.round((Date.now() - thinkingStartTime) / 1000) + 's'
                 });
+                break;
+            }
+
+            // Additional safety check after delay
+            if ((Date.now() - thinkingStartTime) >= maxThinkingDuration) {
+                console.log('[AICompanion] Safety timeout reached after delay, stopping thinking');
+                this.shouldEndThinkingNaturally = true;
                 break;
             }
 
@@ -1233,7 +1453,12 @@ export class AICompanion {
             console.log(`[AICompanion] Added continuous thought ${continuousThoughtIndex}: ${thought.substring(0, 50)}...`);
         }
 
-        console.log('[AICompanion] Continuous thinking loop ended');
+        console.log('[AICompanion] Continuous thinking loop ended. Reason:', {
+            isThinkingSimulationActive: this.isThinkingSimulationActive,
+            shouldEndThinkingNaturally: this.shouldEndThinkingNaturally,
+            timeoutReached: (Date.now() - thinkingStartTime) >= maxThinkingDuration,
+            totalElapsedTime: Math.round((Date.now() - thinkingStartTime) / 1000) + 's'
+        });
     }
 
     /**
@@ -1246,47 +1471,86 @@ export class AICompanion {
         // Use stored user message or try to extract from thinking content
         const userMessage = this.currentUserMessage || this.extractUserQuestion(this.currentThinkingContent) || 'the current question';
 
-        // Get conversation context for richer thinking
+        // Get rich conversation context for more insightful thinking
         const conversationContext = this.getConversationContextForThinking();
-        const contextPart = conversationContext ? ` Given our conversation about ${conversationContext}, ` : '';
+        let contextualPromptPart = '';
+        
+        if (conversationContext) {
+            contextualPromptPart = `\n\nCONVERSATION CONTEXT:\n${conversationContext}\n\nCurrent user question: ${userMessage}\n`;
+        } else {
+            contextualPromptPart = `\n\nCurrent user question: ${userMessage}\n`;
+        }
 
         // Get current thinking progress to build upon
         const currentThoughts = this.currentThinkingContent.split('\n\n').filter(t => t.trim());
         const thinkingProgressSummary = currentThoughts.length > 0
-            ? ` So far I've been thinking: ${currentThoughts.slice(-2).join(', ').substring(0, 100)}...`
+            ? `\n\nMy thinking so far: ${currentThoughts.slice(-2).join(', ').substring(0, 150)}...`
             : '';
 
         // Detect the language of the user's question for consistent responses
         const isChineseQuestion = /[\u4e00-\u9fff]/.test(userMessage);
         const languageInstruction = isChineseQuestion
-            ? `\n\n**IMPORTANT: Respond in Chinese since the user asked in Chinese.**`
-            : `\n\n**IMPORTANT: Respond in the same language as the user's question.**`;
+            ? `\n\n**CRITICAL: Respond in Chinese since the user asked in Chinese.**`
+            : `\n\n**CRITICAL: Respond in English since the user asked in English.**`;
 
         // Create different types of contextual prompts based on thinking progress
         let thoughtPrompt;
 
         if (thoughtIndex === 0) {
-            // First continuous thought - deeper analysis
-            thoughtPrompt = promptManager.getFormattedPrompt('questionAnalysis', {
-                userMessage: userMessage
-            }) + languageInstruction;
+            // First continuous thought - deeper analysis with conversation context
+            thoughtPrompt = `You are an AI assistant continuing your thinking process. Generate one thoughtful insight that builds on our conversation history and analyzes the current question more deeply.
+            
+${contextualPromptPart}${thinkingProgressSummary}
+
+Generate one insightful thinking statement that:
+- Considers the conversation history when available
+- Shows deeper analysis of the current question
+- Connects to previous topics or themes if relevant
+- Demonstrates progressive reasoning
+
+Start with phrases like: "Building on our discussion...", "Considering the conversation context...", "Let me analyze this further..."${languageInstruction}`;
+            
         } else if (thoughtIndex % 4 === 1) {
-            // Context-aware thinking
-            thoughtPrompt = promptManager.getFormattedPrompt('contextualThinking', {
-                userMessage: userMessage,
-                contextPart: contextPart
-            }) + languageInstruction;
+            // Context-aware thinking that references conversation flow
+            thoughtPrompt = `You are an AI assistant continuing your thinking process. Generate one thoughtful insight that shows how the current question relates to our ongoing conversation.
+            
+${contextualPromptPart}${thinkingProgressSummary}
+
+Generate one contextual thinking statement that:
+- References how this question fits into our conversation
+- Shows understanding of conversation patterns or themes
+- Considers any follow-up or clarification needs
+- Demonstrates contextual awareness
+
+Start with phrases like: "Given our conversation flow...", "This relates to what we discussed about...", "Building on the context..."${languageInstruction}`;
+            
         } else if (thoughtIndex % 4 === 2) {
-            // Implementation/practical thinking
-            thoughtPrompt = promptManager.getFormattedPrompt('practicalThinking', {
-                userMessage: userMessage
-            }) + languageInstruction;
+            // Implementation/practical thinking with conversation awareness
+            thoughtPrompt = `You are an AI assistant continuing your thinking process. Generate one practical insight about how to address the current question within the context of our conversation.
+            
+${contextualPromptPart}${thinkingProgressSummary}
+
+Generate one practical thinking statement that:
+- Focuses on actionable approaches or solutions
+- Considers practical implications within the conversation context
+- Shows implementation-focused reasoning
+- Builds on what has been discussed
+
+Start with phrases like: "From a practical standpoint...", "To address this effectively...", "Considering the implementation..."${languageInstruction}`;
+            
         } else {
-            // Comprehensive/synthesis thinking
-            thoughtPrompt = promptManager.getFormattedPrompt('synthesisThinking', {
-                userMessage: userMessage,
-                thinkingProgressSummary: thinkingProgressSummary
-            }) + languageInstruction;
+            // Comprehensive/synthesis thinking that brings conversation together
+            thoughtPrompt = `You are an AI assistant continuing your thinking process. Generate one synthesizing insight that brings together elements from our conversation and current thinking.
+            
+${contextualPromptPart}${thinkingProgressSummary}
+
+Generate one synthesis thinking statement that:
+- Brings together different aspects from our conversation
+- Shows comprehensive understanding
+- Synthesizes information from multiple parts of the discussion
+- Prepares for a well-rounded response
+
+Start with phrases like: "Synthesizing our discussion...", "Bringing together the key points...", "Considering everything we've covered..."${languageInstruction}`;
         }
 
         try {
@@ -1389,6 +1653,11 @@ export class AICompanion {
     formatThinkingContentForHTML(content) {
         if (!content) return '';
 
+        // Ensure content is visible with fallback styling
+        if (content.trim().length === 0) {
+            return '<div style="margin-bottom: 0.8rem; line-height: 1.6; opacity: 0.7; font-style: italic;">🤔 Thinking...</div>';
+        }
+
         // Split content into paragraphs and format each one
         const paragraphs = content.split('\n\n')
             .map(paragraph => paragraph.trim())
@@ -1412,6 +1681,12 @@ export class AICompanion {
         // Ensure we have a valid thinking div
         if (!this.currentThinkingDiv) {
             console.error('[AICompanion] No currentThinkingDiv available for streaming');
+            return;
+        }
+
+        // If no content to stream, ensure we have placeholder
+        if (!fullContent || fullContent.length === 0) {
+            this.currentThinkingDiv.innerHTML = this.formatThinkingContentForHTML('');
             return;
         }
 
@@ -1514,7 +1789,7 @@ export class AICompanion {
      * @private
      */
     async delayWithInterruption(ms) {
-        const checkInterval = 50; // Check every 50ms for faster interruption
+        const checkInterval = 200; // Increased from 50ms to 200ms to reduce CPU usage
         const iterations = Math.ceil(ms / checkInterval);
 
         for (let i = 0; i < iterations; i++) {
@@ -1523,12 +1798,38 @@ export class AICompanion {
                     isThinkingSimulationActive: this.isThinkingSimulationActive,
                     shouldEndThinkingNaturally: this.shouldEndThinkingNaturally,
                     iteration: i,
-                    totalIterations: iterations
+                    totalIterations: iterations,
+                    earlyExitSavedMs: (iterations - i) * checkInterval
                 });
                 break;
             }
             await this.delay(checkInterval);
         }
+    }
+
+    /**
+     * Emergency stop for thinking simulation - can be called from console or programmatically
+     * @public
+     */
+    emergencyStopThinking() {
+        console.log('[AICompanion] Emergency stop triggered for thinking simulation');
+        this.isThinkingSimulationActive = false;
+        this.shouldEndThinkingNaturally = true;
+        
+        // Clear any pending timeouts if they exist
+        if (this.pendingTimeouts) {
+            this.pendingTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+            this.pendingTimeouts = [];
+        }
+        
+        // Signal completion to waiting processes
+        if (this.thinkingCompletionResolve) {
+            this.thinkingCompletionResolve();
+            this.thinkingCompletionResolve = null;
+            this.thinkingCompletionPromise = null;
+        }
+        
+        console.log('[AICompanion] Emergency stop completed');
     }
 
     /**
@@ -1577,7 +1878,18 @@ export class AICompanion {
      */
     async generateAIThinkingContent(userMessage) {
         const conversationContext = this.getConversationContextForThinking();
-        const contextPart = conversationContext ? ` The conversation context includes: ${conversationContext}.` : '';
+        
+        // Enhanced context formatting for better thinking insights
+        let contextPart = '';
+        if (conversationContext) {
+            contextPart = `\n\nCONVERSATION CONTEXT:\n${conversationContext}\n\nCURRENT USER MESSAGE: ${userMessage}\n\nBased on this conversation history, provide insightful thinking that considers:
+- Previous questions and responses in the conversation
+- Patterns or themes that have emerged
+- Follow-up questions or clarifications that might be relevant
+- How the current question relates to or builds upon previous topics`;
+        } else {
+            contextPart = `\n\nCURRENT USER MESSAGE: ${userMessage}`;
+        }
 
         // Detect user question language for explicit instruction
         const isChineseQuestion = /[\u4e00-\u9fff]/.test(userMessage);
@@ -1585,12 +1897,23 @@ export class AICompanion {
             ? 'CRITICAL: The user asked in Chinese, so ALL thinking content must be in Chinese only. Do not use any English, Italian, or other languages.'
             : 'CRITICAL: The user asked in English, so ALL thinking content must be in English only. Do not use any Chinese, Italian, or other languages.';
 
-        // Use centralized prompt manager
-        const thinkingPrompt = promptManager.getFormattedPrompt('thinkingGeneration', {
-            userMessage: userMessage,
-            contextPart: contextPart,
-            languageInstruction: languageInstruction
-        });
+        // Enhanced thinking prompt that leverages conversation context
+        const thinkingPrompt = `You are an AI assistant showing your thinking process. Generate 3-4 thoughtful, insightful thinking statements that demonstrate deep analysis of the user's request within the context of the ongoing conversation.
+
+${languageInstruction}
+
+${contextPart}
+
+Requirements:
+1. Each thinking statement should be one complete sentence
+2. Show progressive reasoning and analysis
+3. Consider conversation context and continuity when available
+4. Demonstrate understanding of how the current question fits into the broader discussion
+5. Be specific and insightful, not generic
+6. Focus on what would be most helpful to understand or clarify
+7. Each statement should start with phrases like: "Let me analyze...", "I need to consider...", "Building on our previous discussion...", "Given the conversation context...", etc.
+
+Generate exactly 3-4 thinking statements, one per line:`;
 
         try {
             let thinkingContent = '';
@@ -1899,38 +2222,55 @@ export class AICompanion {
      */
     getConversationContextForThinking() {
         try {
-            const chatWindow = DOMUtils.getElementById('chatWindow');
-            if (!chatWindow) return null;
-
-            const messageContainers = Array.from(chatWindow.querySelectorAll('.messageContainer'));
-            if (messageContainers.length < 2) return null;
-
-            // Look at recent messages to identify topic
-            const recentMessages = messageContainers.slice(-4); // Last 4 messages
-            const topics = [];
-
-            recentMessages.forEach(container => {
-                const messageText = container.querySelector('.messageText, .messageContent, .messageDiv')?.textContent || '';
-                const words = messageText.toLowerCase().split(/\s+/);
-
-                // Extract potential topic keywords
-                const topicKeywords = words.filter(word =>
-                    word.length > 4 &&
-                    !['about', 'could', 'would', 'should', 'there', 'where', 'when', 'what', 'this'].includes(word)
-                );
-
-                topics.push(...topicKeywords.slice(0, 2)); // Top 2 keywords per message
-            });
-
-            // Return most common topic
-            if (topics.length > 0) {
-                const topicCounts = {};
-                topics.forEach(topic => topicCounts[topic] = (topicCounts[topic] || 0) + 1);
-                const mostCommonTopic = Object.keys(topicCounts).reduce((a, b) => topicCounts[a] > topicCounts[b] ? a : b);
-                return mostCommonTopic;
+            // Use the stored conversation context which contains proper message history
+            if (!this.conversationContext || this.conversationContext.length < 2) {
+                return null;
             }
 
-            return null;
+            // Get last 3-5 conversation turns (6-10 messages for user-assistant pairs)
+            const maxMessages = 10; // Up to 5 turns (user + assistant pairs)
+            const recentMessages = this.conversationContext.slice(-maxMessages);
+            
+            // Format the conversation context for thinking
+            const contextLines = [];
+            
+            recentMessages.forEach((msg, index) => {
+                // Skip thinking messages or empty content
+                if (!msg.content || msg.content.trim().length === 0) return;
+                
+                const role = msg.role === 'user' ? 'User' : 'Assistant';
+                const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : '';
+                
+                // Truncate very long messages for context
+                let content = msg.content.trim();
+                if (content.length > 200) {
+                    content = content.substring(0, 200) + '...';
+                }
+                
+                contextLines.push(`${role} (${timestamp}): ${content}`);
+                
+                // Include attachments info if present
+                if (msg.attachments && msg.attachments.length > 0) {
+                    const attachmentTypes = msg.attachments.map(att => att.contentType || 'file').join(', ');
+                    contextLines.push(`  [Attachments: ${attachmentTypes}]`);
+                }
+            });
+            
+            if (contextLines.length === 0) {
+                return null;
+            }
+            
+            // Return formatted conversation context
+            const context = `Recent conversation:\n${contextLines.join('\n')}`;
+            
+            console.log('[AICompanion] Generated conversation context for thinking:', {
+                messageCount: recentMessages.length,
+                contextLength: context.length,
+                preview: context.substring(0, 150) + '...'
+            });
+            
+            return context;
+            
         } catch (error) {
             console.error('[AICompanion] Error getting conversation context for thinking:', error);
             return null;
@@ -1986,7 +2326,7 @@ export class AICompanion {
      */
     createMainChatMessageContainer(activity) {
         const container = DOMUtils.createElement('div', {
-            className: 'messageContainer botMessage thinking-message companion-response',
+            className: 'messageContainer botMessage thinking-message',
             dataset: {
                 messageId: activity.id,
                 timestamp: activity.timestamp,
@@ -8578,6 +8918,87 @@ if (typeof window !== 'undefined') {
         } else {
             console.error('[Debug] AI companion not available or missing loadSettings method');
             return null;
+        }
+    };
+
+    // Add global utility functions for testing and setup
+    window.enableAICompanion = function() {
+        localStorage.setItem('enableLLM', 'true');
+        if (window.aiCompanion && window.aiCompanion.loadSettings) {
+            window.aiCompanion.loadSettings();
+            console.log('[DEBUG] AI Companion enabled:', window.aiCompanion.isEnabled);
+            return window.aiCompanion.isEnabled;
+        }
+        return false;
+    };
+
+    // Test function for conversation-aware thinking
+    window.testConversationAwareThinking = async function() {
+        if (!window.aiCompanion) {
+            console.error('[DEBUG] AI Companion not available');
+            return null;
+        }
+
+        console.log('[DEBUG] Testing conversation-aware thinking...');
+        
+        // Get current conversation context
+        const context = window.aiCompanion.getConversationContextForThinking();
+        console.log('[DEBUG] Current conversation context:', context);
+        
+        // Show conversation history length
+        console.log('[DEBUG] Conversation history length:', window.aiCompanion.conversationContext?.length || 0);
+        
+        // Test enhanced thinking with a sample message
+        const testMessage = "Can you explain more about that?";
+        console.log('[DEBUG] Testing thinking for message:', testMessage);
+        
+        try {
+            const thinkingPrompts = await window.aiCompanion.generateThinkingPrompts(testMessage);
+            console.log('[DEBUG] Generated conversation-aware thinking prompts:', thinkingPrompts);
+            return {
+                context: context,
+                historyLength: window.aiCompanion.conversationContext?.length || 0,
+                thinkingPrompts: thinkingPrompts
+            };
+        } catch (error) {
+            console.error('[DEBUG] Error testing conversation-aware thinking:', error);
+            return { error: error.message };
+        }
+    };
+
+    window.disableAICompanion = function() {
+        localStorage.setItem('enableLLM', 'false');
+        if (window.aiCompanion && window.aiCompanion.loadSettings) {
+            window.aiCompanion.loadSettings();
+            console.log('[DEBUG] AI Companion disabled:', !window.aiCompanion.isEnabled);
+            return !window.aiCompanion.isEnabled;
+        }
+        return false;
+    };
+
+    // Add a global function to test thinking simulation with immediate start
+    window.testThinkingSimulation = async (testMessage = 'Test message for debugging thinking simulation') => {
+        console.log('[DEBUG] Testing immediate thinking simulation with message:', testMessage);
+        try {
+            if (!window.aiCompanion) {
+                console.error('[DEBUG] window.aiCompanion not available');
+                return false;
+            }
+            if (!window.aiCompanion.isEnabled) {
+                console.log('[DEBUG] AI Companion is not enabled, enabling it for test...');
+                window.enableAICompanion();
+            }
+            
+            // Test the improved thinking flow
+            console.log('[DEBUG] Starting immediate thinking simulation...');
+            const startTime = Date.now();
+            await window.aiCompanion.simulateThinkingProcess(testMessage);
+            const endTime = Date.now();
+            console.log('[DEBUG] Thinking simulation completed in', endTime - startTime, 'ms');
+            return true;
+        } catch (error) {
+            console.error('[DEBUG] Thinking simulation test failed:', error);
+            return false;
         }
     };
 }

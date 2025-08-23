@@ -728,6 +728,14 @@ export class Application {
         }
 
         console.log('Logging filter listeners attached');
+
+        // Add cleanup handler for page unload to prevent memory leaks
+        window.addEventListener('beforeunload', () => {
+            console.log('[Application] Page unloading, performing cleanup...');
+            this.cleanup();
+        });
+
+        console.log('Performance optimization event listeners attached');
     }
 
     /**
@@ -2547,7 +2555,7 @@ export class Application {
     }
 
     /**
-     * Start intelligent thinking simulation with proper timing
+     * Start intelligent thinking simulation with improved timing and immediate LLM invocation
      * @param {string} messageText - The user's message
      * @param {Promise} messagePromise - Promise for the DirectLine message sending
      * @private
@@ -2565,11 +2573,12 @@ export class Application {
             return;
         }
 
-        console.log('[Application] Starting intelligent thinking simulation...');
+        console.log('[Application] Starting improved thinking simulation with immediate LLM invocation...');
 
         // Flag to track if agent response has arrived
         let agentResponseReceived = false;
         let thinkingSimulationActive = false;
+        let thinkingDisplayed = false;
 
         // Listen for agent responses
         const responseListener = (event) => {
@@ -2596,7 +2605,6 @@ export class Application {
                 }
 
                 // If we're still in evaluation period, clear the flag but don't show typing indicator
-                // The thinking simulation will handle the display, or the quick response doesn't need an indicator
                 if (this.isEvaluatingThinkingSimulation) {
                     this.isEvaluatingThinkingSimulation = false;
                     console.log('[Application] Agent response during evaluation period, clearing evaluation flag');
@@ -2616,40 +2624,48 @@ export class Application {
         window.addEventListener('eventActivity', responseListener);
 
         try {
-            // Wait 2 seconds to see if we get a quick response
-            console.log('[Application] Waiting 2 seconds for potential quick response...');
-            await this.delay(2000);
+            // IMPROVEMENT: Start thinking process immediately for faster LLM response
+            console.log('[Application] Starting thinking process immediately for faster response times...');
+            
+            // Use the original simulateThinkingProcess method for now (keeping it simple)
+            // The key improvement is the reduced delay time from 2s to 1.5s
+            const thinkingPromise = window.aiCompanion.simulateThinkingProcess(messageText);
+
+            // Wait 1.5 seconds to see if we get a quick response (reduced from 2 seconds)
+            console.log('[Application] Waiting 1.5 seconds for potential quick response...');
+            await this.delay(1500);
 
             // Clear evaluation flag
             this.isEvaluatingThinkingSimulation = false;
 
-            // If no response yet, start thinking simulation
+            // If no response yet, the thinking simulation is already running
             if (!agentResponseReceived) {
-                console.log('[Application] No response in 2 seconds, starting thinking simulation...');
+                console.log('[Application] No response in 1.5 seconds, thinking simulation already active...');
                 thinkingSimulationActive = true;
 
-                // Start thinking simulation (non-blocking)
-                const thinkingPromise = window.aiCompanion.simulateThinkingProcess(messageText);
-
-                // Monitor for agent response while thinking is active
+                // Monitor for agent response while thinking is displayed with faster polling
                 const responseCheckInterval = setInterval(() => {
                     if (agentResponseReceived && thinkingSimulationActive) {
                         console.log('[Application] Agent response received, ending thinking simulation naturally...');
-                        console.log('[Application] Calling endThinkingSimulationNaturally() on AI companion...');
                         window.aiCompanion.endThinkingSimulationNaturally();
                         thinkingSimulationActive = false;
                         clearInterval(responseCheckInterval);
                         console.log('[Application] Thinking simulation end request sent, interval cleared');
                     }
-                }, 500); // Check every 500ms for faster response
+                }, 200); // Faster check: every 200ms instead of 500ms
 
                 // Wait for thinking simulation to complete or be interrupted
                 await thinkingPromise;
                 thinkingSimulationActive = false;
                 clearInterval(responseCheckInterval);
             } else {
-                console.log('[Application] Quick response received, no thinking simulation needed');
-                // Don't show progress indicator if AI companion is enabled - thinking simulation handles all visual feedback
+                console.log('[Application] Quick response received, no thinking display needed');
+                // Ensure thinking simulation is stopped if response came quickly
+                if (window.aiCompanion.endThinkingSimulationNaturally) {
+                    window.aiCompanion.endThinkingSimulationNaturally();
+                }
+                
+                // Don't show progress indicator if AI companion is enabled
                 if (!window.aiCompanion || window.aiCompanion.isEnabled !== true) {
                     const messageContext = this.detectMessageContext(messageText);
                     this.showProgressIndicator({
@@ -2662,13 +2678,14 @@ export class Application {
             }
 
         } catch (error) {
-            console.error('[Application] Error in intelligent thinking simulation:', error);
+            console.error('[Application] Error in improved thinking simulation:', error);
         } finally {
             // Clean up evaluation flag and event listeners
             this.isEvaluatingThinkingSimulation = false;
             window.removeEventListener('streamingActivity', responseListener);
             window.removeEventListener('completeMessage', responseListener);
             window.removeEventListener('eventActivity', responseListener);
+            console.log('[Application] Thinking simulation cleanup completed');
         }
     }
 
@@ -3807,6 +3824,33 @@ export class Application {
             this.loggingManager.info('system', `Professional message mode ${enabled ? 'enabled' : 'disabled'}`);
         }
     }
+
+    /**
+     * Cleanup method to stop all running processes and prevent memory leaks
+     */
+    cleanup() {
+        console.log('[Application] Performing cleanup...');
+        
+        // Stop AI Companion thinking simulation
+        if (window.aiCompanion && typeof window.aiCompanion.emergencyStopThinking === 'function') {
+            window.aiCompanion.emergencyStopThinking();
+        }
+        
+        // Stop logging auto-save
+        if (this.loggingManager && this.loggingManager.autoSaveInterval) {
+            clearInterval(this.loggingManager.autoSaveInterval);
+            this.loggingManager.autoSaveInterval = null;
+            console.log('[Application] Stopped logging auto-save interval');
+        }
+        
+        // Stop DirectLine health checks if they exist
+        if (this.directLineManager && this.directLineManager.healthCheckInterval) {
+            clearInterval(this.directLineManager.healthCheckInterval);
+            console.log('[Application] Stopped DirectLine health check interval');
+        }
+        
+        console.log('[Application] Cleanup completed');
+    }
 }
 
 // Create and export singleton instance
@@ -3816,3 +3860,24 @@ export const app = new Application();
 // OLD: Was exported from services/directLineManager.js as singleton
 // NEW: Export instance from application for compatibility with existing imports
 export const directLineManager = app.directLineManager;
+
+// Global emergency functions for debugging and performance issues
+window.emergencyStopThinking = function() {
+    console.log('[Global] Emergency stop thinking triggered from console');
+    if (window.aiCompanion && typeof window.aiCompanion.emergencyStopThinking === 'function') {
+        window.aiCompanion.emergencyStopThinking();
+    } else {
+        console.log('[Global] AI Companion not available or emergency stop method not found');
+    }
+};
+
+window.performanceCleanup = function() {
+    console.log('[Global] Performance cleanup triggered from console');
+    if (app && typeof app.cleanup === 'function') {
+        app.cleanup();
+    } else {
+        console.log('[Global] Application cleanup method not available');
+    }
+};
+
+console.log('[Application] Global emergency functions available: emergencyStopThinking(), performanceCleanup()');

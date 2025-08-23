@@ -17,31 +17,36 @@
     margin-left: 0;
 }
 
-/* User message metadata alignment */
-.userMessage + .message-metadata,
-.messageContainer.userMessage ~ .message-metadata {
-    justify-content: flex-end;
-    margin-right: 40px; /* Align with user message (icon width + margin) */
-    margin-left: 0;
-}
-
-/* Adjust user metadata when icons are hidden */
-.hideMessageIcons .userMessage + .message-metadata,
-.hideMessageIcons .messageContainer.userMessage ~ .message-metadata {
-    margin-right: 0;
-}
-
-/* Message metadata */
+/* Message metadata - handles both structures */
 .message-metadata {
     display: flex; /* Visible by default when showMetadata is true */
     align-items: center;
     gap: 4px;
-    margin: 2px 0 8px 40px; /* Align with message content (icon width + margin) */
+    margin: 4px 0 0 0; /* Base margin for bot messages inside wrapper */
     padding: 0 4px;
     font-size: 11px;
     color: rgba(96, 94, 92, 0.8);
     font-weight: 400;
     line-height: 1.2;
+}
+
+/* User message metadata - outside message container (original structure) */
+.userMessage + .message-metadata,
+.message-wrapper > .userMessage + .message-metadata {
+    justify-content: flex-end;
+    margin: 2px 0 8px 40px; /* Align with user message (icon width + margin) */
+}
+
+/* Bot message metadata - inside wrapper (new structure) */
+.botMessage .message-metadata {
+    justify-content: flex-start;
+    margin: 4px 0 0 0; /* Simplified margin inside wrapper */
+}
+
+/* Adjust user metadata when icons are hidden */
+.hideMessageIcons .userMessage + .message-metadata {
+    margin-left: 0;
+    margin-right: 0;
 }
 
 .metadata-time {
@@ -140,6 +145,14 @@
     justify-content: flex-start;
 }
 
+/* Message wrapper - contains message content and metadata */
+.message-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    max-width: 100%;
+}
+
 /* Message icons */
 .messageIcon {
     width: 24px;
@@ -205,7 +218,7 @@
     padding: 10px 16px;
     text-align: left;
     font-weight: 500;
-    max-width: var(--msg-max-width-expanded);
+    max-width: var(--msg-max-width);
 }
 
 /* AI Companion User Message Styling - Different look when chatting with AI Companion */
@@ -227,7 +240,7 @@
     /* Bot-specific adjustments */
     padding: 10px 16px;
     text-align: left;
-    max-width: var(--msg-max-width-expanded);
+    max-width: var(--msg-max-width);
 }
 
 /* PROFESSIONAL SYSTEM MODE - Full width message styling for professional interface */
@@ -257,19 +270,10 @@
 .full-width-messages .message-metadata {
     display: flex;
     /* Show metadata in full-width mode */
-    margin-left: 0;
-    /* Remove icon offset since icons are hidden */
     opacity: 0.6;
     /* Make it more subtle */
     font-size: 10px;
     /* Slightly smaller for professional look */
-}
-
-/* PROFESSIONAL: Ensure user message metadata aligns properly in full-width mode */
-.full-width-messages .userMessage+.message-metadata,
-.full-width-messages .messageContainer.userMessage~.message-metadata {
-    margin-right: 0;
-    /* Remove icon offset since icons are hidden */
     justify-content: flex-start;
     /* Align to left like bot messages in full-width mode */
 }

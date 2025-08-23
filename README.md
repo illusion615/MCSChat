@@ -46,6 +46,7 @@ Ready to get started? Follow our quick setup guide:
 - **[Contributing Guide](docs/development/CONTRIBUTING.md)** - How to contribute to the project
 - **[Migration Guides](docs/migration/)** - Legacy system migration documentation
 - **[Performance Optimization](docs/performance/)** - Performance tuning and optimization
+- **[Development Utilities](utils/)** - Debugging tools, test files, and maintenance scripts
 
 ### 🛠️ Troubleshooting & Support
 - **[DirectLine Issues](docs/troubleshooting/DIRECTLINE_COMPLETE_FIX.md)** - Complete DirectLine connection troubleshooting
@@ -92,10 +93,14 @@ Ready to get started? Follow our quick setup guide:
 - **[Release Notes](CHANGELOG.md)** - Latest updates and features
 - **[Project Tasks](TODO.md)** - Current development priorities
 
-## 🆕 Latest Updates (v3.6.0)
+## 🆕 Latest Updates (v3.7.0)
 
+- 🧠 **Conversation-Aware Thinking**: Revolutionary thinking system that leverages complete conversation context (last 3-5 turns) for deeper, more insightful AI thinking responses
+- ⚡ **Enhanced Thinking Performance**: Immediate LLM invocation with 1.5-second display delay and intelligent timeout feedback for optimal user experience
+- 🔄 **Progressive Thinking Types**: Four distinct thinking phases (Analysis, Context-Aware, Practical, Synthesis) that build upon conversation history
+- 🌐 **Contextual Continuity**: Thinking responses now reference conversation patterns, follow-up questions, and thematic connections across discussion history
+- 📁 **Project Structure Cleanup**: Organized development utilities into `utils/` directory and consolidated documentation structure
 - ✨ **Documentation Organization**: Consolidated and organized all documentation into logical categories
-- ✨ **Test File Organization**: Moved all test files from root to structured `/tests` directory
 - ✨ **Performance Documentation**: Comprehensive performance optimization guides
 - ✨ **Troubleshooting Guides**: Complete troubleshooting documentation with DirectLine fixes
 - ✨ **Feature Documentation**: Organized feature-specific documentation and guides

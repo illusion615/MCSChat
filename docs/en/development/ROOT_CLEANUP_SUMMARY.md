@@ -23,25 +23,28 @@
 - `LICENSE` - Project license
 
 **Functional Server Scripts:**
-- `emergency-cleanup.js` - Active localStorage cleanup (referenced in index.html)
 - `chat-server.js` - Development HTTP server (documented in README)
 - `ollama-proxy.js` - CORS proxy for Ollama integration (documented in README)
-- `streaming-example.js` - WebSocket streaming example (documented in README)
 
-**Development Files:**
+**Development Files (Moved to `utils/` directory):**
+- `emergency-cleanup.js` - Active localStorage cleanup (referenced in index.html)
+- `streaming-example.js` - WebSocket streaming example (documented in README)
 - `fix_backdrop_filter.py` - Python utility script
 - `test-splash.html` - Testing page for splash screen
+- `debug-thinking.html` - Standalone thinking system debugging page
 
 ## File Organization Results
 
 ### Before Cleanup (Root Directory):
-- 6 markdown files (including Chinese duplicate)
-- 6 JavaScript files (including 2 obsolete cleanup scripts)
+- 6 markdown files (including summary documents)
+- 6 JavaScript files (including development utilities)
+- 2 Python scripts and HTML test files
 
 ### After Cleanup (Root Directory):
 - 3 essential markdown files (README, CHANGELOG, TODO)
-- 4 functional JavaScript files
-- Improved organization with docs properly categorized
+- 2 functional server JavaScript files
+- Development utilities organized in dedicated `utils/` directory
+- Documentation summaries moved to appropriate `docs/` sections
 
 ## Benefits Achieved
 

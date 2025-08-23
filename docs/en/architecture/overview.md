@@ -49,7 +49,7 @@ MCSChat/
 ├── index.html              # Main application entry point
 ├── chat-server.js          # Node.js development server
 ├── ollama-proxy.js         # CORS proxy for Ollama
-├── streaming-example.js    # WebSocket streaming example
+├── utils/                  # Development utilities and debugging tools
 ├── legacy/                 # Legacy files including styles-legacy.css
 └── test-*.html            # Feature test pages
 ```

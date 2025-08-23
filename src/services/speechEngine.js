@@ -1174,7 +1174,7 @@ class AzureSpeechProvider {
                     console.log('[Azure] Synthesis completed, audio starting playback');
                     options.onProgress(0.7); // 70% - Audio ready and starting playback
 
-                    // Start playback progress tracking
+                    // Start playback progress tracking - reduced frequency for better performance
                     const playbackInterval = setInterval(() => {
                         if (!this.isActivelyPlaying) {
                             clearInterval(playbackInterval);
@@ -1191,7 +1191,7 @@ class AzureSpeechProvider {
                         if (elapsed >= estimatedDuration) {
                             clearInterval(playbackInterval);
                         }
-                    }, 200); // Update every 200ms
+                    }, 1000); // Increased from 200ms to 1000ms to reduce CPU usage
                 };
             }
 

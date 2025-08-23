@@ -2012,6 +2012,8 @@ select:hover {
 
 .prompt-editor-textarea {
     flex: 1;
+    width: auto;
+    margin: 10px;
     min-height: 400px;
     padding: 20px;
     border: none;

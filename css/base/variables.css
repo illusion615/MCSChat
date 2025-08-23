@@ -55,9 +55,8 @@
     --msg-border-radius: 20px;
     --msg-border-radius-compact: 10px;
     --msg-line-height: 1.5;
-    --msg-max-width: 70%;
+    --msg-max-width: 90%;
     --msg-max-width-mobile: 85%;
-    --msg-max-width-expanded: 90%;
     --msg-max-width-full: 100%;
     
     /* MESSAGE CONTENT: Color scheme for different message types */
@@ -123,7 +122,7 @@
     --msg-thinking-color: var(--msg-companion-response-color);
     --msg-thinking-border: var(--msg-companion-response-border);
     --msg-thinking-shadow: var(--msg-companion-response-shadow);
-    --msg-thinking-max-width: var(--msg-max-width-expanded);
+    --msg-thinking-max-width: var(--msg-max-width);
     --msg-thinking-opacity: 0.9;
     --msg-thinking-font-style: italic;
     

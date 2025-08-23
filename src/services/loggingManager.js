@@ -16,9 +16,9 @@ class LoggingManager {
         // Performance tracking
         this.performanceMetrics = new Map();
         
-        // Auto-save interval
+        // Auto-save interval - increased from 30s to 5 minutes for better performance
         this.autoSaveInterval = null;
-        this.autoSaveDelay = 30000; // 30 seconds
+        this.autoSaveDelay = 300000; // 5 minutes (was 30 seconds) - reduces I/O operations
         
         this.init();
     }
@@ -392,9 +392,13 @@ class LoggingManager {
             clearInterval(this.autoSaveInterval);
         }
         
+        // Auto-save every 5 minutes instead of 30 seconds for better performance
         this.autoSaveInterval = setInterval(() => {
+            console.log('[LoggingManager] Auto-saving logs to storage...');
             this.saveLogsToStorage();
         }, this.autoSaveDelay);
+        
+        console.log(`[LoggingManager] Auto-save setup with ${this.autoSaveDelay / 1000}s interval`);
     }
 
     /**
