@@ -21,7 +21,7 @@
   "devDependencies": {},
   "scripts": {
     "demo": "python -m http.server 8000",
-    "test": "open examples/universal-example.html",
+    "test": "open icon-manager.html",
     "build": "echo 'No build process needed for pure ES6 modules'",
     "lint": "echo 'Linting not configured'"
   },
@@ -47,7 +47,9 @@
     "lib/",
     "themes/",
     "icons/",
-    "examples/",
+    "styles/",
+    "icon-manager.html",
+    "github-pages-storage.js",
     "README.md",
     "CHANGELOG.md"
   ]

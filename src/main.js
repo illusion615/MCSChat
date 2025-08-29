@@ -5,6 +5,7 @@
 
 import { app } from './core/application.js';
 import { LocalStorageProtection } from './utils/localStorageProtection.js';
+import { cleanAllCorruptedLocalStorage, setupLocalStorageErrorHandling } from './utils/localStorageGuard.js';
 // === IMPORT SIMPLIFIED ICON MANAGER ===
 import Icon from './components/svg-icon-manager/index.js';
 
@@ -21,6 +22,15 @@ if (document.readyState === 'loading') {
 async function initializeApplication() {
     try {
         console.log('Starting MCSChat application...');
+
+        // Clean any corrupted localStorage data first
+        const cleanedCount = cleanAllCorruptedLocalStorage();
+        if (cleanedCount > 0) {
+            console.log(`[Main] Cleaned ${cleanedCount} corrupted localStorage entries`);
+        }
+
+        // Setup enhanced localStorage error handling
+        setupLocalStorageErrorHandling();
 
         // Initialize localStorage protection first to prevent JSON parsing errors
         LocalStorageProtection.initialize();
@@ -230,7 +240,8 @@ function setupDataIconElements() {
         // Create icon with default styling
         const iconElement = Icon.create(iconName, {
             size: element.dataset.width || '18px',
-            color: 'currentColor'
+            color: 'currentColor',
+            fillMode: iconName === 'user' ? 'outline' : 'auto'
         });
         
         element.appendChild(iconElement);

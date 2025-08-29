@@ -1181,19 +1181,20 @@
     <script type="module" src="src/main.js"></script>
     <!-- Initialize Splash Screen -->
     <script>
-        // Wait for DOM to be ready and SplashScreen class to be loaded
+        // Event-driven splash screen initialization
         document.addEventListener('DOMContentLoaded', function() {
             // Double-check that SplashScreen class is available
             if (typeof SplashScreen !== 'undefined') {
                 const splashScreen = new SplashScreen();
                 splashScreen.show();
                 
-                // Auto-hide after all resources are loaded
-                window.addEventListener('load', () => {
-                    setTimeout(() => {
-                        splashScreen.hide();
-                    }, 1000); // Give a bit more time to see completion
-                });
+                // Start with initial progress
+                splashScreen.setProgress(0, 'Starting up...');
+                
+                // Make splash screen globally accessible for debugging
+                window.splashScreen = splashScreen;
+                
+                console.log('[Splash] Event-driven splash screen initialized');
             } else {
                 console.warn('SplashScreen class not loaded yet');
                 // Fallback: try again after a short delay
@@ -1201,12 +1202,8 @@
                     if (typeof SplashScreen !== 'undefined') {
                         const splashScreen = new SplashScreen();
                         splashScreen.show();
-                        
-                        window.addEventListener('load', () => {
-                            setTimeout(() => {
-                                splashScreen.hide();
-                            }, 1000);
-                        });
+                        splashScreen.setProgress(0, 'Starting up...');
+                        window.splashScreen = splashScreen;
                     }
                 }, 100);
             }

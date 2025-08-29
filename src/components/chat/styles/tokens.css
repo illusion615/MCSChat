@@ -1,0 +1,13 @@
+:root {
+  --bg: #f8f9fa;
+  --text: #222;
+  --muted: #6c757d;
+  --border: #e9ecef;
+  --accent: #007bff;
+  --assistant-bg: #ffffff;
+  --assistant-text: #333333;
+  --user-bg: #007bff;
+  --user-text: #ffffff;
+  --bubble-radius: 16px;
+  --gap: 16px;
+}

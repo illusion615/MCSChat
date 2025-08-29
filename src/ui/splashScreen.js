@@ -1,27 +1,22 @@
 /**
  * Splash Screen Controller
  * Manages loading progress and user feedback during application initialization
+ * Now synchronized with actual application loading progress
  */
 class SplashScreen {
     constructor() {
         this.progress = 0;
         this.maxProgress = 100;
         this.currentStatus = '';
-        this.loadingSteps = [
-            { name: 'Initializing application...', weight: 5 },
-            { name: 'Loading CSS resources...', weight: 15 },
-            { name: 'Loading external libraries...', weight: 40 },
-            { name: 'Loading local libraries...', weight: 15 },
-            { name: 'Initializing components...', weight: 15 },
-            { name: 'Finalizing setup...', weight: 10 }
-        ];
-        this.currentStepIndex = 0;
-        this.stepProgress = 0;
         this.errors = [];
         this.startTime = Date.now();
+        this.isCompleted = false;
+        this.isHidden = false;
+        this.highestProgress = 0; // Track highest progress to ensure monotonic increase
         
+        // Remove hardcoded steps - now driven by real application events
         this.initializeSplashElements();
-        this.initializeProgressTracking();
+        this.setupApplicationEventListeners();
     }
 
     initializeSplashElements() {
@@ -44,210 +39,157 @@ class SplashScreen {
         }
     }
 
-    initializeProgressTracking() {
-        // Start with first step
-        this.updateProgress(0, this.loadingSteps[0].name);
+    /**
+     * Set up listeners for real application initialization events
+     */
+    setupApplicationEventListeners() {
+        console.log('Setting up application event listeners for splash screen');
         
-        // Track CSS loading
-        this.trackCSSLoading();
-        
-        // Track external library loading
-        this.trackExternalLibraries();
-        
-        // Track DOM ready
-        this.trackDOMReady();
-    }
+        // Listen for initialization progress events
+        document.addEventListener('app:init:progress', (event) => {
+            console.log('Splash received progress event:', event.detail.message);
+            this.updateProgress(event.detail.message, event.detail.progress || 0);
+        });
 
-    trackCSSLoading() {
-        const cssLinks = document.querySelectorAll('link[rel="stylesheet"]');
-        let loadedCSS = 0;
-        const totalCSS = cssLinks.length;
-        
-        if (totalCSS === 0) {
-            this.completeStep(1);
-            return;
-        }
+        // Listen for DirectLine connection events
+        document.addEventListener('directline:connecting', () => {
+            console.log('Splash received DirectLine connecting event');
+            this.updateProgress('Connecting to agent...', 82);
+        });
 
-        cssLinks.forEach((link, index) => {
-            const onLoad = () => {
-                loadedCSS++;
-                const cssProgress = (loadedCSS / totalCSS) * this.loadingSteps[1].weight;
-                this.updateProgress(this.loadingSteps[0].weight + cssProgress, 
-                    `Loading CSS (${loadedCSS}/${totalCSS})...`);
-                
-                if (loadedCSS === totalCSS) {
-                    this.completeStep(1);
-                }
-            };
-            
-            const onError = () => {
-                this.addError(`Failed to load CSS: ${link.href}`);
-                onLoad(); // Continue despite error
-            };
+        document.addEventListener('directline:connected', () => {
+            console.log('Splash received DirectLine connected event');
+            this.updateProgress('Agent connected!', 85);
+        });
 
-            if (link.sheet && link.sheet.cssRules) {
-                // Already loaded
-                onLoad();
-            } else {
-                link.addEventListener('load', onLoad);
-                link.addEventListener('error', onError);
+        // Listen for agent greeting events
+        document.addEventListener('agent:greeting:sending', () => {
+            console.log('Splash received agent greeting sending event');
+            this.updateProgress('Preparing agent welcome...', 88);
+        });
+
+        document.addEventListener('agent:greeting:received', () => {
+            console.log('Splash received agent greeting received event');
+            this.updateProgress('Agent ready!', 95);
+            // Small delay to let the greeting message start streaming
+            setTimeout(() => this.completeLoading(true), 500);
+        });
+
+        document.addEventListener('agent:greeting:timeout', () => {
+            console.log('Splash received agent greeting timeout event');
+            this.updateProgress('Agent connected (no greeting)', 95);
+            setTimeout(() => this.completeLoading(true), 500);
+        });
+
+        document.addEventListener('directline:failed', (event) => {
+            console.log('Splash received DirectLine failed event');
+            this.updateProgress('Connection failed. You can use the app without an agent.', 100);
+            setTimeout(() => this.completeLoading(false), 1500);
+        });
+
+        // Listen for application initialization complete (fallback for no-agent scenarios)
+        document.addEventListener('app:init:complete', (event) => {
+            console.log('Splash received init complete event:', event.detail);
+            const hasAgent = event.detail && event.detail.hasAgent;
+            if (!hasAgent) {
+                this.updateProgress('Ready!', 100);
+                setTimeout(() => this.completeLoading(false), 1000);
             }
+            // If hasAgent is true, we wait for greeting events instead
         });
     }
 
-    trackExternalLibraries() {
-        const externalLibraries = [
-            { name: 'marked', check: () => typeof marked !== 'undefined' },
-            { name: 'DOMPurify', check: () => typeof DOMPurify !== 'undefined' },
-            { name: 'katex', check: () => typeof katex !== 'undefined' }
-        ];
+    /**
+     * Update progress based on real application events
+     */
+    updateProgress(status, progress) {
+        if (this.isCompleted) return; // Don't update after completion
         
-        let checkInterval = setInterval(() => {
-            const loadedLibs = externalLibraries.filter(lib => lib.check()).length;
-            const libProgress = (loadedLibs / externalLibraries.length) * this.loadingSteps[2].weight;
-            
-            this.updateProgress(
-                this.loadingSteps[0].weight + this.loadingSteps[1].weight + libProgress,
-                `Loading external libraries (${loadedLibs}/${externalLibraries.length})...`
-            );
-            
-            if (loadedLibs === externalLibraries.length) {
-                clearInterval(checkInterval);
-                this.completeStep(2);
-                this.trackLocalLibraries();
-            }
-        }, 100);
-        
-        // Timeout after 5 seconds
-        setTimeout(() => {
-            if (checkInterval) {
-                clearInterval(checkInterval);
-                const loadedLibs = externalLibraries.filter(lib => lib.check()).length;
-                if (loadedLibs < externalLibraries.length) {
-                    console.log('[SplashScreen] Some external libraries not detected, continuing...');
-                }
-                this.completeStep(2);
-                this.trackLocalLibraries();
-            }
-        }, 5000);
-    }
-
-    trackLocalLibraries() {
-        const localLibraries = [
-            { name: 'Marked', check: () => typeof marked !== 'undefined' },
-            { name: 'DOMPurify', check: () => typeof DOMPurify !== 'undefined' },
-            { name: 'KaTeX', check: () => typeof katex !== 'undefined' }
-        ];
-        
-        let checkInterval = setInterval(() => {
-            const loadedLibs = localLibraries.filter(lib => lib.check()).length;
-            const libProgress = (loadedLibs / localLibraries.length) * this.loadingSteps[3].weight;
-            
-            this.updateProgress(
-                this.loadingSteps[0].weight + this.loadingSteps[1].weight + 
-                this.loadingSteps[2].weight + libProgress,
-                `Loading local libraries (${loadedLibs}/${localLibraries.length})...`
-            );
-            
-            if (loadedLibs === localLibraries.length) {
-                clearInterval(checkInterval);
-                this.completeStep(3);
-            }
-        }, 50);
-        
-        // Timeout after 5 seconds
-        setTimeout(() => {
-            if (checkInterval) {
-                clearInterval(checkInterval);
-                this.completeStep(3);
-            }
-        }, 5000);
-    }
-
-    trackDOMReady() {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                this.onDOMReady();
-            });
-        } else {
-            this.onDOMReady();
-        }
-    }
-
-    onDOMReady() {
-        const baseProgress = this.loadingSteps[0].weight + this.loadingSteps[1].weight + 
-                           this.loadingSteps[2].weight + this.loadingSteps[3].weight;
-        
-        this.updateProgress(baseProgress, 'Initializing components...');
-        
-        // Simulate component initialization
-        setTimeout(() => {
-            this.updateProgress(baseProgress + this.loadingSteps[4].weight, 'Finalizing setup...');
-            
-            setTimeout(() => {
-                this.completeLoading();
-            }, 500);
-        }, 800);
-    }
-
-    updateProgress(progress, status) {
-        this.progress = Math.min(progress, this.maxProgress);
+        // Ensure progress only increases (monotonic progress)
+        const newProgress = Math.max(progress, this.highestProgress);
+        this.highestProgress = newProgress;
+        this.progress = Math.min(newProgress, this.maxProgress);
         this.currentStatus = status;
         
+        // Update progress bar
         if (this.progressFill) {
             this.progressFill.style.width = `${this.progress}%`;
+        } else {
+            console.warn('[SplashScreen] Progress fill element not available');
         }
+        
+        // Format status text with percentage
+        const formattedStatus = `${status} (${Math.round(this.progress)}%)`;
         
         if (this.statusElement) {
-            // Update the text content, preserving the spinner
-            const spinner = this.statusElement.querySelector('.splash-spinner');
-            this.statusElement.innerHTML = '';
-            if (spinner) {
-                this.statusElement.appendChild(spinner);
-            }
-            this.statusElement.appendChild(document.createTextNode(status));
+            this.statusElement.innerHTML = `
+                <div class="splash-spinner"></div>
+                ${formattedStatus}
+            `;
+        } else {
+            console.warn('[SplashScreen] Status element not available');
         }
-    }
-
-    completeStep(stepIndex) {
-        this.currentStepIndex = Math.max(this.currentStepIndex, stepIndex);
-        const completedWeight = this.loadingSteps.slice(0, stepIndex + 1)
-            .reduce((sum, step) => sum + step.weight, 0);
         
-        if (stepIndex + 1 < this.loadingSteps.length) {
-            this.updateProgress(completedWeight, this.loadingSteps[stepIndex + 1].name);
-        }
+        console.log(`[SplashScreen] Progress: ${this.progress}% (requested: ${progress}%) - ${status}`);
     }
 
     addError(message) {
         this.errors.push(message);
         console.error('[SplashScreen]', message);
         
-        if (this.elements.error) {
-            this.elements.error.style.display = 'block';
-            this.elements.error.innerHTML = `
-                <strong>Loading Issues Detected:</strong><br>
-                ${this.errors.map(err => `• ${err}`).join('<br>')}
+        // Display error in status element
+        if (this.statusElement) {
+            this.statusElement.innerHTML = `
+                <span class="splash-error">⚠️ Loading Issues:</span><br>
+                <span style="font-size: 0.9em;">${this.errors.slice(-1)[0]}</span>
             `;
+            this.statusElement.style.color = '#ffcccb';
         }
     }
 
-    completeLoading() {
+    /**
+     * Complete loading with different behaviors based on agent configuration
+     * @param {boolean} hasAgent - Whether an agent is configured
+     */
+    completeLoading(hasAgent = true) {
+        if (this.isCompleted) return;
+        
+        this.isCompleted = true;
         const loadTime = Date.now() - this.startTime;
         console.log(`[SplashScreen] Application loaded in ${loadTime}ms`);
         
-        this.updateProgress(100, 'Ready!');
-        
-        if (this.elements.status) {
-            this.elements.status.innerHTML = `
-                <span class="splash-success">✓ Ready! (${(loadTime/1000).toFixed(1)}s)</span>
-            `;
+        if (hasAgent) {
+            // Normal completion - agent is configured and ready
+            this.updateProgress('Ready!', 100);
+            
+            if (this.statusElement) {
+                this.statusElement.innerHTML = `
+                    <span class="splash-success">✓ Ready! (${(loadTime/1000).toFixed(1)}s)</span>
+                `;
+            }
+            
+            // Hide splash screen after brief success display
+            setTimeout(() => {
+                this.hide();
+                // Reset progress tracker for potential future use
+                this.highestProgress = 0;
+            }, 1000);
+        } else {
+            // No agent configured - show helpful message
+            this.updateProgress('Setup required', 100);
+            
+            if (this.statusElement) {
+                this.statusElement.innerHTML = `
+                    <span class="splash-setup">⚙️ Agent setup required</span><br>
+                    <span style="font-size: 0.9em;">Opening configuration...</span>
+                `;
+            }
+            
+            // Hide splash screen quicker and show setup
+            setTimeout(() => {
+                this.hide();
+            }, 1500);
         }
-        
-        // Hide splash screen after brief success display
-        setTimeout(() => {
-            this.hide();
-        }, 1000);
     }
 
     show() {
@@ -255,9 +197,17 @@ class SplashScreen {
             this.splashElement.style.display = 'flex';
             this.splashElement.classList.remove('hidden');
         }
+        // Reset progress tracking when showing
+        this.highestProgress = 0;
+        this.progress = 0;
+        this.isCompleted = false;
+        this.isHidden = false;
     }
 
     hide() {
+        if (this.isHidden) return;
+        this.isHidden = true;
+        
         if (this.splashElement) {
             this.splashElement.classList.add('hidden');
             
@@ -272,11 +222,11 @@ class SplashScreen {
 
     // Public method to manually update progress
     setProgress(progress, status) {
-        this.updateProgress(progress, status);
+        this.updateProgress(status, progress);
     }
 
     // Public method to manually complete loading
-    complete() {
-        this.completeLoading();
+    complete(hasAgent = true) {
+        this.completeLoading(hasAgent);
     }
 }

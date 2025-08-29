@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>localStorage Debug Tool - MCSChat</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #404040;
+        }
+        .button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .button:hover {
+            background: #0052a3;
+        }
+        .button.danger {
+            background: #dc3545;
+        }
+        .button.danger:hover {
+            background: #c82333;
+        }
+        .output {
+            background: #1e1e1e;
+            border: 1px solid #404040;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #155724;
+            color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+        .status.warning {
+            background: #856404;
+            color: #fff3cd;
+            border: 1px solid #ffeaa7;
+        }
+        .status.error {
+            background: #721c24;
+            color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        h1, h2 {
+            color: #ffffff;
+        }
+        .key-value {
+            display: flex;
+            margin: 5px 0;
+            padding: 5px;
+            background: #333;
+            border-radius: 3px;
+        }
+        .key {
+            font-weight: bold;
+            color: #ffa500;
+            min-width: 200px;
+        }
+        .value {
+            color: #87ceeb;
+            word-break: break-all;
+        }
+        .corrupted {
+            background: #5d1a1a !important;
+            border: 1px solid #ff6b6b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>localStorage Debug Tool - MCSChat</h1>
+        <p>This tool helps diagnose and fix localStorage JSON parsing errors in MCSChat.</p>
+        
+        <div class="section">
+            <h2>Corruption Detection</h2>
+            <button class="button" onclick="scanCorruption()">Scan for Corruption</button>
+            <button class="button danger" onclick="cleanCorruption()">Clean Corrupted Data</button>
+            <button class="button" onclick="simulateCorruption()">Simulate Corruption (Test)</button>
+            <div id="corruption-output" class="output"></div>
+        </div>
+
+        <div class="section">
+            <h2>localStorage Contents</h2>
+            <button class="button" onclick="viewAllKeys()">View All Keys</button>
+            <button class="button" onclick="viewMCSChatKeys()">View MCSChat Keys Only</button>
+            <button class="button danger" onclick="clearAllMCSChatData()">Clear All MCSChat Data</button>
+            <div id="keys-output" class="output"></div>
+        </div>
+
+        <div class="section">
+            <h2>JSON Validation</h2>
+            <button class="button" onclick="validateJSON()">Validate JSON Data</button>
+            <div id="json-output" class="output"></div>
+        </div>
+
+        <div class="section">
+            <h2>Test AI Companion</h2>
+            <button class="button" onclick="testAICompanion()">Test AI Companion Loading</button>
+            <div id="ai-output" class="output"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import localStorage guard utilities
+        import { cleanAllCorruptedLocalStorage, safeGetItem, safeSetItem } from './src/utils/localStorageGuard.js';
+        
+        window.cleanAllCorruptedLocalStorage = cleanAllCorruptedLocalStorage;
+        window.safeGetItem = safeGetItem;
+        window.safeSetItem = safeSetItem;
+
+        window.scanCorruption = function() {
+            const output = document.getElementById('corruption-output');
+            output.innerHTML = 'Scanning for corruption...\n';
+            
+            const corrupted = [];
+            const total = localStorage.length;
+            
+            for (let i = 0; i < total; i++) {
+                try {
+                    const key = localStorage.key(i);
+                    if (key) {
+                        const value = localStorage.getItem(key);
+                        
+                        if (value === '[object Object]' || value === '[object Array]' || value === 'undefined' || value === 'null') {
+                            corrupted.push({ key, value, type: 'corrupted_value' });
+                        }
+                        
+                        // Check JSON format for MCSChat keys
+                        if (key.includes('aiCompanion') || key.includes('knowledge') || key.includes('speech')) {
+                            if (value && (value.startsWith('{') || value.startsWith('['))) {
+                                try {
+                                    JSON.parse(value);
+                                } catch (error) {
+                                    corrupted.push({ key, value: value.substring(0, 100) + '...', type: 'invalid_json', error: error.message });
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    corrupted.push({ key: 'unknown', value: 'error', type: 'scan_error', error: error.message });
+                }
+            }
+            
+            if (corrupted.length === 0) {
+                output.innerHTML = '✅ No corruption detected!\n' + 
+                                 `Scanned ${total} localStorage keys.`;
+            } else {
+                output.innerHTML = `⚠️ Found ${corrupted.length} corrupted entries:\n\n` +
+                                 corrupted.map(c => `Key: ${c.key}\nType: ${c.type}\nValue: ${c.value}\n${c.error ? 'Error: ' + c.error : ''}\n`).join('\n');
+            }
+        };
+
+        window.cleanCorruption = function() {
+            const output = document.getElementById('corruption-output');
+            output.innerHTML = 'Cleaning corruption...\n';
+            
+            try {
+                const cleaned = cleanAllCorruptedLocalStorage();
+                output.innerHTML = `✅ Cleaned ${cleaned} corrupted entries.`;
+            } catch (error) {
+                output.innerHTML = `❌ Error cleaning corruption: ${error.message}`;
+            }
+        };
+
+        window.simulateCorruption = function() {
+            const output = document.getElementById('corruption-output');
+            
+            // Simulate corrupted data
+            localStorage.setItem('test_corrupted_object', '[object Object]');
+            localStorage.setItem('test_corrupted_array', '[object Array]');
+            localStorage.setItem('test_invalid_json', '{"incomplete": json}');
+            
+            output.innerHTML = '⚠️ Simulated corruption added for testing:\n' +
+                             '- test_corrupted_object\n' +
+                             '- test_corrupted_array\n' +
+                             '- test_invalid_json\n\n' +
+                             'Run "Scan for Corruption" to detect them.';
+        };
+
+        window.viewAllKeys = function() {
+            const output = document.getElementById('keys-output');
+            const keys = [];
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) {
+                    const value = localStorage.getItem(key);
+                    const isCorrupted = value === '[object Object]' || value === '[object Array]';
+                    keys.push({
+                        key,
+                        value: value ? value.substring(0, 100) + (value.length > 100 ? '...' : '') : 'null',
+                        isCorrupted
+                    });
+                }
+            }
+            
+            keys.sort((a, b) => a.key.localeCompare(b.key));
+            
+            output.innerHTML = keys.map(k => 
+                `<div class="key-value${k.isCorrupted ? ' corrupted' : ''}">
+                    <div class="key">${k.key}</div>
+                    <div class="value">${k.value}</div>
+                </div>`
+            ).join('');
+        };
+
+        window.viewMCSChatKeys = function() {
+            const output = document.getElementById('keys-output');
+            const keys = [];
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.includes('aiCompanion') || key.includes('knowledge') || key.includes('speech') || 
+                           key.includes('enableLLM') || key.includes('selectedApiProvider') || key.includes('companionChat'))) {
+                    const value = localStorage.getItem(key);
+                    const isCorrupted = value === '[object Object]' || value === '[object Array]';
+                    keys.push({
+                        key,
+                        value: value ? value.substring(0, 100) + (value.length > 100 ? '...' : '') : 'null',
+                        isCorrupted
+                    });
+                }
+            }
+            
+            keys.sort((a, b) => a.key.localeCompare(b.key));
+            
+            if (keys.length === 0) {
+                output.innerHTML = 'No MCSChat-related keys found.';
+            } else {
+                output.innerHTML = keys.map(k => 
+                    `<div class="key-value${k.isCorrupted ? ' corrupted' : ''}">
+                        <div class="key">${k.key}</div>
+                        <div class="value">${k.value}</div>
+                    </div>`
+                ).join('');
+            }
+        };
+
+        window.clearAllMCSChatData = function() {
+            if (!confirm('This will delete all MCSChat data from localStorage. Continue?')) {
+                return;
+            }
+            
+            const output = document.getElementById('keys-output');
+            const keysToDelete = [];
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.includes('aiCompanion') || key.includes('knowledge') || key.includes('speech') || 
+                           key.includes('enableLLM') || key.includes('selectedApiProvider') || key.includes('companionChat'))) {
+                    keysToDelete.push(key);
+                }
+            }
+            
+            keysToDelete.forEach(key => localStorage.removeItem(key));
+            
+            output.innerHTML = `🗑️ Deleted ${keysToDelete.length} MCSChat keys:\n` + keysToDelete.join('\n');
+        };
+
+        window.validateJSON = function() {
+            const output = document.getElementById('json-output');
+            const results = [];
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) {
+                    const value = localStorage.getItem(key);
+                    
+                    if (value && (value.startsWith('{') || value.startsWith('['))) {
+                        try {
+                            JSON.parse(value);
+                            results.push({ key, status: 'valid', value: value.substring(0, 50) + '...' });
+                        } catch (error) {
+                            results.push({ key, status: 'invalid', error: error.message, value: value.substring(0, 50) + '...' });
+                        }
+                    }
+                }
+            }
+            
+            if (results.length === 0) {
+                output.innerHTML = 'No JSON data found in localStorage.';
+            } else {
+                output.innerHTML = results.map(r => 
+                    `${r.status === 'valid' ? '✅' : '❌'} ${r.key}\n` +
+                    `   Value: ${r.value}\n` +
+                    (r.error ? `   Error: ${r.error}\n` : '') + '\n'
+                ).join('');
+            }
+        };
+
+        window.testAICompanion = function() {
+            const output = document.getElementById('ai-output');
+            output.innerHTML = 'Testing AI Companion initialization...\n';
+            
+            try {
+                // Test safe localStorage access
+                const testKeys = [
+                    'speechAzureSettings',
+                    'speechCandidateLanguages',
+                    'aiCompanion_modelTokens',
+                    'aiCompanion_userPrompts'
+                ];
+                
+                testKeys.forEach(key => {
+                    const value = safeGetItem(key);
+                    output.innerHTML += `${key}: ${value ? 'Found' : 'Not found'}\n`;
+                });
+                
+                output.innerHTML += '\n✅ AI Companion localStorage access test completed successfully.';
+                
+            } catch (error) {
+                output.innerHTML += `\n❌ AI Companion test failed: ${error.message}`;
+            }
+        };
+
+        // Auto-scan on page load
+        window.addEventListener('load', () => {
+            window.scanCorruption();
+        });
+    </script>
+</body>
+</html>

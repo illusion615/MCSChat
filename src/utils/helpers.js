@@ -211,5 +211,53 @@ export const Utils = {
             .replace(/\n+/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
+    },
+
+    /**
+     * Safely parse JSON from localStorage with corruption detection
+     * @param {string} key - localStorage key
+     * @param {any} defaultValue - Default value if parsing fails
+     * @param {string} expectedType - Expected type ('object', 'array')
+     * @returns {any} Parsed value or default
+     */
+    safeParseLocalStorage(key, defaultValue = null, expectedType = 'object') {
+        try {
+            const stored = localStorage.getItem(key);
+            if (!stored) return defaultValue;
+            
+            // Check for corrupted data patterns
+            if (stored === '[object Object]' || stored === '[object Array]') {
+                console.warn(`[Utils] Detected corrupted localStorage data for key "${key}": ${stored}`);
+                localStorage.removeItem(key);
+                return defaultValue;
+            }
+            
+            // Validate JSON format based on expected type
+            const isValidFormat = expectedType === 'array' 
+                ? (stored.startsWith('[') && stored.endsWith(']'))
+                : (stored.startsWith('{') && stored.endsWith('}'));
+                
+            if (!isValidFormat) {
+                console.warn(`[Utils] Invalid JSON format for key "${key}", expected ${expectedType}:`, stored);
+                localStorage.removeItem(key);
+                return defaultValue;
+            }
+            
+            const parsed = JSON.parse(stored);
+            
+            // Validate parsed type matches expected
+            const actualType = Array.isArray(parsed) ? 'array' : typeof parsed;
+            if (actualType !== expectedType) {
+                console.warn(`[Utils] Type mismatch for key "${key}", expected ${expectedType}, got ${actualType}`);
+                localStorage.removeItem(key);
+                return defaultValue;
+            }
+            
+            return parsed;
+        } catch (error) {
+            console.error(`[Utils] Failed to parse localStorage key "${key}":`, error);
+            localStorage.removeItem(key);
+            return defaultValue;
+        }
     }
 };

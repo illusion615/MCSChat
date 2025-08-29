@@ -372,7 +372,7 @@ export class KnowledgeHubService {
 
         // Try to save to localStorage with error handling
         try {
-            const stored = JSON.parse(localStorage.getItem('knowledgeHub_documents') || '{}');
+            const stored = Utils.safeParseLocalStorage('knowledgeHub_documents', {}, 'object');
             stored[documentId] = document;
 
             // Calculate approximate size
@@ -411,7 +411,7 @@ export class KnowledgeHubService {
      */
     loadDocuments() {
         try {
-            const stored = JSON.parse(localStorage.getItem('knowledgeHub_documents') || '{}');
+            const stored = Utils.safeParseLocalStorage('knowledgeHub_documents', {}, 'object');
 
             for (const [id, doc] of Object.entries(stored)) {
                 this.documents.set(id, doc);
@@ -560,7 +560,7 @@ export class KnowledgeHubService {
             this.documents.delete(this.currentDocument.id);
 
             // Remove from localStorage
-            const stored = JSON.parse(localStorage.getItem('knowledgeHub_documents') || '{}');
+            const stored = Utils.safeParseLocalStorage('knowledgeHub_documents', {}, 'object');
             delete stored[this.currentDocument.id];
             localStorage.setItem('knowledgeHub_documents', JSON.stringify(stored));
 
@@ -667,7 +667,7 @@ export class KnowledgeHubService {
             this.documents.delete(documentId);
 
             // Remove from localStorage
-            const stored = JSON.parse(localStorage.getItem('knowledgeHub_documents') || '{}');
+            const stored = Utils.safeParseLocalStorage('knowledgeHub_documents', {}, 'object');
             delete stored[documentId];
             localStorage.setItem('knowledgeHub_documents', JSON.stringify(stored));
 

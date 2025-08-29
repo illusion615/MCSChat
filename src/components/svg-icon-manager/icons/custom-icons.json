@@ -1,0 +1,46 @@
+{
+  "icons": {
+    "arrow-right-corner": {
+      "name": "arrow-right-corner",
+      "svgContent": "<svg viewBox=\"0 0 20 20\" version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" fill=\"#000000\"><g id=\"SVGRepo_bgCarrier\" stroke-width=\"0\"></g><g id=\"SVGRepo_tracerCarrier\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></g><g id=\"SVGRepo_iconCarrier\"> <title>arrow_right_corner [#281]</title> <desc>Created with Sketch.</desc> <defs> </defs> <g id=\"Page-1\" stroke=\"none\" stroke-width=\"1\" fill=\"none\" fill-rule=\"evenodd\"> <g id=\"Dribbble-Light-Preview\" transform=\"translate(-100.000000, -6919.000000)\" fill=\"#000000\"> <g id=\"icons\" transform=\"translate(56.000000, 160.000000)\"> <path d=\"M52,6764 C52,6763.448 52.448,6763 53,6763 L58,6763 C59.105,6763 60,6763.895 60,6765 L60,6770 C60,6770.552 59.552,6771 59,6771 C58.448,6771 58,6770.552 58,6770 L58,6767.621 C58,6767.176 57.461,6766.953 57.146,6767.268 L54.121,6770.293 C53.731,6770.683 53.098,6770.683 52.707,6770.293 C52.317,6769.902 52.317,6769.269 52.707,6768.879 L55.732,6765.854 C56.047,6765.539 55.824,6765 55.379,6765 L53,6765 C52.448,6765 52,6764.552 52,6764 L52,6764 Z M46,6762 C46,6761.448 46.448,6761 47,6761 L61,6761 C61.552,6761 62,6761.448 62,6762 L62,6776 C62,6776.552 61.552,6777 61,6777 L53,6777 C52.448,6777 52,6776.552 52,6776 L52,6773 C52,6771.895 51.105,6771 50,6771 L47,6771 C46.448,6771 46,6770.552 46,6770 L46,6762 Z M64,6761 C64,6759.895 63.105,6759 62,6759 L46,6759 C44.895,6759 44,6759.895 44,6761 L44,6777 C44,6778.105 44.895,6779 46,6779 L62,6779 C63.105,6779 64,6778.105 64,6777 L64,6761 Z\" id=\"arrow_right_corner-[#281]\"> </path> </g> </g> </g> </g></svg>",
+      "category": "ui",
+      "description": "",
+      "createdAt": "2025-08-29T17:50:44.147Z",
+      "modifiedAt": "2025-08-29T17:50:44.147Z"
+    },
+    "pdf": {
+      "name": "pdf",
+      "svgContent": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><g id=\"SVGRepo_bgCarrier\" stroke-width=\"0\"></g><g id=\"SVGRepo_tracerCarrier\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></g><g id=\"SVGRepo_iconCarrier\"> <path d=\"M4 4C4 3.44772 4.44772 3 5 3H14H14.5858C14.851 3 15.1054 3.10536 15.2929 3.29289L19.7071 7.70711C19.8946 7.89464 20 8.149 20 8.41421V20C20 20.5523 19.5523 21 19 21H5C4.44772 21 4 20.5523 4 20V4Z\" stroke=\"#200E32\" stroke-width=\"0.8399999999999999\" stroke-linecap=\"round\"></path> <path d=\"M20 8H15V3\" stroke=\"#200E32\" stroke-width=\"0.8399999999999999\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> <path d=\"M11.5 13H11V17H11.5C12.6046 17 13.5 16.1046 13.5 15C13.5 13.8954 12.6046 13 11.5 13Z\" stroke=\"#200E32\" stroke-width=\"0.8399999999999999\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> <path d=\"M15.5 17V13L17.5 13\" stroke=\"#200E32\" stroke-width=\"0.8399999999999999\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> <path d=\"M16 15H17\" stroke=\"#200E32\" stroke-width=\"0.8399999999999999\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> <path d=\"M7 17L7 15.5M7 15.5L7 13L7.75 13C8.44036 13 9 13.5596 9 14.25V14.25C9 14.9404 8.44036 15.5 7.75 15.5H7Z\" stroke=\"#200E32\" stroke-width=\"0.8399999999999999\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> </g></svg>",
+      "category": "media",
+      "description": "",
+      "createdAt": "2025-08-29T18:06:11.166Z",
+      "modifiedAt": "2025-08-29T18:06:11.166Z"
+    },
+    "doc": {
+      "name": "doc",
+      "svgContent": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><g id=\"SVGRepo_bgCarrier\" stroke-width=\"0\"></g><g id=\"SVGRepo_tracerCarrier\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></g><g id=\"SVGRepo_iconCarrier\"> <path d=\"M4 4C4 3.44772 4.44772 3 5 3H14H14.5858C14.851 3 15.1054 3.10536 15.2929 3.29289L19.7071 7.70711C19.8946 7.89464 20 8.149 20 8.41421V20C20 20.5523 19.5523 21 19 21H5C4.44772 21 4 20.5523 4 20V4Z\" stroke=\"#200E32\" stroke-width=\"0.8399999999999999\" stroke-linecap=\"round\"></path> <path d=\"M20 8H15V3\" stroke=\"#200E32\" stroke-width=\"0.8399999999999999\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> <path d=\"M7.5 13H7V17H7.5C8.60457 17 9.5 16.1046 9.5 15C9.5 13.8954 8.60457 13 7.5 13Z\" stroke=\"#200E32\" stroke-width=\"0.8399999999999999\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> <path d=\"M17.5 13L17 13C16.4477 13 16 13.4477 16 14V16C16 16.5523 16.4477 17 17 17H17.5\" stroke=\"#200E32\" stroke-width=\"0.8399999999999999\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> <path d=\"M11.5 14C11.5 13.4477 11.9477 13 12.5 13H13C13.5523 13 14 13.4477 14 14V16C14 16.5523 13.5523 17 13 17H12.5C11.9477 17 11.5 16.5523 11.5 16V14Z\" stroke=\"#200E32\" stroke-width=\"0.8399999999999999\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> </g></svg>",
+      "category": "media",
+      "description": "",
+      "createdAt": "2025-08-29T18:06:54.746Z",
+      "modifiedAt": "2025-08-29T18:06:54.746Z"
+    },
+    "enlarge": {
+      "name": "enlarge",
+      "svgContent": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><g id=\"SVGRepo_bgCarrier\" stroke-width=\"0\"></g><g id=\"SVGRepo_tracerCarrier\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></g><g id=\"SVGRepo_iconCarrier\"> <path d=\"M7 17L17 7\" stroke=\"#200E32\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> <path d=\"M12 6L18 6L18 12\" stroke=\"#200E32\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> <path d=\"M12 18H6L6 12\" stroke=\"#200E32\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> </g></svg>",
+      "category": "ui",
+      "description": "",
+      "createdAt": "2025-08-29T18:07:53.276Z",
+      "modifiedAt": "2025-08-29T18:07:53.276Z"
+    }
+  },
+  "categories": [
+    "custom",
+    "core",
+    "ui",
+    "media",
+    "navigation",
+    "content",
+    "users"
+  ],
+  "lastModified": "2025-08-29T18:07:53.276Z"
+}

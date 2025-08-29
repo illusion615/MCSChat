@@ -5,7 +5,7 @@
 
 import { agentManager } from '../managers/agentManager.js';
 import { sessionManager } from '../managers/sessionManager.js';
-// OLD: Legacy DirectLine service (commented for rollback)
+// OLD: Legacy DirectLine service (moved to legacy/directLineManager-legacy.js)
 // import { directLineManager } from '../services/directLineManager.js';
 // NEW: Using new DirectLine component (simplified compatible version)
 import { DirectLineManager } from '../components/directline/DirectLineManagerSimple.js';
@@ -59,7 +59,7 @@ export class Application {
         this.mobileUtils = mobileUtils;
 
         // Initialize DirectLine Manager (NEW component)
-        // OLD: Was using singleton from services/directLineManager.js
+        // OLD: Was using singleton from legacy/directLineManager-legacy.js
         this.directLineManager = new DirectLineManager();
 
         // Initialize logging system - using simpler version
@@ -162,12 +162,31 @@ export class Application {
                 uiState: this.uiState
             });
 
+            // Check if agent is configured
+            const hasAgent = agentManager.getCurrentAgent() !== null;
+
+            // Emit completion event for splash screen
+            // If agent is configured, we'll wait for greeting before completing
+            // If no agent, complete immediately
+            if (!hasAgent) {
+                document.dispatchEvent(new CustomEvent('app:init:complete', {
+                    detail: { hasAgent: false }
+                }));
+            }
+            // For agent scenarios, app:init:complete will be triggered by greeting events
+
             // Show success briefly then hide
             this.updateInitializationIndicator('Application ready!');
             setTimeout(() => this.hideInitializationIndicator(), 1500);
 
         } catch (error) {
             console.error('Error initializing application:', error);
+            
+            // Emit error event for splash screen
+            document.dispatchEvent(new CustomEvent('app:init:error', {
+                detail: { message: error.message }
+            }));
+            
             this.hideInitializationIndicator();
 
             // Show user-friendly error message
@@ -480,12 +499,18 @@ export class Application {
     async connectToAgent(secret) {
         try {
             this.showInitializationIndicator('Initializing bot connection...');
+            
+            // Emit DirectLine connecting event
+            document.dispatchEvent(new CustomEvent('directline:connecting'));
 
             const success = await directLineManager.initialize(secret);
 
             if (success) {
                 this.state.isConnected = true;
                 this.state.currentAgent = agentManager.getCurrentAgent();
+
+                // Emit DirectLine connected event
+                document.dispatchEvent(new CustomEvent('directline:connected'));
 
                 // Initialize session if none exists
                 if (!this.state.currentSession) {
@@ -1094,6 +1119,23 @@ export class Application {
             this.startNewChat();
         });
 
+        // Agent greeting events for splash screen synchronization
+        document.addEventListener('agent:greeting:received', () => {
+            console.log('Agent greeting received - completing initialization');
+            const hasAgent = agentManager.getCurrentAgent() !== null;
+            document.dispatchEvent(new CustomEvent('app:init:complete', {
+                detail: { hasAgent: true }
+            }));
+        });
+
+        document.addEventListener('agent:greeting:timeout', () => {
+            console.log('Agent greeting timeout - completing initialization anyway');
+            const hasAgent = agentManager.getCurrentAgent() !== null;
+            document.dispatchEvent(new CustomEvent('app:init:complete', {
+                detail: { hasAgent }
+            }));
+        });
+
         // DirectLine events
         window.addEventListener('showTypingIndicator', (event) => {
             // Don't show typing indicator if AI companion is enabled - thinking simulation handles visual feedback
@@ -1507,8 +1549,9 @@ export class Application {
                 if (window.aiCompanion.isThinkingActive()) {
                     console.log('[Application] Thinking simulation active, waiting for natural completion before rendering complete agent message...');
 
-                    // Signal thinking to end naturally
-                    window.aiCompanion.endThinkingSimulationNaturally();
+                    // Signal thinking to end naturally with agent response content
+                    const agentResponseContent = activity?.text || activity?.message || '';
+                    window.aiCompanion.endThinkingSimulationNaturally(agentResponseContent);
 
                     // Wait for thinking completion
                     const thinkingPromise = window.aiCompanion.getThinkingCompletionPromise();
@@ -1574,8 +1617,9 @@ export class Application {
                 if (window.aiCompanion.isThinkingActive()) {
                     console.log('[Application] Thinking simulation active, waiting for natural completion before rendering agent message...');
 
-                    // Signal thinking to end naturally
-                    window.aiCompanion.endThinkingSimulationNaturally();
+                    // Signal thinking to end naturally with agent response content
+                    const agentResponseContent = activity?.text || activity?.message || '';
+                    window.aiCompanion.endThinkingSimulationNaturally(agentResponseContent);
 
                     // Wait for thinking completion
                     const thinkingPromise = window.aiCompanion.getThinkingCompletionPromise();
@@ -1873,6 +1917,11 @@ export class Application {
     handleConnectionError(error) {
         console.error('Connection error:', error);
         this.state.isConnected = false;
+
+        // Emit DirectLine failed event
+        document.dispatchEvent(new CustomEvent('directline:failed', {
+            detail: { error: error.message }
+        }));
 
         // Clear connection status using unified notification system
         if (window.unifiedNotificationManager) {
@@ -2600,7 +2649,12 @@ export class Application {
                 // Immediately end thinking simulation if it's active
                 if (thinkingSimulationActive && window.aiCompanion) {
                     console.log('[Application] Immediately ending thinking simulation due to agent response');
-                    window.aiCompanion.endThinkingSimulationNaturally();
+                    
+                    // Extract agent response content for dynamic thinking conclusion
+                    const agentResponseContent = event.detail?.text || event.detail?.message || '';
+                    console.log('[Application] Agent response content for thinking:', agentResponseContent?.substring(0, 100));
+                    
+                    window.aiCompanion.endThinkingSimulationNaturally(agentResponseContent);
                     thinkingSimulationActive = false;
                 }
 
@@ -2628,19 +2682,21 @@ export class Application {
             console.log('[Application] Starting thinking process immediately for faster response times...');
             
             // Use the original simulateThinkingProcess method for now (keeping it simple)
-            // The key improvement is the reduced delay time from 2s to 1.5s
+            // The delay is now configurable via AI companion settings
             const thinkingPromise = window.aiCompanion.simulateThinkingProcess(messageText);
 
-            // Wait 1.5 seconds to see if we get a quick response (reduced from 2 seconds)
-            console.log('[Application] Waiting 1.5 seconds for potential quick response...');
-            await this.delay(1500);
+            // Get configurable delay from AI companion (default 1.5 seconds)
+            const delaySeconds = window.aiCompanion.getThinkingDisplayDelay();
+            const delayMs = Math.round(delaySeconds * 1000);
+            console.log('[Application] Waiting', delaySeconds, 'seconds for potential quick response...');
+            await this.delay(delayMs);
 
             // Clear evaluation flag
             this.isEvaluatingThinkingSimulation = false;
 
             // If no response yet, the thinking simulation is already running
             if (!agentResponseReceived) {
-                console.log('[Application] No response in 1.5 seconds, thinking simulation already active...');
+                console.log('[Application] No response in', delaySeconds, 'seconds, thinking simulation already active...');
                 thinkingSimulationActive = true;
 
                 // Monitor for agent response while thinking is displayed with faster polling
@@ -2788,6 +2844,30 @@ export class Application {
     updateInitializationIndicator(message) {
         console.log('Initialization update:', message);
 
+        // Emit progress event for splash screen
+        const progressMap = {
+            'Starting application...': 5,
+            'Initializing components...': 10,
+            'Setting up event handlers...': 15,
+            'Loading agent configurations...': 25,
+            'Initializing AI companion...': 35,
+            'Setting up application icons...': 45,
+            'Setting up unified message system...': 55,
+            'Initializing Knowledge Hub...': 65,
+            'Setting up mobile interface...': 70,
+            'Loading user preferences...': 75,
+            'Connecting to agent...': 80,
+            'Checking for existing configuration...': 82,
+            'No agents configured': 85,
+            'Initializing bot connection...': 85,
+            'Application ready!': 100
+        };
+
+        const progress = progressMap[message] || this.estimateProgress(message);
+        document.dispatchEvent(new CustomEvent('app:init:progress', {
+            detail: { progress, message }
+        }));
+
         // Use unified notification system for initialization messages
         if (window.unifiedNotificationManager) {
             // Clear any existing initialization notifications first
@@ -2829,6 +2909,18 @@ export class Application {
                 console.log('Loading indicator element not found - old elements removed');
             }
         }
+    }
+
+    /**
+     * Estimate progress based on message content
+     * @param {string} message - Status message
+     * @returns {number} Progress percentage
+     */
+    estimateProgress(message) {
+        if (message.includes('connecting')) return 85;
+        if (message.includes('connected')) return 95;
+        if (message.includes('ready')) return 100;
+        return 50;
     }
 
     /**
@@ -3857,7 +3949,7 @@ export class Application {
 export const app = new Application();
 
 // Export directLineManager for backward compatibility
-// OLD: Was exported from services/directLineManager.js as singleton
+// OLD: Was exported from legacy/directLineManager-legacy.js as singleton
 // NEW: Export instance from application for compatibility with existing imports
 export const directLineManager = app.directLineManager;
 

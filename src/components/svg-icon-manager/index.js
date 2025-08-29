@@ -115,13 +115,18 @@ class GlobalIconManager {
             width = size,
             height = size,
             className,
+            fillMode = 'solid', // 'solid' or 'outline'
+            thickness = 1.5,
+            traceWidth = 1.0,
             ...cssProps
         } = style;
 
         // Core attributes
         svg.setAttribute('width', width);
         svg.setAttribute('height', height);
-        svg.setAttribute('fill', color);
+
+        // Apply advanced SVG styling with fill mode support
+        this.applyAdvancedStyling(svg, { color, fillMode, thickness, traceWidth });
 
         // Remove any existing inline styles
         svg.removeAttribute('style');
@@ -135,6 +140,68 @@ class GlobalIconManager {
         Object.entries(cssProps).forEach(([key, value]) => {
             svg.style[key] = value;
         });
+    }
+
+    /**
+     * Apply advanced styling with fill mode support (复制之前正确工作的逻辑)
+     * @param {SVGElement} svg - SVG element
+     * @param {Object} options - Styling options
+     */
+    applyAdvancedStyling(svg, options) {
+        const { color, fillMode = 'auto', thickness, traceWidth } = options;
+        
+        // 查找所有路径元素
+        const paths = svg.querySelectorAll('path, circle, rect, line, polyline, polygon, ellipse');
+        
+        // Handle SVG root element - preserve currentColor if it exists
+        if (svg.getAttribute('fill') === 'currentColor') {
+            // Keep currentColor but apply the color via CSS
+            svg.style.color = color;
+        } else {
+            // Remove other fill attributes on root
+            svg.removeAttribute('fill');
+            svg.removeAttribute('stroke');
+        }
+        
+        paths.forEach(path => {
+            // Check if this is a filled icon (has fill="currentColor" or existing fill)
+            const hasFill = path.getAttribute('fill') === 'currentColor' || 
+                          path.hasAttribute('fill') || 
+                          svg.getAttribute('fill') === 'currentColor';
+                          
+            // Auto-detect icon type if fillMode is 'auto'
+            const effectiveFillMode = fillMode === 'auto' ? 
+                (hasFill ? 'solid' : 'outline') : fillMode;
+            
+            if (effectiveFillMode === 'outline') {
+                // Outline mode: remove fill, add stroke
+                path.removeAttribute('fill');
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke', color);
+                path.setAttribute('stroke-width', thickness || 1.5);
+                path.setAttribute('stroke-linecap', 'round');
+                path.setAttribute('stroke-linejoin', 'round');
+            } else {
+                // Solid mode (default): preserve fill behavior
+                if (path.getAttribute('fill') === 'currentColor') {
+                    // Keep currentColor and let CSS handle the color
+                    path.style.color = color;
+                } else {
+                    // Set fill directly
+                    path.setAttribute('fill', color);
+                }
+                // Remove stroke attributes for filled icons
+                path.removeAttribute('stroke');
+                path.removeAttribute('stroke-width');
+            }
+        });
+
+        // 应用trace width（轮廓效果）
+        if (traceWidth > 1) {
+            svg.style.filter = `drop-shadow(0 0 ${traceWidth}px ${color})`;
+        } else {
+            svg.style.filter = '';
+        }
     }
 
     /**

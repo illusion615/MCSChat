@@ -16,9 +16,10 @@ src/components/directline/
 ### Migration Steps
 
 #### 1. Update Imports
-**Before (Legacy):**
+**Before (Legacy - Now Moved):**
 ```javascript
-import { directLineManager } from '../services/directLineManager.js';
+// This file has been moved to legacy/directLineManager-legacy.js
+// import { directLineManager } from '../services/directLineManager.js';
 ```
 
 **After (New Component):**
@@ -65,7 +66,7 @@ const manager = new DirectLineManager({
 
 ### Backward Compatibility
 
-The legacy file at `src/services/directLineManager.js` remains functional but is deprecated. It now includes a warning header pointing to the new component.
+The legacy file has been moved to `legacy/directLineManager-legacy.js` and is no longer maintained. The current active implementation is the Simple version which provides full backward compatibility.
 
 **Singleton Export**: The new component maintains the same singleton export for backward compatibility:
 ```javascript

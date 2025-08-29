@@ -1,0 +1,21 @@
+{
+  "name": "mcschat-icon-library",
+  "version": "1.0.0",
+  "description": "SVG Icon Library Management System for MCSChat",
+  "main": "icon-server.js",
+  "scripts": {
+    "start": "node icon-server.js",
+    "dev": "nodemon icon-server.js",
+    "icon-server": "node icon-server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": ["svg", "icons", "library", "management"],
+  "author": "MCSChat",
+  "license": "MIT"
+}

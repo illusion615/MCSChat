@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Unified Chat Component - Layout Configurator</title>
+      <style>
+            :root {
+                  --bg: #f8f9fa;
+                  --panel-bg: #ffffff;
+                  --text: #222;
+                  --muted: #6c757d;
+                  --border: #e9ecef;
+                  --accent: #007bff;
+                  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
+            * {
+                  box-sizing: border-box;
+            }
+
+            body {
+                  margin: 0;
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                  color: var(--text);
+                  background: var(--bg);
+            }
+
+            /* Layout */
+            .page {
+                  display: grid;
+                  grid-template-columns: 340px minmax(0, 1fr);
+                  grid-template-rows: 1fr;
+                  align-items: stretch;
+                  height: 100vh;
+                  width: 100vw;
+            }
+
+            .panel {
+                  background: var(--panel-bg);
+                  border-right: 1px solid var(--border);
+                  overflow-y: auto;
+                  grid-column: 1;
+                  grid-row: 1;
+                  height: 100vh;
+            }
+
+            .panel-header {
+                  position: sticky;
+                  top: 0;
+                  z-index: 2;
+                  background: var(--panel-bg);
+                  border-bottom: 1px solid var(--border);
+                  padding: 14px 16px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
+            }
+
+            .panel h1 {
+                  font-size: 16px;
+                  margin: 0;
+                  font-weight: 600;
+            }
+
+            .panel small {
+                  color: var(--muted);
+            }
+
+            .panel-content {
+                  padding: 14px 16px 80px;
+            }
+
+            .panel-topbar {
+                  padding-top: 8px;
+                  border-bottom: 1px solid var(--border);
+            }
+
+            .section {
+                  margin-bottom: 18px;
+            }
+
+            .section-compact {
+                  margin: 0 0 8px;
+            }
+
+            .section h2 {
+                  font-size: 13px;
+                  font-weight: 700;
+                  margin: 18px 0 10px;
+                  color: var(--muted);
+                  text-transform: uppercase;
+                  letter-spacing: .04em;
+            }
+
+            .field {
+                  margin-bottom: 10px;
+            }
+
+            .field label {
+                  display: block;
+                  font-size: 13px;
+                  margin-bottom: 6px;
+                  color: var(--text);
+            }
+
+            .row {
+                  display: flex;
+                  gap: 8px;
+                  align-items: center;
+            }
+
+            .row>* {
+                  flex: 1;
+            }
+
+            .nowrap {
+                  flex: 0 0 auto;
+                  white-space: nowrap;
+            }
+
+            .strong {
+                  font-weight: 600;
+            }
+
+            input[type="text"],
+            input[type="color"],
+            select,
+            input[type="range"] {
+                  width: 100%;
+                  padding: 8px 10px;
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  background: #fff;
+                  color: var(--text);
+                  font: inherit;
+            }
+
+            input[type="checkbox"] {
+                  transform: translateY(1px);
+            }
+
+            .btn {
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                  padding: 8px 10px;
+                  border-radius: 8px;
+                  border: 1px solid var(--border);
+                  background: #fff;
+                  color: var(--text);
+                  cursor: pointer;
+                  font: inherit;
+            }
+
+            .btn.primary {
+                  background: var(--accent);
+                  color: #fff;
+                  border-color: var(--accent);
+            }
+
+            .panel-actions {
+                  position: sticky;
+                  bottom: 0;
+                  padding: 10px 16px;
+                  background: var(--panel-bg);
+                  border-top: 1px solid var(--border);
+                  display: flex;
+                  gap: 8px;
+            }
+
+            /* Utilities */
+            .hidden {
+                  display: none !important;
+            }
+
+            #componentPreviewRoot {
+                  background: var(--bg);
+                  grid-column: 2;
+                  grid-row: 1;
+                  min-width: 0;
+                  min-height: 0;
+                  display: grid;
+                  height: 100vh;
+                  overflow: hidden;
+            }
+
+            #componentPreviewRoot unified-chat {
+                  width: 100%;
+                  height: 100%;
+            }
+
+            .mt8 {
+                  margin-top: 8px;
+            }
+
+            /* Dark theme (panel toggle will flip CSS vars on root and preview) */
+            .dark {
+                  --bg: #1a1a1a;
+                  --panel-bg: #161616;
+                  --text: #f5f5f5;
+                  --muted: #a0a0a0;
+                  --border: #2a2a2a;
+                  --assistant-bg: #222;
+                  --assistant-text: #f5f5f5;
+                  --user-text: #ffffff;
+                  background: var(--bg);
+                  color: var(--text);
+            }
+      </style>
+</head>
+
+<body>
+      <div class="page" id="app">
+            <!-- Config Panel -->
+            <aside class="panel" id="configPanel">
+                  <div class="panel-header">
+                        <h1>Unified Chat Component Setup</h1>
+                        <small>Layout • Styling</small>
+                  </div>
+                  <div class="panel-content panel-topbar">
+                        <div class="panel-actions">
+                              <button class="btn" id="resetBtn">Reset</button>
+                              <button class="btn" id="copyHtmlBtn">Copy Preview HTML</button>
+                              <button class="btn primary" id="openStandalone">Open Preview</button>
+                        </div>
+                  </div>
+                  <div class="panel-content">
+                        <div class="section">
+                              <h2>Message Layout</h2>
+                              <div class="field row">
+                                    <label>User Layout
+                                          <select id="userLayout">
+                                                <option value="bubble" selected>Bubble (default)</option>
+                                                <option value="pill-no-avatar">Pill (no avatar)</option>
+                                          </select>
+                                    </label>
+                                    <label>Assistant Layout
+                                          <select id="assistantLayout">
+                                                <option value="default" selected>Default (avatar left)</option>
+                                                <option value="no-avatar">No avatar</option>
+                                          </select>
+                                    </label>
+                              </div>
+                        </div>
+
+                        <div class="section">
+                              <h2>Message Type Test</h2>
+                              <div class="row">
+                                    <input id="testUserText" type="text" placeholder="User text" value="Hi there" />
+                                    <button class="btn" id="btnAddUser">Add User</button>
+                                <button class="btn" id="btnStreamDemo">Stream Demo</button>
+                              </div>
+                              <div class="row mt8">
+                                    <input id="testAssistantText" type="text" placeholder="Assistant text"
+                                          value="Hello!" />
+                                    <button class="btn" id="btnAddAssistant">Add Assistant</button>
+                              </div>
+                              <div class="row mt8">
+                                    <input id="testSystemText" type="text" placeholder="System text"
+                                          value="You switched domains" />
+                                    <button class="btn" id="btnAddSystem">Add System</button>
+                              </div>
+                        </div>
+                        <h2>Theme</h2>
+                        <div class="field row">
+                              <label><input type="checkbox" id="themeDark"> Dark Mode</label>
+                              <label>Accent <input type="color" id="accentColor" value="#2563eb"></label>
+                        </div>
+                  </div>
+
+                  <div class="section">
+                        <h2>Header</h2>
+                        <div class="field"><label><input type="checkbox" id="showHeader" checked> Show Header</label>
+                        </div>
+                        <div class="field"><label><input type="checkbox" id="showSearch" checked> Show Search</label></div>
+                        <div class="field"><label>Search Placeholder <input id="searchPlaceholder" type="text" value="Search messages..."></label></div>
+                        <div class="field"><label>Title <input id="titleText" type="text"
+                                          value="Switching Knowledge Domains in Virtual Assistant Conversation"></label>
+                        </div>
+                        <div class="field row">
+                              <label>Status <input id="statusText" type="text" value="🟢 Agent: Knowledge Hub"></label>
+                        </div>
+                        <div class="field row">
+                              <label>Model Info <input id="modelInfoText" type="text"
+                                          value="💬 Companion Model: Azure: gpt-5-chat"></label>
+                        </div>
+                  </div>
+
+                  <div class="section">
+                        <h2>Messages</h2>
+                        <div class="field row">
+                              <label><input type="checkbox" id="showAvatars" checked> Avatars</label>
+                              <label><input type="checkbox" id="showTimestamps" checked> Timestamps</label>
+                              <label><input type="checkbox" id="enableCopy" checked> Copy Btn</label>
+                              <label><input type="checkbox" id="enableSpeak" checked> Speak Btn</label>
+                        </div>
+                        <div class="field row">
+                              <label class="nowrap"><input type="checkbox" id="hideOnClick" checked> Hide suggestions on
+                                    click</label>
+                        </div>
+                        <div class="field row">
+                              <label>Assistant Avatar <input id="assistantEmoji" type="text" value="aiCompanion"
+                                          list="iconNames" placeholder="icon name or emoji"></label>
+                              <label>User Avatar <input id="userEmoji" type="text" value="user" list="iconNames"
+                                          placeholder="icon name or emoji"></label>
+                        </div>
+                        <div class="field row">
+                              <label>Assistant BG <input id="assistantBg" type="color" value="#ffffff"></label>
+                              <label>User BG <input id="userBg" type="color" value="#2563eb"></label>
+                        </div>
+                        <div class="field row">
+                              <label>Bubble Radius <input id="bubbleRadius" type="range" min="8" max="24"
+                                          value="18"></label>
+                              <label>Gap <input id="gapSize" type="range" min="8" max="28" value="20"></label>
+                        </div>
+                        <div class="field">
+                              <label>Intro Text <input id="introText" type="text"
+                                          value="How can I help you today?"></label>
+                        </div>
+                        <div class="field">
+                              <label>Suggestions (CSV) <input id="suggestionsCsv" type="text"
+                                          value="Tell me about AI, Change knowledge domain, How does this work?"
+                                          placeholder="comma-separated"></label>
+                        </div>
+                        <div class="field">
+                              <label>Domains (CSV) <input id="domainsCsv" type="text"
+                                          value="Mathematics, AI, Business, Science"
+                                          placeholder="comma-separated"></label>
+                        </div>
+                  </div>
+
+                  <div class="section">
+                        <h2>Input Area</h2>
+                        <div class="field"><label>Placeholder <input id="inputPlaceholder" type="text"
+                                          value="Type your message..."></label></div>
+                        <div class="field row">
+                              <label><input type="checkbox" id="showAttach" checked> Attach</label>
+                              <label><input type="checkbox" id="showVoice" checked> Voice</label>
+                              <label><input type="checkbox" id="showSettings" checked> Settings</label>
+                        </div>
+                        <div class="field row">
+                              <label>Send Icon <input id="sendEmoji" type="text" value="send" list="iconNames"
+                                          placeholder="icon name or emoji"></label>
+                              <label>Attach Icon <input id="attachIconName" type="text" value="attach" list="iconNames"
+                                          placeholder="icon name"></label>
+                        </div>
+                        <div class="field row">
+                              <label>Voice Icon <input id="voiceIconName" type="text" value="microphone"
+                                          list="iconNames" placeholder="icon name"></label>
+                              <label>Settings Icon <input id="settingsIconName" type="text" value="settings"
+                                          list="iconNames" placeholder="icon name"></label>
+                        </div>
+                  </div>
+            </aside>
+            <!-- Component-only Live Preview -->
+            <main id="componentPreviewRoot">
+                  <unified-chat id="compPreview" title="Switching Knowledge Domains in Virtual Assistant Conversation"
+                        status="🟢 Agent: Knowledge Hub" model="💬 Companion Model: Azure: gpt-5-chat"></unified-chat>
+            </main>
+      </div>
+
+      <script type="module">
+            // Ensure the real component is registered
+            await import('./index.js');
+            // Import icon manager (unified API)
+            const iconMod = await import('../svg-icon-manager/unified-index.js');
+            // Utility to scope style changes
+            const root = document.documentElement;
+            const page = document.getElementById('app');
+
+
+            // Header controls
+            const showHeader = document.getElementById('showHeader');
+            const titleText = document.getElementById('titleText');
+            const statusText = document.getElementById('statusText');
+            const modelInfoText = document.getElementById('modelInfoText');
+            const showSearch = document.getElementById('showSearch');
+            const searchPlaceholder = document.getElementById('searchPlaceholder');
+
+            // Message controls
+            const showAvatars = document.getElementById('showAvatars');
+            const showTimestamps = document.getElementById('showTimestamps');
+            const hideOnClick = document.getElementById('hideOnClick');
+            const enableCopy = document.getElementById('enableCopy');
+            const enableSpeak = document.getElementById('enableSpeak');
+            const assistantEmoji = document.getElementById('assistantEmoji');
+            const userEmoji = document.getElementById('userEmoji');
+            const assistantBg = document.getElementById('assistantBg');
+            const userBg = document.getElementById('userBg');
+            const bubbleRadius = document.getElementById('bubbleRadius');
+            const gapSize = document.getElementById('gapSize');
+            const introText = document.getElementById('introText');
+            const suggestionsCsv = document.getElementById('suggestionsCsv');
+            const domainsCsv = document.getElementById('domainsCsv');
+
+            // Input controls
+            const inputPlaceholder = document.getElementById('inputPlaceholder');
+            const showAttach = document.getElementById('showAttach');
+            const showVoice = document.getElementById('showVoice');
+            const showSettings = document.getElementById('showSettings');
+            const sendEmoji = document.getElementById('sendEmoji');
+            const attachIconName = document.getElementById('attachIconName');
+            const voiceIconName = document.getElementById('voiceIconName');
+            const settingsIconName = document.getElementById('settingsIconName');
+
+            // Theme controls
+            const themeDark = document.getElementById('themeDark');
+            const accentColor = document.getElementById('accentColor');
+
+            // Panel actions
+            const resetBtn = document.getElementById('resetBtn');
+            const copyHtmlBtn = document.getElementById('copyHtmlBtn');
+            const openStandalone = document.getElementById('openStandalone');
+            // Layout controls
+            const userLayout = document.getElementById('userLayout');
+            const assistantLayout = document.getElementById('assistantLayout');
+            // Test controls
+            const btnAddUser = document.getElementById('btnAddUser');
+            const btnAddAssistant = document.getElementById('btnAddAssistant');
+            const btnAddSystem = document.getElementById('btnAddSystem');
+            const btnStreamDemo = document.getElementById('btnStreamDemo');
+            const testUserText = document.getElementById('testUserText');
+            const testAssistantText = document.getElementById('testAssistantText');
+            const testSystemText = document.getElementById('testSystemText');
+
+            // Component preview element
+            const compRoot = document.getElementById('componentPreviewRoot');
+            const compEl = document.getElementById('compPreview');
+
+                        function applyTheme() {
+                              compEl.setAttribute('theme', themeDark.checked ? 'dark' : 'light');
+                              compEl.setAttribute('accent', accentColor.value);
+                        }
+
+            function applyHeader() {
+                  // Update component attributes
+                  compEl.setAttribute('title', titleText.value || '');
+                  compEl.setAttribute('status', statusText.value || '');
+                  compEl.setAttribute('model', modelInfoText.value || '');
+                  // Hide/show header inside shadow (best-effort for demo)
+                  if (showHeader.checked) compEl.setAttribute('hide-header', 'false');
+                  else compEl.setAttribute('hide-header', 'true');
+                  compEl.setAttribute('show-search', showSearch.checked ? 'true' : 'false');
+                  compEl.setAttribute('search-placeholder', searchPlaceholder.value || 'Search messages...');
+            }
+
+            async function applyMessages() {
+                  // Colors & geometry -> set attributes so component maps to CSS vars
+                  compEl.setAttribute('assistant-bg', assistantBg.value);
+                  compEl.setAttribute('user-bg', userBg.value);
+                  compEl.setAttribute('bubble-radius', `${bubbleRadius.value}px`);
+                  compEl.setAttribute('gap', `${gapSize.value}px`);
+
+                  // Mirror avatar icon selection to component attrs
+                  compEl.setAttribute('icon-user', (userEmoji.value || '').trim());
+                  compEl.setAttribute('icon-assistant', (assistantEmoji.value || '').trim());
+
+                  // Pref attributes
+                  if (showAvatars.checked) compEl.setAttribute('show-avatars', 'true'); else compEl.setAttribute('show-avatars', 'false');
+                  if (showTimestamps.checked) compEl.setAttribute('show-timestamps', 'true'); else compEl.setAttribute('show-timestamps', 'false');
+                  if (hideOnClick.checked) compEl.setAttribute('hide-on-click', 'true'); else compEl.setAttribute('hide-on-click', 'false');
+                  compEl.setAttribute('enable-copy', enableCopy.checked ? 'true' : 'false');
+                  compEl.setAttribute('enable-speak', enableSpeak.checked ? 'true' : 'false');
+
+                  // Intro & suggestions
+                  compEl.setAttribute('intro', introText.value || '');
+                  compEl.setAttribute('suggestions', suggestionsCsv.value || '');
+                  compEl.setAttribute('domains', domainsCsv.value || '');
+
+                  // Layouts
+                  compEl.setAttribute('user-layout', userLayout.value);
+                  compEl.setAttribute('assistant-layout', assistantLayout.value);
+            }
+
+                        function applyInput() {
+                              compEl.setAttribute('placeholder', inputPlaceholder.value || '');
+                  compEl.setAttribute('show-attach', showAttach.checked ? 'true' : 'false');
+                  compEl.setAttribute('show-voice', showVoice.checked ? 'true' : 'false');
+                  compEl.setAttribute('show-settings', showSettings.checked ? 'true' : 'false');
+                  // Mirror button icon selections as attributes so component can render
+                  compEl.setAttribute('icon-send', (sendEmoji.value || '').trim());
+                  compEl.setAttribute('icon-attach', showAttach.checked ? (attachIconName.value || 'attach').trim() : '');
+                  compEl.setAttribute('icon-voice', showVoice.checked ? (voiceIconName.value || 'microphone').trim() : '');
+                  compEl.setAttribute('icon-settings', showSettings.checked ? (settingsIconName.value || 'settings').trim() : '');
+            }
+
+            // No extra suggestion system needed; component handles clicks and emits events.
+
+            // Wire up controls
+            [themeDark, accentColor].forEach(el => el.addEventListener('input', applyTheme));
+            [showHeader, showSearch, searchPlaceholder, titleText, statusText, modelInfoText].forEach(el => el.addEventListener('input', applyHeader));
+            [showAvatars, showTimestamps, enableCopy, enableSpeak, hideOnClick, assistantEmoji, userEmoji, assistantBg, userBg, bubbleRadius, gapSize, introText, suggestionsCsv, domainsCsv, userLayout, assistantLayout]
+                  .forEach(el => el.addEventListener('input', applyMessages));
+            [inputPlaceholder, showAttach, showVoice, showSettings, sendEmoji, attachIconName, voiceIconName, settingsIconName].forEach(el => el.addEventListener('input', applyInput));
+
+            // Actions
+            resetBtn.addEventListener('click', () => { window.location.reload(); });
+            copyHtmlBtn.addEventListener('click', async () => {
+                  const html = compEl.outerHTML;
+                  try { await navigator.clipboard.writeText(html); alert('Component HTML copied to clipboard.'); } catch { alert('Copy failed.'); }
+            });
+            openStandalone.addEventListener('click', () => {
+                  const url = window.location.href.replace('layout-configurator.html', 'markup.html');
+                  window.open(url, '_blank');
+            });
+
+            // Init
+            // Populate datalist with icon names
+            const listEl = document.createElement('datalist');
+            listEl.id = 'iconNames';
+            try {
+                  const names = iconMod.getAvailableIcons?.() || [];
+                  listEl.innerHTML = names.map(n => `<option value="${n}"></option>`).join('');
+            } catch { }
+            document.body.appendChild(listEl);
+            applyTheme();
+            applyHeader();
+            applyMessages();
+            applyInput();
+
+            // Test message type buttons
+            btnAddUser.addEventListener('click', () => {
+                  compEl.addUserMessage(testUserText.value || 'User message');
+            });
+            btnAddAssistant.addEventListener('click', () => {
+                  compEl.addAssistantMessage(testAssistantText.value || 'Assistant message', { suggestions: ['OK', 'More', 'Cancel'] });
+            });
+            btnAddSystem.addEventListener('click', () => {
+                  compEl.addSystemMessage(testSystemText.value || 'System message');
+            });
+
+            // Simple streaming demo: emits chunks over time to show token-by-token rendering
+            btnStreamDemo.addEventListener('click', async () => {
+                  const chunks = [
+                        "Streaming reply start... ",
+                        "this is ",
+                        "coming in ",
+                        "chunks ",
+                        "like tokens.",
+                  ];
+                  const controller = compEl.beginAssistantStream('');
+                  for (const c of chunks) {
+                        await new Promise(r => setTimeout(r, 300));
+                        controller?.append(c);
+                  }
+                  controller?.end();
+            });
+
+            // Example: listen for suggestion clicks emitted by component
+            compEl.addEventListener('ui:suggestionClicked', (e) => {
+                  // For demo, auto-append an assistant reply after user picks a suggestion
+                  const text = e.detail?.text || '';
+                  setTimeout(() => {
+                        compEl.addAssistantMessage(`You selected: "${text}"`, { suggestions: ["Tell me more", "Show examples", "Change knowledge domain"] });
+                  }, 500);
+            });
+      </script>
+</body>
+
+</html>

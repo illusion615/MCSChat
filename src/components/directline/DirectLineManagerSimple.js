@@ -23,6 +23,7 @@ export class DirectLineManager {
         // Streaming and timing state (same as old service)
         this.lastMessageTime = null;
         this.typingTimeout = null;
+        this.greetingReceived = false; // Track if greeting has been received
 
         // Bind methods for event handlers
         this.handleActivity = this.handleActivity.bind(this);
@@ -53,6 +54,9 @@ export class DirectLineManager {
             if (this.directLine) {
                 this.directLine.end();
             }
+
+            // Reset greeting flag for new connection
+            this.greetingReceived = false;
 
             // Create DirectLine with same configuration as old service
             this.directLine = new DirectLine.DirectLine({
@@ -172,6 +176,13 @@ export class DirectLineManager {
      */
     handleMessageActivity(activity) {
         console.log('Processing message activity:', activity);
+
+        // Check if this is the first bot message (greeting)
+        if (!this.greetingReceived && activity.text && activity.text.trim().length > 0) {
+            console.log('First bot message received - greeting detected');
+            this.greetingReceived = true;
+            document.dispatchEvent(new CustomEvent('agent:greeting:received'));
+        }
 
         // Hide typing indicator
         window.dispatchEvent(new CustomEvent('hideTypingIndicator'));
@@ -342,6 +353,9 @@ export class DirectLineManager {
 
         console.log('Attempting to trigger greeting message...');
 
+        // Emit greeting sending event
+        document.dispatchEvent(new CustomEvent('agent:greeting:sending'));
+
         try {
             // Method 1: Send conversationUpdate event (most common for greeting)
             this.directLine.postActivity({
@@ -409,11 +423,22 @@ export class DirectLineManager {
                             id => console.log('Empty message sent to trigger greeting, id:', id),
                             error => console.error('Error sending empty message:', error)
                         );
+                    } else {
+                        // Greeting already received, emit event
+                        document.dispatchEvent(new CustomEvent('agent:greeting:received'));
                     }
                 } catch (error) {
                     console.error('Error checking chat history for greeting:', error);
                 }
             }, 3000);
+
+            // Set timeout for greeting - if no bot message after 5 seconds, consider it timeout
+            setTimeout(() => {
+                if (!this.greetingReceived) {
+                    console.log('Greeting timeout - no bot messages received');
+                    document.dispatchEvent(new CustomEvent('agent:greeting:timeout'));
+                }
+            }, 5000);
 
         } catch (error) {
             console.error('Error sending greeting:', error);

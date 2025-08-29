@@ -510,6 +510,17 @@ export class MessageRenderer {
      * @param {Object} activity - Message activity
      */
     async renderCompleteMessageDirect(activity) {
+        // Check if this is an agent response that should be filtered
+        const isAgentMessage = activity.from && activity.from.id !== 'user';
+        if (isAgentMessage && window.aiCompanion && window.aiCompanion.shouldFilterAgentResponse) {
+            const shouldFilter = window.aiCompanion.shouldFilterAgentResponse(activity.text || '');
+            if (shouldFilter) {
+                console.log('[MessageRenderer] Filtering agent response - no useful information');
+                // Don't render the message, but still mark thinking as complete
+                return;
+            }
+        }
+
         // Prevent duplicate rendering of the same message
         const messageId = activity.id || `${activity.from?.id}-${activity.timestamp}-${Date.now()}`;
 
@@ -1209,7 +1220,13 @@ export class MessageRenderer {
             // Use the global Icon manager's create method directly
             setTimeout(() => {
                 try {
-                    const iconSvgElement = window.Icon.create(iconName, { color: '#333', size: '28px' });
+                    // Use outline mode for user icons, auto mode for others
+                    const iconOptions = { 
+                        color: '#333', 
+                        size: '28px',
+                        fillMode: iconName === 'user' ? 'outline' : 'auto'
+                    };
+                    const iconSvgElement = window.Icon.create(iconName, iconOptions);
                     console.log('Created icon element for', iconName, iconSvgElement);
                     
                     // Clear any existing content and styles

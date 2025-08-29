@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG Icon Library - Management & Preview</title>
+    
+    <!-- Compatibility polyfills for older browsers -->
+    <script>
+        // Polyfill for CustomEvent (IE11 support)
+        (function () {
+            if (typeof window.CustomEvent === "function") return false;
+            function CustomEvent(event, params) {
+                params = params || { bubbles: false, cancelable: false, detail: undefined };
+                var evt = document.createEvent('CustomEvent');
+                evt.initCustomEvent(event, params.bubbles, params.cancelable, params.detail);
+                return evt;
+            }
+            CustomEvent.prototype = window.Event.prototype;
+            window.CustomEvent = CustomEvent;
+        })();
+        
+        // Polyfill for Set (IE11 support)
+        if (typeof Set === 'undefined') {
+            window.Set = function() {
+                this._values = [];
+                this.add = function(value) {
+                    if (this._values.indexOf(value) === -1) {
+                        this._values.push(value);
+                    }
+                    return this;
+                };
+                this.has = function(value) {
+                    return this._values.indexOf(value) !== -1;
+                };
+                this.forEach = function(callback) {
+                    for (var i = 0; i < this._values.length; i++) {
+                        callback(this._values[i], this._values[i], this);
+                    }
+                };
+            };
+        }
+        
+        // Check for ES6 module support
+        window.supportsModules = 'noModule' in document.createElement('script');
+    </script>
+    
+    <link rel="stylesheet" href="styles/icon-manager.css">
+    
+    <!-- GitHub Pages compatible storage -->
+    <script src="github-pages-storage.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Panel: Icon Library -->
+            <div class="left-panel">
+                <div class="icon-library">
+                    <h2 class="section-title">Icon Library (<span id="totalIcons">0</span>)</h2>
+                    
+                    <!-- Gallery Controls -->
+                    <div class="gallery-controls">
+                        <div class="gallery-controls-left">
+                            <div class="control-group">
+                                <input type="text" id="searchInput" class="search-input" placeholder="Search icons...">
+                            </div>
+                            <div class="control-group">
+                                <select id="categoryFilter" class="category-select" title="Category">
+                                    <option value="">All Categories</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <select id="sizeSelect" class="size-select" title="Size">
+                                    <option value="xs">Extra Small (16px)</option>
+                                    <option value="small">Small (20px)</option>
+                                    <option value="medium" selected>Medium (24px)</option>
+                                    <option value="large">Large (28px)</option>
+                                    <option value="xl">Extra Large (36px)</option>
+                                    <option value="xxl">XXL (48px)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="gallery-controls-right">
+                            <button id="exportIconsBtn" class="btn btn-icon" title="Export Icons">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <button id="importIconsBtn" class="btn btn-icon" title="Import Icons">
+                                <input type="file" id="importFileInput" accept=".json" style="display: none;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <button id="addNewIconBtn" class="btn btn-icon" title="Add New Icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <button id="galleryFillModeToggle" class="btn btn-icon" title="Toggle Fill Mode" data-mode="outline">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/>
+                                </svg>
+                            </button>
+                            <button id="refreshBtn" class="btn btn-icon" title="Refresh Gallery">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M11 2L13 3.99545L12.9408 4.05474M13 18.0001L11 19.9108L11.0297 19.9417M12.9408 4.05474L11 6M12.9408 4.05474C12.6323 4.01859 12.3183 4 12 4C7.58172 4 4 7.58172 4 12C4 14.5264 5.17107 16.7793 7 18.2454M17 5.75463C18.8289 7.22075 20 9.47362 20 12C20 16.4183 16.4183 20 12 20C11.6716 20 11.3477 19.9802 11.0297 19.9417M13 22.0001L11.0297 19.9417" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="iconGrid" class="icon-grid">
+                        <div class="loading">Loading icons...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Window for Icon Details -->
+        <div id="iconModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="icon-name-section">
+                        <span id="modalIconNameDisplay">Select an Icon</span>
+                        <input type="text" id="modalIconNameEdit" class="icon-name-input" style="display: none;" placeholder="Icon name">
+                        <button id="editIconNameBtn" class="btn-small" title="Edit Name" style="margin-left: 8px;">✏️</button>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="modal-close" id="closeModal">&times;</button>
+                    </div>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="modal-layout">
+                        <!-- Left Side: Icon Preview -->
+                        <div class="preview-section">
+                            <div id="iconPreview" class="icon-preview-large">
+                                <div class="preview-background" id="previewBackground">
+                                    <div class="icon-display" id="iconDisplay">
+                                        <div class="text-muted">Select an icon to preview</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Background Color Control -->
+                            <div class="bg-color-control">
+                                <input type="color" id="backgroundColorPicker" title="Background Color" value="#ffffff">
+                                <input type="text" id="backgroundColorInput" value="#ffffff" placeholder="#ffffff">
+                            </div>
+                        </div>
+
+                        <!-- Right Side: Controls -->
+                        <div class="controls-section">
+                            <!-- Icon Size -->
+                            <div class="control-item">
+                                <label>Icon Size</label>
+                                <div class="slider-container">
+                                    <input type="range" id="iconSizeSlider" title="Icon Size" min="16" max="400" value="200">
+                                    <span id="iconSizeValue">200px</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Padding -->
+                            <div class="control-item">
+                                <label>Padding</label>
+                                <div class="slider-container">
+                                    <input type="range" id="paddingSlider" title="Padding" min="0" max="50" value="0">
+                                    <span id="paddingValue">0%</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Thickness -->
+                            <div class="control-item">
+                                <label>Thickness</label>
+                                <div class="slider-container">
+                                    <input type="range" id="thicknessSlider" title="Thickness" min="0" max="10" value="0" step="0.5">
+                                    <span id="thicknessValue">0%</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Line Color -->
+                            <div class="control-item">
+                                <label>Line Color</label>
+                                <div class="color-input-container">
+                                    <input type="color" id="iconColorPicker" title="Line Color" value="#000000">
+                                    <input type="text" id="iconColorInput" value="#000000" placeholder="#000000">
+                                </div>
+                            </div>
+                            
+                            <!-- Fill Mode -->
+                            <div class="control-item">
+                                <label>Fill Mode</label>
+                                <div class="button-group">
+                                    <button class="toggle-btn" id="fillOutline" title="Outline Mode">◯</button>
+                                    <button class="toggle-btn" id="fillSolid" title="Solid Mode">●</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Flip/Mirror -->
+                            <div class="control-item">
+                                <label>Flip/Mirror</label>
+                                <div class="button-group">
+                                    <button class="toggle-btn" id="flipHorizontal" title="Flip Horizontal">⟷</button>
+                                    <button class="toggle-btn" id="flipVertical" title="Flip Vertical">↕</button>
+                                    <button class="toggle-btn" id="flipBoth" title="Flip Both">⤢</button>
+                                    <button class="toggle-btn" id="flipNone" title="No Flip">○</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Rotation -->
+                            <div class="control-item">
+                                <label>Rotation</label>
+                                <div class="button-group">
+                                    <button class="toggle-btn" id="rotate0" data-rotation="0" title="0°">↑</button>
+                                    <button class="toggle-btn" id="rotate90" data-rotation="90" title="90°">→</button>
+                                    <button class="toggle-btn" id="rotate180" data-rotation="180" title="180°">↓</button>
+                                    <button class="toggle-btn" id="rotate270" data-rotation="270" title="270°">←</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Diagonal -->
+                            <div class="control-item">
+                                <label>Diagonal</label>
+                                <div class="button-group">
+                                    <button class="toggle-btn" id="diagonalNone" title="None">|</button>
+                                    <button class="toggle-btn" id="diagonalNE" title="Northeast">↗</button>
+                                    <button class="toggle-btn" id="diagonalNW" title="Northwest">↖</button>
+                                </div>
+                            </div>
+                            
+                            <!-- BG Shape -->
+                            <div class="control-item">
+                                <label>BG Shape</label>
+                                <div class="button-group">
+                                    <button class="toggle-btn" id="bgNone" title="None">⚬</button>
+                                    <button class="toggle-btn" id="bgSquare" title="Square">□</button>
+                                    <button class="toggle-btn" id="bgRounded" title="Rounded">▢</button>
+                                    <button class="toggle-btn" id="bgCircle" title="Circle">○</button>
+                                    <button class="toggle-btn" id="bgDiamond" title="Diamond">◇</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Trace Width -->
+                            <div class="control-item">
+                                <label>Trace Width</label>
+                                <div class="slider-container">
+                                    <input type="range" id="traceWidthSlider" title="Trace Width" min="0" max="10" value="0" step="0.5">
+                                    <span id="traceWidthValue">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="modal-actions-bottom">
+                        <button class="action-btn secondary" id="copySVGBtn">
+                            <span>📋</span> COPY SVG
+                        </button>
+                        <button class="action-btn primary" id="exportSVGBtn">
+                            <span>💾</span> EXPORT
+                        </button>
+                        <button class="action-btn warning" id="saveIconChangesBtn" style="display: none;">
+                            <span>💾</span> SAVE CHANGES
+                        </button>
+                        <button class="action-btn danger" id="deleteIconBtn">
+                            <span>🗑️</span> DELETE
+                        </button>
+                    </div>
+
+                    <!-- Code Generation (Hidden by default) -->
+                    <div class="code-section" id="codeSection" style="display: none;">
+                        <div class="form-group">
+                            <label for="codeTypeSelector">Code Format:</label>
+                            <select id="codeTypeSelector" class="form-control">
+                                <option value="html">HTML</option>
+                                <option value="js">JavaScript</option>
+                                <option value="css">CSS Selector</option>
+                                <option value="react">React Component</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="codeOutput">Generated Code:</label>
+                            <textarea id="codeOutput" class="form-control code-output" rows="4" readonly></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add New Icon Modal -->
+        <div id="addIconModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Add New SVG Icon</h2>
+                    <div class="modal-actions">
+                        <button class="modal-close" id="closeAddModal">&times;</button>
+                    </div>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="newIconName">Icon Name:</label>
+                        <div class="form-field">
+                            <input type="text" id="newIconName" class="form-control" placeholder="Enter icon name (e.g., my-icon)" required>
+                            <small class="form-text">Use lowercase letters, numbers, and hyphens only</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newIconCategory">Category:</label>
+                        <div class="form-field">
+                            <select id="newIconCategory" class="form-control">
+                                <option value="custom">Custom</option>
+                                <option value="core">Core</option>
+                                <option value="ui">UI</option>
+                                <option value="media">Media</option>
+                                <option value="navigation">Navigation</option>
+                                <option value="content">Content</option>
+                                <option value="users">Users</option>
+                            </select>
+                            <small class="form-text">Select the appropriate category for organization</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newIconSvg">SVG Code:</label>
+                        <div class="form-field">
+                            <textarea id="newIconSvg" class="form-control" rows="5" placeholder="Paste your SVG code here..." required></textarea>
+                            <small class="form-text">Paste the complete SVG element including &lt;svg&gt; tags</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Preview:</label>
+                        <div id="newIconPreview" class="icon-preview-container">
+                            <div class="preview-placeholder">SVG preview will appear here</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-actions-bottom">
+                    <button class="action-btn secondary" onclick="closeModal('addIconModal')">Cancel</button>
+                    <button class="action-btn primary" id="saveNewIcon">Save Icon</button>
+                </div>
+            </div>
+        </div>
+
+    <!-- Include the Icon Manager as a module with fallback -->
+    <script type="module">
+        try {
+            // Import the Icon Manager
+            const IconModule = await import('./index.js');
+            const Icon = IconModule.default;
+            const { getAvailableIcons, hasIcon, getIconCategory } = IconModule;
+
+            // Make Icon available globally for the rest of the script
+            window.Icon = Icon;
+            window.getAvailableIcons = getAvailableIcons;
+            window.hasIcon = hasIcon;
+            window.getIconCategory = getIconCategory;
+
+            // Dispatch event when Icon is loaded
+            window.dispatchEvent(new CustomEvent('iconManagerLoaded'));
+        } catch (error) {
+            console.error('Failed to load icon manager:', error);
+            // Fallback: create dummy functions
+            window.Icon = {
+                create: function(name, options) {
+                    const div = document.createElement('div');
+                    div.textContent = '🔧 ' + name;
+                    div.style.cssText = 'display: inline-block; padding: 4px; border: 1px solid #ccc;';
+                    return div;
+                }
+            };
+            window.getAvailableIcons = function() { return []; };
+            window.hasIcon = function() { return false; };
+            window.getIconCategory = function() { return 'unknown'; };
+            window.dispatchEvent(new CustomEvent('iconManagerLoaded'));
+        }
+    </script>
+    
+    <!-- Fallback for browsers that don't support modules -->
+    <script nomodule>
+        console.warn('ES6 modules not supported, using fallback');
+        // Create dummy Icon object for compatibility
+        window.Icon = {
+            create: function(name, options) {
+                var div = document.createElement('div');
+                div.textContent = '🔧 ' + name;
+                div.style.cssText = 'display: inline-block; padding: 4px; border: 1px solid #ccc;';
+                return div;
+            }
+        };
+        window.getAvailableIcons = function() { return ['user', 'agent', 'settings', 'help']; };
+        window.hasIcon = function() { return true; };
+        window.getIconCategory = function() { return 'core'; };
+        setTimeout(function() {
+            window.dispatchEvent(new CustomEvent('iconManagerLoaded'));
+        }, 100);
+    </script>
+    
+    <script>
+        // Global variables - using var for IE compatibility
+        var currentSize = 'medium';
+        var selectedIcon = null;
+        var iconLibrary = [];
+        var categories = new Set();
+        var galleryFillMode = 'outline'; // Track gallery display mode
+
+        // Modal functionality
+        function openModal(iconName) {
+            console.log('openModal called with iconName:', iconName);
+            const modal = document.getElementById('iconModal');
+            const modalIconNameDisplay = document.getElementById('modalIconNameDisplay');
+            const modalIconNameEdit = document.getElementById('modalIconNameEdit');
+            const saveButton = document.getElementById('saveIconChangesBtn');
+            
+            // Set current icon first
+            currentIcon = { name: iconName };
+            
+            // Update modal title
+            modalIconNameDisplay.textContent = iconName;
+            modalIconNameEdit.value = iconName;
+            
+            // Reset edit mode
+            modalIconNameEdit.style.display = 'none';
+            modalIconNameDisplay.style.display = 'inline-block';
+            saveButton.style.display = 'none';
+            
+            modal.style.display = 'block';
+            
+            // Prevent body scrolling when modal is open
+            document.body.style.overflow = 'hidden';
+            
+            // Update the preview
+            updateEnhancedIconPreview();
+            
+            // Setup modal-specific event listeners
+            setupModalEventListeners();
+            
+            // Setup enhanced preview controls
+            console.log('About to call setupEnhancedPreviewControls');
+            setupEnhancedPreviewControls();
+            console.log('setupEnhancedPreviewControls completed');
+        }
+
+        function setupModalEventListeners() {
+            // Code type selector
+            const codeTypeSelector = document.getElementById('codeTypeSelector');
+            if (codeTypeSelector) {
+                codeTypeSelector.removeEventListener('change', updateCodePreview);
+                codeTypeSelector.addEventListener('change', updateCodePreview);
+            }
+            
+            // Action Buttons
+            const copySVGBtn = document.getElementById('copySVGBtn');
+            const exportSVGBtn = document.getElementById('exportSVGBtn');
+            
+            console.log('Setting up modal action buttons:', { copySVGBtn, exportSVGBtn });
+            
+            if (copySVGBtn) {
+                copySVGBtn.removeEventListener('click', copyIconCode);
+                copySVGBtn.addEventListener('click', copyIconCode);
+                console.log('Copy button event listener added in setupModalEventListeners');
+            } else {
+                console.log('Copy button not found in setupModalEventListeners');
+            }
+            
+            if (exportSVGBtn) {
+                exportSVGBtn.removeEventListener('click', downloadIconSVG);
+                exportSVGBtn.addEventListener('click', downloadIconSVG);
+                console.log('Export button event listener added in setupModalEventListeners');
+            } else {
+                console.log('Export button not found in setupModalEventListeners');
+            }
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('iconModal');
+            modal.style.display = 'none';
+            
+            // Restore body scrolling
+            document.body.style.overflow = 'auto';
+        }
+
+        // Initialize modal event listeners
+        function initializeModal() {
+            const modal = document.getElementById('iconModal');
+            const closeBtn = document.getElementById('closeModal');
+            
+            // Close modal when clicking the X button
+            closeBtn.addEventListener('click', closeModal);
+            
+            // Close modal when clicking outside of it
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
+            
+            // Close modal with Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && modal.style.display === 'block') {
+                    closeModal();
+                }
+            });
+        }
+
+        // Icon CRUD Operations
+        
+        // Add New Icon Modal Functions
+        function openAddIconModal() {
+            const modal = document.getElementById('addIconModal');
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            
+            // Clear form
+            document.getElementById('newIconName').value = '';
+            document.getElementById('newIconCategory').value = 'custom';
+            document.getElementById('newIconSvg').value = '';
+            document.getElementById('newIconPreview').innerHTML = '<div class="preview-placeholder">SVG preview will appear here</div>';
+            
+            // Setup event listeners for add modal
+            setupAddModalEventListeners();
+        }
+        
+        function closeAddIconModal() {
+            const modal = document.getElementById('addIconModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+        
+        function setupAddModalEventListeners() {
+            // Close modal handlers
+            document.getElementById('closeAddModal').onclick = closeAddIconModal;
+            
+            // Save button
+            document.getElementById('saveNewIcon').onclick = function() {
+                saveNewIcon();
+            };
+            
+            // Auto-preview on SVG change
+            document.getElementById('newIconSvg').addEventListener('input', function() {
+                setTimeout(previewNewIcon, 500); // Debounce
+            });
+        }
+        
+        function previewNewIcon() {
+            const svgContent = document.getElementById('newIconSvg').value.trim();
+            const previewContainer = document.getElementById('newIconPreview');
+            
+            if (!svgContent) {
+                previewContainer.innerHTML = '<div class="preview-placeholder">SVG preview will appear here</div>';
+                return;
+            }
+            
+            if (svgContent.includes('<svg') && svgContent.includes('</svg>')) {
+                try {
+                    previewContainer.innerHTML = svgContent;
+                    
+                    // Style the preview
+                    const svgElement = previewContainer.querySelector('svg');
+                    if (svgElement) {
+                        svgElement.style.width = '48px';
+                        svgElement.style.height = '48px';
+                        svgElement.style.display = 'block';
+                        svgElement.style.margin = '0 auto';
+                    }
+                } catch (error) {
+                    previewContainer.innerHTML = '<div class="preview-error">Invalid SVG content</div>';
+                }
+            } else {
+                previewContainer.innerHTML = '<div class="preview-error">Please paste complete SVG content</div>';
+            }
+        }
+        
+        async function saveNewIcon() {
+            const name = document.getElementById('newIconName').value.trim();
+            const category = document.getElementById('newIconCategory').value;
+            const svgContent = document.getElementById('newIconSvg').value.trim();
+            
+            // Validate input
+            if (!name) {
+                alert('Please enter an icon name');
+                return;
+            }
+            
+            if (!svgContent) {
+                alert('Please paste SVG content');
+                return;
+            }
+            
+            if (!/^[a-z0-9-]+$/.test(name)) {
+                alert('Icon name can only contain lowercase letters, numbers, and hyphens');
+                return;
+            }
+            
+            try {
+                if (!window.iconStorage) {
+                    throw new Error('Storage not initialized');
+                }
+                
+                const result = window.iconStorage.addIcon({
+                    name,
+                    svgContent,
+                    category,
+                    description: ''
+                });
+                
+                if (result.success) {
+                    log('✅ Icon "' + name + '" added successfully', 'success');
+                    closeAddIconModal();
+                    await loadCustomIcons(); // Reload custom icons
+                    loadIconLibrary(); // Refresh display
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error saving icon:', error);
+                alert('Failed to save icon: ' + error.message);
+            }
+        }
+        
+        // Edit Icon Functions
+        function toggleEditIconName() {
+            const displayElement = document.getElementById('modalIconNameDisplay');
+            const editElement = document.getElementById('modalIconNameEdit');
+            const saveButton = document.getElementById('saveIconChangesBtn');
+            
+            if (editElement.style.display === 'none') {
+                // Switch to edit mode
+                editElement.style.display = 'inline-block';
+                editElement.value = displayElement.textContent;
+                displayElement.style.display = 'none';
+                saveButton.style.display = 'inline-block';
+                editElement.focus();
+            } else {
+                // Cancel edit mode
+                editElement.style.display = 'none';
+                displayElement.style.display = 'inline-block';
+                saveButton.style.display = 'none';
+            }
+        }
+        
+        async function saveIconChanges() {
+            if (!currentIcon) return;
+            
+            const newName = document.getElementById('modalIconNameEdit').value.trim();
+            const oldName = currentIcon.name;
+            
+            if (!newName) {
+                alert('Please enter a valid icon name');
+                return;
+            }
+            
+            if (!/^[a-z0-9-]+$/.test(newName)) {
+                alert('Icon name can only contain lowercase letters, numbers, and hyphens');
+                return;
+            }
+            
+            try {
+                // Get current icon SVG from preview
+                const iconElement = document.querySelector('#iconDisplay svg');
+                const svgContent = iconElement ? iconElement.outerHTML : '';
+                
+                const response = await fetch(`http://localhost:3001/api/icons/${oldName}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: newName,
+                        svgContent: svgContent
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    log('✅ Icon "' + oldName + '" updated successfully', 'success');
+                    
+                    // Update UI
+                    document.getElementById('modalIconNameDisplay').textContent = newName;
+                    toggleEditIconName(); // Exit edit mode
+                    currentIcon.name = newName;
+                    
+                    await loadCustomIcons(); // Reload custom icons
+                    loadIconLibrary(); // Refresh display
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error updating icon:', error);
+                alert('Failed to update icon. Make sure the icon server is running.');
+            }
+        }
+        
+        async function deleteCurrentIcon() {
+            if (!currentIcon) return;
+            
+            const confirmed = confirm(`Are you sure you want to delete the icon "${currentIcon.name}"? This action cannot be undone.`);
+            if (!confirmed) return;
+            
+            try {
+                const response = await fetch(`http://localhost:3001/api/icons/${currentIcon.name}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    log('✅ Icon "' + currentIcon.name + '" deleted successfully', 'success');
+                    closeModal();
+                    await loadCustomIcons(); // Reload custom icons
+                    loadIconLibrary(); // Refresh display
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error deleting icon:', error);
+                alert('Failed to delete icon. Make sure the icon server is running.');
+            }
+        }
+        
+        // Load custom icons from localStorage
+        async function loadCustomIcons() {
+            try {
+                if (!window.iconStorage) {
+                    log('⚠️ Icon storage not initialized', 'warn');
+                    return;
+                }
+                
+                const customIcons = window.iconStorage.getIcons();
+                
+                // Add custom icons to the icon library
+                customIcons.forEach(iconData => {
+                    if (!iconLibrary.includes(iconData.name)) {
+                        iconLibrary.push(iconData.name);
+                    }
+                    
+                    categories.add(iconData.category);
+                    
+                    // Store icon data for later use
+                    if (!window.customIcons) window.customIcons = {};
+                    window.customIcons[iconData.name] = iconData;
+                });
+                
+                log('📦 Loaded ' + customIcons.length + ' custom icons from localStorage', 'info');
+            } catch (error) {
+                log('⚠️ Could not load custom icons: ' + error.message, 'warn');
+            }
+        }
+
+        // Check if Icon manager is loaded
+        function checkIconManager() {
+            if (typeof Icon === 'undefined') {
+                console.error('Icon manager not loaded! Please ensure index.js is included.');
+                document.getElementById('iconGrid').innerHTML = '<div class="error">Icon manager not loaded!</div>';
+                return false;
+            }
+            return true;
+        }
+
+        // Initialize the application
+        function initializeIconManager() {
+            if (!checkIconManager()) return;
+
+            // Initialize on DOM ready or when Icon manager is available
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', startApp);
+            } else {
+                startApp();
+            }
+        }
+
+        // Wait for Icon manager to be loaded
+        if (typeof Icon !== 'undefined') {
+            initializeIconManager();
+        } else {
+            window.addEventListener('iconManagerLoaded', initializeIconManager);
+        }
+
+        async function startApp() {
+            log('🚀 Initializing SVG Icon Library Manager...', 'info');
+            
+            // Initialize localStorage storage
+            if (typeof GitHubPagesIconStorage !== 'undefined') {
+                window.iconStorage = new GitHubPagesIconStorage();
+                log('✅ GitHub Pages storage initialized', 'success');
+            } else {
+                log('❌ GitHub Pages storage not available', 'error');
+            }
+            
+            // Initialize modal functionality
+            initializeModal();
+            
+            try {
+                // Test basic Icon functionality first
+                log('🔧 Testing Icon manager...', 'info');
+                
+                if (typeof Icon !== 'undefined' && Icon.create) {
+                    const testIcon = Icon.create('newChat', { size: '16px' });
+                    if (testIcon) {
+                        log('✅ Icon.create() works!', 'success');
+                    } else {
+                        log('❌ Icon.create() returned null', 'error');
+                    }
+                } else {
+                    log('❌ Icon manager not available', 'error');
+                }
+
+                // Wait for icons to load if available
+                if (typeof Icon !== 'undefined' && Icon.waitForLoad) {
+                    log('⏳ Waiting for icons to load...', 'info');
+                    await Icon.waitForLoad();
+                    log('✅ Icons loaded!', 'success');
+                }
+
+                initializeApp();
+                setupEventListeners();
+                
+                // Load custom icons from server
+                await loadCustomIcons();
+                
+                await loadIconLibrary();
+                updateStats();
+
+                log('✅ Icon library manager ready!', 'success');
+            } catch (error) {
+                log('❌ Initialization failed: ' + error.message, 'error');
+                console.error('Full error:', error);
+            }
+        }
+
+        function initializeApp() {
+            log('🔍 Getting available icons...', 'info');
+
+            // Test the Icon manager directly
+            log('📦 Icon manager exists: ' + !!Icon, 'info');
+            if (Icon && Icon.list) {
+                log('📦 Icon.list exists: ' + (typeof Icon.list === 'function'), 'info');
+
+                // Try direct icon access
+                const iconList = Icon.list();
+                log('📦 Icon.list() returned: ' + iconList.length + ' icons', 'info');
+                if (iconList.length > 0) {
+                    log('📦 First few icons: ' + iconList.slice(0, 5).join(', '), 'info');
+                }
+
+                iconLibrary = iconList;
+            } else if (typeof getAvailableIcons === 'function') {
+                // Try the imported function
+                iconLibrary = getAvailableIcons();
+                log('📦 getAvailableIcons() returned: ' + iconLibrary.length + ' icons', 'info');
+            } else {
+                log('❌ No icon listing method available', 'error');
+                iconLibrary = [];
+            }
+
+            // Extract categories
+            iconLibrary.forEach(iconName => {
+                const category = getIconCategoryFallback(iconName);
+                categories.add(category);
+            });
+
+            log('📁 Found ' + categories.size + ' categories: ' + Array.from(categories).join(', '), 'info');
+
+            // Populate category filter
+            const categoryFilter = document.getElementById('categoryFilter');
+            categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category.charAt(0).toUpperCase() + category.slice(1);
+                categoryFilter.appendChild(option);
+            });
+        }
+
+        // Import/Export Functions
+        function exportIcons() {
+            if (!window.iconStorage) {
+                alert('Storage not initialized');
+                return;
+            }
+            
+            try {
+                window.iconStorage.exportIcons();
+                log('📤 Icons exported successfully', 'success');
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('Failed to export icons: ' + error.message);
+            }
+        }
+
+        async function importIcons(file) {
+            if (!window.iconStorage) {
+                alert('Storage not initialized');
+                return;
+            }
+            
+            try {
+                const result = await window.iconStorage.importIcons(file);
+                
+                if (result.success) {
+                    log('📥 Imported ' + result.imported + ' icons (skipped ' + result.skipped + ' duplicates)', 'success');
+                    await loadCustomIcons();
+                    loadIconLibrary();
+                } else {
+                    alert('Import failed: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Import error:', error);
+                alert('Failed to import icons: ' + error.message);
+            }
+            
+            // Reset file input
+            document.getElementById('importFileInput').value = '';
+        }
+
+        function setupEventListeners() {
+            // Search and filter
+            document.getElementById('searchInput').addEventListener('input', loadIconLibrary);
+            document.getElementById('categoryFilter').addEventListener('change', loadIconLibrary);
+            document.getElementById('sizeSelect').addEventListener('change', function(e) {
+                currentSize = e.target.value;
+                loadIconLibrary();
+            });
+
+            // Main action buttons
+            document.getElementById('refreshBtn').addEventListener('click', function() {
+                loadIconLibrary();
+                log('🔄 Refreshed icon library', 'info');
+            });
+
+            // Gallery fill mode toggle
+            document.getElementById('galleryFillModeToggle').addEventListener('click', function() {
+                toggleGalleryFillMode();
+            });
+
+            // Add new icon button
+            document.getElementById('addNewIconBtn').addEventListener('click', function() {
+                openAddIconModal();
+            });
+
+            // Import/Export buttons
+            document.getElementById('exportIconsBtn').addEventListener('click', function() {
+                exportIcons();
+            });
+
+            document.getElementById('importIconsBtn').addEventListener('click', function() {
+                document.getElementById('importFileInput').click();
+            });
+
+            document.getElementById('importFileInput').addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    importIcons(e.target.files[0]);
+                }
+            });
+
+            // Icon management buttons
+            document.getElementById('editIconNameBtn').addEventListener('click', function() {
+                toggleEditIconName();
+            });
+
+            document.getElementById('saveIconChangesBtn').addEventListener('click', function() {
+                saveIconChanges();
+            });
+
+            document.getElementById('deleteIconBtn').addEventListener('click', function() {
+                deleteCurrentIcon();
+            });
+        }
+
+        function toggleGalleryFillMode() {
+            const toggleBtn = document.getElementById('galleryFillModeToggle');
+            const toggleIcon = toggleBtn.querySelector('svg circle');
+            
+            if (galleryFillMode === 'outline') {
+                galleryFillMode = 'solid';
+                toggleBtn.setAttribute('data-mode', 'solid');
+                toggleBtn.setAttribute('title', 'Switch to Outline Mode');
+                // Change icon to filled circle
+                toggleIcon.setAttribute('fill', 'currentColor');
+                log('🔘 Gallery switched to solid mode', 'info');
+            } else {
+                galleryFillMode = 'outline';
+                toggleBtn.setAttribute('data-mode', 'outline');
+                toggleBtn.setAttribute('title', 'Switch to Filled Mode');
+                // Change icon to outline circle
+                toggleIcon.setAttribute('fill', 'none');
+                log('⭕ Gallery switched to outline mode', 'info');
+            }
+            
+            // Reload the icon library with new fill mode
+            loadIconLibrary();
+        }
+
+        function setupEnhancedPreviewControls() {
+            console.log('setupEnhancedPreviewControls function started');
+            // Icon Size Slider
+            const iconSizeSlider = document.getElementById('iconSizeSlider');
+            const iconSizeValue = document.getElementById('iconSizeValue');
+            if (iconSizeSlider && iconSizeValue) {
+                iconSizeSlider.addEventListener('input', function(e) {
+                    previewSettings.size = parseInt(e.target.value);
+                    iconSizeValue.textContent = previewSettings.size + 'px';
+                    updateEnhancedIconPreview();
+                });
+            }
+
+            // Padding Slider
+            const paddingSlider = document.getElementById('paddingSlider');
+            const paddingValue = document.getElementById('paddingValue');
+            if (paddingSlider && paddingValue) {
+                paddingSlider.addEventListener('input', function(e) {
+                    previewSettings.padding = parseInt(e.target.value);
+                    paddingValue.textContent = previewSettings.padding + '%';
+                    updateEnhancedIconPreview();
+                });
+            }
+
+            // Thickness Slider
+            const thicknessSlider = document.getElementById('thicknessSlider');
+            const thicknessValue = document.getElementById('thicknessValue');
+            if (thicknessSlider && thicknessValue) {
+                thicknessSlider.addEventListener('input', (e) => {
+                    previewSettings.thickness = parseFloat(e.target.value);
+                    thicknessValue.textContent = previewSettings.thickness + '%';
+                    updateEnhancedIconPreview();
+                });
+            }
+
+            // Icon Color Controls
+            const iconColorPicker = document.getElementById('iconColorPicker');
+            const iconColorInput = document.getElementById('iconColorInput');
+            if (iconColorPicker && iconColorInput) {
+                iconColorPicker.addEventListener('input', (e) => {
+                    previewSettings.iconColor = e.target.value;
+                    iconColorInput.value = e.target.value;
+                    updateEnhancedIconPreview();
+                });
+                iconColorInput.addEventListener('input', (e) => {
+                    if (e.target.value.match(/^#[0-9A-Fa-f]{6}$/)) {
+                        previewSettings.iconColor = e.target.value;
+                        iconColorPicker.value = e.target.value;
+                        updateEnhancedIconPreview();
+                    }
+                });
+            }
+
+            // Background Color Controls
+            const backgroundColorPicker = document.getElementById('backgroundColorPicker');
+            const backgroundColorInput = document.getElementById('backgroundColorInput');
+            if (backgroundColorPicker && backgroundColorInput) {
+                backgroundColorPicker.addEventListener('input', (e) => {
+                    previewSettings.backgroundColor = e.target.value;
+                    backgroundColorInput.value = e.target.value;
+                    updateEnhancedIconPreview();
+                });
+                backgroundColorInput.addEventListener('input', (e) => {
+                    if (e.target.value.match(/^#[0-9A-Fa-f]{6}$/)) {
+                        previewSettings.backgroundColor = e.target.value;
+                        backgroundColorPicker.value = e.target.value;
+                        updateEnhancedIconPreview();
+                    }
+                });
+            }
+
+            // Trace Width Slider
+            const traceWidthSlider = document.getElementById('traceWidthSlider');
+            const traceWidthValue = document.getElementById('traceWidthValue');
+            if (traceWidthSlider && traceWidthValue) {
+                traceWidthSlider.addEventListener('input', (e) => {
+                    previewSettings.traceWidth = parseFloat(e.target.value);
+                    traceWidthValue.textContent = previewSettings.traceWidth + '%';
+                    updateEnhancedIconPreview();
+                });
+            }
+
+            // Rotation Buttons
+            document.querySelectorAll('[data-rotation]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('[data-rotation]').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    previewSettings.rotation = parseInt(e.target.dataset.rotation);
+                    updateEnhancedIconPreview();
+                });
+            });
+
+            // Flip/Mirror Buttons
+            const flipButtons = ['flipHorizontal', 'flipVertical', 'flipBoth', 'flipNone'];
+            flipButtons.forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        flipButtons.forEach(fid => {
+                            const fb = document.getElementById(fid);
+                            if (fb) fb.classList.remove('active');
+                        });
+                        btn.classList.add('active');
+                        previewSettings.flip = id.replace('flip', '').toLowerCase();
+                        updateEnhancedIconPreview();
+                    });
+                }
+            });
+
+            // BG Shape Buttons
+            const bgButtons = ['bgNone', 'bgSquare', 'bgRounded', 'bgCircle', 'bgDiamond'];
+            bgButtons.forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        console.log('BG Shape button clicked:', id);
+                        bgButtons.forEach(bid => {
+                            const bb = document.getElementById(bid);
+                            if (bb) bb.classList.remove('active');
+                        });
+                        btn.classList.add('active');
+                        previewSettings.bgShape = id.replace('bg', '').toLowerCase();
+                        console.log('Setting bgShape to:', previewSettings.bgShape);
+                        updateEnhancedIconPreview();
+                    });
+                }
+            });
+            
+            // Fill Mode Buttons
+            console.log('Setting up Fill Mode buttons...');
+            const fillButtons = ['fillOutline', 'fillSolid'];
+            fillButtons.forEach(id => {
+                const btn = document.getElementById(id);
+                console.log('Looking for button:', id, 'Found:', !!btn);
+                if (btn) {
+                    // Remove existing listeners to avoid duplicates
+                    btn.replaceWith(btn.cloneNode(true));
+                    const newBtn = document.getElementById(id);
+                    
+                    newBtn.addEventListener('click', () => {
+                        console.log('Fill Mode button clicked:', id);
+                        fillButtons.forEach(fid => {
+                            const fb = document.getElementById(fid);
+                            if (fb) fb.classList.remove('active');
+                        });
+                        newBtn.classList.add('active');
+                        const mode = id.replace('fill', '').toLowerCase();
+                        console.log('Setting fillMode to:', mode);
+                        setFillMode(mode);
+                    });
+                    console.log('Event listener added to:', id);
+                } else {
+                    console.error('Button not found:', id);
+                }
+            });
+        }
+
+        function toggleControlButton(buttonId, isActive) {
+            const button = document.getElementById(buttonId);
+            if (isActive) {
+                button.classList.add('active');
+            } else {
+                button.classList.remove('active');
+            }
+        }
+
+        function setRotation(degrees) {
+            previewSettings.rotation = degrees;
+            // Update UI
+            document.querySelectorAll('[id^="rotate"]').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('rotate' + degrees).classList.add('active');
+            updateEnhancedIconPreview();
+        }
+
+        function setDiagonal(degrees) {
+            previewSettings.diagonal = degrees;
+            // Update UI
+            document.querySelectorAll('[id^="diagonal"]').forEach(btn => btn.classList.remove('active'));
+            if (degrees === 0) document.getElementById('diagonalNone').classList.add('active');
+            else if (degrees > 0) document.getElementById('diagonalUp').classList.add('active');
+            else document.getElementById('diagonalDown').classList.add('active');
+            updateEnhancedIconPreview();
+        }
+
+        function setBgShape(shape) {
+            previewSettings.bgShape = shape;
+            // Update UI
+            document.querySelectorAll('[id^="bg"]').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('bg' + shape.charAt(0).toUpperCase() + shape.slice(1)).classList.add('active');
+            updateEnhancedIconPreview();
+        }
+
+        function setFillMode(mode) {
+            console.log('setFillMode called with mode:', mode);
+            previewSettings.fillMode = mode;
+            // Update UI
+            document.querySelectorAll('[id^="fill"]').forEach(btn => btn.classList.remove('active'));
+            const targetBtn = document.getElementById('fill' + mode.charAt(0).toUpperCase() + mode.slice(1));
+            if (targetBtn) {
+                targetBtn.classList.add('active');
+                console.log('Activated button:', targetBtn.id);
+            } else {
+                console.log('Button not found for mode:', mode);
+            }
+            updateEnhancedIconPreview();
+        }
+
+        function copyIconCode() {
+            console.log('Copy button clicked, currentIcon:', currentIcon);
+            
+            if (!currentIcon) {
+                console.log('No current icon selected');
+                alert('Please select an icon first');
+                return;
+            }
+            
+            const iconElement = document.querySelector('#iconDisplay svg');
+            console.log('Found icon element:', iconElement);
+            
+            if (iconElement) {
+                const svgCode = iconElement.outerHTML;
+                console.log('SVG code to copy:', svgCode.substring(0, 100) + '...');
+                
+                // Try modern clipboard API first
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(svgCode).then(() => {
+                        console.log('Copy successful');
+                        showCopyFeedback('COPIED!');
+                    }).catch(err => {
+                        console.error('Modern clipboard failed:', err);
+                        fallbackCopy(svgCode);
+                    });
+                } else {
+                    console.log('Modern clipboard API not available, using fallback');
+                    fallbackCopy(svgCode);
+                }
+            } else {
+                console.log('No SVG element found in #iconDisplay');
+                alert('No icon found to copy');
+            }
+        }
+        
+        function fallbackCopy(text) {
+            // Fallback method using textarea
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            textarea.setSelectionRange(0, 99999);
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    console.log('Fallback copy successful');
+                    showCopyFeedback('COPIED!');
+                } else {
+                    console.log('Fallback copy failed');
+                    showCopyFeedback('COPY FAILED');
+                }
+            } catch (err) {
+                console.error('Fallback copy error:', err);
+                showCopyFeedback('COPY FAILED');
+            }
+            
+            document.body.removeChild(textarea);
+        }
+        
+        function showCopyFeedback(message) {
+            const btn = document.getElementById('copySVGBtn');
+            if (btn) {
+                const originalText = btn.textContent;
+                btn.textContent = message;
+                btn.style.backgroundColor = message.includes('FAILED') ? '#f44336' : '#4caf50';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.backgroundColor = '';
+                }, 2000);
+            }
+        }
+
+        function downloadIconSVG() {
+            if (!currentIcon) return;
+            
+            const iconElement = document.querySelector('#iconDisplay svg');
+            if (iconElement) {
+                const svgCode = iconElement.outerHTML;
+                const blob = new Blob([svgCode], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${currentIcon.name || 'icon'}_${previewSettings.size}px.svg`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                // Show feedback
+                const btn = document.getElementById('exportSVGBtn');
+                if (btn) {
+                    const originalText = btn.textContent;
+                    btn.textContent = 'EXPORTED!';
+                    btn.style.backgroundColor = '#4caf50';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.backgroundColor = '';
+                    }, 2000);
+                }
+            }
+        }
+
+        function resetPreviewSettings() {
+            previewSettings = {
+                size: 48,
+                padding: 0,
+                thickness: 1.5,
+                iconColor: '#000000',
+                backgroundColor: '#f1f3f4',
+                fillMode: 'outline',
+                flipH: false,
+                flipV: false,
+                rotation: 0,
+                diagonal: 0,
+                bgShape: 'none',
+                traceWidth: 1.0
+            };
+
+            // Reset UI controls
+            document.getElementById('iconSizeSlider').value = previewSettings.size;
+            document.getElementById('iconSizeValue').textContent = previewSettings.size + 'px';
+            document.getElementById('paddingSlider').value = previewSettings.padding;
+            document.getElementById('paddingValue').textContent = previewSettings.padding + '%';
+            document.getElementById('thicknessSlider').value = previewSettings.thickness;
+            document.getElementById('thicknessValue').textContent = previewSettings.thickness + '%';
+            document.getElementById('iconColorPicker').value = previewSettings.iconColor;
+            document.getElementById('iconColorInput').value = previewSettings.iconColor;
+            document.getElementById('backgroundColorPicker').value = previewSettings.backgroundColor;
+            document.getElementById('backgroundColorInput').value = previewSettings.backgroundColor;
+            document.getElementById('traceWidthSlider').value = previewSettings.traceWidth;
+            document.getElementById('traceWidthValue').textContent = previewSettings.traceWidth + '%';
+
+            // Reset button states
+            document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('rotate0').classList.add('active');
+            document.getElementById('flipNone').classList.add('active');
+            document.getElementById('bgNone').classList.add('active');
+
+            updateEnhancedIconPreview();
+        }
+
+        async function loadIconLibrary() {
+            log('🔄 Loading icon library...', 'info');
+
+            const iconGrid = document.getElementById('iconGrid');
+            iconGrid.innerHTML = '';
+
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const categoryFilter = document.getElementById('categoryFilter').value;
+
+            log('🔍 Filtering icons. Search: "' + searchTerm + '", Category: "' + categoryFilter + '"', 'info');
+
+            let displayedCount = 0;
+            const filteredIcons = iconLibrary.filter(name => {
+                // Apply search filter
+                if (searchTerm && !name.toLowerCase().includes(searchTerm)) return false;
+
+                // Apply category filter
+                const category = getIconCategoryFallback(name);
+                if (categoryFilter && category !== categoryFilter) return false;
+
+                return true;
+            });
+
+            log('📊 Filtered to ' + filteredIcons.length + ' icons from ' + iconLibrary.length + ' total', 'info');
+
+            if (filteredIcons.length === 0) {
+                iconGrid.innerHTML = '<div class="empty-state">No icons found matching your criteria</div>';
+                updateStats(0);
+                return;
+            }
+
+            for (const name of filteredIcons) {
+                try {
+                    const iconItem = document.createElement('div');
+                    iconItem.className = 'icon-item';
+                    iconItem.setAttribute('data-icon-name', name);
+                    iconItem.addEventListener('click', () => openModal(name));
+
+                    // Create icon
+                    const icon = createIconElement(name, currentSize);
+
+                    // Create labels
+                    const nameLabel = document.createElement('div');
+                    nameLabel.className = 'icon-name';
+                    nameLabel.textContent = name;
+
+                    const categoryLabel = document.createElement('div');
+                    categoryLabel.className = 'icon-category';
+                    categoryLabel.textContent = getIconCategoryFallback(name);
+
+                    iconItem.appendChild(icon);
+                    iconItem.appendChild(nameLabel);
+                    iconItem.appendChild(categoryLabel);
+                    iconGrid.appendChild(iconItem);
+                    displayedCount++;
+                } catch (error) {
+                    log('❌ Error creating icon \'' + name + '\': ' + error.message, 'error');
+                }
+            }
+
+            updateStats(displayedCount);
+            log('✅ Displayed ' + displayedCount + ' icons', 'success');
+        }
+
+        function createIconElement(iconName, size = 'medium') {
+            const sizeMap = {
+                xs: '16px',
+                small: '20px',
+                medium: '24px',
+                large: '28px',
+                xl: '36px',
+                xxl: '48px'
+            };
+
+            const iconSize = sizeMap[size] || '24px';
+
+            // Check if it's a custom icon first
+            if (window.customIcons && window.customIcons[iconName]) {
+                const customIcon = window.customIcons[iconName];
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = customIcon.svgContent;
+                
+                const svgElement = wrapper.querySelector('svg');
+                if (svgElement) {
+                    svgElement.style.width = iconSize;
+                    svgElement.style.height = iconSize;
+                    svgElement.style.display = 'block';
+                    return svgElement;
+                }
+            }
+
+            // Try built-in icon manager
+            if (Icon && Icon.create) {
+                try {
+                    return Icon.create(iconName, { 
+                        size: iconSize, 
+                        color: 'currentColor',
+                        fillMode: galleryFillMode,
+                        thickness: 0.8
+                    });
+                } catch (error) {
+                    log('❌ Failed to create icon \'' + iconName + '\': ' + error.message, 'error');
+                }
+            }
+
+            // Fallback placeholder
+            const placeholder = document.createElement('div');
+            placeholder.style.cssText = 
+                'width: ' + iconSize + '; ' +
+                'height: ' + iconSize + '; ' +
+                'background: #f0f0f0; ' +
+                'border: 2px dashed #ccc; ' +
+                'border-radius: 4px; ' +
+                'display: flex; ' +
+                'align-items: center; ' +
+                'justify-content: center; ' +
+                'font-size: 12px; ' +
+                'color: #999;';
+            placeholder.textContent = '?';
+            return placeholder;
+        }
+
+        function selectIcon(iconName) {
+            // Set current icon
+            currentIcon = { name: iconName };
+
+            // Update UI
+            document.querySelectorAll('.icon-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+
+            const selectedItem = document.querySelector(`[data-icon-name="${iconName}"]`);
+            if (selectedItem) {
+                selectedItem.classList.add('selected');
+            }
+
+            // Update preview with selected icon
+            updateEnhancedIconPreview();
+        }
+
+        // Enhanced preview functionality
+        let currentIcon = null;
+        let previewSettings = {
+            size: 48,
+            padding: 0,
+            thickness: 1.5,
+            iconColor: '#000000',
+            backgroundColor: '#f1f3f4',
+            flip: 'none', // 'none', 'horizontal', 'vertical', 'both'
+            rotation: 0,
+            bgShape: 'none',
+            traceWidth: 1.0
+        };
+
+        function updateEnhancedIconPreview() {
+            console.log('updateEnhancedIconPreview called for icon:', currentIcon ? currentIcon.name : 'none');
+            console.log('Current fillMode:', previewSettings.fillMode);
+            if (!currentIcon) return;
+
+            try {
+                const iconDisplay = document.getElementById('iconDisplay');
+                const iconPreview = document.getElementById('iconPreview');
+                const previewBackground = document.getElementById('previewBackground');
+                
+                if (!iconDisplay || !iconPreview || !previewBackground) {
+                    console.error('Preview elements not found');
+                    return;
+                }
+                
+                // Create the icon with current settings
+                const icon = createEnhancedIconElement(currentIcon.name);
+                
+                iconDisplay.innerHTML = '';
+                iconDisplay.appendChild(icon);
+
+                // Apply background color to the preview container
+                iconPreview.style.backgroundColor = previewSettings.backgroundColor;
+
+                // Apply background shape
+                previewBackground.className = 'preview-background';
+                if (previewSettings.bgShape && previewSettings.bgShape !== 'none') {
+                    previewBackground.classList.add('bg-' + previewSettings.bgShape);
+                }
+
+                // Apply transformations to icon
+                let transform = '';
+                
+                if (previewSettings.flip === 'horizontal' || previewSettings.flip === 'both') {
+                    transform += 'scaleX(-1) ';
+                }
+                if (previewSettings.flip === 'vertical' || previewSettings.flip === 'both') {
+                    transform += 'scaleY(-1) ';
+                }
+                if (previewSettings.rotation !== 0) {
+                    transform += `rotate(${previewSettings.rotation}deg) `;
+                }
+
+                icon.style.transform = transform;
+                icon.style.padding = `${previewSettings.padding}%`;
+
+            } catch (error) {
+                const iconDisplay = document.getElementById('iconDisplay');
+                if (iconDisplay) {
+                    iconDisplay.innerHTML = `<div style="color: #666;">Error: ${error.message}</div>`;
+                }
+            }
+        }
+
+        function createEnhancedIconElement(iconName) {
+            if (Icon && Icon.create) {
+                try {
+                    // 使用组件的create方法，传递完整的样式配置
+                    const icon = Icon.create(iconName, { 
+                        size: previewSettings.size + 'px',
+                        color: previewSettings.iconColor,
+                        fillMode: previewSettings.fillMode,
+                        thickness: previewSettings.thickness,
+                        traceWidth: previewSettings.traceWidth
+                    });
+                    
+                    return icon;
+                } catch (error) {
+                    console.error('Failed to create icon:', error);
+                }
+            }
+
+            // Fallback placeholder
+            const placeholder = document.createElement('div');
+            placeholder.style.cssText = 
+                `width: ${previewSettings.size}px; ` +
+                `height: ${previewSettings.size}px; ` +
+                'background: #f0f0f0; ' +
+                'border: 2px dashed #ccc; ' +
+                'border-radius: 4px; ' +
+                'display: flex; ' +
+                'align-items: center; ' +
+                'justify-content: center; ' +
+                'font-size: 12px; ' +
+                'color: #999;';
+            placeholder.textContent = '?';
+            return placeholder;
+        }
+
+        function updateCodePreview() {
+            if (!selectedIcon) {
+                const codePreview = document.getElementById('codePreview');
+                codePreview.classList.add('hidden');
+                return;
+            }
+
+            const codeType = document.getElementById('codeTypeSelector').value;
+            const codePreview = document.getElementById('codePreview');
+            codePreview.classList.remove('hidden');
+
+            let code = '';
+
+            switch (codeType) {
+                case 'javascript':
+                    code = '// Create icon using the Icon manager\n' +
+                           'const icon = Icon.create(\'' + selectedIcon + '\', { \n' +
+                           '    size: \'24px\', \n' +
+                           '    color: \'currentColor\' \n' +
+                           '});\n\n' +
+                           '// Append to DOM\n' +
+                           'document.getElementById(\'container\').appendChild(icon);';
+                    break;
+
+                case 'html':
+                    code = '<!-- Include the icon manager script -->\n' +
+                           '<script src="./index.js"><\/script>\n\n' +
+                           '<!-- Create a container for the icon -->\n' +
+                           '<div id="icon-container"><\/div>\n\n' +
+                           '<script>\n' +
+                           'const icon = Icon.create(\'' + selectedIcon + '\', { size: \'24px\' });\n' +
+                           'document.getElementById(\'icon-container\').appendChild(icon);\n' +
+                           '<\/script>';
+                    break;
+            }
+
+            codePreview.textContent = code;
+        }
+
+        function updateStats(displayed = null) {
+            const totalIconsElement = document.getElementById('totalIcons');
+            if (totalIconsElement) {
+                totalIconsElement.textContent = iconLibrary.length;
+            }
+
+            const totalCategoriesElement = document.getElementById('totalCategories');
+            if (totalCategoriesElement) {
+                totalCategoriesElement.textContent = categories.size;
+            }
+
+            if (displayed !== null) {
+                const displayedIconsElement = document.getElementById('displayedIcons');
+                if (displayedIconsElement) {
+                    displayedIconsElement.textContent = displayed;
+                }
+            }
+        }
+
+        // Management functions
+        async function copyIconName() {
+            if (!selectedIcon) return;
+
+            try {
+                await navigator.clipboard.writeText(selectedIcon);
+                log('📋 Copied icon name: ' + selectedIcon, 'success');
+            } catch (error) {
+                log('❌ Failed to copy: ' + error.message, 'error');
+            }
+        }
+
+        async function copyIconCode() {
+            if (!selectedIcon) return;
+
+            const codeType = document.getElementById('codeTypeSelector').value;
+            const code = document.getElementById('codePreview').textContent;
+
+            try {
+                await navigator.clipboard.writeText(code);
+                log('💾 Copied ' + codeType + ' code for: ' + selectedIcon, 'success');
+            } catch (error) {
+                log('❌ Failed to copy code: ' + error.message, 'error');
+            }
+        }
+
+        function downloadIconSVG() {
+            if (!selectedIcon) return;
+
+            try {
+                const svgElement = Icon.create(selectedIcon, { size: '24px' });
+                const svgString = svgElement.outerHTML;
+
+                const blob = new Blob([svgString], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${selectedIcon}.svg`;
+                link.click();
+
+                URL.revokeObjectURL(url);
+                log('📥 Downloaded: ' + selectedIcon + '.svg', 'success');
+            } catch (error) {
+                log('❌ Download failed: ' + error.message, 'error');
+            }
+        }
+
+        // Helper functions
+        function getIconCategoryFallback(iconName) {
+            // Try to use the imported function first
+            if (typeof getIconCategory === 'function') {
+                return getIconCategory(iconName);
+            }
+            
+            // Fallback categorization based on icon name
+            if (['newChat', 'delete', 'send', 'attach', 'search'].includes(iconName)) return 'core';
+            if (['play', 'pause', 'stop', 'record'].includes(iconName)) return 'media';
+            if (['home', 'back', 'forward', 'menu'].includes(iconName)) return 'navigation';
+            if (['user', 'avatar', 'profile'].includes(iconName)) return 'users';
+            if (['edit', 'copy', 'paste', 'save'].includes(iconName)) return 'content';
+            return 'ui';
+        }
+
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, setting up initial event listeners');
+            
+            // Set up copy and export buttons immediately
+            const copySVGBtn = document.getElementById('copySVGBtn');
+            const exportSVGBtn = document.getElementById('exportSVGBtn');
+            
+            if (copySVGBtn) {
+                copySVGBtn.addEventListener('click', function() {
+                    console.log('Copy button clicked via DOM ready handler');
+                    copyIconCode();
+                });
+            }
+            
+            if (exportSVGBtn) {
+                exportSVGBtn.addEventListener('click', function() {
+                    console.log('Export button clicked via DOM ready handler');
+                    downloadIconSVG();
+                });
+            }
+            
+            // Load icon library
+            loadIconLibrary();
+            
+            // Initialize gallery fill mode toggle button
+            const galleryToggleBtn = document.getElementById('galleryFillModeToggle');
+            if (galleryToggleBtn) {
+                galleryToggleBtn.setAttribute('data-mode', galleryFillMode);
+                const toggleIcon = galleryToggleBtn.querySelector('svg circle');
+                if (toggleIcon && galleryFillMode === 'outline') {
+                    toggleIcon.setAttribute('fill', 'none');
+                }
+            }
+            
+            // Initialize fill mode to outline
+            setFillMode('outline');
+        });
+
+        // Simple logging function (console only)
+        function log(message, type) {
+            type = type || 'info';
+            var logMethod = type === 'error' ? 'error' : 'log';
+            if (window.console && window.console[logMethod]) {
+                window.console[logMethod]('[Icon Manager] ' + message);
+            }
+        }
+
+        // Compatibility check function
+        function checkBrowserCompatibility() {
+            var isCompatible = true;
+            var issues = [];
+
+            // Check for basic DOM methods
+            if (!document.getElementById) {
+                issues.push('getElementById not supported');
+                isCompatible = false;
+            }
+
+            // Check for addEventListener
+            if (!document.addEventListener) {
+                issues.push('addEventListener not supported');
+                isCompatible = false;
+            }
+
+            // Check for querySelector (optional but helpful)
+            if (!document.querySelector) {
+                issues.push('querySelector not supported (non-critical)');
+                log('querySelector not available, using fallback methods', 'warn');
+            }
+
+            if (!isCompatible) {
+                var errorMsg = 'Browser compatibility issues detected: ' + issues.join(', ');
+                log(errorMsg, 'error');
+                alert(errorMsg + '\n\nPlease use a modern browser like Chrome, Firefox, Safari, or Edge.');
+                return false;
+            }
+
+            return true;
+        }
+
+        // Initialize with compatibility check
+        if (checkBrowserCompatibility()) {
+            log('Browser compatibility check passed', 'info');
+        }
+    </script>
+</body>
+</html>

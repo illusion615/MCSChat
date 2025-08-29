@@ -21,7 +21,8 @@ function updateButtonIcon(button, iconName) {
     // Use global Icon manager for consistent styling
     const iconElement = window.Icon.create(iconName, {
         size: '18px',
-        color: 'currentColor'
+        color: 'currentColor',
+        fillMode: iconName === 'user' ? 'outline' : 'auto'
     });
     
     // Replace existing content with new icon
@@ -38,6 +39,9 @@ export class AICompanion {
         this.titleUpdateTimeout = null;
         this.currentConversationTitle = 'Agent Conversation';
         this.conversationContext = [];
+
+        // Clean any corrupted localStorage data on initialization
+        this.cleanCorruptedLocalStorage();
 
         // Current thinking message tracking for main chat
         this.currentThinkingMessage = null;
@@ -277,7 +281,7 @@ export class AICompanion {
             isEnabledType: typeof this.isEnabled
         });
 
-        // Load enhanced speech settings
+        // Load enhanced speech settings with safe parsing
         this.speechSettings.autoSpeak = localStorage.getItem('speechAutoSpeak') === 'true';
         this.speechSettings.voiceInput = localStorage.getItem('speechVoiceInput') === 'true';
         this.speechSettings.provider = localStorage.getItem('speechProvider') || 'web_speech';
@@ -286,13 +290,12 @@ export class AICompanion {
         this.speechSettings.speechVolume = parseFloat(localStorage.getItem('speechVolume')) || 1.0;
         this.speechSettings.naturalness = parseFloat(localStorage.getItem('speechNaturalness')) || 0.8;
 
-        // Load Azure settings
+        // Load Azure settings with enhanced error handling
         const azureSettings = localStorage.getItem('speechAzureSettings');
         if (azureSettings) {
-            try {
-                this.speechSettings.azureSettings = { ...this.speechSettings.azureSettings, ...JSON.parse(azureSettings) };
-            } catch (error) {
-                console.warn('[AICompanion] Failed to parse Azure settings:', error);
+            const parsedAzure = Utils.safeParseLocalStorage('speechAzureSettings', {}, 'object');
+            if (parsedAzure && Object.keys(parsedAzure).length > 0) {
+                this.speechSettings.azureSettings = { ...this.speechSettings.azureSettings, ...parsedAzure };
             }
         }
 
@@ -301,14 +304,16 @@ export class AICompanion {
         this.speechSettings.enableLanguageDetection = localStorage.getItem('speechEnableLanguageDetection') === 'true';
         this.speechSettings.continuousLanguageDetection = localStorage.getItem('speechContinuousLanguageDetection') === 'true';
 
-        const candidateLanguages = localStorage.getItem('speechCandidateLanguages');
+        const candidateLanguages = Utils.safeParseLocalStorage('speechCandidateLanguages', null, 'array');
         if (candidateLanguages) {
-            try {
-                this.speechSettings.candidateLanguages = JSON.parse(candidateLanguages);
-            } catch (error) {
-                console.warn('[AICompanion] Failed to parse candidate languages:', error);
-            }
+            this.speechSettings.candidateLanguages = candidateLanguages;
         }
+
+        // Load thinking display delay setting (in seconds)
+        const thinkingDelayValue = localStorage.getItem('aiCompanionThinkingDisplayDelay');
+        this.thinkingDisplayDelay = thinkingDelayValue ? parseFloat(thinkingDelayValue) : 2; // Default to 2 seconds
+        // Clamp the value between 0 and 10 seconds for reasonable limits
+        this.thinkingDisplayDelay = Math.max(0, Math.min(10, this.thinkingDisplayDelay));
 
         // Sync Azure settings to speech engine on initialization
         if (speechEngine) {
@@ -328,7 +333,34 @@ export class AICompanion {
         console.log('[AICompanion] Settings loaded:', {
             enabled: this.isEnabled,
             provider: this.currentProvider,
-            speechSettings: this.speechSettings
+            speechSettings: this.speechSettings,
+            thinkingDisplayDelay: this.thinkingDisplayDelay
+        });
+    }
+
+    /**
+     * Clean corrupted localStorage data that might cause JSON parsing errors
+     * @private
+     */
+    cleanCorruptedLocalStorage() {
+        const keysToCheck = [
+            'speechAzureSettings',
+            'speechCandidateLanguages',
+            'aiCompanion_modelTokens',
+            'aiCompanion_userPrompts',
+            'knowledgeHub_documents'
+        ];
+
+        keysToCheck.forEach(key => {
+            try {
+                const value = localStorage.getItem(key);
+                if (value && (value === '[object Object]' || value === '[object Array]')) {
+                    console.warn(`[AICompanion] Cleaning corrupted localStorage key: ${key} (value: ${value})`);
+                    localStorage.removeItem(key);
+                }
+            } catch (error) {
+                console.warn(`[AICompanion] Error checking localStorage key ${key}:`, error);
+            }
         });
     }
 
@@ -1672,6 +1704,57 @@ Start with phrases like: "Synthesizing our discussion...", "Bringing together th
     }
 
     /**
+     * Determine if an agent response should be filtered based on AI analysis
+     * @param {string} agentResponse - The agent response to evaluate
+     * @returns {boolean} True if the response should be filtered (not shown)
+     */
+    shouldFilterAgentResponse(agentResponse) {
+        // Use AI analysis result if available
+        if (this.lastAnalysisResult) {
+            const shouldFilter = !this.lastAnalysisResult.shouldShowAgentResponse;
+            console.log('[AICompanion] Using AI analysis for filtering decision:', {
+                shouldFilter,
+                responseQuality: this.lastAnalysisResult.responseQuality,
+                responseLength: agentResponse?.length || 0
+            });
+            
+            // Clear the analysis result after use
+            this.lastAnalysisResult = null;
+            return shouldFilter;
+        }
+
+        // Fallback to basic filtering for short or low-quality responses
+        if (!agentResponse || agentResponse.trim().length === 0) {
+            console.log('[AICompanion] Filtering empty response');
+            return true;
+        }
+
+        // Filter very short responses that don't add value
+        const cleanText = agentResponse.trim();
+        if (cleanText.length < 20) {
+            console.log('[AICompanion] Filtering short response:', cleanText);
+            return true;
+        }
+
+        // Filter generic acknowledgments
+        const genericPatterns = [
+            /^(好的|了解|知道了|收到|明白了)[\s。！]*$/i,
+            /^(okay?|got it|understood|i see)[\s.!]*$/i,
+            /^(yes|no|ok)[\s.!]*$/i
+        ];
+
+        for (const pattern of genericPatterns) {
+            if (pattern.test(cleanText)) {
+                console.log('[AICompanion] Filtering generic response:', cleanText);
+                return true;
+            }
+        }
+
+        console.log('[AICompanion] Agent response passed filter');
+        return false;
+    }
+
+    /**
      * Stream only new content that was added to the thinking message
      * @param {number} startIndex - Index to start streaming from
      * @param {string} fullContent - Complete content including new text
@@ -1713,21 +1796,30 @@ Start with phrases like: "Synthesizing our discussion...", "Bringing together th
 
     /**
      * End thinking simulation naturally when agent response arrives
+     * @param {string} agentResponseContent - Optional agent response content for analysis
+     * @param {string} userMessage - Original user message for context
      * @public
      */
-    endThinkingSimulationNaturally() {
+    endThinkingSimulationNaturally(agentResponseContent = null, userMessage = null) {
         console.log('[AICompanion] Received request to end thinking simulation naturally');
         console.log('[AICompanion] Current simulation state:', {
             isThinkingSimulationActive: this.isThinkingSimulationActive,
-            shouldEndThinkingNaturally: this.shouldEndThinkingNaturally
+            shouldEndThinkingNaturally: this.shouldEndThinkingNaturally,
+            hasAgentResponse: !!agentResponseContent,
+            hasUserMessage: !!userMessage
         });
 
-        this.shouldEndThinkingNaturally = true;
+        // Store for intelligent analysis
+        this.pendingAnalysis = {
+            agentResponse: agentResponseContent,
+            userMessage: userMessage || this.currentUserMessage,
+            timestamp: Date.now()
+        };
 
-        // Also immediately stop the main simulation flag for faster interruption
+        this.shouldEndThinkingNaturally = true;
         this.isThinkingSimulationActive = false;
 
-        console.log('[AICompanion] Thinking simulation flags set to end naturally');
+        console.log('[AICompanion] Thinking simulation flags set to end naturally with pending analysis');
     }
 
     /**
@@ -1755,31 +1847,74 @@ Start with phrases like: "Synthesizing our discussion...", "Bringing together th
      * @param {HTMLElement} messageContainer - Message container (can be null)
      * @private
      */
-    endThinkingNaturallyInMainChat(messageDiv, currentText, messageContainer) {
+    /**
+     * End thinking simulation naturally in main chat with intelligent AI analysis
+     * @param {HTMLElement} messageDiv - Message div
+     * @param {string} currentText - Current thinking text
+     * @param {HTMLElement} messageContainer - Message container (can be null)
+     * @private
+     */
+    async endThinkingNaturallyInMainChat(messageDiv, currentText, messageContainer) {
         if (!messageDiv) return;
 
-        // Enhanced language detection - check both stored user message and existing thinking content
-        const isChineseQuestion = (this.currentUserMessage && /[\u4e00-\u9fff]/.test(this.currentUserMessage)) ||
-            (currentText && /[\u4e00-\u9fff]/.test(currentText));
+        console.log('[AICompanion] Ending thinking naturally with intelligent conclusion');
 
-        console.log('[AICompanion] Language detection for completion:', {
-            currentUserMessage: this.currentUserMessage,
-            hasChineseInUserMessage: this.currentUserMessage && /[\u4e00-\u9fff]/.test(this.currentUserMessage),
-            hasChineseInThinkingContent: currentText && /[\u4e00-\u9fff]/.test(currentText),
-            finalDetection: isChineseQuestion
-        });
+        try {
+            let conclusion = '';
+            let shouldProcessAgentResponse = true;
 
-        const completionMessage = isChineseQuestion ?
-            '💡 完美！我已经准备好回答了。' :
-            '💡 Perfect! I have my thoughts ready for the response.';
+            // Use AI analysis if we have pending analysis data
+            if (this.pendingAnalysis && this.pendingAnalysis.agentResponse) {
+                console.log('[AICompanion] Performing intelligent AI analysis...');
+                
+                const analysis = await this.generateIntelligentThinkingConclusion(
+                    this.pendingAnalysis.agentResponse,
+                    this.pendingAnalysis.userMessage
+                );
 
-        // Add a natural completion message with proper formatting
-        const completionText = currentText + (currentText ? '\n\n' : '') + completionMessage;
-        messageDiv.innerHTML = this.formatThinkingContentForHTML(completionText);
-        this.scrollMainChatToBottom();
+                conclusion = analysis.conclusion;
+                shouldProcessAgentResponse = analysis.shouldShowAgentResponse;
 
-        // Thinking message remains as part of the conversation - no auto-clearing
-        console.log('[AICompanion] Thinking simulation ended naturally, message preserved in conversation');
+                // Store the analysis result for message filtering
+                this.lastAnalysisResult = analysis;
+
+                console.log('[AICompanion] AI analysis completed:', {
+                    conclusion: conclusion.substring(0, 100),
+                    shouldShow: shouldProcessAgentResponse,
+                    quality: analysis.responseQuality
+                });
+
+                // Clear pending analysis
+                this.pendingAnalysis = null;
+            } else {
+                // Fallback conclusion
+                const isChineseQuestion = (this.currentUserMessage && /[\u4e00-\u9fff]/.test(this.currentUserMessage)) ||
+                    (currentText && /[\u4e00-\u9fff]/.test(currentText));
+                conclusion = isChineseQuestion ?
+                    '思考完成，正在为您整理信息...' :
+                    'Analysis complete, organizing information for you...';
+            }
+
+            // Format the final thinking content with intelligent conclusion
+            const finalText = currentText + (currentText ? '\n\n' : '') + conclusion;
+            messageDiv.innerHTML = this.formatThinkingContentForHTML(finalText);
+            this.scrollMainChatToBottom();
+
+            console.log('[AICompanion] Intelligent thinking conclusion applied');
+        } catch (error) {
+            console.error('[AICompanion] Error in intelligent conclusion generation:', error);
+            
+            // Fallback to simple conclusion
+            const isChineseQuestion = (this.currentUserMessage && /[\u4e00-\u9fff]/.test(this.currentUserMessage)) ||
+                (currentText && /[\u4e00-\u9fff]/.test(currentText));
+            const fallbackConclusion = isChineseQuestion ?
+                '思考完成，正在查询相关信息...' :
+                'Analysis complete, searching for information...';
+            
+            const finalText = currentText + (currentText ? '\n\n' : '') + fallbackConclusion;
+            messageDiv.innerHTML = this.formatThinkingContentForHTML(finalText);
+            this.scrollMainChatToBottom();
+        }
     }
 
     /**
@@ -1898,22 +2033,25 @@ Start with phrases like: "Synthesizing our discussion...", "Bringing together th
             : 'CRITICAL: The user asked in English, so ALL thinking content must be in English only. Do not use any Chinese, Italian, or other languages.';
 
         // Enhanced thinking prompt that leverages conversation context
-        const thinkingPrompt = `You are an AI assistant showing your thinking process. Generate 3-4 thoughtful, insightful thinking statements that demonstrate deep analysis of the user's request within the context of the ongoing conversation.
+        const thinkingPrompt = `你是一个智慧博学且富有同理心的AI助手，正在展示你的思考过程。你需要生成3-4条体贴入微、富有洞察力的思考内容，体现你对用户请求的深度理解和分析。
 
 ${languageInstruction}
 
 ${contextPart}
 
-Requirements:
-1. Each thinking statement should be one complete sentence
-2. Show progressive reasoning and analysis
-3. Consider conversation context and continuity when available
-4. Demonstrate understanding of how the current question fits into the broader discussion
-5. Be specific and insightful, not generic
-6. Focus on what would be most helpful to understand or clarify
-7. Each statement should start with phrases like: "Let me analyze...", "I need to consider...", "Building on our previous discussion...", "Given the conversation context...", etc.
+思考风格要求：
+1. 使用第一人称视角，避免说"用户提出……问题"，而是用"你想知道……"的方式
+2. 要有同理心，先理解用户输入的潜在意图和情感状态，表达你的关切和理解
+3. 基于你的通用知识对问题进行初步分析，说明你将要查询知识库的哪些方面
+4. 每条思考都应该是完整的一句话，展现渐进式推理
+5. 体现你是在帮助用户缓解等待焦虑，让用户感受到你正在认真思考
 
-Generate exactly 3-4 thinking statements, one per line:`;
+思考内容示例风格：
+- 对于技术问题："啊，真抱歉听到这样的问题，这肯定对您的工作造成了困扰吧，让我来仔细想想可能的原因和解决方案..."
+- 对于开放讨论："嗯，很有趣的想法！是因为遇到了什么特殊情况才有这样的思考吗？让我基于我的知识来分析一下这个可能性..."
+- 对于查询需求："你想了解这个话题，我理解这对你很重要。让我先基于我的理解分析一下，然后查询知识库中相关的详细信息..."
+
+请生成恰好3-4条思考语句，每行一条：`;
 
         try {
             let thinkingContent = '';
@@ -2108,77 +2246,87 @@ Generate exactly 3-4 thinking statements, one per line:`;
 
         // Initial analysis thought (language-aware)
         if (isChineseQuestion) {
-            thoughts.push(`🤔 让我思考一下这个问题："${userMessage}"`);
+            thoughts.push(`我注意到你想了解"${userMessage.length > 50 ? userMessage.substring(0, 50) + '...' : userMessage}"这个问题`);
         } else {
-            thoughts.push(`🤔 Let me think about this question: "${userMessage}"`);
+            thoughts.push(`I see you want to know about "${userMessage.length > 50 ? userMessage.substring(0, 50) + '...' : userMessage}"`);
         }
 
         // Question-specific thinking patterns (language-aware)
         if (isChineseQuestion) {
             switch (questionType) {
                 case 'technical':
-                    thoughts.push('这似乎是一个技术问题。我应该考虑技术细节和最佳实践...');
-                    thoughts.push('让我想想如何最准确和有用地解释这个问题...');
+                    thoughts.push('啊，这是个技术问题呢。这肯定影响到你的工作了吧，让我仔细想想技术细节和最佳解决方案...');
+                    thoughts.push('我会基于我的技术知识先分析一下，然后查询知识库中的具体技术文档来给你最准确的答案...');
                     break;
                 case 'howto':
-                    thoughts.push('这是一个"如何做"的问题。我应该提供逐步指导...');
-                    thoughts.push('我要确保涵盖所有重要步骤和潜在问题...');
+                    thoughts.push('你想学习如何操作，这很棒！让我想想最清晰的步骤指导...');
+                    thoughts.push('我会查询知识库中的操作手册，确保给你完整且安全的操作流程...');
                     break;
                 case 'troubleshooting':
-                    thoughts.push('这看起来像是一个故障排除问题。让我考虑常见原因和解决方案...');
-                    thoughts.push('我应该考虑诊断和解决这个问题的系统方法...');
+                    thoughts.push('真抱歉听到你遇到了这个问题，这肯定让人感到困扰。让我来分析可能的原因...');
+                    thoughts.push('我将基于常见故障模式分析，然后查询知识库中的故障排除指南来帮助你...');
                     break;
                 case 'conceptual':
-                    thoughts.push('这是在询问概念。我应该用例子清楚地解释...');
-                    thoughts.push('让我想想如何以易于理解的方式分解这个问题...');
+                    thoughts.push('你想深入理解这个概念，很好的学习态度！让我想想如何用最容易理解的方式解释...');
+                    thoughts.push('我会从基础概念开始分析，然后查询知识库中的详细理论资料给你全面的解答...');
                     break;
                 case 'comparison':
-                    thoughts.push('这是要我比较选项。我应该考虑优缺点...');
-                    thoughts.push('让我想想关键差异和用例...');
+                    thoughts.push('你需要比较这些选项来做决定，我理解选择的重要性。让我分析各自的优缺点...');
+                    thoughts.push('我会查询知识库中的对比分析资料，给你最客观的比较结果...');
+                    break;
+                case 'exploratory':
+                    thoughts.push('嗯，很有趣的想法！是因为遇到了什么特殊情况才有这样的思考吗？让我基于我的知识来分析一下这个可能性...');
+                    thoughts.push('我会从多个角度来探讨这个话题，也会查询知识库中相关的研究和案例...');
                     break;
                 default:
-                    thoughts.push('让我分析什么对这个问题最有帮助...');
-                    thoughts.push('我想提供一个全面和有用的回答...');
+                    thoughts.push('你的问题很有意思，让我基于我的理解先分析一下...');
+                    thoughts.push('我将查询知识库中相关的资料，确保给你最全面和有用的回答...');
             }
         } else {
             switch (questionType) {
                 case 'technical':
-                    thoughts.push('This seems like a technical question. I should consider the technical details and best practices...');
-                    thoughts.push('Let me think about the most accurate and helpful way to explain this...');
+                    thoughts.push('Oh, this is a technical issue. I can imagine this might be affecting your work. Let me think through the technical details and best solutions...');
+                    thoughts.push('I\'ll analyze this based on my technical knowledge first, then query the knowledge base for specific technical documentation...');
                     break;
                 case 'howto':
-                    thoughts.push('This is a "how-to" question. I should provide step-by-step guidance...');
-                    thoughts.push('I want to make sure I cover all the important steps and potential issues...');
+                    thoughts.push('You want to learn how to do this - that\'s great! Let me think of the clearest step-by-step guidance...');
+                    thoughts.push('I\'ll check the knowledge base for operation manuals to ensure I give you complete and safe procedures...');
                     break;
                 case 'troubleshooting':
-                    thoughts.push('This looks like a troubleshooting question. Let me consider common causes and solutions...');
-                    thoughts.push('I should think about systematic approaches to diagnose and fix this...');
+                    thoughts.push('I\'m sorry to hear you\'re experiencing this issue. That must be frustrating. Let me analyze the possible causes...');
+                    thoughts.push('I\'ll work through common failure patterns and then check the knowledge base troubleshooting guides to help you...');
                     break;
                 case 'conceptual':
-                    thoughts.push('This is asking about concepts. I should explain clearly with examples...');
-                    thoughts.push('Let me think about how to break this down in an understandable way...');
+                    thoughts.push('You want to understand this concept deeply - that\'s a great learning approach! Let me think of the most understandable way to explain...');
+                    thoughts.push('I\'ll start with the fundamentals and then check the knowledge base for detailed theoretical materials...');
                     break;
                 case 'comparison':
-                    thoughts.push('This is asking me to compare options. I should consider pros and cons...');
-                    thoughts.push('Let me think about the key differences and use cases...');
+                    thoughts.push('You need to compare these options to make a decision. I understand how important making the right choice is. Let me analyze the pros and cons...');
+                    thoughts.push('I\'ll check the knowledge base for comparative analysis to give you the most objective comparison...');
+                    break;
+                case 'exploratory':
+                    thoughts.push('Hmm, that\'s an interesting idea! Is this because of some special situation you\'ve encountered? Let me analyze this possibility based on my knowledge...');
+                    thoughts.push('I\'ll explore this topic from multiple angles and also check the knowledge base for relevant research and cases...');
                     break;
                 default:
-                    thoughts.push('Let me analyze what would be most helpful for this question...');
-                    thoughts.push('I want to provide a comprehensive and useful response...');
+                    thoughts.push('That\'s an interesting question you\'ve raised. Let me analyze this based on my understanding...');
+                    thoughts.push('I\'ll query the knowledge base for relevant materials to ensure I give you the most comprehensive and helpful response...');
             }
         }
 
         // Add context-aware thoughts based on conversation history
         const conversationContext = this.getConversationContextForThinking();
-        if (conversationContext) {
-            thoughts.push(`Based on our previous conversation about ${conversationContext}, I should consider how this relates...`);
+        if (conversationContext && isChineseQuestion) {
+            thoughts.push(`结合我们之前讨论的${conversationContext}，我想这个问题可能是想深入了解相关内容...`);
+        } else if (conversationContext) {
+            thoughts.push(`Considering our previous discussion about ${conversationContext}, I think this question might be seeking deeper understanding...`);
         }
 
         // Final preparation thought (language-aware)
         if (isChineseQuestion) {
-            thoughts.push('好的，我想我有了一个很好的方法。让我制定我的回答...');
+            thoughts.push('好的，我已经有了清晰的思路。现在让我查询相关资料，为你准备最有帮助的回答...');
         } else {
-            thoughts.push('Alright, I think I have a good approach. Let me formulate my response...');
+            thoughts.push('Alright, I have a clear approach now. Let me query the relevant materials to prepare the most helpful response for you...');
         }
 
         // Randomly select 3-4 thoughts to keep it natural and not too long
@@ -2195,21 +2343,41 @@ Generate exactly 3-4 thinking statements, one per line:`;
      */
     analyzeQuestionType(question) {
         const lowerQuestion = question.toLowerCase();
-
-        if (lowerQuestion.includes('how to') || lowerQuestion.includes('how do') || lowerQuestion.includes('how can')) {
-            return 'howto';
-        }
-        if (lowerQuestion.includes('error') || lowerQuestion.includes('not working') || lowerQuestion.includes('problem') || lowerQuestion.includes('issue')) {
+        
+        // Check for troubleshooting/problem indicators first (higher emotional priority)
+        if (lowerQuestion.match(/\b(error|fail|failing|not working|broken|doesn't work|problem|issue|trouble|bug|crash|stuck|help|emergency|urgent)\b/) ||
+            lowerQuestion.match(/[\u4e00-\u9fff].*(错误|失败|不工作|不能|无法|问题|故障|坏了|帮助|紧急)/) ) {
             return 'troubleshooting';
         }
-        if (lowerQuestion.includes('vs') || lowerQuestion.includes('versus') || lowerQuestion.includes('difference between') || lowerQuestion.includes('compare')) {
+        
+        // Check for how-to questions
+        if (lowerQuestion.includes('how to') || lowerQuestion.includes('how do') || lowerQuestion.includes('how can') ||
+            lowerQuestion.match(/[\u4e00-\u9fff].*(如何|怎么|怎样)/) ) {
+            return 'howto';
+        }
+        
+        // Check for comparison questions
+        if (lowerQuestion.includes('vs') || lowerQuestion.includes('versus') || lowerQuestion.includes('difference between') || lowerQuestion.includes('compare') ||
+            lowerQuestion.match(/[\u4e00-\u9fff].*(比较|对比|区别|哪个好|选择)/) ) {
             return 'comparison';
         }
-        if (lowerQuestion.includes('what is') || lowerQuestion.includes('explain') || lowerQuestion.includes('why does') || lowerQuestion.includes('concept')) {
+        
+        // Check for conceptual/learning questions
+        if (lowerQuestion.includes('what is') || lowerQuestion.includes('explain') || lowerQuestion.includes('why does') || lowerQuestion.includes('concept') ||
+            lowerQuestion.match(/[\u4e00-\u9fff].*(什么是|解释|为什么|概念|原理)/) ) {
             return 'conceptual';
         }
-        if (lowerQuestion.match(/\b(code|programming|api|function|method|class|variable|syntax)\b/)) {
+        
+        // Check for technical programming questions
+        if (lowerQuestion.match(/\b(code|programming|api|function|method|class|variable|syntax|debug|deploy|server|database)\b/) ||
+            lowerQuestion.match(/[\u4e00-\u9fff].*(代码|编程|函数|方法|类|变量|语法|调试|部署|服务器|数据库)/) ) {
             return 'technical';
+        }
+        
+        // Check for exploratory/discussion questions
+        if (lowerQuestion.match(/\b(what if|suppose|imagine|think about|opinion|discuss)\b/) ||
+            lowerQuestion.match(/[\u4e00-\u9fff].*(如果|假设|想象|觉得|认为|讨论)/) ) {
+            return 'exploratory';
         }
 
         return 'general';
@@ -2411,6 +2579,309 @@ Generate exactly 3-4 thinking statements, one per line:`;
     }
 
     /**
+     * AI-powered intelligent analysis of agent response for thinking conclusion
+     * @param {string} agentResponse - The agent's response content
+     * @param {string} userMessage - The original user message
+     * @returns {Promise<Object>} Analysis result with conclusion and action
+     * @private
+     */
+    async generateIntelligentThinkingConclusion(agentResponse, userMessage) {
+        try {
+            if (!this.isEnabled || !await this.isAIConfigured()) {
+                // Fallback to template-based analysis
+                return this.generateTemplateBasedConclusion(agentResponse, userMessage);
+            }
+
+            // Detect language context
+            const isChineseContext = /[\u4e00-\u9fff]/.test(userMessage || agentResponse);
+            const languageInstruction = isChineseContext
+                ? 'CRITICAL: 必须使用中文回应，不要使用英文或其他语言。'
+                : 'CRITICAL: Must respond in English only, do not use Chinese or other languages.';
+
+            const analysisPrompt = `你是一个智能AI助手，正在分析agent的回应质量，并为用户生成合适的thinking结论。
+
+${languageInstruction}
+
+用户原始问题: "${userMessage}"
+Agent回应内容: "${agentResponse}"
+
+请分析以下几个方面：
+1. Agent回应是否包含有用信息？
+2. 是否建议用户转人工服务？
+3. 是否没有找到相关信息？
+4. 回应的整体质量如何？
+
+基于分析结果，生成一个自然、贴心的thinking结论，并决定是否应该向用户显示agent的回应。
+
+回应格式（JSON）：
+{
+  "conclusion": "自然的thinking结论文字",
+  "shouldShowAgentResponse": true/false,
+  "responseQuality": "helpful/unhelpful/escalation",
+  "reason": "判断依据"
+}
+
+要求：
+- thinking结论要自然、有温度，避免机械化表达
+- 如果agent建议转人工，thinking应该体现理解和支持
+- 如果没找到信息，thinking应该表达遗憾并建议其他方式
+- 如果信息有用，thinking应该表达找到了有价值内容的喜悦`;
+
+            let analysisResult;
+            if (this.currentProvider === 'ollama') {
+                analysisResult = await this.generateOllamaAnalysis(analysisPrompt);
+            } else {
+                analysisResult = await this.generateAPIAnalysis(analysisPrompt);
+            }
+
+            // Parse the JSON response
+            const parsed = JSON.parse(analysisResult);
+            console.log('[AICompanion] AI analysis result:', parsed);
+            return parsed;
+
+        } catch (error) {
+            console.error('[AICompanion] Error in AI analysis, falling back to template:', error);
+            return this.generateTemplateBasedConclusion(agentResponse, userMessage);
+        }
+    }
+
+    /**
+     * Generate analysis using Ollama
+     * @param {string} prompt - The analysis prompt
+     * @returns {string} Generated analysis
+     * @private
+     */
+    async generateOllamaAnalysis(prompt) {
+        const ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
+        const selectedModel = localStorage.getItem('ollamaSelectedModel');
+
+        if (!selectedModel || selectedModel === 'No Model Selected') {
+            throw new Error('No Ollama model selected');
+        }
+
+        const response = await fetch(`${ollamaUrl}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: selectedModel,
+                prompt: prompt,
+                stream: false,
+                options: {
+                    temperature: 0.3, // Lower temperature for more consistent JSON
+                    max_tokens: 300
+                }
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Ollama request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.response || '';
+    }
+
+    /**
+     * Generate analysis using API providers
+     * @param {string} prompt - The analysis prompt
+     * @returns {string} Generated analysis
+     * @private
+     */
+    async generateAPIAnalysis(prompt) {
+        const apiKey = await SecureStorage.retrieve(`${this.currentProvider}ApiKey`);
+        if (!apiKey) {
+            throw new Error(`No API key found for ${this.currentProvider}`);
+        }
+
+        let requestBody, url, headers;
+
+        switch (this.currentProvider) {
+            case 'openai':
+                url = 'https://api.openai.com/v1/chat/completions';
+                headers = {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                };
+                requestBody = {
+                    model: 'gpt-3.5-turbo',
+                    messages: [{ role: 'user', content: prompt }],
+                    max_tokens: 300,
+                    temperature: 0.3
+                };
+                break;
+
+            case 'anthropic':
+                url = 'https://api.anthropic.com/v1/messages';
+                headers = {
+                    'x-api-key': apiKey,
+                    'Content-Type': 'application/json',
+                    'anthropic-version': '2023-06-01'
+                };
+                requestBody = {
+                    model: 'claude-3-haiku-20240307',
+                    max_tokens: 300,
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.3
+                };
+                break;
+
+            default:
+                throw new Error(`Unsupported provider: ${this.currentProvider}`);
+        }
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            throw new Error(`API request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (this.currentProvider === 'openai') {
+            return data.choices[0]?.message?.content || '';
+        } else if (this.currentProvider === 'anthropic') {
+            return data.content[0]?.text || '';
+        }
+
+        return '';
+    }
+
+    /**
+     * Template-based fallback for conclusion generation
+     * @param {string} agentResponse - The agent's response
+     * @param {string} userMessage - The user's message
+     * @returns {Object} Analysis result
+     * @private
+     */
+    generateTemplateBasedConclusion(agentResponse, userMessage) {
+        const isChineseContext = /[\u4e00-\u9fff]/.test(userMessage || agentResponse);
+        
+        // Check for escalation patterns
+        const escalationPatterns = [
+            /escalat/i, /representative/i, /human/i, /agent/i, /support/i,
+            /转人工/i, /人工服务/i, /客服/i, /工作人员/i
+        ];
+        
+        const hasEscalation = escalationPatterns.some(pattern => pattern.test(agentResponse));
+        
+        // Check for no information patterns
+        const noInfoPatterns = [
+            /cannot find/i, /don't have/i, /no.*information/i, /not.*available/i,
+            /没有.*信息/i, /找不到/i, /无法.*提供/i, /很抱歉.*不知道/i
+        ];
+        
+        const hasNoInfo = noInfoPatterns.some(pattern => pattern.test(agentResponse));
+        
+        if (hasEscalation) {
+            return {
+                conclusion: isChineseContext 
+                    ? "我理解您的需求，看起来这个问题确实需要人工客服的专业帮助。转接到人工服务是个明智的选择。"
+                    : "I understand your need for human assistance. Escalating to a representative seems like the right approach for this issue.",
+                shouldShowAgentResponse: true,
+                responseQuality: "escalation",
+                reason: "Agent suggested human escalation"
+            };
+        } else if (hasNoInfo) {
+            return {
+                conclusion: isChineseContext
+                    ? "很抱歉，我在知识库中没有找到相关信息。也许我们可以尝试换个角度或者寻求其他帮助方式？"
+                    : "I'm sorry, I couldn't find relevant information in the knowledge base. Perhaps we could try a different approach or seek alternative assistance?",
+                shouldShowAgentResponse: false,
+                responseQuality: "unhelpful",
+                reason: "No useful information found"
+            };
+        } else {
+            return {
+                conclusion: isChineseContext
+                    ? "我找到了一些相关信息，希望这些内容能够帮助到您。"
+                    : "I found some relevant information that should be helpful for you.",
+                shouldShowAgentResponse: true,
+                responseQuality: "helpful",
+                reason: "Contains useful information"
+            };
+        }
+    }
+
+    /**
+     * Generate dynamic thinking conclusion based on agent response
+     * @param {string} agentResponse - The agent's response content
+     * @param {boolean} isChineseContext - Whether the context is Chinese
+     * @returns {string} Dynamic conclusion message
+     * @private
+     */
+    generateDynamicThinkingConclusion(agentResponse, isChineseContext = false) {
+        if (!agentResponse || agentResponse.trim().length === 0) {
+            // No response or empty response
+            if (isChineseContext) {
+                return '<span style="color: #f59e0b; font-size: 0.9em; font-weight: 500;">我还在等待更多信息，请稍候...</span>';
+            } else {
+                return '<span style="color: #f59e0b; font-size: 0.9em; font-weight: 500;">Still waiting for more information...</span>';
+            }
+        }
+
+        const lowerResponse = agentResponse.toLowerCase();
+        const hasChineseContent = /[\u4e00-\u9fff]/.test(agentResponse);
+
+        // Check for "no information found" patterns
+        const noInfoPatterns = [
+            /i don't have.*information/i,
+            /i cannot.*find/i,
+            /no.*information.*available/i,
+            /i'm sorry.*i don't know/i,
+            /unfortunately.*i don't have/i,
+            /i'm not sure/i,
+            /i don't know/i,
+            /没有.*信息/,
+            /找不到.*相关/,
+            /很抱歉.*不知道/,
+            /无法.*提供/,
+            /没有.*资料/
+        ];
+
+        const hasNoInfo = noInfoPatterns.some(pattern => pattern.test(agentResponse));
+
+        if (hasNoInfo) {
+            if (isChineseContext || hasChineseContent) {
+                return '<span style="color: #ef4444; font-size: 0.9em; font-weight: 500;">我在知识库中没有找到与此相关的内容，很抱歉啊，要不要看看其他问题？</span>';
+            } else {
+                return '<span style="color: #ef4444; font-size: 0.9em; font-weight: 500;">I couldn\'t find relevant information in the knowledge base. Sorry about that, would you like to try a different question?</span>';
+            }
+        }
+
+        // Check if response seems to contain useful information
+        if (agentResponse.length > 50 && (agentResponse.includes('.') || agentResponse.includes('。'))) {
+            if (isChineseContext || hasChineseContent) {
+                const conclusions = [
+                    '我在知识库中找到了一些内容，希望可以对您有所帮助。',
+                    '找到了相关资料，希望这些信息对您有用。',
+                    '查询到了一些有用的信息，希望能解答您的疑问。'
+                ];
+                const selectedConclusion = conclusions[Math.floor(Math.random() * conclusions.length)];
+                return `<span style="color: #10b981; font-size: 0.9em; font-weight: 500;">${selectedConclusion}</span>`;
+            } else {
+                const conclusions = [
+                    'I found some content in the knowledge base that should be helpful.',
+                    'Found relevant information that should answer your question.',
+                    'Located some useful content that might help you.'
+                ];
+                const selectedConclusion = conclusions[Math.floor(Math.random() * conclusions.length)];
+                return `<span style="color: #10b981; font-size: 0.9em; font-weight: 500;">${selectedConclusion}</span>`;
+            }
+        }
+
+        // Default case for short or unclear responses
+        if (isChineseContext || hasChineseContent) {
+            return '<span style="color: #6b7280; font-size: 0.9em; font-weight: 500;">让我看看这个回答是否有帮助...</span>';
+        } else {
+            return '<span style="color: #6b7280; font-size: 0.9em; font-weight: 500;">Let me see if this response is helpful...</span>';
+        }
+    }
+
+    /**
      * Finalize thinking message in main chat
      * @param {HTMLElement} messageDiv - Message div
      * @param {string} fullText - Complete thinking text
@@ -2420,12 +2891,28 @@ Generate exactly 3-4 thinking statements, one per line:`;
     finalizeThinkingInMainChat(messageDiv, fullText, messageContainer) {
         if (!messageDiv) return;
 
-        // Update to final thinking state with completion indicator
-        messageDiv.innerHTML = fullText + '<br><br><span style="color: #10b981; font-size: 0.9em; font-weight: 500;">✓ Analysis complete</span>';
+        // Determine if context is Chinese based on the thinking content
+        const isChineseContext = /[\u4e00-\u9fff]/.test(fullText);
+
+        // Generate dynamic conclusion based on agent response
+        let conclusion;
+        if (this.lastAgentResponse) {
+            conclusion = this.generateDynamicThinkingConclusion(this.lastAgentResponse, isChineseContext);
+            // Clear the stored response after use
+            this.lastAgentResponse = null;
+        } else {
+            // Fallback for cases where we don't have agent response yet
+            conclusion = isChineseContext 
+                ? '<span style="color: #10b981; font-size: 0.9em; font-weight: 500;">思考完成，正在查询相关信息...</span>'
+                : '<span style="color: #10b981; font-size: 0.9em; font-weight: 500;">Analysis complete, searching for information...</span>';
+        }
+
+        // Update to final thinking state with dynamic conclusion
+        messageDiv.innerHTML = fullText + '<br><br>' + conclusion;
         this.scrollMainChatToBottom();
 
         // No longer store reference for removal - thinking messages remain as part of conversation
-        console.log('[AICompanion] Thinking message finalized and preserved in conversation');
+        console.log('[AICompanion] Thinking message finalized with dynamic conclusion');
     }
 
     /**
@@ -6468,8 +6955,26 @@ Example good titles:
         if (provider === 'ollama') {
             setTimeout(() => this.syncModelDropdownSelection(), 500);
         }
+    }
 
-        console.log('AI provider set to:', provider);
+    /**
+     * Get the current thinking display delay in seconds
+     * @returns {number} Delay in seconds
+     */
+    getThinkingDisplayDelay() {
+        return this.thinkingDisplayDelay || 1.5;
+    }
+
+    /**
+     * Set the thinking display delay in seconds
+     * @param {number} seconds - Delay in seconds (0-10)
+     */
+    setThinkingDisplayDelay(seconds) {
+        // Clamp the value between 0 and 10 seconds for reasonable limits
+        const clampedSeconds = Math.max(0, Math.min(10, parseFloat(seconds) || 1.5));
+        this.thinkingDisplayDelay = clampedSeconds;
+        localStorage.setItem('aiCompanionThinkingDisplayDelay', clampedSeconds.toString());
+        console.log('[AICompanion] Thinking display delay set to:', clampedSeconds, 'seconds');
     }
 
     /**
@@ -6963,8 +7468,7 @@ Example good titles:
      * @private
      */
     loadModelTokens() {
-        const stored = localStorage.getItem('aiCompanion_modelTokens');
-        return stored ? JSON.parse(stored) : {};
+        return Utils.safeParseLocalStorage('aiCompanion_modelTokens', {}, 'object');
     }
 
     /**
@@ -8999,6 +9503,73 @@ if (typeof window !== 'undefined') {
         } catch (error) {
             console.error('[DEBUG] Thinking simulation test failed:', error);
             return false;
+        }
+    };
+
+    // Add a global function to set thinking display delay from console
+    window.setThinkingDelay = (seconds) => {
+        console.log('[DEBUG] Setting thinking display delay to:', seconds, 'seconds');
+        if (!window.aiCompanion) {
+            console.error('[DEBUG] window.aiCompanion not available');
+            return false;
+        }
+        try {
+            window.aiCompanion.setThinkingDisplayDelay(seconds);
+            console.log('[DEBUG] Thinking display delay set successfully to:', window.aiCompanion.getThinkingDisplayDelay(), 'seconds');
+            console.log('[DEBUG] This delay controls how many seconds the system waits before showing AI companion thinking content.');
+            console.log('[DEBUG] Use setThinkingDelay(0) for immediate display, setThinkingDelay(3) for 3-second delay, etc.');
+            return true;
+        } catch (error) {
+            console.error('[DEBUG] Failed to set thinking display delay:', error);
+            return false;
+        }
+    };
+
+    // Add a global function to get current thinking display delay
+    window.getThinkingDelay = () => {
+        if (!window.aiCompanion) {
+            console.error('[DEBUG] window.aiCompanion not available');
+            return null;
+        }
+        const delay = window.aiCompanion.getThinkingDisplayDelay();
+        console.log('[DEBUG] Current thinking display delay:', delay, 'seconds');
+        return delay;
+    };
+
+    // Add global functions to test dynamic thinking conclusions
+    window.testThinkingConclusion = (agentResponse, isChineseContext = false) => {
+        console.log('[DEBUG] Testing dynamic thinking conclusion generation...');
+        if (!window.aiCompanion) {
+            console.error('[DEBUG] window.aiCompanion not available');
+            return null;
+        }
+        try {
+            const conclusion = window.aiCompanion.generateDynamicThinkingConclusion(agentResponse, isChineseContext);
+            console.log('[DEBUG] Generated conclusion:', conclusion);
+            console.log('[DEBUG] Would filter response:', window.aiCompanion.shouldFilterAgentResponse(agentResponse));
+            return conclusion;
+        } catch (error) {
+            console.error('[DEBUG] Failed to generate conclusion:', error);
+            return null;
+        }
+    };
+
+    // Add global function to test response filtering
+    window.testResponseFilter = (agentResponse) => {
+        console.log('[DEBUG] Testing response filtering...');
+        if (!window.aiCompanion) {
+            console.error('[DEBUG] window.aiCompanion not available');
+            return null;
+        }
+        try {
+            const shouldFilter = window.aiCompanion.shouldFilterAgentResponse(agentResponse);
+            console.log('[DEBUG] Response:', agentResponse);
+            console.log('[DEBUG] Should filter:', shouldFilter);
+            console.log('[DEBUG] Reason:', shouldFilter ? 'No useful information detected' : 'Contains useful information');
+            return shouldFilter;
+        } catch (error) {
+            console.error('[DEBUG] Failed to test response filter:', error);
+            return null;
         }
     };
 }

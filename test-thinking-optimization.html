@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thinking 优化测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            background: #f5f5f5;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .result {
+            background: #e8f4fd;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #0078d4;
+        }
+        button {
+            background: #0078d4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #106ebe;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧠 AI Companion Thinking 优化测试 v2.0</h1>
+    
+    <div class="test-section">
+        <h2>最新优化：动态结束语 & 智能过滤</h2>
+        <p><strong>新功能：</strong></p>
+        <ul>
+            <li>✅ 根据agent响应内容动态生成thinking结束语</li>
+            <li>✅ 自动过滤"没有找到信息"的无用响应</li>
+            <li>✅ 更自然的对话体验</li>
+        </ul>
+        
+        <h3>测试场景</h3>
+        <p>以下是一些测试用例，用于验证优化后的thinking提示词是否更加人性化和自然：</p>
+        
+        <button onclick="testThinking('电脑不工作了')">测试：技术故障问题</button>
+        <button onclick="testThinking('如果把电脑放进冰箱是不是可以降温？')">测试：探索性讨论</button>
+        <button onclick="testThinking('如何设置VPN')">测试：操作指导</button>
+        <button onclick="testThinking('Python和JavaScript哪个更好？')">测试：比较选择</button>
+        <button onclick="testThinking('什么是人工智能？')">测试：概念解释</button>
+        
+        <h3>英文测试</h3>
+        <button onclick="testThinking('My computer is not working')">Test: Technical Problem</button>
+        <button onclick="testThinking('What if we put computers in the fridge for cooling?')">Test: Exploratory Discussion</button>
+        
+        <h3>动态结束语测试</h3>
+        <button onclick="testDynamicConclusion('我在知识库中找到了关于VPN设置的详细步骤...', false)">测试：找到有用信息</button>
+        <button onclick="testDynamicConclusion('I don\'t have information about this topic', false)">测试：没有找到信息</button>
+        <button onclick="testDynamicConclusion('没有找到相关资料', true)">测试：中文无信息</button>
+        
+        <h3>响应过滤测试</h3>
+        <button onclick="testResponseFilter('I don\'t have information about this specific topic.')">测试：过滤无用响应</button>
+        <button onclick="testResponseFilter('很抱歉，我不知道这个问题的答案。')">测试：过滤中文无用响应</button>
+        <button onclick="testResponseFilter('这是一个很详细的回答，包含了很多有用的信息...')">测试：保留有用响应</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script type="module">
+        // 模拟 AI Companion 的 thinking 生成逻辑
+        class MockAICompanion {
+            constructor() {
+                this.conversationContext = [];
+            }
+
+            analyzeQuestionType(question) {
+                const lowerQuestion = question.toLowerCase();
+                
+                // Check for troubleshooting/problem indicators first (higher emotional priority)
+                if (lowerQuestion.match(/\b(error|fail|failing|not working|broken|doesn't work|problem|issue|trouble|bug|crash|stuck|help|emergency|urgent)\b/) ||
+                    lowerQuestion.match(/[\u4e00-\u9fff].*(错误|失败|不工作|不能|无法|问题|故障|坏了|帮助|紧急)/) ) {
+                    return 'troubleshooting';
+                }
+                
+                // Check for how-to questions
+                if (lowerQuestion.includes('how to') || lowerQuestion.includes('how do') || lowerQuestion.includes('how can') ||
+                    lowerQuestion.match(/[\u4e00-\u9fff].*(如何|怎么|怎样)/) ) {
+                    return 'howto';
+                }
+                
+                // Check for comparison questions
+                if (lowerQuestion.includes('vs') || lowerQuestion.includes('versus') || lowerQuestion.includes('difference between') || lowerQuestion.includes('compare') ||
+                    lowerQuestion.match(/[\u4e00-\u9fff].*(比较|对比|区别|哪个好|选择)/) ) {
+                    return 'comparison';
+                }
+                
+                // Check for conceptual/learning questions
+                if (lowerQuestion.includes('what is') || lowerQuestion.includes('explain') || lowerQuestion.includes('why does') || lowerQuestion.includes('concept') ||
+                    lowerQuestion.match(/[\u4e00-\u9fff].*(什么是|解释|为什么|概念|原理)/) ) {
+                    return 'conceptual';
+                }
+                
+                // Check for technical programming questions
+                if (lowerQuestion.match(/\b(code|programming|api|function|method|class|variable|syntax|debug|deploy|server|database)\b/) ||
+                    lowerQuestion.match(/[\u4e00-\u9fff].*(代码|编程|函数|方法|类|变量|语法|调试|部署|服务器|数据库)/) ) {
+                    return 'technical';
+                }
+                
+                // Check for exploratory/discussion questions
+                if (lowerQuestion.match(/\b(what if|suppose|imagine|think about|opinion|discuss)\b/) ||
+                    lowerQuestion.match(/[\u4e00-\u9fff].*(如果|假设|想象|觉得|认为|讨论)/) ) {
+                    return 'exploratory';
+                }
+
+                return 'general';
+            }
+
+            generateTemplateThinkingPrompts(userMessage) {
+                const thoughts = [];
+                const isChineseQuestion = /[\u4e00-\u9fff]/.test(userMessage);
+                const questionType = this.analyzeQuestionType(userMessage);
+
+                // Initial analysis thought (language-aware)
+                if (isChineseQuestion) {
+                    thoughts.push(`我注意到你想了解"${userMessage.length > 50 ? userMessage.substring(0, 50) + '...' : userMessage}"这个问题`);
+                } else {
+                    thoughts.push(`I see you want to know about "${userMessage.length > 50 ? userMessage.substring(0, 50) + '...' : userMessage}"`);
+                }
+
+                // Question-specific thinking patterns (language-aware)
+                if (isChineseQuestion) {
+                    switch (questionType) {
+                        case 'technical':
+                            thoughts.push('啊，这是个技术问题呢。这肯定影响到你的工作了吧，让我仔细想想技术细节和最佳解决方案...');
+                            thoughts.push('我会基于我的技术知识先分析一下，然后查询知识库中的具体技术文档来给你最准确的答案...');
+                            break;
+                        case 'howto':
+                            thoughts.push('你想学习如何操作，这很棒！让我想想最清晰的步骤指导...');
+                            thoughts.push('我会查询知识库中的操作手册，确保给你完整且安全的操作流程...');
+                            break;
+                        case 'troubleshooting':
+                            thoughts.push('真抱歉听到你遇到了这个问题，这肯定让人感到困扰。让我来分析可能的原因...');
+                            thoughts.push('我将基于常见故障模式分析，然后查询知识库中的故障排除指南来帮助你...');
+                            break;
+                        case 'conceptual':
+                            thoughts.push('你想深入理解这个概念，很好的学习态度！让我想想如何用最容易理解的方式解释...');
+                            thoughts.push('我会从基础概念开始分析，然后查询知识库中的详细理论资料给你全面的解答...');
+                            break;
+                        case 'comparison':
+                            thoughts.push('你需要比较这些选项来做决定，我理解选择的重要性。让我分析各自的优缺点...');
+                            thoughts.push('我会查询知识库中的对比分析资料，给你最客观的比较结果...');
+                            break;
+                        case 'exploratory':
+                            thoughts.push('嗯，很有趣的想法！是因为遇到了什么特殊情况才有这样的思考吗？让我基于我的知识来分析一下这个可能性...');
+                            thoughts.push('我会从多个角度来探讨这个话题，也会查询知识库中相关的研究和案例...');
+                            break;
+                        default:
+                            thoughts.push('你的问题很有意思，让我基于我的理解先分析一下...');
+                            thoughts.push('我将查询知识库中相关的资料，确保给你最全面和有用的回答...');
+                    }
+                } else {
+                    switch (questionType) {
+                        case 'technical':
+                            thoughts.push('Oh, this is a technical issue. I can imagine this might be affecting your work. Let me think through the technical details and best solutions...');
+                            thoughts.push('I\'ll analyze this based on my technical knowledge first, then query the knowledge base for specific technical documentation...');
+                            break;
+                        case 'howto':
+                            thoughts.push('You want to learn how to do this - that\'s great! Let me think of the clearest step-by-step guidance...');
+                            thoughts.push('I\'ll check the knowledge base for operation manuals to ensure I give you complete and safe procedures...');
+                            break;
+                        case 'troubleshooting':
+                            thoughts.push('I\'m sorry to hear you\'re experiencing this issue. That must be frustrating. Let me analyze the possible causes...');
+                            thoughts.push('I\'ll work through common failure patterns and then check the knowledge base troubleshooting guides to help you...');
+                            break;
+                        case 'conceptual':
+                            thoughts.push('You want to understand this concept deeply - that\'s a great learning approach! Let me think of the most understandable way to explain...');
+                            thoughts.push('I\'ll start with the fundamentals and then check the knowledge base for detailed theoretical materials...');
+                            break;
+                        case 'comparison':
+                            thoughts.push('You need to compare these options to make a decision. I understand how important making the right choice is. Let me analyze the pros and cons...');
+                            thoughts.push('I\'ll check the knowledge base for comparative analysis to give you the most objective comparison...');
+                            break;
+                        case 'exploratory':
+                            thoughts.push('Hmm, that\'s an interesting idea! Is this because of some special situation you\'ve encountered? Let me analyze this possibility based on my knowledge...');
+                            thoughts.push('I\'ll explore this topic from multiple angles and also check the knowledge base for relevant research and cases...');
+                            break;
+                        default:
+                            thoughts.push('That\'s an interesting question you\'ve raised. Let me analyze this based on my understanding...');
+                            thoughts.push('I\'ll query the knowledge base for relevant materials to ensure I give you the most comprehensive and helpful response...');
+                    }
+                }
+
+                // Final preparation thought (language-aware)
+                if (isChineseQuestion) {
+                    thoughts.push('好的，我已经有了清晰的思路。现在让我查询相关资料，为你准备最有帮助的回答...');
+                } else {
+                    thoughts.push('Alright, I have a clear approach now. Let me query the relevant materials to prepare the most helpful response for you...');
+                }
+
+                // Randomly select 3-4 thoughts to keep it natural
+                const selectedThoughts = thoughts.slice(0, 3 + Math.floor(Math.random() * 2));
+                return selectedThoughts;
+            }
+
+            shouldFilterAgentResponse(agentResponse) {
+                if (!agentResponse || agentResponse.trim().length === 0) {
+                    return false;
+                }
+
+                const noInfoPatterns = [
+                    /i don't have.*information/i,
+                    /i cannot.*find/i,
+                    /no.*information.*available/i,
+                    /i'm sorry.*i don't know/i,
+                    /unfortunately.*i don't have/i,
+                    /i'm not sure/i,
+                    /i don't know/i,
+                    /没有.*信息/,
+                    /找不到.*相关/,
+                    /很抱歉.*不知道/,
+                    /无法.*提供/,
+                    /没有.*资料/,
+                    /not found/i,
+                    /no relevant.*found/i,
+                    /could not find/i
+                ];
+
+                return noInfoPatterns.some(pattern => pattern.test(agentResponse));
+            }
+
+            generateDynamicThinkingConclusion(agentResponse, isChineseContext = false) {
+                if (!agentResponse || agentResponse.trim().length === 0) {
+                    if (isChineseContext) {
+                        return '<span style="color: #f59e0b; font-size: 0.9em; font-weight: 500;">我还在等待更多信息，请稍候...</span>';
+                    } else {
+                        return '<span style="color: #f59e0b; font-size: 0.9em; font-weight: 500;">Still waiting for more information...</span>';
+                    }
+                }
+
+                const hasChineseContent = /[\u4e00-\u9fff]/.test(agentResponse);
+                const noInfoPatterns = [
+                    /i don't have.*information/i,
+                    /i cannot.*find/i,
+                    /no.*information.*available/i,
+                    /i'm sorry.*i don't know/i,
+                    /unfortunately.*i don't have/i,
+                    /i'm not sure/i,
+                    /i don't know/i,
+                    /没有.*信息/,
+                    /找不到.*相关/,
+                    /很抱歉.*不知道/,
+                    /无法.*提供/,
+                    /没有.*资料/
+                ];
+
+                const hasNoInfo = noInfoPatterns.some(pattern => pattern.test(agentResponse));
+
+                if (hasNoInfo) {
+                    if (isChineseContext || hasChineseContent) {
+                        return '<span style="color: #ef4444; font-size: 0.9em; font-weight: 500;">我在知识库中没有找到与此相关的内容，很抱歉啊，要不要看看其他问题？</span>';
+                    } else {
+                        return '<span style="color: #ef4444; font-size: 0.9em; font-weight: 500;">I couldn\'t find relevant information in the knowledge base. Sorry about that, would you like to try a different question?</span>';
+                    }
+                }
+
+                if (agentResponse.length > 50 && (agentResponse.includes('.') || agentResponse.includes('。'))) {
+                    if (isChineseContext || hasChineseContent) {
+                        const conclusions = [
+                            '我在知识库中找到了一些内容，希望可以对您有所帮助。',
+                            '找到了相关资料，希望这些信息对您有用。',
+                            '查询到了一些有用的信息，希望能解答您的疑问。'
+                        ];
+                        const selectedConclusion = conclusions[Math.floor(Math.random() * conclusions.length)];
+                        return `<span style="color: #10b981; font-size: 0.9em; font-weight: 500;">${selectedConclusion}</span>`;
+                    } else {
+                        const conclusions = [
+                            'I found some content in the knowledge base that should be helpful.',
+                            'Found relevant information that should answer your question.',
+                            'Located some useful content that might help you.'
+                        ];
+                        const selectedConclusion = conclusions[Math.floor(Math.random() * conclusions.length)];
+                        return `<span style="color: #10b981; font-size: 0.9em; font-weight: 500;">${selectedConclusion}</span>`;
+                    }
+                }
+
+                if (isChineseContext || hasChineseContent) {
+                    return '<span style="color: #6b7280; font-size: 0.9em; font-weight: 500;">让我看看这个回答是否有帮助...</span>';
+                } else {
+                    return '<span style="color: #6b7280; font-size: 0.9em; font-weight: 500;">Let me see if this response is helpful...</span>';
+                }
+            }
+        }
+
+        const mockAICompanion = new MockAICompanion();
+
+        window.testThinking = function(userMessage) {
+            const results = document.getElementById('results');
+            const thoughts = mockAICompanion.generateTemplateThinkingPrompts(userMessage);
+            const questionType = mockAICompanion.analyzeQuestionType(userMessage);
+
+            results.innerHTML += `
+                <div class="result">
+                    <h3>用户输入: "${userMessage}"</h3>
+                    <p><strong>识别类型:</strong> ${questionType}</p>
+                    <p><strong>生成的思考内容:</strong></p>
+                    <pre>${thoughts.map((thought, index) => `${index + 1}. ${thought}`).join('\n')}</pre>
+                </div>
+            `;
+        };
+
+        window.testDynamicConclusion = function(agentResponse, isChineseContext) {
+            const results = document.getElementById('results');
+            const conclusion = mockAICompanion.generateDynamicThinkingConclusion(agentResponse, isChineseContext);
+
+            results.innerHTML += `
+                <div class="result">
+                    <h3>Agent响应: "${agentResponse}"</h3>
+                    <p><strong>语言环境:</strong> ${isChineseContext ? '中文' : '英文'}</p>
+                    <p><strong>生成的动态结束语:</strong></p>
+                    <div style="padding: 10px; background: #f8f9fa; border-radius: 4px;">${conclusion}</div>
+                </div>
+            `;
+        };
+
+        window.testResponseFilter = function(agentResponse) {
+            const results = document.getElementById('results');
+            const shouldFilter = mockAICompanion.shouldFilterAgentResponse(agentResponse);
+
+            results.innerHTML += `
+                <div class="result">
+                    <h3>Agent响应: "${agentResponse}"</h3>
+                    <p><strong>是否过滤:</strong> ${shouldFilter ? '是，不显示给用户' : '否，正常显示'}</p>
+                    <p><strong>原因:</strong> ${shouldFilter ? '检测到无用信息响应' : '包含有用信息'}</p>
+                </div>
+            `;
+        };
+    </script>
+</body>
+</html>

@@ -178,7 +178,9 @@ MCSChat/
 │   │   ├── agentManager.js # Multi-agent configuration
 │   │   └── sessionManager.js # Chat session management
 │   ├── services/
-│   │   └── directLineManager.js # DirectLine API integration
+│   │   └── [DirectLine managers moved to components/directline/]
+│   ├── components/
+│   │   └── directline/     # DirectLine API integration (3 implementations)
 │   ├── ui/
 │   │   └── messageRenderer.js # Message display and rendering
 │   ├── ai/

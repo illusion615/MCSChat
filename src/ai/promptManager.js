@@ -1,7 +1,9 @@
 /**
- * Centralized Prompt Management System for AI Companion
- * Handles all prompts with user customization capabilities
+ * AI Companion Prompt Manager
+ * Manages prompts for AI companion features including KPI analysis and quick actions
  */
+
+import { Utils } from '../utils/helpers.js';
 
 import { DOMUtils } from '../utils/domUtils.js';
 
@@ -124,13 +126,7 @@ Generate one contextual thinking statement (one sentence, no quotes):`
      * @returns {Object} User prompts or empty object
      */
     loadUserPrompts() {
-        try {
-            const saved = localStorage.getItem('aiCompanion_userPrompts');
-            return saved ? JSON.parse(saved) : {};
-        } catch (error) {
-            console.error('[PromptManager] Error loading user prompts:', error);
-            return {};
-        }
+        return Utils.safeParseLocalStorage('aiCompanion_userPrompts', {}, 'object');
     }
 
     /**
