@@ -1,5 +1,14 @@
 # 系统架构
 
+## 状态说明（2026-03-15）
+
+- 当前 DirectLine 生产基线为 `DirectLineService` 单实现。
+- 本文档下方如出现 `DirectLineManager`、`DirectLineConnector`、`MessageQueueManager`、`WebChatRenderer` 等描述，默认视为历史演进信息，除非明确标注为“当前实现”。
+- 当前开发与回顾建议优先阅读：
+  - `docs/iterations/TODO.md`
+  - `docs/iterations/batch-3-directline-refactor/`
+  - `src/components/directline/README.md`
+
 [🇺🇸 English](../../en/architecture/) | [🏠 返回主页](../README.md)
 
 ## 🏗️ 总体架构

@@ -7,7 +7,7 @@ input[type="checkbox"] {
     appearance: none;
     width: 18px;
     height: 18px;
-    border: 2px solid #e1e5e9;
+    border: 2px solid var(--color-border);
     border-radius: 4px;
     background: white;
     cursor: pointer;
@@ -18,12 +18,12 @@ input[type="checkbox"] {
 }
 
 input[type="checkbox"]:hover {
-    border-color: #0078d4;
+    border-color: var(--color-primary);
 }
 
 input[type="checkbox"]:checked {
-    background: #0078d4;
-    border-color: #0078d4;
+    background: var(--color-primary);
+    border-color: var(--color-primary);
 }
 
 input[type="checkbox"]:checked::after {
@@ -47,7 +47,7 @@ input[type="checkbox"]:focus {
 .loading-sessions {
     padding: 20px;
     text-align: center;
-    color: #605e5c;
+    color: var(--color-text-secondary);
     font-style: italic;
     opacity: 0.8;
 }
@@ -56,15 +56,15 @@ input[type="checkbox"]:focus {
 .upload-progress {
     margin-top: 16px;
     padding: 12px;
-    background: #f3f2f1;
+    background: var(--color-surface-tertiary);
     border-radius: 8px;
-    border-left: 4px solid #0078d4;
+    border-left: 4px solid var(--color-primary);
 }
 
 .upload-progress-bar {
     width: 100%;
     height: 8px;
-    background: #e1e5e9;
+    background: var(--color-border);
     border-radius: 4px;
     overflow: hidden;
     margin-top: 8px;
@@ -95,11 +95,11 @@ input[type="checkbox"]:focus {
 }
 
 .gallery-item {
-    background: #f8f8f8;
+    background: var(--color-surface-secondary);
     border-radius: 8px;
     padding: 12px;
     text-align: center;
-    border: 1px solid #e1e5e9;
+    border: 1px solid var(--color-border);
     transition: all 0.2s ease;
 }
 
@@ -128,7 +128,7 @@ input[type="checkbox"]:focus {
 }
 
 .connection-status .status-text {
-    color: #323130;
+    color: var(--color-text-primary);
     font-weight: 500;
 }
 
@@ -136,16 +136,16 @@ input[type="checkbox"]:focus {
 .side-browser-error {
     padding: 20px;
     text-align: center;
-    background: #fff4ce;
-    border: 1px solid #ffb900;
+    background: var(--color-warning-bg);
+    border: 1px solid var(--color-warning);
     border-radius: 8px;
     margin: 16px;
-    color: #8a6914;
+    color: var(--color-warning-text);
 }
 
 .side-browser-error h3 {
     margin: 0 0 8px 0;
-    color: #8a6914;
+    color: var(--color-warning-text);
     font-size: 16px;
 }
 
@@ -160,7 +160,7 @@ input[type="checkbox"]:focus {
     position: relative;
     border: 1px solid rgba(0, 0, 0, 0.1);
     background: rgba(255, 255, 255, 0.9);
-    color: #605e5c;
+    color: var(--color-text-secondary);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
@@ -170,20 +170,19 @@ input[type="checkbox"]:focus {
 .ai-companion-toggle:hover {
     background: rgba(139, 95, 191, 0.1);
     border-color: rgba(139, 95, 191, 0.3);
-    color: #8b5fbf;
+    color: var(--color-companion-primary);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(139, 95, 191, 0.2);
 }
 
 .ai-companion-toggle.active {
-    background: linear-gradient(135deg, #8b5fbf 0%, #744c9e 100%);
-    border-color: transparent;
+    background: linear-gradient(135deg, var(--color-companion-primary) 0%, var(--color-companion-dark) 100%);
     color: white;
     box-shadow: 0 2px 8px rgba(139, 95, 191, 0.3);
 }
 
 .ai-companion-toggle.active:hover {
-    background: linear-gradient(135deg, #744c9e 0%, #6a4492 100%);
+    background: linear-gradient(135deg, var(--color-companion-dark) 0%, #6a4492 100%);
     color: white;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(139, 95, 191, 0.4);
@@ -265,27 +264,27 @@ input[type="checkbox"]:focus {
 }
 
 .ai-notification.success {
-    border-left: 4px solid #107c10;
+    border-left: 4px solid var(--color-success);
     background: linear-gradient(90deg, rgba(16, 124, 16, 0.1), rgba(255, 255, 255, 0.9));
 }
 
 .ai-notification.warning {
-    border-left: 4px solid #ffb900;
+    border-left: 4px solid var(--color-warning);
     background: linear-gradient(90deg, rgba(255, 185, 0, 0.1), rgba(255, 255, 255, 0.9));
 }
 
 .ai-notification.error {
-    border-left: 4px solid #d13438;
+    border-left: 4px solid var(--color-danger);
     background: linear-gradient(90deg, rgba(209, 52, 56, 0.1), rgba(255, 255, 255, 0.9));
 }
 
 .ai-notification.info {
-    border-left: 4px solid #8b5fbf;
+    border-left: 4px solid var(--color-companion-primary);
     background: linear-gradient(90deg, rgba(139, 95, 191, 0.1), rgba(255, 255, 255, 0.9));
 }
 
 .ai-notification.progress {
-    border-left: 4px solid #0078d4;
+    border-left: 4px solid var(--color-primary);
     background: linear-gradient(90deg, rgba(0, 120, 212, 0.1), rgba(255, 255, 255, 0.9));
 }
 
@@ -298,7 +297,7 @@ input[type="checkbox"]:focus {
     margin: 6px 0;
     background: linear-gradient(135deg, rgba(0, 120, 212, 0.08) 0%, rgba(255, 255, 255, 0.95) 100%);
     border: 1px solid rgba(0, 120, 212, 0.2);
-    border-left: 4px solid #0078d4;
+    border-left: 4px solid var(--color-primary);
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 120, 212, 0.12);
     -webkit-backdrop-filter: blur(10px);
@@ -320,7 +319,7 @@ input[type="checkbox"]:focus {
 .ai-notification-progress .progress-icon {
     width: 20px;
     height: 20px;
-    background: #0078d4;
+    background: var(--color-primary);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -333,8 +332,11 @@ input[type="checkbox"]:focus {
 .ai-notification-progress .progress-text {
     flex: 1;
     font-size: 13px;
-    color: #323130;
+    color: var(--color-text-primary);
     font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .ai-notification-progress .progress-bar-container {
@@ -348,7 +350,7 @@ input[type="checkbox"]:focus {
 
 .ai-notification-progress .progress-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #0078d4, #106ebe);
+    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-dark));
     border-radius: 2px;
     transition: width 0.5s ease;
     width: 0%;
@@ -368,7 +370,7 @@ input[type="checkbox"]:focus {
 
 .ai-notification-progress .progress-percentage {
     font-size: 11px;
-    color: #605e5c;
+    color: var(--color-text-secondary);
     text-align: right;
     margin-top: 4px;
 }
@@ -404,27 +406,27 @@ input[type="checkbox"]:focus {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: #8b5fbf;
+    background: var(--color-companion-primary);
     color: white;
     font-size: 14px;
     font-weight: bold;
 }
 
 .ai-notification.success .ai-notification-icon {
-    background: #107c10;
+    background: var(--color-success);
 }
 
 .ai-notification.warning .ai-notification-icon {
-    background: #ffb900;
-    color: #323130;
+    background: var(--color-warning);
+    color: var(--color-text-primary);
 }
 
 .ai-notification.error .ai-notification-icon {
-    background: #d13438;
+    background: var(--color-danger);
 }
 
 .ai-notification.progress .ai-notification-icon {
-    background: #0078d4;
+    background: var(--color-primary);
     animation: progress-icon-spin 2s linear infinite;
 }
 
@@ -445,13 +447,13 @@ input[type="checkbox"]:focus {
 
 .ai-notification-title {
     font-weight: 600;
-    color: #323130;
+    color: var(--color-text-primary);
     margin: 0 0 4px 0;
     font-size: 14px;
 }
 
 .ai-notification-message {
-    color: #605e5c;
+    color: var(--color-text-secondary);
     margin: 0;
     font-size: 13px;
 }
@@ -472,7 +474,7 @@ input[type="checkbox"]:focus {
 
 .ai-progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #8b5fbf, #744c9e);
+    background: linear-gradient(90deg, var(--color-companion-primary), var(--color-companion-dark));
     border-radius: 2px;
     transition: width 0.3s ease;
     width: 0%;
@@ -485,7 +487,7 @@ input[type="checkbox"]:focus {
     height: 24px;
     border: none;
     background: transparent;
-    color: #605e5c;
+    color: var(--color-text-secondary);
     cursor: pointer;
     border-radius: 4px;
     display: flex;
@@ -498,8 +500,8 @@ input[type="checkbox"]:focus {
 }
 
 .ai-notification-dismiss:hover {
-    background: rgba(139, 95, 191, 0.1);
-    color: #8b5fbf;
+    background: var(--color-companion-light);
+    color: var(--color-companion-primary);
 }
 
 /* AI Notification Close Button */
@@ -509,7 +511,7 @@ input[type="checkbox"]:focus {
     height: 24px;
     border: none;
     background: transparent;
-    color: #605e5c;
+    color: var(--color-text-secondary);
     cursor: pointer;
     border-radius: 4px;
     display: flex;
@@ -526,7 +528,7 @@ input[type="checkbox"]:focus {
 
 .ai-notification-close:hover {
     background: rgba(209, 52, 56, 0.1);
-    color: #d13438;
+    color: var(--color-danger);
     transform: scale(1.1);
 }
 
@@ -560,8 +562,8 @@ input[type="checkbox"]:focus {
 .spinner {
     width: 20px;
     height: 20px;
-    border: 2px solid #f3f3f3;
-    border-top: 2px solid #0078d4;
+    border: 2px solid var(--color-border-light);
+    border-top: 2px solid var(--color-primary);
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -592,9 +594,9 @@ input[type="checkbox"]:focus {
 
 .warning-message {
     padding: 12px 16px;
-    background: #fff4ce;
-    border: 1px solid #ffb900;
-    color: #8a6914;
+    background: var(--color-warning-bg);
+    border: 1px solid var(--color-warning);
+    color: var(--color-warning-text);
     border-radius: 8px;
     margin: 8px 0;
 }
@@ -608,7 +610,7 @@ input[type="checkbox"]:focus {
 .tooltip .tooltiptext {
     visibility: hidden;
     width: 200px;
-    background-color: #323130;
+    background-color: var(--color-text-primary);
     color: white;
     text-align: center;
     border-radius: 6px;
@@ -632,7 +634,7 @@ input[type="checkbox"]:focus {
     margin-left: -5px;
     border-width: 5px;
     border-style: solid;
-    border-color: #323130 transparent transparent transparent;
+    border-color: var(--color-text-primary) transparent transparent transparent;
 }
 
 .tooltip:hover .tooltiptext {

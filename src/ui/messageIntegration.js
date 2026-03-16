@@ -2,11 +2,19 @@
  * Message Integration System
  * Integrates the unified message renderer into the existing application
  * Provides migration support and backward compatibility
+ * 
+ * Version: 1.0.1
+ * Changelog:
+ * - 1.0.1: Fixed missing migrateLegacyContainer method error
+ * - 1.0.0: Initial unified message system integration
  */
 
 import { UnifiedMessageRenderer } from './unifiedMessageRenderer.js';
 import { MessageMigrationAdapter } from './messageMigrationAdapter.js';
 import { MessageAPI } from './messageAPI.js';
+
+const MESSAGE_INTEGRATION_VERSION = '1.0.1';
+console.log(`🔗 [MessageIntegration] Version ${MESSAGE_INTEGRATION_VERSION} loaded`);
 
 export class MessageIntegration {
     constructor() {

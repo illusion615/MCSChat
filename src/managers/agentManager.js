@@ -1,10 +1,15 @@
 /**
  * Agent Management Module
  * Handles multi-agent configuration, storage, and lifecycle management
+ * 
+ * Version: 1.0.0
  */
 import { SecureStorage } from '../utils/secureStorage.js';
 import { Utils } from '../utils/helpers.js';
 import { DOMUtils } from '../utils/domUtils.js';
+
+const AGENT_MANAGER_VERSION = '1.0.0';
+console.log(`👥 [AgentManager] Version ${AGENT_MANAGER_VERSION} loaded`);
 
 export class AgentManager {
     constructor() {
@@ -180,6 +185,7 @@ export class AgentManager {
             id: agentId,
             name: name,
             secret: secret,
+            initParams: this.agents[agentId]?.initParams || [],
             createdAt: this.agents[agentId]?.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
@@ -269,6 +275,7 @@ export class AgentManager {
                     ${!isActive ? `<button class="agent-btn agent-btn-switch" data-action="switch" data-agent-id="${agentId}" title="Switch to this agent">Switch</button>` : ''}
                     <button class="agent-btn agent-btn-test" data-action="test" data-agent-id="${agentId}" title="Test connection">Test</button>
                     <button class="agent-btn agent-btn-edit" data-action="edit" data-agent-id="${agentId}" title="Edit agent">Edit</button>
+                    <button class="agent-btn agent-btn-params" data-action="params" data-agent-id="${agentId}" title="Init parameters">${agent.initParams?.length ? `Params (${agent.initParams.length})` : 'Params'}</button>
                     <button class="agent-btn agent-btn-delete" data-action="delete" data-agent-id="${agentId}" title="Delete agent">Delete</button>
                 </div>
             `);
@@ -303,6 +310,9 @@ export class AgentManager {
                         break;
                     case 'edit':
                         this.editAgent(agentId);
+                        break;
+                    case 'params':
+                        this.toggleParamsPanel(agentId);
                         break;
                     case 'delete':
                         if (confirm(`Are you sure you want to delete "${this.agents[agentId].name}"?`)) {
@@ -701,6 +711,127 @@ export class AgentManager {
             this.elements.statusIndicator.className = `status-indicator ${status}`;
             this.elements.statusText.textContent = message;
         }
+    }
+
+    /**
+     * Toggle the init parameters config panel for an agent
+     * @param {string} agentId
+     */
+    toggleParamsPanel(agentId) {
+        const existing = this.elements.agentsList.querySelector(`.agent-params-panel[data-agent-id="${agentId}"]`);
+        if (existing) {
+            existing.remove();
+            return;
+        }
+
+        // Close any other open panels
+        this.elements.agentsList.querySelectorAll('.agent-params-panel').forEach(p => p.remove());
+
+        const agent = this.agents[agentId];
+        if (!agent) return;
+
+        const agentItem = this.elements.agentsList.querySelector(`.agent-item[data-agent-id="${agentId}"]`);
+        if (!agentItem) return;
+
+        const panel = DOMUtils.createElement('div', {
+            className: 'agent-params-panel',
+            dataset: { agentId }
+        });
+        this._renderParamsPanelContent(panel, agentId);
+        agentItem.insertAdjacentElement('afterend', panel);
+    }
+
+    /**
+     * Render the params panel inner content
+     * @private
+     */
+    _renderParamsPanelContent(panel, agentId) {
+        const agent = this.agents[agentId];
+        // Normalize: support legacy string[] and new { name, displayName }[]
+        const params = (agent.initParams || []).map(p =>
+            typeof p === 'string' ? { name: p, displayName: p } : p
+        );
+
+        panel.innerHTML = `
+            <div class="params-panel-header">
+                <span class="params-panel-title">Initialization Parameters</span>
+                <small class="help-text">Define parameters sent to the bot when starting a new conversation. "Name" is the key sent to the bot; "Display Name" is what the user sees on the form.</small>
+            </div>
+            <div class="params-list">
+                ${params.map((p, i) => `
+                    <div class="param-row" data-index="${i}">
+                        <input type="text" class="param-key-input" value="${Utils.escapeHtml(p.name)}" placeholder="Parameter key" title="Key sent to bot" />
+                        <input type="text" class="param-display-input" value="${Utils.escapeHtml(p.displayName)}" placeholder="Display name" title="Label shown on form" />
+                        <button class="agent-btn agent-btn-delete param-remove-btn" data-index="${i}" title="Remove">×</button>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="params-actions">
+                <button class="btn btn-secondary btn-small param-add-btn">+ Add Parameter</button>
+                <button class="btn btn-primary btn-small param-save-btn">Save</button>
+            </div>
+        `;
+
+        // Add parameter
+        panel.querySelector('.param-add-btn').addEventListener('click', () => {
+            const list = panel.querySelector('.params-list');
+            const index = list.querySelectorAll('.param-row').length;
+            const row = document.createElement('div');
+            row.className = 'param-row';
+            row.dataset.index = index;
+            row.innerHTML = `
+                <input type="text" class="param-key-input" value="" placeholder="Parameter key" title="Key sent to bot" />
+                <input type="text" class="param-display-input" value="" placeholder="Display name" title="Label shown on form" />
+                <button class="agent-btn agent-btn-delete param-remove-btn" data-index="${index}" title="Remove">×</button>
+            `;
+            row.querySelector('.param-remove-btn').addEventListener('click', () => row.remove());
+            list.appendChild(row);
+        });
+
+        // Remove buttons
+        panel.querySelectorAll('.param-remove-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.closest('.param-row').remove();
+            });
+        });
+
+        // Save
+        panel.querySelector('.param-save-btn').addEventListener('click', async () => {
+            const rows = panel.querySelectorAll('.param-row');
+            const entries = [];
+            rows.forEach(row => {
+                const key = row.querySelector('.param-key-input')?.value.trim();
+                const display = row.querySelector('.param-display-input')?.value.trim();
+                if (key) {
+                    entries.push({ name: key, displayName: display || key });
+                }
+            });
+            this.agents[agentId].initParams = entries;
+            this.agents[agentId].updatedAt = new Date().toISOString();
+            await this.saveAgents();
+            this.updateAgentsList();
+            console.log(`[AgentManager] Init params saved for ${agentId}:`, entries);
+        });
+    }
+
+    /**
+     * Check if an agent requires initialization parameters
+     * @param {string} agentId
+     * @returns {boolean}
+     */
+    agentHasInitParams(agentId) {
+        const agent = this.agents[agentId];
+        return agent && Array.isArray(agent.initParams) && agent.initParams.length > 0;
+    }
+
+    /**
+     * Get init parameters for an agent (normalized to { name, displayName }[])
+     * @param {string} agentId
+     * @returns {{ name: string, displayName: string }[]}
+     */
+    getInitParams(agentId) {
+        const raw = this.agents[agentId]?.initParams || [];
+        return raw.map(p => typeof p === 'string' ? { name: p, displayName: p } : p);
     }
 
     /**

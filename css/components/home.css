@@ -1,0 +1,390 @@
+/* Home Page Styles */
+
+.home-page {
+    position: fixed;
+    top: 0;
+    left: 48px;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+    background: var(--theme-background, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    overflow-y: auto;
+}
+
+.home-header {
+    text-align: center;
+    margin-bottom: 40px;
+    color: white;
+}
+
+.home-logo {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 16px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.home-logo svg {
+    color: white;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
+}
+
+.home-title {
+    font-size: 2rem;
+    font-weight: 300;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.5px;
+}
+
+.home-subtitle {
+    font-size: 1rem;
+    opacity: 0.8;
+    margin: 0;
+}
+
+/* Agent Card Grid */
+.home-agent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    max-width: 960px;
+    width: 100%;
+}
+
+/* Agent Card */
+.home-agent-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 16px;
+    padding: 24px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+.home-agent-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+}
+
+.home-agent-card:active {
+    transform: translateY(-2px);
+}
+
+.home-agent-card-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0;
+}
+
+.home-agent-card-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #666;
+}
+
+.home-agent-card-status .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    flex-shrink: 0;
+}
+
+.home-agent-card-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.home-agent-stat {
+    font-size: 12px;
+    color: #888;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.home-agent-stat-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.home-agent-stat-label {
+    font-size: 11px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Params badge - inline with status */
+.home-agent-params-badge {
+    background: rgba(138, 43, 226, 0.1);
+    color: #8a2be2;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: auto;
+}
+
+/* Delete button on agent card */
+.home-agent-delete-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #999;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    opacity: 0;
+}
+
+/* Settings button on agent card */
+.home-agent-settings-btn {
+    position: absolute;
+    top: 10px;
+    right: 42px;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #999;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    opacity: 0;
+}
+
+.home-agent-card:hover .home-agent-delete-btn,
+.home-agent-card:hover .home-agent-settings-btn {
+    opacity: 1;
+}
+
+.home-agent-delete-btn:hover {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+}
+
+.home-agent-settings-btn:hover {
+    background: rgba(0, 120, 212, 0.1);
+    color: #0078d4;
+}
+
+/* Delete confirmation overlay */
+.delete-agent-name-display {
+    font-weight: 600;
+    font-size: 16px;
+    color: #dc2626;
+    background: rgba(220, 38, 38, 0.06);
+    padding: 8px 12px;
+    border-radius: 6px;
+    text-align: center;
+    margin: 8px 0 16px 0;
+}
+
+/* Add Agent Card */
+.home-add-card {
+    background: rgba(255, 255, 255, 0.15);
+    border: 2px dashed rgba(255, 255, 255, 0.4);
+    border-radius: 16px;
+    padding: 24px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 180px;
+    color: white;
+}
+
+.home-add-card:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.6);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.home-add-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 300;
+}
+
+.home-add-label {
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0.9;
+}
+
+/* Agent Splash Overlay */
+.agent-splash-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+}
+
+.agent-splash-card {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    width: 440px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+    animation: modalContentZoom 0.3s ease;
+}
+
+.agent-splash-title {
+    margin: 0 0 20px 0;
+    font-size: 22px;
+    font-weight: 600;
+    color: #1a1a1a;
+    text-align: left;
+}
+
+.agent-splash-params .form-group {
+    margin-bottom: 16px;
+}
+
+.agent-splash-params label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    font-size: 14px;
+    color: #333;
+}
+
+.agent-splash-params input[type="text"] {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+.agent-splash-params input[type="text"]:focus {
+    border-color: #0078d4;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.1);
+}
+
+.agent-splash-params .params-description {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.agent-splash-progress {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.agent-splash-status {
+    font-size: 14px;
+    color: #666;
+    margin-top: 12px;
+}
+
+.agent-splash-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+/* Hide home button when on home page */
+.home-page ~ #sideCommandBar #backToHomeButton {
+    display: none;
+}
+
+/* Home footer with version info */
+.home-footer {
+    position: absolute;
+    bottom: 20px;
+    left: 48px;
+    right: 0;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 12px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* Center buttons in agent splash overlay */
+.agent-splash-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .home-page {
+        padding: 20px 16px;
+    }
+
+    .home-title {
+        font-size: 1.5rem;
+    }
+
+    .home-agent-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .home-agent-card {
+        padding: 20px;
+    }
+}

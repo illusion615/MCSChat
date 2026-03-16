@@ -15,23 +15,24 @@
     position: relative;
 }
 
-/* Left panel styles */
+/* Left panel styles - floating panel aligned with right panel */
 #leftPanel {
     width: 280px;
     min-width: 280px;
     max-width: 280px;
     flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.95);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-    border-right: 1px solid rgba(255, 255, 255, 0.2);
-    padding: 24px;
+    background: rgba(255, 255, 255, 0.98);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    height: 100vh;
     overflow: hidden;
-    border-radius: 0;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    align-self: stretch;
 }
 
 #historyHeader {
@@ -138,16 +139,17 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
 
 #agentChatPanel {
     flex: 1;
-    min-width: 400px;
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 300px;
+    transition: flex 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #llmAnalysisPanel {
     width: 400px;
     min-width: 350px;
     max-width: 500px;
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    transform-origin: right center;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                min-width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     display: flex;
     flex-direction: column;
@@ -162,8 +164,7 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
 
 /* Adjust agent chat panel when AI companion is expanded */
 #agentChatPanel.companion-expanded {
-    flex: none;
-    width: 50%;
+    flex: 1;
     max-width: 50%;
 }
 
@@ -212,6 +213,20 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
     min-height: 60px;
 }
 
+.panel-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.panel-header-btn {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
 .panel-header h3 {
     margin: 0;
     color: #323130;
@@ -256,14 +271,19 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
     }
 
     #container {
-        margin-left: 0;
-        height: calc(100vh - 60px); /* Full height minus mobile header */
+        margin-left: 0 !important; /* Force no left margin on mobile */
+        height: 100vh !important; /* Full viewport height - no gap */
         border-radius: 0;
         padding: 0;
     }
 
     #leftPanel {
         left: 0;
+    }
+    
+    /* Ensure collapsed state also has no margin */
+    .leftPanelCollapsed #container {
+        margin-left: 0 !important;
     }
 }
 
@@ -292,6 +312,22 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
 
 /* Small desktop screens - stack panels vertically */
 @media (max-width: 900px) {
+    /* Remove left margin from container on narrow screens */
+    #container {
+        margin-left: 0 !important; /* Important to override base style */
+        height: 100vh !important; /* Ensure full height */
+    }
+    
+    /* Ensure left panel aligns properly */
+    #leftPanel {
+        left: 0;
+    }
+    
+    /* Also handle collapsed state */
+    .leftPanelCollapsed #container {
+        margin-left: 0 !important;
+    }
+    
     #mainChatArea {
         flex-direction: column;
     }

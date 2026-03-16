@@ -1,14 +1,18 @@
 /**
  * Main Application Controller
  * Orchestrates all modules and handles application lifecycle
+ * 
+ * Version: 2.0.0
+ * Changelog:
+ * - 2.0.0: Added version tracking and splash screen integration
+ * - 1.9.0: Unified message system integration
+ * - 1.8.0: DirectLineManagerSimple migration
  */
 
 import { agentManager } from '../managers/agentManager.js';
 import { sessionManager } from '../managers/sessionManager.js';
-// OLD: Legacy DirectLine service (moved to legacy/directLineManager-legacy.js)
-// import { directLineManager } from '../services/directLineManager.js';
-// NEW: Using new DirectLine component (simplified compatible version)
-import { DirectLineManager } from '../components/directline/DirectLineManagerSimple.js';
+// DirectLine Service — unified connection + message queue component
+import { directLineService } from '../components/directline/DirectLineService.js';
 import { messageRenderer } from '../ui/messageRenderer.js';
 import { aiCompanion } from '../ai/aiCompanion.js';
 import { getKnowledgeHub } from '../services/knowledgeHub.js';
@@ -28,6 +32,12 @@ import LoggingManager from '../services/simpleLoggingManager.js';
 
 // UNIFIED MESSAGE SYSTEM: Import the new unified message system
 import { MessageIntegration } from '../ui/messageIntegration.js';
+
+// Import adaptive card modal for global use
+import { globalAdaptiveCardModal } from '../components/AdaptiveCardModal.js';
+
+const APPLICATION_VERSION = '2.0.0';
+console.log(`⚙️ [Application] Version ${APPLICATION_VERSION} loaded`);
 
 export class Application {
     constructor() {
@@ -58,9 +68,7 @@ export class Application {
         this.messageIntegration = new MessageIntegration();
         this.mobileUtils = mobileUtils;
 
-        // Initialize DirectLine Manager (NEW component)
-        // OLD: Was using singleton from legacy/directLineManager-legacy.js
-        this.directLineManager = new DirectLineManager();
+        // DirectLineService is a singleton import — no instantiation needed
 
         // Initialize logging system - using simpler version
         this.loggingManager = new LoggingManager();
@@ -77,10 +85,8 @@ export class Application {
             messageIconsEnabled: localStorage.getItem('messageIconsEnabled') !== 'false' // Default to true
         };
 
-        // Create global reference for backward compatibility
-        // OLD: directLineManager was a singleton export from services
-        // NEW: Making instance globally available to maintain compatibility
-        window.directLineManager = this.directLineManager;
+        // DirectLineService is a singleton — global reference for debugging only
+        window.directLineService = directLineService;
     }
 
     /**
@@ -118,7 +124,7 @@ export class Application {
 
             // Initialize AI companion
             this.updateInitializationIndicator('Initializing AI companion...');
-            aiCompanion.initialize();
+            await aiCompanion.initialize();
             this.aiCompanion = aiCompanion; // Assign to instance for access throughout the class
 
             // Initialize application icons that need the full icon collection
@@ -175,6 +181,15 @@ export class Application {
             }
             // For agent scenarios, app:init:complete will be triggered by greeting events
 
+            // Safety timeout: if splash screen still active after 8s, force release
+            if (hasAgent) {
+                setTimeout(() => {
+                    document.dispatchEvent(new CustomEvent('app:init:complete', {
+                        detail: { hasAgent: true }
+                    }));
+                }, 8000);
+            }
+
             // Show success briefly then hide
             this.updateInitializationIndicator('Application ready!');
             setTimeout(() => this.hideInitializationIndicator(), 1500);
@@ -213,14 +228,10 @@ export class Application {
             // Navigation elements
             clearButton: DOMUtils.getElementById('clearButton'),
             knowledgeHubButton: DOMUtils.getElementById('knowledgeHubButton'),
-            setupButton: DOMUtils.getElementById('setupButton'),
             settingsButton: DOMUtils.getElementById('settingsButton'),
             conversationsButton: DOMUtils.getElementById('conversationsButton'),
             clearAllHistoryButton: DOMUtils.getElementById('clearAllHistoryButton'),
             documentationButton: DOMUtils.getElementById('documentationButton'),
-            loggingButton: DOMUtils.getElementById('loggingButton'),
-            leftPanelToggle: DOMUtils.getElementById('leftPanelToggle'),
-            hidePanelButton: DOMUtils.getElementById('hidePanelButton'),
 
             // File upload elements
             fileInput: DOMUtils.getElementById('fileInput'),
@@ -233,8 +244,9 @@ export class Application {
             imageModal: DOMUtils.getElementById('imageModal'),
 
             // Panel elements
-            rightPanel: DOMUtils.getElementById('rightPanel'),
-            closeButton: DOMUtils.getElementById('closeButton'),
+            citationPreviewPanel: DOMUtils.getElementById('citationPreviewPanel'),
+            closeCitationBtn: DOMUtils.getElementById('closeCitationBtn'),
+            expandCitationPreviewBtn: DOMUtils.getElementById('expandCitationPreviewBtn'),
 
             // Chat elements
             chatWindow: DOMUtils.getElementById('chatWindow'),
@@ -248,6 +260,7 @@ export class Application {
             enableSideBrowserCheckbox: DOMUtils.getElementById('enableSideBrowserCheckbox'),
             fullWidthMessagesCheckbox: DOMUtils.getElementById('fullWidthMessagesCheckbox'),
             enableLLMCheckbox: DOMUtils.getElementById('enableLLMCheckbox'),
+            useAIThinkingCheckbox: DOMUtils.getElementById('useAIThinkingCheckbox'),
             apiKeySection: DOMUtils.getElementById('apiKeySection'),
             apiProviderSelect: DOMUtils.getElementById('apiProviderSelect'),
             apiKeyInput: DOMUtils.getElementById('apiKeyInput'),
@@ -264,20 +277,33 @@ export class Application {
             ollamaModelSelect: DOMUtils.getElementById('ollamaModelSelect'),
             refreshModelsBtn: DOMUtils.getElementById('refreshModelsBtn'),
             testOllamaBtn: DOMUtils.getElementById('testOllamaBtn'),
-
-            // Font size controls
-            agentFontSize: DOMUtils.getElementById('agentFontSize'),
-            agentFontSizeValue: DOMUtils.getElementById('agentFontSizeValue'),
-            companionFontSize: DOMUtils.getElementById('companionFontSize'),
-            companionFontSizeValue: DOMUtils.getElementById('companionFontSizeValue'),
+            openaiCompatibleConfig: DOMUtils.getElementById('openaiCompatibleConfig'),
+            openaiCompatibleBaseUrlInput: DOMUtils.getElementById('openaiCompatibleBaseUrlInput'),
+            openaiCompatibleApiKeyInput: DOMUtils.getElementById('openaiCompatibleApiKeyInput'),
+            openaiCompatibleModelInput: DOMUtils.getElementById('openaiCompatibleModelInput'),
+            openaiCompatibleDisplayNameInput: DOMUtils.getElementById('openaiCompatibleDisplayNameInput'),
+            testOpenAICompatibleBtn: DOMUtils.getElementById('testOpenAICompatibleBtn'),
 
             // Side browser elements
             sideBrowser: DOMUtils.getElementById('sideBrowser'),
 
             // New UI elements for UX improvements
             leftPanel: DOMUtils.getElementById('leftPanel'),
-            messageIconToggle: DOMUtils.getElementById('messageIconToggle'),
-            leftPanelToggle: DOMUtils.getElementById('leftPanelToggle')
+
+            // Appearance side panel
+            appearanceButton: DOMUtils.getElementById('appearanceButton'),
+            appearanceSidePanel: DOMUtils.getElementById('appearanceSidePanel'),
+            closeAppearancePanel: DOMUtils.getElementById('closeAppearancePanel'),
+            appearanceMessageIconToggle: DOMUtils.getElementById('appearanceMessageIconToggle'),
+            appearanceAgentFontSize: DOMUtils.getElementById('appearanceAgentFontSize'),
+            appearanceAgentFontSizeValue: DOMUtils.getElementById('appearanceAgentFontSizeValue'),
+            appearanceCompanionFontSize: DOMUtils.getElementById('appearanceCompanionFontSize'),
+            appearanceCompanionFontSizeValue: DOMUtils.getElementById('appearanceCompanionFontSizeValue'),
+            appearanceThemeGallery: DOMUtils.getElementById('appearanceThemeGallery'),
+            streamingStyleSelect: DOMUtils.getElementById('streamingStyleSelect'),
+            streamingSpeedSelect: DOMUtils.getElementById('streamingSpeedSelect'),
+            suggestedActionsPositionSelect: DOMUtils.getElementById('suggestedActionsPositionSelect'),
+            thinkingDotStyleSelect: DOMUtils.getElementById('thinkingDotStyleSelect')
         };
 
         // Debug: Check if Azure elements were found
@@ -332,7 +358,7 @@ export class Application {
             if (this.elements.aiCompanionToggleBtn && this.elements.aiCompanionToggleBtn.children.length === 0) {
                 const aiCompanionIcon = window.Icon.create('aiCompanion', {
                     size: '18px',
-                    color: '#333'
+                    color: 'currentColor'
                 });
                 console.log('[Application] Created aiCompanionToggleBtn icon:', aiCompanionIcon);
                 this.elements.aiCompanionToggleBtn.appendChild(aiCompanionIcon);
@@ -354,10 +380,58 @@ export class Application {
         // Configure MessageRenderer to target the agent chat window (middle panel)
         messageRenderer.setTargetWindow('chatWindow');
 
-        // Set up DirectLine callbacks (only for connection status and errors)
-        directLineManager.setCallbacks({
-            onConnectionStatusChange: (status) => this.handleConnectionStatus(status),
-            onError: (error) => this.handleConnectionError(error)
+        // Set up DirectLine event listeners via on/off
+        directLineService.on('statusChange', (status) => this.handleConnectionStatus(status));
+        directLineService.on('message', (entry) => this.handleCompleteMessage(entry));
+        directLineService.on('messageChunk', (entry) => this.handleStreamingChunk(entry));
+        directLineService.on('typing', () => {
+            // Record true TTFT: time from user send to first typing signal from bot
+            if (messageRenderer.responseTimeTracking.requestStartTime &&
+                !messageRenderer.responseTimeTracking.ttftRecorded) {
+                messageRenderer.responseTimeTracking.ttft =
+                    Date.now() - messageRenderer.responseTimeTracking.requestStartTime;
+                messageRenderer.responseTimeTracking.ttftRecorded = true;
+                console.log(`[TTFT] Recorded from typing activity: ${messageRenderer.responseTimeTracking.ttft}ms`);
+            }
+
+            const useAIThinking = window.aiCompanion?.isEnabled === true && localStorage.getItem('useAIThinking') !== 'false';
+            if (useAIThinking) return;
+            // Suppress typing indicator for 500ms after a message arrives to prevent re-show flicker
+            if (this._lastMessageTime && (Date.now() - this._lastMessageTime) < 500) return;
+            this.showProgressIndicator({ source: 'directline' });
+            // Update status to reflect bot is processing
+            this.enhancedTypingIndicator.setStatus('Agent is processing...');
+        });
+        directLineService.on('greeting', () => {
+            document.dispatchEvent(new CustomEvent('agent:greeting:received'));
+            document.dispatchEvent(new CustomEvent('app:init:complete', { detail: { hasAgent: true } }));
+        });
+        directLineService.on('greetingTimeout', () => {
+            document.dispatchEvent(new CustomEvent('agent:greeting:timeout'));
+            const hasAgent = agentManager.getCurrentAgent() !== null;
+            document.dispatchEvent(new CustomEvent('app:init:complete', { detail: { hasAgent } }));
+        });
+        directLineService.on('connected', () => {
+            document.dispatchEvent(new CustomEvent('agent:greeting:sending'));
+            // Release splash screen immediately on connection — don't wait for greeting to finish
+            document.dispatchEvent(new CustomEvent('app:init:complete', { detail: { hasAgent: true } }));
+            this.hideProgressIndicator();
+        });
+        directLineService.on('disconnected', () => {
+            // If connection drops before greeting, release splash screen
+            if (!this.isInitialized) return;
+            this.state.isConnected = false;
+        });
+        directLineService.on('error', (error) => {
+            this.handleConnectionError(error);
+            // Release splash screen if stuck
+            document.dispatchEvent(new CustomEvent('app:init:complete', { detail: { hasAgent: false } }));
+        });
+        directLineService.on('conversationUpdate', (activity) => {
+            this.handleConversationUpdate(activity);
+        });
+        directLineService.on('event', (activity) => {
+            this.handleEventActivity(activity);
         });
 
         // Initialize logging UI manager - temporarily disabled
@@ -413,6 +487,10 @@ export class Application {
                 // Store reference to the API for easy access
                 this.unifiedMessageAPI = this.messageIntegration.getAPI();
 
+                // Initialize global adaptive card modal
+                globalAdaptiveCardModal.init();
+                console.log('Global adaptive card modal initialized');
+
                 // Log initialization
                 this.loggingManager.info('system', 'Unified message system initialized', {
                     config,
@@ -447,24 +525,562 @@ export class Application {
      * @private
      */
     async loadAndConnectAgent() {
-        const currentAgent = agentManager.getCurrentAgent();
+        // Always show Home page — no auto-connect
+        document.dispatchEvent(new CustomEvent('app:init:complete', { detail: { hasAgent: false } }));
+        this.hideInitializationIndicator();
+        this.showHomePage();
+    }
 
-        if (currentAgent) {
-            console.log('Connecting to current agent:', currentAgent.name);
-            await this.connectToAgent(currentAgent.secret);
-        } else {
-            // Try legacy migration or show setup
-            this.updateInitializationIndicator('Checking for existing configuration...');
-            const savedSecret = await this.tryLegacyMigration();
-            if (!savedSecret) {
-                console.log('No agents configured, showing setup modal');
-                this.updateInitializationIndicator('No agents configured');
-                setTimeout(() => {
-                    this.hideInitializationIndicator();
-                    this.showSetupModal();
-                }, 1000);
-            }
+    /**
+     * Show the Home page with agent cards
+     */
+    showHomePage() {
+        const homePage = document.getElementById('homePage');
+        if (!homePage) return;
+
+        homePage.style.display = 'flex';
+
+        // Hide back-to-home button when on home page
+        const backBtn = document.getElementById('backToHomeButton');
+        if (backBtn) backBtn.style.display = 'none';
+
+        this.renderHomeAgentCards();
+        console.log('[Application] Home page displayed');
+    }
+
+    /**
+     * Hide the Home page and show the main app
+     */
+    hideHomePage() {
+        const homePage = document.getElementById('homePage');
+        if (homePage) homePage.style.display = 'none';
+
+        // Show back-to-home button when leaving home page
+        const backBtn = document.getElementById('backToHomeButton');
+        if (backBtn) backBtn.style.display = 'flex';
+    }
+
+    /**
+     * Render agent cards on the Home page
+     */
+    renderHomeAgentCards() {
+        const grid = document.getElementById('homeAgentGrid');
+        if (!grid) return;
+
+        const agents = agentManager.getAllAgents();
+        const agentIds = Object.keys(agents);
+
+        grid.innerHTML = '';
+
+        // Render each agent card
+        agentIds.forEach(agentId => {
+            const agent = agents[agentId];
+            const stats = this._computeAgentStats(agentId);
+            const hasParams = agentManager.agentHasInitParams(agentId);
+
+            const card = document.createElement('div');
+            card.className = 'home-agent-card';
+            card.innerHTML = `
+                <h3 class="home-agent-card-name">${Utils.escapeHtml(agent.name)}</h3>
+                <div class="home-agent-card-status">
+                    <span class="status-dot"></span>
+                    Ready
+                    ${hasParams ? `<span class="home-agent-params-badge">${agent.initParams.length} params</span>` : ''}
+                </div>
+                <div class="home-agent-card-stats">
+                    <div class="home-agent-stat">
+                        <span class="home-agent-stat-value">${stats.sessionCount}</span>
+                        <span class="home-agent-stat-label">Conversations</span>
+                    </div>
+                    <div class="home-agent-stat">
+                        <span class="home-agent-stat-value">${stats.totalDuration}</span>
+                        <span class="home-agent-stat-label">Total Time</span>
+                    </div>
+                    <div class="home-agent-stat">
+                        <span class="home-agent-stat-value">${stats.messageCount}</span>
+                        <span class="home-agent-stat-label">Messages</span>
+                    </div>
+                    <div class="home-agent-stat">
+                        <span class="home-agent-stat-value">${stats.lastInteraction}</span>
+                        <span class="home-agent-stat-label">Last Active</span>
+                    </div>
+                </div>
+            `;
+            // Settings button
+            const settingsBtn = document.createElement('button');
+            settingsBtn.className = 'home-agent-settings-btn';
+            settingsBtn.title = 'Agent settings';
+            settingsBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+            settingsBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showAgentEditOverlay(agentId);
+            });
+            card.appendChild(settingsBtn);
+
+            // Delete button (stop propagation so card click doesn't fire)
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'home-agent-delete-btn';
+            deleteBtn.title = 'Delete agent';
+            deleteBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showDeleteAgentOverlay(agentId, agent.name);
+            });
+            card.appendChild(deleteBtn);
+
+            card.addEventListener('click', () => this.onHomeAgentCardClick(agentId));
+            grid.appendChild(card);
+        });
+
+        // Add "+" card
+        const addCard = document.createElement('div');
+        addCard.className = 'home-add-card';
+        addCard.innerHTML = `
+            <div class="home-add-icon">+</div>
+            <div class="home-add-label">Add New Agent</div>
+        `;
+        addCard.addEventListener('click', () => this.showAddAgentOverlay());
+        grid.appendChild(addCard);
+    }
+
+    /**
+     * Show delete agent confirmation overlay
+     * @param {string} agentId
+     * @param {string} agentName
+     */
+    showDeleteAgentOverlay(agentId, agentName) {
+        // Create overlay dynamically
+        let overlay = document.getElementById('deleteAgentOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'deleteAgentOverlay';
+            overlay.className = 'init-params-overlay';
+            overlay.innerHTML = `
+                <div class="init-params-card">
+                    <h3>Delete Agent</h3>
+                    <p class="init-params-desc">This action cannot be undone. To confirm, type the agent name below:</p>
+                    <p class="delete-agent-name-display"></p>
+                    <div class="form-group">
+                        <input type="text" id="deleteAgentConfirmInput" placeholder="Type agent name to confirm" />
+                    </div>
+                    <div class="init-params-actions">
+                        <button type="button" id="deleteAgentCancelBtn" class="btn btn-secondary">Cancel</button>
+                        <button type="button" id="deleteAgentConfirmBtn" class="btn btn-danger" disabled>Delete</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
         }
+
+        const nameDisplay = overlay.querySelector('.delete-agent-name-display');
+        const confirmInput = overlay.querySelector('#deleteAgentConfirmInput');
+        const confirmBtn = overlay.querySelector('#deleteAgentConfirmBtn');
+        const cancelBtn = overlay.querySelector('#deleteAgentCancelBtn');
+
+        nameDisplay.textContent = agentName;
+        confirmInput.value = '';
+        confirmBtn.disabled = true;
+        overlay.style.display = 'flex';
+
+        // Enable button only when name matches
+        const onInput = () => {
+            confirmBtn.disabled = confirmInput.value.trim() !== agentName;
+        };
+        confirmInput.removeEventListener('input', onInput);
+        confirmInput.addEventListener('input', onInput);
+
+        // Clone buttons to clear old listeners
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+        // Re-attach input listener to new confirm button
+        newConfirmBtn.disabled = true;
+        confirmInput.addEventListener('input', () => {
+            newConfirmBtn.disabled = confirmInput.value.trim() !== agentName;
+        });
+
+        newCancelBtn.addEventListener('click', () => {
+            overlay.style.display = 'none';
+        });
+
+        newConfirmBtn.addEventListener('click', async () => {
+            if (confirmInput.value.trim() !== agentName) return;
+            await agentManager.deleteAgent(agentId);
+            // Also remove agent stats
+            localStorage.removeItem(`agentStats_${agentId}`);
+            overlay.style.display = 'none';
+            this.renderHomeAgentCards();
+        });
+    }
+
+    /**
+     * Compute stats for an agent from stored usage data
+     * @private
+     */
+    _computeAgentStats(agentId, chatHistory) {
+        // Load per-agent stats from localStorage
+        try {
+            const statsRaw = localStorage.getItem(`agentStats_${agentId}`);
+            if (statsRaw) {
+                const stats = JSON.parse(statsRaw);
+                return {
+                    sessionCount: stats.sessionCount || 0,
+                    messageCount: stats.messageCount || 0,
+                    totalDuration: this._formatDurationShort(stats.totalDurationMs || 0),
+                    lastInteraction: stats.lastInteractionTs ? this._formatRelativeTime(stats.lastInteractionTs) : 'Never'
+                };
+            }
+        } catch (_) { /* ignore */ }
+
+        return {
+            sessionCount: 0,
+            messageCount: 0,
+            totalDuration: '0m',
+            lastInteraction: 'Never'
+        };
+    }
+
+    /**
+     * Update stored stats for the current agent (called after messages)
+     * @private
+     */
+    _updateCurrentAgentStats() {
+        const agent = agentManager.getCurrentAgent();
+        if (!agent) return;
+
+        const key = `agentStats_${agent.id}`;
+        let stats;
+        try {
+            stats = JSON.parse(localStorage.getItem(key) || '{}');
+        } catch (_) {
+            stats = {};
+        }
+
+        stats.messageCount = (stats.messageCount || 0) + 1;
+        stats.lastInteractionTs = Date.now();
+
+        // Session count: increment if this is a new session we haven't counted
+        const currentSession = localStorage.getItem('currentSession');
+        if (currentSession && stats.lastSessionId !== currentSession) {
+            stats.sessionCount = (stats.sessionCount || 0) + 1;
+            stats.lastSessionId = currentSession;
+            stats.sessionStartTs = Date.now();
+        }
+
+        // Duration: accumulate time from session start
+        if (stats.sessionStartTs) {
+            stats.totalDurationMs = (stats.totalDurationMs || 0) + (Date.now() - (stats.lastDurationCheckTs || stats.sessionStartTs));
+            stats.lastDurationCheckTs = Date.now();
+        }
+
+        localStorage.setItem(key, JSON.stringify(stats));
+    }
+
+    /**
+     * Format milliseconds to short duration string
+     * @private
+     */
+    _formatDurationShort(ms) {
+        if (ms < 60000) return '<1m';
+        const minutes = Math.floor(ms / 60000);
+        if (minutes < 60) return `${minutes}m`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ${minutes % 60}m`;
+        const days = Math.floor(hours / 24);
+        return `${days}d`;
+    }
+
+    /**
+     * Format timestamp to relative time
+     * @private
+     */
+    _formatRelativeTime(ts) {
+        const diff = Date.now() - ts;
+        if (diff < 60000) return 'Just now';
+        if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+        if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+        if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+        return new Date(ts).toLocaleDateString();
+    }
+
+    /**
+     * Handle click on a Home page agent card
+     */
+    onHomeAgentCardClick(agentId) {
+        const agent = agentManager.agents[agentId];
+        if (!agent) return;
+
+        const hasParams = agentManager.agentHasInitParams(agentId);
+        this.showAgentSplashOverlay(agentId, hasParams);
+    }
+
+    /**
+     * Show the Agent Splash overlay (params + progress)
+     */
+    showAgentSplashOverlay(agentId, hasParams) {
+        const overlay = document.getElementById('agentSplashOverlay');
+        const paramsSection = document.getElementById('agentSplashParams');
+        const progressSection = document.getElementById('agentSplashProgress');
+        const actionsSection = document.getElementById('agentSplashActions');
+        const cancelProgressSection = document.getElementById('agentSplashCancelProgress');
+        const startBtn = document.getElementById('agentSplashStartBtn');
+        const cancelBtn = document.getElementById('agentSplashCancelBtn');
+        const cancelProgressBtn = document.getElementById('agentSplashCancelProgressBtn');
+        const titleEl = document.getElementById('agentSplashTitle');
+        if (!overlay) return;
+
+        const agent = agentManager.agents[agentId];
+        titleEl.textContent = "Let's Begin";
+
+        // Reset state
+        progressSection.style.display = 'none';
+        actionsSection.style.display = 'flex';
+        cancelProgressSection.style.display = 'none';
+        paramsSection.style.display = '';
+
+        if (hasParams) {
+            const params = agentManager.getInitParams(agentId);
+            paramsSection.innerHTML = `
+                <p class="params-description">This agent requires the following information before starting.</p>
+                ${params.map(p => `
+                    <div class="form-group">
+                        <label for="splash_${p.name}">${Utils.escapeHtml(p.displayName)}:</label>
+                        <input type="text" id="splash_${p.name}" name="${Utils.escapeHtml(p.name)}"
+                               placeholder="Enter ${Utils.escapeHtml(p.displayName)}" required />
+                    </div>
+                `).join('')}
+            `;
+            startBtn.textContent = 'Start Session';
+        } else {
+            paramsSection.innerHTML = '<p class="params-description">Ready to connect to <strong>' + Utils.escapeHtml(agent.name) + '</strong>.</p>';
+            startBtn.textContent = 'Connect';
+        }
+
+        overlay.style.display = 'flex';
+
+        // Clone buttons to remove old listeners
+        const newStartBtn = startBtn.cloneNode(true);
+        startBtn.parentNode.replaceChild(newStartBtn, startBtn);
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+        const newCancelProgressBtn = cancelProgressBtn.cloneNode(true);
+        cancelProgressBtn.parentNode.replaceChild(newCancelProgressBtn, cancelProgressBtn);
+
+        let connectionAborted = false;
+
+        newCancelBtn.addEventListener('click', () => {
+            overlay.style.display = 'none';
+        });
+
+        newCancelProgressBtn.addEventListener('click', () => {
+            connectionAborted = true;
+            directLineService.disconnect();
+            this.state.isConnected = false;
+            // Reset overlay
+            progressSection.style.display = 'none';
+            cancelProgressSection.style.display = 'none';
+            paramsSection.style.display = '';
+            actionsSection.style.display = 'flex';
+            document.getElementById('agentSplashStatus').textContent = 'Connecting...';
+            this.showHomePage();
+        });
+
+        newStartBtn.addEventListener('click', async () => {
+            // Validate params
+            if (hasParams) {
+                const inputs = paramsSection.querySelectorAll('input[required]');
+                let valid = true;
+                inputs.forEach(input => {
+                    if (!input.value.trim()) { input.classList.add('input-error'); valid = false; }
+                    else { input.classList.remove('input-error'); }
+                });
+                if (!valid) return;
+
+                const context = {};
+                inputs.forEach(input => { context[input.name] = input.value.trim(); });
+                directLineService.setInitContext(context);
+            }
+
+            // Show progress in-place
+            actionsSection.style.display = 'none';
+            paramsSection.style.display = 'none';
+            progressSection.style.display = 'block';
+            cancelProgressSection.style.display = 'flex';
+            const statusEl = document.getElementById('agentSplashStatus');
+            statusEl.textContent = 'Connecting to ' + agent.name + '...';
+
+            try {
+                await agentManager.setCurrentAgent(agentId);
+
+                // Clear chat window for fresh session (but keep Home visible behind overlay)
+                messageRenderer.clearMessages();
+                messageRenderer.setTargetWindow('chatWindow');
+
+                const success = await directLineService.connect(agent.secret);
+                if (connectionAborted) return;
+
+                if (success) {
+                    statusEl.textContent = 'Connected! Waiting for agent response...';
+                    this.state.isConnected = true;
+                    this.state.currentAgent = agent;
+                    this.initializeSession();
+                    this.updateAgentStatus('connected', agent.name);
+
+                    // Keep overlay AND home visible — fade both out on first bot message
+                    const fadeOutOnFirstMessage = (entry) => {
+                        if (connectionAborted) return;
+                        directLineService.off('message', fadeOutOnFirstMessage);
+
+                        // Fade out overlay
+                        overlay.style.transition = 'opacity 0.4s ease';
+                        overlay.style.opacity = '0';
+
+                        // Fade out home page
+                        const homePage = document.getElementById('homePage');
+                        if (homePage && homePage.style.display !== 'none') {
+                            homePage.style.transition = 'opacity 0.4s ease';
+                            homePage.style.opacity = '0';
+                        }
+
+                        setTimeout(() => {
+                            overlay.style.display = 'none';
+                            overlay.style.opacity = '';
+                            overlay.style.transition = '';
+                            this.hideHomePage();
+                            if (homePage) {
+                                homePage.style.opacity = '';
+                                homePage.style.transition = '';
+                            }
+                        }, 400);
+                    };
+                    directLineService.on('message', fadeOutOnFirstMessage);
+
+                    // Safety timeout: close overlay after 15s even if no message
+                    setTimeout(() => {
+                        if (overlay.style.display !== 'none') {
+                            directLineService.off('message', fadeOutOnFirstMessage);
+                            overlay.style.display = 'none';
+                            this.hideHomePage();
+                        }
+                    }, 15000);
+                } else {
+                    statusEl.textContent = 'Connection failed. Please try again.';
+                    newCancelProgressBtn.textContent = 'Back';
+                    this.showHomePage();
+                }
+            } catch (error) {
+                if (connectionAborted) return;
+                statusEl.textContent = 'Error: ' + error.message;
+                newCancelProgressBtn.textContent = 'Back';
+                this.showHomePage();
+            }
+        });
+    }
+
+    /**
+     * Show Agent Edit/Add overlay
+     * @param {string|null} agentId - null for new agent, string for editing
+     */
+    showAgentEditOverlay(agentId = null) {
+        const overlay = document.getElementById('agentEditOverlay');
+        const titleEl = document.getElementById('agentEditTitle');
+        const nameInput = document.getElementById('agentEditName');
+        const secretInput = document.getElementById('agentEditSecret');
+        const paramsList = document.getElementById('agentEditParamsList');
+        const addParamBtn = document.getElementById('agentEditAddParamBtn');
+        const saveBtn = document.getElementById('agentEditSaveBtn');
+        const cancelBtn = document.getElementById('agentEditCancelBtn');
+        if (!overlay) return;
+
+        const isEdit = agentId !== null;
+        const agent = isEdit ? agentManager.agents[agentId] : null;
+
+        titleEl.textContent = isEdit ? 'Edit Agent' : 'Add New Agent';
+        nameInput.value = isEdit ? agent.name : '';
+        secretInput.value = isEdit ? agent.secret : '';
+
+        // Render params
+        const params = isEdit ? agentManager.getInitParams(agentId) : [];
+        this._renderEditParams(paramsList, params);
+
+        overlay.style.display = 'flex';
+
+        // Clone buttons
+        const newAddParamBtn = addParamBtn.cloneNode(true);
+        addParamBtn.parentNode.replaceChild(newAddParamBtn, addParamBtn);
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+        newAddParamBtn.addEventListener('click', () => {
+            const row = this._createParamRow('', '');
+            paramsList.appendChild(row);
+        });
+
+        newCancelBtn.addEventListener('click', () => {
+            overlay.style.display = 'none';
+        });
+
+        newSaveBtn.addEventListener('click', async () => {
+            const name = nameInput.value.trim();
+            const secret = secretInput.value.trim();
+            if (!name || !secret) return;
+
+            // Collect params
+            const rows = paramsList.querySelectorAll('.param-row');
+            const initParams = [];
+            rows.forEach(row => {
+                const key = row.querySelector('.param-key-input')?.value.trim();
+                const display = row.querySelector('.param-display-input')?.value.trim();
+                if (key) initParams.push({ name: key, displayName: display || key });
+            });
+
+            const savedId = await agentManager.addOrUpdateAgent(agentId, name, secret);
+            // Save params separately
+            agentManager.agents[savedId].initParams = initParams;
+            agentManager.agents[savedId].updatedAt = new Date().toISOString();
+            await agentManager.saveAgents();
+
+            overlay.style.display = 'none';
+            this.renderHomeAgentCards();
+        });
+    }
+
+    /**
+     * Show Add Agent overlay (convenience wrapper)
+     */
+    showAddAgentOverlay() {
+        this.showAgentEditOverlay(null);
+    }
+
+    /**
+     * Render param rows in the edit overlay
+     * @private
+     */
+    _renderEditParams(container, params) {
+        container.innerHTML = '';
+        params.forEach(p => {
+            container.appendChild(this._createParamRow(p.name, p.displayName));
+        });
+    }
+
+    /**
+     * Create a single param row element
+     * @private
+     */
+    _createParamRow(key, displayName) {
+        const row = document.createElement('div');
+        row.className = 'param-row';
+        row.innerHTML = `
+            <input type="text" class="param-key-input" value="${Utils.escapeHtml(key)}" placeholder="Parameter key" />
+            <input type="text" class="param-display-input" value="${Utils.escapeHtml(displayName)}" placeholder="Display name" />
+            <button type="button" class="agent-btn agent-btn-delete param-remove-btn" title="Remove">×</button>
+        `;
+        row.querySelector('.param-remove-btn').addEventListener('click', () => row.remove());
+        return row;
     }
 
     /**
@@ -503,7 +1119,7 @@ export class Application {
             // Emit DirectLine connecting event
             document.dispatchEvent(new CustomEvent('directline:connecting'));
 
-            const success = await directLineManager.initialize(secret);
+            const success = await directLineService.connect(secret);
 
             if (success) {
                 this.state.isConnected = true;
@@ -518,31 +1134,17 @@ export class Application {
                 }
 
                 console.log('Connected to agent successfully');
-                // Skip showing connection message to reduce UI noise
 
                 // Update agent status display
                 const agentName = this.state.currentAgent?.name || 'Unknown Agent';
                 this.updateAgentStatus('connected', agentName);
 
-                // Check if this is a new/empty session that needs greeting
-                const currentSessionMessages = sessionManager.getSessionMessages(this.state.currentSession);
-                const hasMessages = currentSessionMessages && currentSessionMessages.length > 0;
-
-                if (!hasMessages) {
-                    // This is a fresh session, trigger greeting
-                    console.log('Fresh session detected, triggering greeting...');
-                    setTimeout(() => {
-                        if (directLineManager) {
-                            directLineManager.sendGreeting();
-                        }
-                    }, 1000); // Small delay to ensure connection is stable
-                }
-
-                // Don't hide indicator immediately - let the connection status handle it
-                // This matches legacy behavior where it waits for bot response
+                // Greeting is auto-sent by DirectLineService on 'connected'
 
             } else {
                 this.handleConnectionError(new Error('Failed to initialize DirectLine'));
+                // Release splash screen
+                document.dispatchEvent(new CustomEvent('app:init:complete', { detail: { hasAgent: false } }));
             }
         } catch (error) {
             this.handleConnectionError(error);
@@ -610,7 +1212,8 @@ export class Application {
         });
 
         DOMUtils.addEventListener(this.elements.userInput, 'keydown', (e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !e.isComposing) {
+                e.preventDefault();
                 this.sendMessage();
             }
         });
@@ -625,20 +1228,101 @@ export class Application {
             this.openKnowledgeHub();
         });
 
-        // Open setup modal
-        DOMUtils.addEventListener(this.elements.setupButton, 'click', () => {
-            this.showSetupModal();
-        });
-
-        // Settings button (alternative to setup button)
+        // Settings button (replaces old setup button)
         DOMUtils.addEventListener(this.elements.settingsButton, 'click', () => {
             this.showSetupModal();
         });
+
+        // Appearance side panel toggle
+        DOMUtils.addEventListener(this.elements.appearanceButton, 'click', () => {
+            this.toggleAppearancePanel();
+        });
+        DOMUtils.addEventListener(this.elements.closeAppearancePanel, 'click', () => {
+            this.toggleAppearancePanel(false);
+        });
+        // Appearance panel: message icon toggle
+        if (this.elements.appearanceMessageIconToggle) {
+            DOMUtils.addEventListener(this.elements.appearanceMessageIconToggle, 'change', (e) => {
+                this.toggleMessageIcons(e.target.checked);
+                this.uiState.messageIconsEnabled = e.target.checked;
+                localStorage.setItem('messageIconsEnabled', e.target.checked.toString());
+                // Sync the settings modal checkbox
+                if (this.elements.messageIconToggle) {
+                    this.elements.messageIconToggle.checked = e.target.checked;
+                }
+            });
+        }
+        // Appearance panel: font size controls
+        if (this.elements.appearanceAgentFontSize) {
+            DOMUtils.addEventListener(this.elements.appearanceAgentFontSize, 'input', (e) => {
+                this.updateAgentFontSize(e.target.value);
+                if (this.elements.appearanceAgentFontSizeValue) {
+                    this.elements.appearanceAgentFontSizeValue.textContent = e.target.value + 'px';
+                }
+            });
+        }
+        if (this.elements.appearanceCompanionFontSize) {
+            DOMUtils.addEventListener(this.elements.appearanceCompanionFontSize, 'input', (e) => {
+                this.updateCompanionFontSize(e.target.value);
+                if (this.elements.appearanceCompanionFontSizeValue) {
+                    this.elements.appearanceCompanionFontSizeValue.textContent = e.target.value + 'px';
+                }
+            });
+        }
+        // Appearance panel: theme selection
+        if (this.elements.appearanceThemeGallery) {
+            this.elements.appearanceThemeGallery.addEventListener('click', (e) => {
+                const themeOption = e.target.closest('.theme-option');
+                if (themeOption) {
+                    const theme = themeOption.dataset.theme;
+                    this.applyColorTheme(theme);
+                    localStorage.setItem('selectedColorTheme', theme);
+                    // Update active state in the gallery
+                    this.elements.appearanceThemeGallery.querySelectorAll('.theme-option').forEach(opt => opt.classList.remove('active'));
+                    themeOption.classList.add('active');
+                }
+            });
+        }
+        // Streaming style and speed controls
+        if (this.elements.streamingStyleSelect) {
+            DOMUtils.addEventListener(this.elements.streamingStyleSelect, 'change', (e) => {
+                localStorage.setItem('streamingStyle', e.target.value);
+                console.log('Streaming style set to:', e.target.value);
+            });
+        }
+        if (this.elements.streamingSpeedSelect) {
+            DOMUtils.addEventListener(this.elements.streamingSpeedSelect, 'change', (e) => {
+                localStorage.setItem('streamingSpeed', e.target.value);
+                console.log('Streaming speed set to:', e.target.value);
+            });
+        }
+        if (this.elements.suggestedActionsPositionSelect) {
+            DOMUtils.addEventListener(this.elements.suggestedActionsPositionSelect, 'change', (e) => {
+                localStorage.setItem('suggestedActionsPosition', e.target.value);
+                console.log('Suggested actions position set to:', e.target.value);
+            });
+        }
+        if (this.elements.thinkingDotStyleSelect) {
+            DOMUtils.addEventListener(this.elements.thinkingDotStyleSelect, 'change', (e) => {
+                localStorage.setItem('thinkingDotStyle', e.target.value);
+                console.log('Thinking dot style set to:', e.target.value);
+            });
+        }
 
         // Conversations button (toggle left panel)
         DOMUtils.addEventListener(this.elements.conversationsButton, 'click', () => {
             this.toggleLeftPanel(!this.uiState.leftPanelCollapsed);
         });
+
+        // Back to Home button
+        const backToHomeBtn = document.getElementById('backToHomeButton');
+        if (backToHomeBtn) {
+            DOMUtils.addEventListener(backToHomeBtn, 'click', () => {
+                directLineService.disconnect();
+                this.state.isConnected = false;
+                this.showHomePage();
+            });
+        }
 
         // Clear all history
         DOMUtils.addEventListener(this.elements.clearAllHistoryButton, 'click', () => {
@@ -652,14 +1336,7 @@ export class Application {
             this.openDocumentation();
         });
 
-        // Logging button - open logging panel (if available)
-        if (this.elements.loggingButton) {
-            DOMUtils.addEventListener(this.elements.loggingButton, 'click', () => {
-                this.openLoggingPanel();
-            });
-        } else {
-            console.log('Logging button not found - using unified notification system');
-        }
+        // Note: Logging button removed - now using unified notification system
 
         // Close logging panel
         const closeLoggingPanel = document.getElementById('closeLoggingPanel');
@@ -707,9 +1384,16 @@ export class Application {
         this.attachLoggingFilterListeners();
 
         // Close right panel
-        DOMUtils.addEventListener(this.elements.closeButton, 'click', () => {
-            this.closeRightPanel();
+        DOMUtils.addEventListener(this.elements.closeCitationBtn, 'click', () => {
+            this.closeCitationPreview();
         });
+
+        // Expand citation preview panel
+        if (this.elements.expandCitationPreviewBtn) {
+            DOMUtils.addEventListener(this.elements.expandCitationPreviewBtn, 'click', () => {
+                this.toggleExpandCitationPreview();
+            });
+        }
 
         // New UX features
         this.attachUXEnhancementListeners();
@@ -940,6 +1624,14 @@ export class Application {
             });
         }
 
+        // AI Thinking mode checkbox
+        if (this.elements.useAIThinkingCheckbox) {
+            DOMUtils.addEventListener(this.elements.useAIThinkingCheckbox, 'change', (e) => {
+                localStorage.setItem('useAIThinking', e.target.checked.toString());
+                console.log('AI thinking simulation:', e.target.checked ? 'enabled' : 'disabled (using thinking dot)');
+            });
+        }
+
         // Streaming checkbox
         if (this.elements.enableStreamingCheckbox) {
             DOMUtils.addEventListener(this.elements.enableStreamingCheckbox, 'change', (e) => {
@@ -1070,21 +1762,84 @@ export class Application {
         // Test Ollama connection
         if (this.elements.testOllamaBtn) {
             DOMUtils.addEventListener(this.elements.testOllamaBtn, 'click', () => {
-                this.testOllamaConnection();
+                this.runConnectionTestWithProgress(
+                    this.elements.testOllamaBtn,
+                    'Testing...',
+                    () => this.testOllamaConnection()
+                );
             });
         }
 
         // Test Azure OpenAI connection
         if (this.elements.testAzureBtn) {
             DOMUtils.addEventListener(this.elements.testAzureBtn, 'click', () => {
-                this.testAzureConnection();
+                this.runConnectionTestWithProgress(
+                    this.elements.testAzureBtn,
+                    'Testing...',
+                    () => this.testAzureConnection()
+                );
             });
         }
 
         // Test general API connection
         if (this.elements.testApiBtn) {
             DOMUtils.addEventListener(this.elements.testApiBtn, 'click', () => {
-                this.testApiConnection();
+                this.runConnectionTestWithProgress(
+                    this.elements.testApiBtn,
+                    'Testing...',
+                    () => this.testApiConnection()
+                );
+            });
+        }
+
+        // OpenAI Compatible settings
+        if (this.elements.openaiCompatibleBaseUrlInput) {
+            DOMUtils.addEventListener(this.elements.openaiCompatibleBaseUrlInput, 'change', (e) => {
+                localStorage.setItem('openaiCompatibleBaseUrl', e.target.value);
+                console.log('OpenAI Compatible base URL saved:', e.target.value);
+            });
+        }
+        if (this.elements.openaiCompatibleModelInput) {
+            DOMUtils.addEventListener(this.elements.openaiCompatibleModelInput, 'change', (e) => {
+                localStorage.setItem('openaiCompatibleModel', e.target.value);
+                console.log('OpenAI Compatible model saved:', e.target.value);
+                // Update AI companion status and token displays for new model
+                if (this.aiCompanion) {
+                    this.aiCompanion.updateStatus();
+                    this.aiCompanion.updateTokenDisplays();
+                    this.aiCompanion.updateModelComparisonView();
+                }
+            });
+        }
+        if (this.elements.openaiCompatibleDisplayNameInput) {
+            DOMUtils.addEventListener(this.elements.openaiCompatibleDisplayNameInput, 'change', (e) => {
+                localStorage.setItem('openaiCompatibleDisplayName', e.target.value);
+                console.log('OpenAI Compatible display name saved:', e.target.value);
+                // Update AI companion status display
+                if (this.aiCompanion) {
+                    this.aiCompanion.updateStatus();
+                    this.aiCompanion.updateModelComparisonView();
+                }
+            });
+        }
+        if (this.elements.openaiCompatibleApiKeyInput) {
+            DOMUtils.addEventListener(this.elements.openaiCompatibleApiKeyInput, 'change', async (e) => {
+                try {
+                    const { SecureStorage } = await import('../utils/secureStorage.js');
+                    await SecureStorage.store('openaiCompatibleApiKey', e.target.value);
+                    console.log('OpenAI Compatible API key saved securely');
+                } catch (err) {
+                    console.error('Failed to save OpenAI Compatible API key:', err);
+                }
+            });
+        }
+        if (this.elements.testOpenAICompatibleBtn) {
+            DOMUtils.addEventListener(this.elements.testOpenAICompatibleBtn, 'click', () => {
+                this.runConnectionTestWithProgress(
+                    this.elements.testOpenAICompatibleBtn,
+                    'Testing...',
+                    () => this.testOpenAICompatibleConnection()
+                );
             });
         }
 
@@ -1116,45 +1871,26 @@ export class Application {
 
         window.addEventListener('agentSwitched', (e) => {
             this.hideSetupModal();
-            this.startNewChat();
-        });
-
-        // Agent greeting events for splash screen synchronization
-        document.addEventListener('agent:greeting:received', () => {
-            console.log('Agent greeting received - completing initialization');
-            const hasAgent = agentManager.getCurrentAgent() !== null;
-            document.dispatchEvent(new CustomEvent('app:init:complete', {
-                detail: { hasAgent: true }
-            }));
-        });
-
-        document.addEventListener('agent:greeting:timeout', () => {
-            console.log('Agent greeting timeout - completing initialization anyway');
-            const hasAgent = agentManager.getCurrentAgent() !== null;
-            document.dispatchEvent(new CustomEvent('app:init:complete', {
-                detail: { hasAgent }
-            }));
-        });
-
-        // DirectLine events
-        window.addEventListener('showTypingIndicator', (event) => {
-            // Don't show typing indicator if AI companion is enabled - thinking simulation handles visual feedback
-            if (window.aiCompanion && window.aiCompanion.isEnabled === true) {
-                console.log('AI companion enabled, ignoring showTypingIndicator event');
-                return;
+            const agentId = e.detail?.agentId;
+            if (agentId) {
+                // Disconnect and reconnect to new agent via overlay
+                directLineService.disconnect();
+                this.state.isConnected = false;
+                messageRenderer.clearMessages();
+                messageRenderer.setTargetWindow('chatWindow');
+                const hasParams = agentManager.agentHasInitParams(agentId);
+                this.showAgentSplashOverlay(agentId, hasParams);
             }
-
-            // Extract context from event detail for enhanced typing indicator
-            const context = event.detail || null;
-            this.showProgressIndicator(context);
         });
+
+        // Agent greeting events are now handled by directLineService.on('greeting'/'greetingTimeout')
+
+        // DirectLine events — typing, message, conversationUpdate, event
+        // are now handled by directLineService.on() in initializeManagers()
+        // Keep only UI-specific window events not covered by DirectLineService
 
         window.addEventListener('hideTypingIndicator', () => {
             this.hideProgressIndicator();
-        });
-
-        window.addEventListener('completeMessage', (e) => {
-            this.handleCompleteMessage(e.detail);
         });
 
         window.addEventListener('streamingActivity', (e) => {
@@ -1163,14 +1899,6 @@ export class Application {
 
         window.addEventListener('streamingEnd', (e) => {
             this.handleStreamingEnd(e.detail);
-        });
-
-        window.addEventListener('conversationUpdate', (e) => {
-            this.handleConversationUpdate(e.detail);
-        });
-
-        window.addEventListener('eventActivity', (e) => {
-            this.handleEventActivity(e.detail);
         });
 
         window.addEventListener('connectionStatus', (e) => {
@@ -1290,6 +2018,9 @@ export class Application {
             // Start response time tracking for accurate request-to-response timing
             messageRenderer.startResponseTimeTracking();
 
+            // Update per-agent stats for user message
+            this._updateCurrentAgentStats();
+
             // Clear suggested actions first (like legacy)
             messageRenderer.clearSuggestedActions();
 
@@ -1325,7 +2056,7 @@ export class Application {
                     messagePromise = this.sendMessageWithFile(messageText, this.selectedFile);
                     this.removeSelectedFile();
                 } else {
-                    messagePromise = directLineManager.sendMessage(messageText);
+                    messagePromise = directLineService.sendMessage(messageText);
                 }
             }
 
@@ -1333,14 +2064,11 @@ export class Application {
             this.startIntelligentThinkingSimulation(messageText, messagePromise);
 
             // Show progress indicator with detected context (only if AI companion is not enabled for thinking simulation)
-            if (!window.aiCompanion || window.aiCompanion.isEnabled !== true) {
-                const messageContext = this.detectMessageContext(messageText);
-                this.showProgressIndicator({
-                    source: 'user-message',
-                    messageText: messageText,
-                    hasFile: !!this.selectedFile,
-                    detectedContext: messageContext
-                });
+            const useAIThinking = window.aiCompanion?.isEnabled === true && localStorage.getItem('useAIThinking') !== 'false';
+            if (!useAIThinking) {
+                this.showProgressIndicator({ source: 'user-message' });
+                // Initial status: message sent, waiting for bot
+                this.enhancedTypingIndicator.setStatus('Waiting for agent...');
             } else {
                 // Set evaluation flag to prevent typing indicators during the 2-second evaluation period
                 this.isEvaluatingThinkingSimulation = true;
@@ -1377,24 +2105,35 @@ export class Application {
     }
 
     /**
-     * Start new chat session - consolidated with page refresh process
+     * Start new chat session — uses the same overlay flow as Home page.
+     * Disconnects current agent, clears chat, reconnects via overlay.
      */
     startNewChat() {
-        console.log('Starting new chat - using consolidated refresh process...');
+        console.log('Starting new chat...');
 
-        // Create new session first
+        const currentAgent = agentManager.getCurrentAgent();
+        if (!currentAgent) {
+            this.showHomePage();
+            return;
+        }
+
+        // Disconnect current session
+        directLineService.disconnect();
+        this.state.isConnected = false;
+
+        // Clear chat
+        messageRenderer.clearMessages();
+        messageRenderer.setTargetWindow('chatWindow');
+
+        // Create fresh session
         const newSessionId = sessionManager.createNewSession();
         this.state.currentSession = newSessionId;
-
-        // Clear the current session storage to ensure fresh start
         sessionManager.clearCurrentSessionStorage();
-
-        // Store the new session as current
         localStorage.setItem('currentSession', newSessionId);
 
-        // Reload the page to use the same initialization process as refresh
-        // This ensures consistent behavior and state management
-        window.location.reload();
+        // Show the same agent overlay
+        const hasParams = agentManager.agentHasInitParams(currentAgent.id);
+        this.showAgentSplashOverlay(currentAgent.id, hasParams);
     }
 
     /**
@@ -1535,12 +2274,149 @@ export class Application {
     }
 
     /**
+     * Handle a native streaming chunk from DirectLineService.
+     * Renders incremental text updates in real-time.
+     * @param {Object} entry - MessageEntry with partial text
+     * @private
+     */
+    handleStreamingChunk(entry) {
+        this.hideProgressIndicator();
+        this._lastMessageTime = Date.now();
+
+        // Use messageRenderer to update the streaming message in place
+        const messageId = entry.id || `stream-${entry.timestamp}`;
+
+        if (!this._streamingElements) {
+            this._streamingElements = new Map();
+        }
+
+        if (!this._streamingElements.has(messageId)) {
+            // First chunk — create the message container
+            const chatWindow = this.elements.chatWindow;
+            if (!chatWindow) return;
+
+            const messageContainer = document.createElement('div');
+            messageContainer.className = 'messageContainer botMessage';
+            messageContainer.id = `msg-${messageId}`;
+
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = 'message-wrapper';
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'messageContent';
+
+            messageWrapper.appendChild(messageDiv);
+            messageContainer.appendChild(messageWrapper);
+            chatWindow.appendChild(messageContainer);
+
+            this._streamingElements.set(messageId, { container: messageContainer, contentDiv: messageDiv });
+        }
+
+        // Update content
+        const el = this._streamingElements.get(messageId);
+        if (el && el.contentDiv) {
+            el.contentDiv.textContent = entry.text;
+            this.elements.chatWindow.scrollTop = this.elements.chatWindow.scrollHeight;
+        }
+
+        // If entry is complete, clean up tracking
+        if (entry.isComplete) {
+            this._streamingElements.delete(messageId);
+        }
+    }
+
+    /**
+     * Check if activity should be skipped (internal/system events)
+     * @param {Object} activity - Activity to check
+     * @returns {boolean} True if should skip
+     * @private
+     */
+    shouldSkipActivity(activity) {
+        // Skip internal system events that shouldn't be rendered
+        const INTERNAL_EVENT_NAMES = [
+            'handoff.initiated',
+            'handoff.completed',
+            'typing',
+            'trace',
+            'conversationUpdate',
+            'contactRelationUpdate',
+            'deleteUserData',
+            'installationUpdate',
+            'messageUpdate',
+            'messageDelete'
+        ];
+
+        // Skip internal events by name
+        if (activity.type === 'event' && activity.name && INTERNAL_EVENT_NAMES.includes(activity.name)) {
+            console.log(`[Activity Filter] Skipping internal event: ${activity.name}`);
+            return true;
+        }
+
+        // Skip trace activities (debugging only)
+        if (activity.type === 'trace') {
+            console.log('[Activity Filter] Skipping trace activity');
+            return true;
+        }
+
+        // Skip typing indicators
+        if (activity.type === 'typing') {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if activity is user-facing based on inputHint
+     * @param {Object} activity - Activity to check
+     * @returns {boolean} True if user-facing
+     * @private
+     */
+    isUserFacingMessage(activity) {
+        // If inputHint is explicitly set, respect it
+        if (activity.inputHint) {
+            // ignoringInput = bot is processing, not a final user-facing message
+            if (activity.inputHint === 'ignoringInput') {
+                console.log('[Activity Filter] Skipping ignoringInput activity (transitional message)');
+                return false;
+            }
+
+            // acceptingInput or expectingInput = user-facing message
+            if (activity.inputHint === 'acceptingInput' || activity.inputHint === 'expectingInput') {
+                return true;
+            }
+        }
+
+        // If no inputHint, assume user-facing for backward compatibility
+        return true;
+    }
+
+    /**
      * Handle complete message (enhanced to include session management)
      * @param {Object} activity - Message activity
      * @private
      */
     async handleCompleteMessage(activity) {
         this.hideProgressIndicator();
+        this._lastMessageTime = Date.now();
+
+        // Skip internal/system activities
+        if (this.shouldSkipActivity(activity)) {
+            console.log('[Application] handleCompleteMessage: Skipping internal activity:', {
+                type: activity.type,
+                name: activity.name
+            });
+            return;
+        }
+
+        // Skip non-user-facing messages (transitional states)
+        if (!this.isUserFacingMessage(activity)) {
+            console.log('[Application] handleCompleteMessage: Skipping non-user-facing activity:', {
+                inputHint: activity.inputHint,
+                text: activity.text?.substring(0, 50)
+            });
+            return;
+        }
 
         // Wait for thinking simulation to complete before starting agent message rendering
         if (window.aiCompanion && window.aiCompanion.isEnabled && activity.from && activity.from.id !== 'user') {
@@ -1574,6 +2450,14 @@ export class Application {
                 suggestedActions: activity.suggestedActions,
                 timestamp: activity.timestamp
             });
+
+            // Dispatch completeMessage event for AI Companion KPI analysis and speech queue
+            window.dispatchEvent(new CustomEvent('completeMessage', {
+                detail: activity
+            }));
+
+            // Update per-agent stats
+            this._updateCurrentAgentStats();
         }
 
         // Check if this message is already being handled by DirectLine streaming simulation
@@ -1609,6 +2493,7 @@ export class Application {
      */
     async handleStreamingActivity(activity) {
         this.hideProgressIndicator();
+        this._lastMessageTime = Date.now();
 
         // Wait for thinking simulation to complete before starting agent message rendering
         if (window.aiCompanion && window.aiCompanion.isEnabled && activity.from && activity.from.id !== 'user') {
@@ -1698,6 +2583,24 @@ export class Application {
      * @private
      */
     handleConversationUpdate(activity) {
+        // Skip internal/system activities
+        if (this.shouldSkipActivity(activity)) {
+            console.log('[Application] handleConversationUpdate: Skipping internal activity:', {
+                type: activity.type,
+                name: activity.name
+            });
+            return;
+        }
+
+        // Skip non-user-facing messages (transitional states)
+        if (!this.isUserFacingMessage(activity)) {
+            console.log('[Application] handleConversationUpdate: Skipping non-user-facing activity:', {
+                inputHint: activity.inputHint,
+                text: activity.text?.substring(0, 50)
+            });
+            return;
+        }
+
         // Add to session if it has content
         if (activity.text ||
             (activity.attachments && activity.attachments.length > 0) ||
@@ -1708,7 +2611,9 @@ export class Application {
                 text: activity.text,
                 attachments: activity.attachments,
                 suggestedActions: activity.suggestedActions,
-                timestamp: activity.timestamp
+                timestamp: activity.timestamp,
+                inputHint: activity.inputHint,
+                replyToId: activity.replyToId
             });
         }
 
@@ -1721,6 +2626,24 @@ export class Application {
      * @private
      */
     handleEventActivity(activity) {
+        // Skip internal/system activities
+        if (this.shouldSkipActivity(activity)) {
+            console.log('[Application] handleEventActivity: Skipping internal activity:', {
+                type: activity.type,
+                name: activity.name
+            });
+            return;
+        }
+
+        // Skip non-user-facing messages (transitional states)
+        if (!this.isUserFacingMessage(activity)) {
+            console.log('[Application] handleEventActivity: Skipping non-user-facing activity:', {
+                inputHint: activity.inputHint,
+                text: activity.text?.substring(0, 50)
+            });
+            return;
+        }
+
         // Add to session if it has content
         if (activity.text ||
             (activity.attachments && activity.attachments.length > 0) ||
@@ -1731,7 +2654,9 @@ export class Application {
                 text: activity.text,
                 attachments: activity.attachments,
                 suggestedActions: activity.suggestedActions,
-                timestamp: activity.timestamp
+                timestamp: activity.timestamp,
+                inputHint: activity.inputHint,
+                replyToId: activity.replyToId
             });
         }
 
@@ -2048,7 +2973,7 @@ export class Application {
         } else if (action.type === 'openUrl') {
             // Open URL in right panel or new tab
             if (action.value) {
-                this.openInRightPanel(action.value);
+                this.openCitationPreview(action.value);
             }
         }
     }
@@ -2376,6 +3301,11 @@ export class Application {
             this.elements.enableLLMCheckbox.checked = localStorage.getItem('enableLLM') === 'true';
         }
 
+        // Load AI thinking preference (default: true)
+        if (this.elements.useAIThinkingCheckbox) {
+            this.elements.useAIThinkingCheckbox.checked = localStorage.getItem('useAIThinking') !== 'false';
+        }
+
         // Load streaming settings
         if (this.elements.enableStreamingCheckbox) {
             this.elements.enableStreamingCheckbox.checked = localStorage.getItem('enableStreaming') === 'true';
@@ -2383,7 +3313,15 @@ export class Application {
 
         // Load side browser settings
         if (this.elements.enableSideBrowserCheckbox) {
-            this.elements.enableSideBrowserCheckbox.checked = localStorage.getItem('enableSideBrowser') === 'true';
+            // Default to true for better user experience
+            const sideBrowserSetting = localStorage.getItem('enableSideBrowser');
+            if (sideBrowserSetting === null) {
+                // First time user, default to true
+                localStorage.setItem('enableSideBrowser', 'true');
+                this.elements.enableSideBrowserCheckbox.checked = true;
+            } else {
+                this.elements.enableSideBrowserCheckbox.checked = sideBrowserSetting === 'true';
+            }
         }
 
         // Load full width messages settings
@@ -2428,6 +3366,23 @@ export class Application {
         if (this.elements.azureApiVersionInput) {
             this.elements.azureApiVersionInput.value = savedAzureApiVersion;
         }
+
+        // Load OpenAI Compatible settings
+        const savedCompatibleBaseUrl = localStorage.getItem('openaiCompatibleBaseUrl');
+        const savedCompatibleModel = localStorage.getItem('openaiCompatibleModel');
+        const savedCompatibleDisplayName = localStorage.getItem('openaiCompatibleDisplayName');
+
+        if (this.elements.openaiCompatibleBaseUrlInput && savedCompatibleBaseUrl) {
+            this.elements.openaiCompatibleBaseUrlInput.value = savedCompatibleBaseUrl;
+        }
+        if (this.elements.openaiCompatibleModelInput && savedCompatibleModel) {
+            this.elements.openaiCompatibleModelInput.value = savedCompatibleModel;
+        }
+        if (this.elements.openaiCompatibleDisplayNameInput && savedCompatibleDisplayName) {
+            this.elements.openaiCompatibleDisplayNameInput.value = savedCompatibleDisplayName;
+        }
+        // Load saved API key into input for display
+        this.loadOpenAICompatibleApiKey();
 
         // Update AI companion section visibility
         if (this.elements.enableLLMCheckbox?.checked) {
@@ -2491,6 +3446,70 @@ export class Application {
     }
 
     /**
+     * Toggle the Appearance side panel
+     * @param {boolean} [forceState] - Optional force open/close
+     */
+    toggleAppearancePanel(forceState) {
+        const panel = this.elements.appearanceSidePanel;
+        if (!panel) return;
+
+        const isOpen = panel.classList.contains('open');
+        const shouldOpen = forceState !== undefined ? forceState : !isOpen;
+
+        if (shouldOpen) {
+            panel.classList.add('open');
+            this.elements.appearanceButton?.classList.add('active');
+            // Sync current settings into the panel
+            this.syncAppearancePanelState();
+        } else {
+            panel.classList.remove('open');
+            this.elements.appearanceButton?.classList.remove('active');
+        }
+    }
+
+    /**
+     * Sync current settings state into the Appearance side panel controls
+     * @private
+     */
+    syncAppearancePanelState() {
+        // Sync message icon toggle
+        if (this.elements.appearanceMessageIconToggle) {
+            this.elements.appearanceMessageIconToggle.checked = this.uiState.messageIconsEnabled;
+        }
+        // Sync font sizes
+        const agentSize = localStorage.getItem('agentChatFontSize') || '15';
+        const companionSize = localStorage.getItem('companionChatFontSize') || '12';
+        if (this.elements.appearanceAgentFontSize) {
+            this.elements.appearanceAgentFontSize.value = agentSize;
+            if (this.elements.appearanceAgentFontSizeValue) this.elements.appearanceAgentFontSizeValue.textContent = agentSize + 'px';
+        }
+        if (this.elements.appearanceCompanionFontSize) {
+            this.elements.appearanceCompanionFontSize.value = companionSize;
+            if (this.elements.appearanceCompanionFontSizeValue) this.elements.appearanceCompanionFontSizeValue.textContent = companionSize + 'px';
+        }
+        // Sync theme selection
+        const savedTheme = localStorage.getItem('selectedColorTheme') || 'default';
+        if (this.elements.appearanceThemeGallery) {
+            this.elements.appearanceThemeGallery.querySelectorAll('.theme-option').forEach(opt => {
+                opt.classList.toggle('active', opt.dataset.theme === savedTheme);
+            });
+        }
+        // Sync streaming settings
+        if (this.elements.streamingStyleSelect) {
+            this.elements.streamingStyleSelect.value = localStorage.getItem('streamingStyle') || 'typewriter';
+        }
+        if (this.elements.streamingSpeedSelect) {
+            this.elements.streamingSpeedSelect.value = localStorage.getItem('streamingSpeed') || 'normal';
+        }
+        if (this.elements.suggestedActionsPositionSelect) {
+            this.elements.suggestedActionsPositionSelect.value = localStorage.getItem('suggestedActionsPosition') || 'aboveInput';
+        }
+        if (this.elements.thinkingDotStyleSelect) {
+            this.elements.thinkingDotStyleSelect.value = localStorage.getItem('thinkingDotStyle') || 'bounce';
+        }
+    }
+
+    /**
      * Hide setup modal
      */
     hideSetupModal() {
@@ -2507,13 +3526,84 @@ export class Application {
         }
     }
 
+    // ── Init Parameters Overlay ──────────────────────────────
+
+    /**
+     * Show the init parameters overlay for an agent.
+     * @param {string} agentId
+     * @param {Function} onSubmit - Called after user submits the form
+     */
+    showInitParamsOverlay(agentId, onSubmit) {
+        const overlay = document.getElementById('initParamsOverlay');
+        const form = document.getElementById('initParamsForm');
+        const startBtn = document.getElementById('initParamsStartBtn');
+        const cancelBtn = document.getElementById('initParamsCancelBtn');
+        if (!overlay || !form) return;
+
+        const params = agentManager.getInitParams(agentId);
+        if (!params.length) {
+            onSubmit?.();
+            return;
+        }
+
+        // Build form fields — use displayName as label, name as the key
+        form.innerHTML = params.map(p => `
+            <div class="form-group">
+                <label for="initParam_${p.name}">${Utils.escapeHtml(p.displayName)}:</label>
+                <input type="text" id="initParam_${p.name}" name="${Utils.escapeHtml(p.name)}"
+                       placeholder="Enter ${Utils.escapeHtml(p.displayName)}" required />
+            </div>
+        `).join('');
+
+        overlay.style.display = 'flex';
+
+        // Clean up previous listeners
+        const newStartBtn = startBtn.cloneNode(true);
+        startBtn.parentNode.replaceChild(newStartBtn, startBtn);
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+        newStartBtn.addEventListener('click', () => {
+            // Validate all fields filled
+            const inputs = form.querySelectorAll('input[required]');
+            let valid = true;
+            inputs.forEach(input => {
+                if (!input.value.trim()) {
+                    input.classList.add('input-error');
+                    valid = false;
+                } else {
+                    input.classList.remove('input-error');
+                }
+            });
+            if (!valid) return;
+
+            // Collect values
+            const context = {};
+            inputs.forEach(input => {
+                context[input.name] = input.value.trim();
+            });
+
+            // Store in sessionStorage so it survives the page reload
+            sessionStorage.setItem('pendingInitContext', JSON.stringify(context));
+            console.log('[Application] Init params submitted:', context);
+
+            overlay.style.display = 'none';
+            onSubmit?.();
+        });
+
+        newCancelBtn.addEventListener('click', () => {
+            overlay.style.display = 'none';
+        });
+    }
+
     /**
      * Show progress indicator (enhanced with legacy's typing indicator implementation)
      */
     showProgressIndicator(context = null) {
-        // Check if AI companion is enabled - don't show progress indicator when AI companion handles thinking simulation
-        if (window.aiCompanion && window.aiCompanion.isEnabled === true) {
-            console.log('AI companion is enabled, skipping progress indicator (thinking simulation handles this)');
+        // Check if AI companion handles thinking simulation (only block if AI thinking is enabled)
+        const useAIThinking = window.aiCompanion?.isEnabled === true && localStorage.getItem('useAIThinking') !== 'false';
+        if (useAIThinking) {
+            console.log('AI thinking simulation enabled, skipping progress indicator');
             return;
         }
 
@@ -2557,7 +3647,10 @@ export class Application {
         const messageIcon = DOMUtils.createElement('div', {
             className: 'messageIcon'
         });
-        messageIcon.style.backgroundImage = 'url("images/copilotstudio-icon.webp")';
+        
+        // Use the same icon as thinking messages for consistency
+        const aiCompanionIcon = window.Icon.create('aiCompanion', { color: '#333', size: '28px' });
+        messageIcon.appendChild(aiCompanionIcon);
 
         messageContainer.appendChild(messageIcon);
         messageContainer.appendChild(indicatorElement);
@@ -2566,15 +3659,15 @@ export class Application {
 
         console.log('Enhanced typing indicator created with context:', context);
 
-        // Safety timeout to remove indicator if it gets stuck (60 seconds for enhanced experience)
+        // Safety timeout to remove indicator if it gets stuck (30 seconds)
         setTimeout(() => {
             const stuckIndicator = chatWindow.querySelector('#progressIndicator');
             if (stuckIndicator) {
-                console.log('Removing stuck progress indicator after 60 seconds');
+                console.log('Removing stuck progress indicator after 30 seconds');
                 this.enhancedTypingIndicator.hide();
                 stuckIndicator.remove();
             }
-        }, 60000);
+        }, 30000);
     }
 
     /**
@@ -2613,6 +3706,12 @@ export class Application {
         // Check if AI companion is enabled
         if (!window.aiCompanion || window.aiCompanion.isEnabled !== true) {
             console.log('[Application] AI Companion not enabled, skipping thinking simulation');
+            return;
+        }
+
+        // Check if user prefers simple thinking dot over AI thinking
+        if (localStorage.getItem('useAIThinking') === 'false') {
+            console.log('[Application] AI thinking disabled by user, using simple typing indicator');
             return;
         }
 
@@ -2672,10 +3771,13 @@ export class Application {
             }
         };
 
-        // Listen for both streaming and complete messages
-        window.addEventListener('streamingActivity', responseListener);
-        window.addEventListener('completeMessage', responseListener);
-        window.addEventListener('eventActivity', responseListener);
+        // Listen for agent response via directLineService
+        const directLineResponseHandler = (entry) => {
+            if (entry && entry.from && entry.from.id !== 'user') {
+                agentResponseReceived = true;
+            }
+        };
+        directLineService.on('message', directLineResponseHandler);
 
         try {
             // IMPROVEMENT: Start thinking process immediately for faster LLM response
@@ -2738,9 +3840,7 @@ export class Application {
         } finally {
             // Clean up evaluation flag and event listeners
             this.isEvaluatingThinkingSimulation = false;
-            window.removeEventListener('streamingActivity', responseListener);
-            window.removeEventListener('completeMessage', responseListener);
-            window.removeEventListener('eventActivity', responseListener);
+            directLineService.off('message', directLineResponseHandler);
             console.log('[Application] Thinking simulation cleanup completed');
         }
     }
@@ -2824,17 +3924,8 @@ export class Application {
      */
     showInitializationIndicator(message = 'Initializing...') {
         console.log('Initialization indicator (fallback):', message);
-
-        const loadingIndicator = DOMUtils.getElementById('loadingIndicator');
-        if (loadingIndicator) {
-            const loadingText = loadingIndicator.querySelector('.loading-text');
-            DOMUtils.show(loadingIndicator);
-            if (loadingText) {
-                loadingText.textContent = message;
-            }
-        } else {
-            console.log('Loading indicator element not found - using unified notification system');
-        }
+        // Note: loadingIndicator element removed - now using unified notification system
+        // This method is kept for compatibility but only logs the message
     }
 
     /**
@@ -2892,22 +3983,8 @@ export class Application {
 
             console.log(`[Application] Initialization notification shown: ${notificationType} - ${message}`);
         } else {
-            // Fallback to original method if unified system not available
-            console.warn('[Application] Unified notification system not available, using fallback');
-            const loadingIndicator = DOMUtils.getElementById('loadingIndicator');
-            if (loadingIndicator) {
-                const loadingText = loadingIndicator.querySelector('.loading-text');
-                if (loadingText) {
-                    loadingText.textContent = message;
-                }
-
-                // Show the loading indicator if it's hidden
-                if (loadingIndicator.style.display === 'none') {
-                    DOMUtils.show(loadingIndicator);
-                }
-            } else {
-                console.log('Loading indicator element not found - old elements removed');
-            }
+            // Note: loadingIndicator element removed - using unified notification system only
+            console.log('[Application] Unified notification system not available - initialization update ignored');
         }
     }
 
@@ -2935,14 +4012,8 @@ export class Application {
             this.currentInitNotificationId = null;
             console.log('[Application] Initialization notifications cleared via unified system');
         } else {
-            // Fallback to original method if unified system not available
-            console.warn('[Application] Unified notification system not available, using fallback');
-            const loadingIndicator = DOMUtils.getElementById('loadingIndicator');
-            if (loadingIndicator) {
-                DOMUtils.hide(loadingIndicator);
-            } else {
-                console.log('Loading indicator element not found - old elements removed');
-            }
+            // Note: loadingIndicator element removed - using unified notification system only
+            console.log('[Application] Unified notification system not available - initialization complete');
         }
     }
 
@@ -3101,6 +4172,7 @@ export class Application {
         if (this.elements.azureConfig) DOMUtils.hide(this.elements.azureConfig);
         if (this.elements.apiTestSection) DOMUtils.hide(this.elements.apiTestSection);
         if (this.elements.ollamaConfig) DOMUtils.hide(this.elements.ollamaConfig);
+        if (this.elements.openaiCompatibleConfig) DOMUtils.hide(this.elements.openaiCompatibleConfig);
 
         // Show appropriate config section based on provider
         if (provider === 'ollama') {
@@ -3111,6 +4183,9 @@ export class Application {
             console.log('Showing Azure config - API key field and Azure config');
             DOMUtils.show(this.elements.apiKeyField);
             DOMUtils.show(this.elements.azureConfig);
+        } else if (provider === 'openai-compatible') {
+            console.log('Showing OpenAI Compatible config');
+            DOMUtils.show(this.elements.openaiCompatibleConfig);
         } else {
             // OpenAI, Anthropic, etc.
             console.log('Showing general API config for provider:', provider);
@@ -3179,6 +4254,48 @@ export class Application {
         } catch (error) {
             console.error('Error fetching Ollama models:', error);
             this.elements.ollamaModelSelect.innerHTML = '<option value="">Error loading models</option>';
+        }
+    }
+
+    /**
+     * Run a connection test while showing button progress state.
+     * @param {HTMLButtonElement|null} button - Button to show loading state on
+     * @param {string} loadingLabel - Label shown while test is running
+     * @param {Function} testCallback - Async test function to execute
+     * @returns {Promise<void>}
+     * @private
+     */
+    async runConnectionTestWithProgress(button, loadingLabel, testCallback) {
+        if (typeof testCallback !== 'function') {
+            return;
+        }
+
+        if (!button) {
+            await testCallback();
+            return;
+        }
+
+        if (button.dataset.testing === 'true') {
+            return;
+        }
+
+        const originalLabel = button.dataset.originalLabel || button.textContent.trim();
+        if (!button.dataset.originalLabel) {
+            button.dataset.originalLabel = originalLabel;
+        }
+
+        button.dataset.testing = 'true';
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.textContent = loadingLabel || 'Testing...';
+
+        try {
+            await testCallback();
+        } finally {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            button.dataset.testing = 'false';
+            button.textContent = button.dataset.originalLabel || originalLabel;
         }
     }
 
@@ -3261,6 +4378,79 @@ export class Application {
         } catch (error) {
             console.error('Azure OpenAI connection test failed:', error);
             alert(`❌ Azure OpenAI connection failed:\n${error.message}\n\nPlease check your configuration and try again.`);
+        }
+    }
+
+    /**
+     * Load OpenAI Compatible API key from SecureStorage into the input field
+     * @private
+     */
+    async loadOpenAICompatibleApiKey() {
+        try {
+            const { SecureStorage } = await import('../utils/secureStorage.js');
+            const savedKey = await SecureStorage.retrieve('openaiCompatibleApiKey');
+            if (savedKey && this.elements.openaiCompatibleApiKeyInput) {
+                this.elements.openaiCompatibleApiKeyInput.value = savedKey;
+            }
+        } catch (err) {
+            console.warn('Could not load OpenAI Compatible API key:', err);
+        }
+    }
+
+    /**
+     * Test OpenAI Compatible connection
+     */
+    async testOpenAICompatibleConnection() {
+        try {
+            const baseUrl = this.elements.openaiCompatibleBaseUrlInput?.value?.replace(/\/+$/, '');
+            const apiKey = this.elements.openaiCompatibleApiKeyInput?.value;
+            const model = this.elements.openaiCompatibleModelInput?.value;
+
+            if (!baseUrl || !apiKey || !model) {
+                alert('❌ Please fill in all required fields:\n- Base URL\n- API Key\n- Model Name');
+                return;
+            }
+
+            // Ensure URL ends with /v1 pattern or use as-is
+            const chatUrl = baseUrl.endsWith('/chat/completions')
+                ? baseUrl
+                : baseUrl.replace(/\/v1\/?$/, '') + '/v1/chat/completions';
+
+            const response = await fetch(chatUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: model,
+                    messages: [{ role: 'user', content: 'Hello, this is a connection test.' }],
+                    max_tokens: 10,
+                    temperature: 0
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`HTTP ${response.status}: ${errorData.error?.message || response.statusText}`);
+            }
+
+            const data = await response.json();
+            const displayName = this.elements.openaiCompatibleDisplayNameInput?.value || 'OpenAI Compatible';
+            alert(`✅ ${displayName} connection successful!\nModel: ${data.model || model}\nUsage: ${data.usage?.total_tokens || 'N/A'} tokens`);
+
+            // Save config on successful test
+            localStorage.setItem('openaiCompatibleBaseUrl', baseUrl);
+            localStorage.setItem('openaiCompatibleModel', model);
+            if (this.elements.openaiCompatibleDisplayNameInput?.value) {
+                localStorage.setItem('openaiCompatibleDisplayName', this.elements.openaiCompatibleDisplayNameInput.value);
+            }
+            const { SecureStorage } = await import('../utils/secureStorage.js');
+            await SecureStorage.store('openaiCompatibleApiKey', apiKey);
+
+        } catch (error) {
+            console.error('OpenAI Compatible connection test failed:', error);
+            alert(`❌ Connection failed:\n${error.message}\n\nPlease check your Base URL, API Key, and Model Name.`);
         }
     }
 
@@ -3379,48 +4569,191 @@ export class Application {
     }
 
     /**
-     * Open URL in right panel
-     * @param {string} url - URL to open
+     * Open URL in citation preview panel
+     * @param {string} url - URL to open for citation preview
      */
-    openInRightPanel(url) {
-        const embeddedBrowser = DOMUtils.getElementById('embeddedBrowser');
-        if (embeddedBrowser && this.elements.rightPanel) {
-            // Check for CSP-restricted domains
-            if (this.isCSPRestrictedDomain(url)) {
-                console.warn('URL likely has CSP restrictions, opening in external browser instead:', url);
-                window.open(url, '_blank', 'noopener,noreferrer');
-                return;
-            }
-
+    openCitationPreview(url) {
+        console.log('[CitationPreview] Attempting to open URL:', url);
+        
+        const citationFrame = DOMUtils.getElementById('citationFrame');
+        console.log('[CitationPreview] citationFrame found:', !!citationFrame);
+        console.log('[CitationPreview] citationPreviewPanel found:', !!this.elements.citationPreviewPanel);
+        
+        if (citationFrame && this.elements.citationPreviewPanel) {
             try {
-                embeddedBrowser.src = url;
-                DOMUtils.show(this.elements.rightPanel);
+                console.log('[CitationPreview] Setting iframe src and showing panel');
+                citationFrame.src = url;
+                DOMUtils.show(this.elements.citationPreviewPanel);
 
-                // Monitor for loading errors
-                embeddedBrowser.onerror = () => {
-                    console.warn('Failed to load URL in embedded browser:', url);
+                // Initialize expand button if available
+                if (this.elements.expandCitationPreviewBtn) {
+                    // Check if user had a saved preference
+                    const wasExpanded = localStorage.getItem('citationPreviewExpanded') === 'true';
+                    
+                    if (wasExpanded) {
+                        // Apply expanded state
+                        DOMUtils.addClass(this.elements.citationPreviewPanel, 'expanded');
+                        const agentChatPanel = DOMUtils.getElementById('agentChatPanel');
+                        if (agentChatPanel) {
+                            DOMUtils.addClass(agentChatPanel, 'citation-expanded');
+                        }
+                        this.elements.expandCitationPreviewBtn.title = 'Restore default panel width';
+                        if (window.updateButtonIcon) {
+                            window.updateButtonIcon(this.elements.expandCitationPreviewBtn, 'arrowLeft');
+                        }
+                    } else {
+                        // Default state
+                        this.elements.expandCitationPreviewBtn.title = 'Expand panel to 50/50 layout';
+                        if (window.updateButtonIcon) {
+                            window.updateButtonIcon(this.elements.expandCitationPreviewBtn, 'arrowRight');
+                        }
+                    }
+                }
+
+                // Monitor for loading errors and CSP issues
+                const handleLoadError = () => {
+                    console.warn('[CitationPreview] Failed to load URL in citation preview (likely CSP restricted):', url);
                     // Fallback to external browser
                     window.open(url, '_blank', 'noopener,noreferrer');
-                    this.closeRightPanel();
+                    this.closeCitationPreview();
                 };
+
+                // Set up error handler
+                citationFrame.onerror = handleLoadError;
+                
+                // Handle successful load
+                citationFrame.onload = () => {
+                    console.log('[CitationPreview] Content loaded successfully in iframe');
+                    // Clear any pending timeout since content loaded successfully
+                    if (citationFrame._loadTimeout) {
+                        clearTimeout(citationFrame._loadTimeout);
+                        citationFrame._loadTimeout = null;
+                    }
+                };
+
+                // Set a longer timeout for truly problematic URLs
+                citationFrame._loadTimeout = setTimeout(() => {
+                    // Only fallback if the iframe is still trying to load the same URL
+                    // and no load event has been triggered
+                    if (citationFrame.src === url && citationFrame._loadTimeout) {
+                        console.warn('[CitationPreview] Load timeout: URL appears to be blocked or very slow to load');
+                        handleLoadError();
+                    }
+                }, 15000); // Increased to 15 seconds to allow for slow loading content
+
             } catch (error) {
-                console.error('Error loading URL in embedded browser:', error);
+                console.error('[CitationPreview] Error loading URL in citation preview:', error);
                 window.open(url, '_blank', 'noopener,noreferrer');
             }
+        } else {
+            console.error('[CitationPreview] Required elements not found - citationFrame:', !!citationFrame, 'citationPreviewPanel:', !!this.elements.citationPreviewPanel);
+            window.open(url, '_blank', 'noopener,noreferrer');
         }
     }
 
     /**
-     * Close right panel
+     * Close citation preview panel
      */
-    closeRightPanel() {
-        if (this.elements.rightPanel) {
-            DOMUtils.hide(this.elements.rightPanel);
-            const embeddedBrowser = DOMUtils.getElementById('embeddedBrowser');
-            if (embeddedBrowser) {
-                embeddedBrowser.src = '';
+    closeCitationPreview() {
+        if (this.elements.citationPreviewPanel) {
+            DOMUtils.hide(this.elements.citationPreviewPanel);
+            const citationFrame = DOMUtils.getElementById('citationFrame');
+            if (citationFrame) {
+                citationFrame.src = '';
+            }
+            
+            // Reset to default layout when closing
+            this.resetCitationPreviewLayout();
+        }
+    }
+
+    /**
+     * Toggle citation preview panel between default and expanded (50/50) layout
+     */
+    toggleExpandCitationPreview() {
+        if (!this.elements.citationPreviewPanel) return;
+
+        const isExpanded = this.elements.citationPreviewPanel.classList.contains('expanded');
+        const agentChatPanel = DOMUtils.getElementById('agentChatPanel');
+
+        if (isExpanded) {
+            // Collapse to default width
+            DOMUtils.removeClass(this.elements.citationPreviewPanel, 'expanded');
+            if (agentChatPanel) {
+                DOMUtils.removeClass(agentChatPanel, 'citation-expanded');
+            }
+
+            // Update button title and icon
+            if (this.elements.expandCitationPreviewBtn) {
+                this.elements.expandCitationPreviewBtn.title = 'Expand panel to 50/50 layout';
+                this.elements.expandCitationPreviewBtn.setAttribute('aria-label', 'Expand Citation Preview Panel');
+                
+                // Update icon to collapsed state (arrow pointing right to expand)
+                if (window.updateButtonIcon) {
+                    window.updateButtonIcon(this.elements.expandCitationPreviewBtn, 'arrowRight');
+                }
+            }
+
+            console.log('[CitationPreview] Restored default layout');
+        } else {
+            // Expand to 50/50 layout
+            DOMUtils.addClass(this.elements.citationPreviewPanel, 'expanded');
+            if (agentChatPanel) {
+                DOMUtils.addClass(agentChatPanel, 'citation-expanded');
+            }
+
+            // Update button title and icon
+            if (this.elements.expandCitationPreviewBtn) {
+                this.elements.expandCitationPreviewBtn.title = 'Restore default panel width';
+                this.elements.expandCitationPreviewBtn.setAttribute('aria-label', 'Restore Default Citation Preview Width');
+                
+                // Update icon to expanded state (arrow pointing left to collapse)
+                if (window.updateButtonIcon) {
+                    window.updateButtonIcon(this.elements.expandCitationPreviewBtn, 'arrowLeft');
+                }
+            }
+
+            console.log('[CitationPreview] Expanded to 50/50 layout');
+        }
+
+        // Store user preference
+        localStorage.setItem('citationPreviewExpanded', (!isExpanded).toString());
+    }
+
+    /**
+     * Reset citation preview panel layout to default
+     * @private
+     */
+    resetCitationPreviewLayout() {
+        if (this.elements.citationPreviewPanel) {
+            DOMUtils.removeClass(this.elements.citationPreviewPanel, 'expanded');
+        }
+        
+        const agentChatPanel = DOMUtils.getElementById('agentChatPanel');
+        if (agentChatPanel) {
+            DOMUtils.removeClass(agentChatPanel, 'citation-expanded');
+        }
+
+        // Reset button state
+        if (this.elements.expandCitationPreviewBtn) {
+            this.elements.expandCitationPreviewBtn.title = 'Expand panel to 50/50 layout';
+            this.elements.expandCitationPreviewBtn.setAttribute('aria-label', 'Expand Citation Preview Panel');
+            
+            if (window.updateButtonIcon) {
+                window.updateButtonIcon(this.elements.expandCitationPreviewBtn, 'arrowRight');
             }
         }
+    }
+
+    // Legacy support methods for backward compatibility
+    openInRightPanel(url) {
+        console.warn('openInRightPanel is deprecated, use openCitationPreview instead');
+        this.openCitationPreview(url);
+    }
+
+    closeRightPanel() {
+        console.warn('closeRightPanel is deprecated, use closeCitationPreview instead');
+        this.closeCitationPreview();
     }
 
     // File handling methods (simplified - implement as needed)
@@ -3455,7 +4788,7 @@ export class Application {
 
     sendMessageWithFile(text, file) {
         console.log('Sending message with file:', text, file.name);
-        return directLineManager.sendMessage(text, [file]);
+        return directLineService.sendMessage(text, [file]);
     }
 
     /**
@@ -3871,11 +5204,31 @@ export class Application {
         // Apply message icons state
         this.toggleMessageIcons(this.uiState.messageIconsEnabled);
 
+        // Apply full-width messages state from localStorage
+        const fullWidthEnabled = localStorage.getItem('fullWidthMessages') === 'true';
+        this.toggleFullWidthMessages(fullWidthEnabled);
+
         // Load and apply color theme early (before settings modal is opened)
         this.loadColorThemeSetting();
 
         // Initialize side command bar state
         this.updateSideCommandBarState();
+
+        // Restore Appearance panel checkbox states
+        if (this.elements.enableStreamingCheckbox) {
+            this.elements.enableStreamingCheckbox.checked = localStorage.getItem('enableStreaming') === 'true';
+        }
+        if (this.elements.enableSideBrowserCheckbox) {
+            const sideBrowserSetting = localStorage.getItem('enableSideBrowser');
+            this.elements.enableSideBrowserCheckbox.checked = sideBrowserSetting === null ? true : sideBrowserSetting === 'true';
+            if (sideBrowserSetting === null) localStorage.setItem('enableSideBrowser', 'true');
+        }
+        if (this.elements.fullWidthMessagesCheckbox) {
+            this.elements.fullWidthMessagesCheckbox.checked = fullWidthEnabled;
+        }
+        if (this.elements.appearanceMessageIconToggle) {
+            this.elements.appearanceMessageIconToggle.checked = this.uiState.messageIconsEnabled;
+        }
     }
 
     /**
@@ -3935,11 +5288,8 @@ export class Application {
             console.log('[Application] Stopped logging auto-save interval');
         }
         
-        // Stop DirectLine health checks if they exist
-        if (this.directLineManager && this.directLineManager.healthCheckInterval) {
-            clearInterval(this.directLineManager.healthCheckInterval);
-            console.log('[Application] Stopped DirectLine health check interval');
-        }
+        // Stop DirectLine connection
+        directLineService.disconnect();
         
         console.log('[Application] Cleanup completed');
     }
@@ -3948,10 +5298,8 @@ export class Application {
 // Create and export singleton instance
 export const app = new Application();
 
-// Export directLineManager for backward compatibility
-// OLD: Was exported from legacy/directLineManager-legacy.js as singleton
-// NEW: Export instance from application for compatibility with existing imports
-export const directLineManager = app.directLineManager;
+// Export directLineService for other modules
+export { directLineService };
 
 // Global emergency functions for debugging and performance issues
 window.emergencyStopThinking = function() {

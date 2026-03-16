@@ -9,13 +9,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #605e5c;
+    color: var(--color-text-secondary);
     flex-shrink: 0;
 }
 
 .icon-button:hover {
     background-color: rgba(0, 0, 0, 0.05);
-    color: #323130;
+    color: var(--color-text-primary);
 }
 
 .icon-button:active {
@@ -29,7 +29,7 @@
 
 #expandAiCompanionBtn:hover {
     background-color: rgba(0, 120, 212, 0.1);
-    color: #0078d4;
+    color: var(--color-primary);
 }
 
 /* Panel Toggle Button - Always visible */
@@ -48,16 +48,16 @@
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
-    color: #8a8886;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    color: var(--color-neutral);
+    box-shadow: 0 2px 8px var(--color-shadow);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
 }
 
 .panel-toggle-btn:hover {
     background: rgba(0, 120, 212, 0.1);
-    border-color: #0078d4;
-    color: #0078d4;
+    border-color: var(--color-primary);
+    color: var(--color-primary);
     transform: scale(1.05);
 }
 
@@ -70,7 +70,7 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
 .actionButton {
     padding: 12px 18px;
     background: rgba(255, 255, 255, 0.9);
-    color: #323130;
+    color: var(--color-text-primary);
     border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 12px;
     cursor: pointer;
@@ -83,9 +83,8 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
 }
 
 .actionButton:hover {
-    background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
-    color: #ffffff;
-    transform: translateY(-2px);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    color: var(--color-surface);
     box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
 }
 
@@ -104,7 +103,7 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
     border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.9);
-    color: #605e5c;
+    color: var(--color-text-secondary);
     font-size: 16px;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -121,7 +120,7 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
 .input-button:hover {
     background: rgba(0, 120, 212, 0.1);
     border-color: rgba(0, 120, 212, 0.3);
-    color: #0078d4;
+    color: var(--color-primary);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 120, 212, 0.2);
 }
@@ -132,13 +131,13 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
 }
 
 .input-button.primary {
-    background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
     color: white;
     border-color: transparent;
 }
 
 .input-button.primary:hover {
-    background: linear-gradient(135deg, #106ebe 0%, #005a9e 100%);
+    background: linear-gradient(135deg, var(--color-primary-dark) 0%, #005a9e 100%);
     color: white;
 }
 
@@ -149,7 +148,7 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
     border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.9);
-    color: #605e5c;
+    color: var(--color-text-secondary);
     font-size: 16px;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -166,7 +165,7 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
 .voice-input-btn:hover {
     background: rgba(0, 120, 212, 0.1);
     border-color: rgba(0, 120, 212, 0.3);
-    color: #0078d4;
+    color: var(--color-primary);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 120, 212, 0.2);
 }

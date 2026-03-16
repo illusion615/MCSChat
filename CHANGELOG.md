@@ -5,9 +5,67 @@ All notable changes to MCS Chat will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
 ## [Unreleased]
 
+### Removed
+- **GitHub 提交前清理**：删除 `migration-backup-20250902-032535/`（旧迁移备份）、`legacy/`（旧版代码）、`tests/`（开发调试 HTML）、`utils/`（一次性脚本）、备份文件（`directLineLogsService-backup.js`、`index-old.js`）和 svg-icon-manager 临时文档（CLEANUP/COMPLETION/DESIGN_ANALYSIS/MIGRATION SUMMARY）。新增 `.gitignore` 排除 `.DS_Store`、`.venv/`、`node_modules/`、`.env`、IDE 配置等。
+
 ### Added
+- **Home 页面系统**：全新的 Home 页面取代 Splash Screen 作为应用入口。显示 Agent 卡片网格（含名称、状态、对话数、总时长、消息数、最近活跃），支持点击进入会话、"+" 卡片新增 Agent、齿轮按钮编辑 Agent（名称/Secret/参数）、垃圾桶按钮删除 Agent（需输入名称确认）。
+- **Agent 初始化参数系统**：Agent 支持自定义初始化参数（Parameter Key + Display Name）。配置了参数的 Agent 在发起新会话时会弹出 "Let's Begin" overlay 表单，用户填写后参数通过 DirectLine startConversation event 的 value 和 channelData.initParams 传给 Bot。
+- **Suggested Actions 位置选项**：在 Appearance 面板新增 Suggested Actions Position 下拉选项，支持"固定在输入框上方"和"内联在消息气泡内"两种模式。
+- **Smooth 流式输出样式**：新增 "Smooth (light rendering)" 流式输出模式，每个词以 glow 动画逐个浮现，同时实时增量渲染 markdown 格式。
+- **Thinking Dot 样式选择器**：Appearance 面板新增 5 种 Thinking Indicator 动画风格（Bounce/Pulse/Wave/Elastic/Ripple）。
+- **AI Thinking 开关**：Settings → AI Companion 新增 "Use AI Companion for thinking simulation" 选项，允许用户选择 AI 思考模拟或简单 typing dot。
+- **KPI Insights 面板**：Agent Performance 面板新增结构化分析区域，每个 KPI 独立卡片展示 Overview / Found Issue / Suggestion，替代原有的 chat 日志堆叠方式。
+- **Per-Agent 统计追踪**：每个 Agent 独立追踪对话数、消息数、总时长、最近交互时间，数据存储在 localStorage。
+- **Agent 编辑/删除功能**：Home 页面 Agent 卡片支持齿轮按钮编辑（名称/Secret/参数）和垃圾桶按钮删除（需输入名称确认）。
+
+### Changed
+- **应用初始化流程重构**：移除 Splash Screen，页面加载直接显示 Home 页面。所有初始化（DOM/事件/AI Companion/图标等）在 Home 页面背后静默完成。
+- **会话启动流程统一**：Home 页面和 New Chat 共用同一个 "Let's Begin" overlay 连接流程。overlay 在 Agent 第一条消息到达后与 Home 页面同步 fade out，无需 window.location.reload()。
+- **布局架构调整**：Conversations 按钮从 command bar 移到 panel header 标题前；Left Panel 移入 mainChatArea 作为浮动面板（圆角+阴影）；Command bar 顶部改为 Home 按钮（在 Home 页面隐藏），其余按钮底部对齐。
+- **Settings 面板精简**：移除 Agent Management section（功能已迁移到 Home 页面），Agent Options（streaming/side browser/full width）移到 Appearance 面板。
+- **AI Companion LLM 调用统一化（Batch 14）**：新增 `_buildProviderConfig()` 和 `_llmRequest()` 统一底层方法，净减少约 500 行重复代码。
+- **Metadata 悬停显示**：Bot 消息 metadata 默认不占空间，鼠标悬停时 max-height + opacity 平滑展开。
+- **消息气泡圆角调整**：Bot/Companion/Thinking 消息气泡统一左上角直角。
+- **Thinking Dot 重构**：EnhancedTypingIndicator 从 ~1100 行缩减到 ~66 行，改为真实事件驱动。
+- **TTFT 修正**：基于真实 DirectLine typing activity 计算。
+- **DirectLine SDK 升级**：botframework-directlinejs@0.11.6 → @0.15.8。
+- **面板展开动画**：AI Companion 面板向左平滑扩张/收缩。
+- **OpenAI Compatible 模型显示**：全链路优先 Display Name，Token 按具体模型独立追踪。
+
+### Fixed
+- **KPI 评分不更新**：修复 handleCompleteMessage() 未派发 completeMessage 事件。
+- **KPI 分析首次跳过**：修复 isFirstModelUse 检查对非 Ollama 供应商始终跳过。
+- **标题生成失败**：修复 openai-compatible 分支缺失和 key 名不匹配。
+- **OpenAI Compatible Benchmark 修复**：修复 A/B Test API key 查找和请求分支缺失。
+- **AI Companion Toggle 图标反差色**：改为 currentColor。
+- **Appearance 面板 Checkbox 样式**：独立自定义 checkbox 样式。
+- **Splash Screen 卡死**：修复 enhancedTypingIndicator.js 重写后旧代码残留。
+- **Agent Options 未显示**：修复 checkbox 从 Settings 迁移到 Appearance 后状态未在 loadUIState 中恢复。
+- **DirectLine 组件重构（Batch 3）**：彻底移除所有历史 DirectLineManager/Connector/Queue/WebChatRenderer 相关实现，统一为 UI 无关、事件驱动、队列内聚的 DirectLineService。所有消息流、TTS、渲染状态通过 MessageEntry 模型管理，主应用与 UI 通过事件桥接。
+- **文档回填与进度反向同步**：补齐 Batch 8-12 的 design/checklist/test-plan，重写 Batch 3 为完成回顾版，并更新迭代总表与架构入口说明，确保文档与当前开发基线一致。
+- **CSS 设计令牌迁移（Batch 4）**：在 variables.css 新增 20+ 通用 token（text/surface/border/companion/warning），将 10 个 CSS 组件文件中的硬编码颜色从 446 处降至 210 处，替换率 53%。保留的为渐变色、暗色主题和独立设计体系的专用色。
+- **新增 Batch 13（OpenAI Compatible 接口支持）**：允许 AI Companion 连接任何兼容 OpenAI API 协议的 LLM 供应方，含完整需求/设计/检查/测试文档。
+
+### Fixed
+- **AI Companion 测试连接按钮进度态**：在设置面板点击 Test Connection 后，按钮会立即切换为 `Testing...` 并临时禁用，测试结束后自动恢复，避免重复点击并明确当前执行状态。
+- **初始化死循环修复**：修复因事件模型重构导致的 splash screen/设置面板无法进入问题。补充事件桥接与超时兜底，确保初始化流程健壮。
+- **IME 回车误发送修复（Batch 10）**：在 Enter keydown 中增加 `e.isComposing` 判断与 `e.preventDefault()`，防止中文/日文 IME 候选确认时误触发消息发送。
+- **Full-width 模式持久化修复**：修复新会话/页面刷新后 full-width 设置未生效的问题，在 `loadUIState()` 中增加 localStorage 读取与应用。
+- **Thinking dot 文字换行修复**：修复 typing indicator 状态文字多行换行问题，强制单行显示并自适应气泡宽度。
+- **初始化流程优化**：连接建立后立即释放 splash screen，不再等待 greeting 消息完成，减少用户等待时间。
+- **Thinking Dot 行为改进（Batch 9）**：增加消息到达后 500ms 防重显窗口，防止迟到的 typing 事件在消息已显示后重新召回 indicator。安全超时从 60s 缩短至 30s。
+- **文档补全（Batch 5）**：新增 DirectLineService 架构文档和 Conversation-Aware Thinking 功能文档，更新文档索引。导出模式统一和导入顺序修正暂跳过（当前稳定运行中，无回归风险需要）。
+- **消息性能指标增强（Batch 6）**：Agent 回复消息元信息中新增 TTFT（Time To First Token）指标，显示从用户发送到收到第一个响应的时间。复用现有 responseTimeTracking 基础设施，无新增全局变量。
+- **Appearance 右侧栏面板（Batch 12）**：在左侧 command bar 新增 Appearance 图标按钮，点击后在右侧弹出外观设置面板（主题色彩、消息图标、字体大小），修改即时生效。
+- **Streaming 样式与速度配置（Batch 11）**：在 Appearance 面板中新增消息流式输出样式选择（Typewriter/Word/Sentence/Instant）和速度控制（Slow/Normal/Fast/Ultra），选择后对新消息即时生效，配置持久化到 localStorage。
+- **原生 Streaming 支持重设计（Batch 8）**：修正此前错误结论，实现自动检测+双路径策略。DirectLineService 新增 activity 诊断日志和 streaming chunk 检测（channelData.streamType/streamSequence/typing+text），检测到原生流式时通过 messageChunk 事件实时渲染，未检测到时自动回退模拟流式。
+
+### Added
+- **OpenAI Compatible 接口支持（Batch 13）**：在 AI Companion 供应方下拉框新增“OpenAI Compatible”选项，支持连接任何兼容 OpenAI `/v1/chat/completions` 协议的 LLM 供应方（DeepSeek、Groq、LM Studio 等）。含 Base URL / API Key / Model Name / Display Name 配置、测试连接按钮、加密存储和 streaming 输出支持。
 - **Conversation-Aware Thinking System**: Revolutionary thinking mechanism that leverages complete conversation context (last 3-5 turns) for more insightful and relevant AI thinking responses
 - **Enhanced Thinking Context Integration**: Rich conversation history formatting with timestamps, role identification, and attachment awareness for deeper contextual understanding
 - **Progressive Thinking Types**: Four distinct thinking phases - Analysis, Context-Aware, Practical, and Synthesis thinking that build upon conversation history and current discussion flow
@@ -29,6 +87,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tests Directory Cleanup**: Removed entire `/tests/` folder (41 test files) with zero impact on main application functionality after comprehensive dependency analysis
 - **Development Artifacts**: Eliminated test-related documentation sections and references for cleaner production-ready codebase
 - **Root Directory Cleanup**: Moved development utilities to `utils/` directory and documentation summaries to appropriate `docs/` sections
+- **Root Directory Deep Cleanup (Batch 1)**: Removed 80 obsolete .md report/summary files, 21 test/debug .html files, 5 debug .js scripts, and 1 rollback shell script from root directory. Root now contains only README.md, TODO.md, CHANGELOG.md, index.html, chat-server.js, and ollama-proxy.js
+- **CommonJS Fallback Removal (Batch 2)**: Removed `if (typeof module !== 'undefined' && module.exports)` blocks from 5 files and replaced with proper ES Module `export` statements
+- **Duplicate DirectLineConnector (Batch 2)**: Deleted unused `src/core/DirectLineConnector.js` (zero import references); sole implementation now at `src/components/directline/DirectLineConnector.js`
 
 ### Changed
 - **Thinking Context Architecture**: Complete overhaul from keyword-based topic extraction to rich conversation history analysis with proper message role tracking and temporal context

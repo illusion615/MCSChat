@@ -1,6 +1,12 @@
 /**
  * MCSChat Application Entry Point
  * Main initialization and module orchestration
+ * 
+ * Version: 2.0.1
+ * Changelog:
+ * - 2.0.1: Fixed splash screen version update timing issue
+ * - 2.0.0: Added version tracking system
+ * - 1.0.0: Initial modular architecture
  */
 
 import { app } from './core/application.js';
@@ -8,6 +14,30 @@ import { LocalStorageProtection } from './utils/localStorageProtection.js';
 import { cleanAllCorruptedLocalStorage, setupLocalStorageErrorHandling } from './utils/localStorageGuard.js';
 // === IMPORT SIMPLIFIED ICON MANAGER ===
 import Icon from './components/svg-icon-manager/index.js';
+// === IMPORT VERSION REGISTRY ===
+import { getAllVersions } from './core/versionRegistry.js';
+// === IMPORT ABOUT SECTION ===
+import { initializeAboutSection } from './ui/aboutSection.js';
+
+const MAIN_VERSION = '2.0.1';
+console.log(`🚀 [Main] Version ${MAIN_VERSION} loaded`);
+
+// Update splash screen with version info once it's ready
+if (typeof window.updateSplashVersionInfo === 'function') {
+    // Try immediately if splash screen is already initialized
+    window.updateSplashVersionInfo(getAllVersions());
+} else {
+    // Wait for splash screen to be ready
+    const checkSplashReady = setInterval(() => {
+        if (typeof window.updateSplashVersionInfo === 'function') {
+            clearInterval(checkSplashReady);
+            window.updateSplashVersionInfo(getAllVersions());
+        }
+    }, 50); // Check every 50ms
+    
+    // Give up after 2 seconds
+    setTimeout(() => clearInterval(checkSplashReady), 2000);
+}
 
 // Initialize application when DOM is loaded
 if (document.readyState === 'loading') {
@@ -37,6 +67,9 @@ async function initializeApplication() {
 
         // Setup icons directly (no more DOM scanning!)
         await setupIcons();
+
+        // Initialize About section with version information
+        initializeAboutSection();
 
         await app.initialize();
         console.log('MCSChat application started successfully');
@@ -136,6 +169,18 @@ async function setupSideCommandBar() {
             console.log('[Main] Created settingsButton icon:', settingsIcon);
             settingsBtn.appendChild(settingsIcon);
         }
+        
+        const appearanceBtn = document.getElementById('appearanceButton');
+        if (appearanceBtn && appearanceBtn.children.length === 0) {
+            appearanceBtn.innerHTML = '';
+            const appearanceIcon = Icon.sideCommand('appearance');
+            if (appearanceIcon) {
+                appearanceBtn.appendChild(appearanceIcon);
+            } else {
+                // Fallback: use a simple palette emoji
+                appearanceBtn.textContent = '🎨';
+            }
+        }
 
     } catch (error) {
         console.warn('[Main] Error setting up side command bar icons, using fallback:', error);
@@ -234,7 +279,7 @@ function setupDataIconElements() {
         if (!iconName || element.children.length > 0) return; // Skip if already has content
         
         // Skip elements that are now handled by the modern icon system
-        const modernElements = ['togglerightpanelbtn', 'expandAiCompanionBtn', 'companionIcon', 'aiCompanionToggleBtn', 'mobileAiToggle', 'mobileKnowledgeHubBtn', 'mobileNewChatBtn', 'documentationButton', 'knowledgeHubButton', 'settingsButton', 'conversationsButton'];
+        const modernElements = ['toggleCitationPreviewBtn', 'expandAiCompanionBtn', 'expandCitationPreviewBtn', 'companionIcon', 'aiCompanionToggleBtn', 'mobileAiToggle', 'mobileKnowledgeHubBtn', 'mobileNewChatBtn', 'documentationButton', 'knowledgeHubButton', 'consoleButton', 'settingsButton', 'conversationsButton'];
         if (modernElements.includes(element.id)) return;
         
         // Create icon with default styling

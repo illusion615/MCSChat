@@ -1,0 +1,295 @@
+/**
+ * Citation Preview Panel Styles
+ * Self-contained styles for the citation preview component
+ * Can be easily moved or modified without affecting other components
+ */
+
+/* ===== CITATION PREVIEW PANEL ===== */
+
+.citation-preview-panel {
+    /* Panel Container */
+    display: none;
+    width: 460px;
+    min-width: 460px;
+    max-width: 600px;
+    overflow: hidden;
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    background: rgba(255, 255, 255, 0.95);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-top-right-radius: 16px;
+    border-bottom-right-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.citation-preview-panel.visible {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Panel Header */
+.citation-preview-panel__header {
+    position: relative;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.98);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    flex-shrink: 0;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.citation-preview-panel__title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #323130;
+    line-height: 1.4;
+    flex: 1;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+/* Close Button */
+.citation-preview-panel__close {
+    background: rgba(0, 0, 0, 0.1);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 400;
+    color: #605e5c;
+    transition: all 0.2s ease;
+    z-index: 10;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+.citation-preview-panel__close:hover {
+    background: rgba(0, 0, 0, 0.15);
+    color: #323130;
+    transform: scale(1.05);
+}
+
+.citation-preview-panel__close:active {
+    transform: scale(0.95);
+}
+
+/* Content Frame */
+.citation-preview-panel__frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+    flex: 1;
+    background: #fff;
+    border-bottom-right-radius: 16px;
+}
+
+/* Loading State */
+.citation-preview-panel__loading {
+    position: absolute;
+    top: 60px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    z-index: 5;
+}
+
+.citation-preview-panel__spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(0, 120, 212, 0.2);
+    border-top: 3px solid #0078d4;
+    border-radius: 50%;
+    animation: citation-spin 1s linear infinite;
+}
+
+.citation-preview-panel__loading-text {
+    color: #605e5c;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+@keyframes citation-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Error State */
+.citation-preview-panel__error {
+    position: absolute;
+    top: 60px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    padding: 32px;
+    text-align: center;
+    z-index: 5;
+}
+
+.citation-preview-panel__error-icon {
+    font-size: 48px;
+    color: #d83b01;
+    margin-bottom: 8px;
+}
+
+.citation-preview-panel__error-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #323130;
+    margin: 0 0 8px 0;
+}
+
+.citation-preview-panel__error-message {
+    font-size: 14px;
+    color: #605e5c;
+    margin: 0 0 16px 0;
+    line-height: 1.4;
+}
+
+.citation-preview-panel__error-button {
+    background: #0078d4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.citation-preview-panel__error-button:hover {
+    background: #106ebe;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+/* Large screens */
+@media (min-width: 1400px) {
+    .citation-preview-panel {
+        width: 520px;
+        min-width: 520px;
+    }
+}
+
+/* Medium screens */
+@media (max-width: 1200px) {
+    .citation-preview-panel {
+        width: 45%;
+        min-width: 400px;
+    }
+}
+
+/* Small screens */
+@media (max-width: 768px) {
+    .citation-preview-panel {
+        width: 100%;
+        min-width: 100%;
+        border-left: none;
+        border-radius: 0;
+        box-shadow: 0 0 32px rgba(0, 0, 0, 0.2);
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1000;
+    }
+
+    .citation-preview-panel__header {
+        padding: 12px 16px;
+        min-height: 52px;
+    }
+
+    .citation-preview-panel__title {
+        font-size: 14px;
+    }
+
+    .citation-preview-panel__close {
+        width: 28px;
+        height: 28px;
+        font-size: 16px;
+    }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+    .citation-preview-panel__header {
+        padding: 8px 12px;
+        min-height: 48px;
+    }
+
+    .citation-preview-panel__loading,
+    .citation-preview-panel__error {
+        padding: 24px 16px;
+        top: 48px;
+    }
+}
+
+/* Dark mode support (if needed) */
+@media (prefers-color-scheme: dark) {
+    .citation-preview-panel {
+        background: rgba(32, 32, 32, 0.95);
+        border-left-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .citation-preview-panel__header {
+        background: rgba(32, 32, 32, 0.98);
+        border-bottom-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .citation-preview-panel__title {
+        color: #f3f2f1;
+    }
+
+    .citation-preview-panel__close {
+        background: rgba(255, 255, 255, 0.1);
+        color: #f3f2f1;
+    }
+
+    .citation-preview-panel__close:hover {
+        background: rgba(255, 255, 255, 0.15);
+    }
+
+    .citation-preview-panel__loading,
+    .citation-preview-panel__error {
+        background: rgba(32, 32, 32, 0.95);
+    }
+
+    .citation-preview-panel__loading-text {
+        color: #f3f2f1;
+    }
+
+    .citation-preview-panel__error-title {
+        color: #f3f2f1;
+    }
+
+    .citation-preview-panel__error-message {
+        color: #c8c6c4;
+    }
+}

@@ -1,10 +1,15 @@
 /**
  * Chat Session Manager
  * Handles chat sessions, message history, and conversation state
+ * 
+ * Version: 1.0.0
  */
 
 import { Utils } from '../utils/helpers.js';
 import { DOMUtils } from '../utils/domUtils.js';
+
+const SESSION_MANAGER_VERSION = '1.0.0';
+console.log(`💾 [SessionManager] Version ${SESSION_MANAGER_VERSION} loaded`);
 
 export class SessionManager {
     constructor() {

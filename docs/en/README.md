@@ -6,6 +6,18 @@
 
 MCSChat is an advanced AI chat interface that provides sophisticated chatbot management, multi-agent support, real-time streaming capabilities, and comprehensive AI companion features for enhanced conversation analysis and performance tracking.
 
+## 📌 Current Baseline (2026-03-15)
+
+1. DirectLine architecture baseline is `DirectLineService` (single implementation).
+2. Iteration progress source of truth is `docs/iterations/TODO.md`.
+3. Batch 3 is completed and includes initialization stability fixes.
+4. Batch 8-12 planning docs are now complete (requirements + design + checklist + test-plan).
+
+For long-term onboarding, read in this order:
+1. `docs/iterations/TODO.md`
+2. `docs/iterations/batch-3-directline-refactor/`
+3. `src/components/directline/README.md`
+
 ## 🚀 Quick Start
 
 ### 📖 [Setup & Quick Start](setup/)
@@ -23,6 +35,7 @@ MCSChat is an advanced AI chat interface that provides sophisticated chatbot man
 
 ### ✨ [Features](features/)
 Feature-specific documentation:
+- **[Conversation-Aware Thinking](features/conversation-aware-thinking.md)** - AI thinking simulation during agent response wait
 - **AI Companion Features** - Status enhancement, expand functionality
 - **Speech and Voice** - Enhanced speech engine, streaming, progress indicators
 - **Message System** - Unified message rendering and conversation experience
@@ -32,6 +45,7 @@ Feature-specific documentation:
 
 ### 🏗️ [Architecture](architecture/)
 System architecture and design documentation:
+- **[DirectLineService Architecture](architecture/directline-service.md)** - Single-implementation DirectLine communication component
 - Component architecture overview
 - System design patterns
 - API integration guides
@@ -111,6 +125,6 @@ This project is licensed under the MIT License - see the [LICENSE](../../LICENSE
 
 ---
 
-**Last Updated**: August 22, 2025  
-**Version**: 3.6.0  
+**Last Updated**: March 15, 2026  
+**Version**: Rolling (see CHANGELOG)  
 **Maintained by**: [MCSChat Contributors](https://github.com/illusion615/MCSChat/graphs/contributors)

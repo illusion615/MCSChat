@@ -22,7 +22,7 @@
 [x] Change the new chat icon to a more easy to understand icon, for example, a chat bubble with a + inside
 [x] Change the ai companion icon as it's not beautiful, list some option icons let me choose
 [x] Move "Show Message Icon" from agent management to appearance and put before user icon setting. If it's not selected, hide the user icon setting section
-[ ] Add color theme in setting panel to allow user choose background color theme from various candidates
+[x] Add color theme in setting panel to allow user choose background color theme from various candidates
 
 ### Message Rendering
 [x] Skip the streaming rendering for URL in markdown and directly output the completed URL part
@@ -42,10 +42,11 @@
 [x] Improve KPI calculation efficiency
 [x] Add a quick action "Benchmark with general knowledge", when click this action, only use general knowledge from selected model, and then compare with agent response in context, then evaluate the two answers to give rate which one is better, why, and which improvement can make. All quick actions should apply current enable/disable behavior rules
 [x] When I select other AI companion LLM model from the available models dropdown box, the token consumption metrics section should change to relevant data accordingly, and the model name on AI companion header should also change to reflect the change
+[x] In AI companion settings, when clicking Test Connection, show progress state and disable repeated clicks until the test finishes
 [x] You should restrict generated title within 20 words to avoid too long title
 [x] Keep AI companion progress indicator, notifications on a fixed area (just above the quick action area) to leave a clean window for valuable AI companion output (Don't mix the system notification with valuable content together)
 [x] Disable the timeout notification. Only show timeout notification while waiting for response from LLM model and disable it once received content and start processing streaming output
-[ ] Add an expand icon button to AI companion panel header to make it expand wider as 50/50 with agent chat panel, this icon button click will restore the default width
+[x] Add an expand icon button to AI companion panel header to make it expand wider as 50/50 with agent chat panel, this icon button click will restore the default width
 
 ### Agent Message Speaking
 [x] Speak the message
@@ -58,6 +59,7 @@
 [x] Clean up test HTML files in project, delete those not necessary and move rest needed to keep to test folder
 [x] Clean markdown files, just keep README and TODO in the root, and move rest to docs folder, keep component-relevant docs in component folder
 [x] Review all documents, make sure they reflect the latest status (except changelog), remove deprecated content, make it well organized, easy to read, simple and clean
+[x] Backfill iteration history docs and align all design docs to current DirectLineService baseline (Batch 3 complete state + Batch 8-12 full planning docs)
 
 ## Recently Completed (August 2025)
 
@@ -95,6 +97,13 @@ The project is now well-organized with:
 [x] Real-time streaming speech - Start speaking while text is streaming instead of waiting for completion
 
 ### DirectLine
-[ ] Print directline response into console so i can know what data returned for better debug.
-[ ] Support adaptive card submition
+[x] Agent initialization parameters — In agent settings, allow defining custom init parameters per agent. On new session start, prompt user to fill values via overlay form, then pass to DirectLine startConversation event.
+[x] Print directline response into console so i can know what data returned for better debug.
+[x] Support adaptive card submission - ✅ **COMPLETED**: Enhanced with modal display and full response handling
+    - ✅ **IMPROVED**: White background for optimal readability
+    - ✅ **IMPROVED**: MCSChat-style close button matching application design
+    - ✅ **IMPROVED**: Full form visibility with proper scrolling for long forms
+    - ✅ **IMPROVED**: Common reusable module for entire MCSChat application
+    - ✅ **IMPROVED**: Better responsive design and mobile support
+    - ✅ **IMPROVED**: Immediate modal close on submit button click
 [ ] Sometimes miss the returned entity when initiate the conversation, to investigate with directline protocal to see if there's some shcema didn't appropriately processed, find out why it's happened.

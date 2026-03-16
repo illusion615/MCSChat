@@ -191,7 +191,7 @@ Solution: Network restrictions
 
 Want to test what's working on your system right now?
 
-1. **Open**: `http://localhost:8000/test-speech-quick.html`
+1. **Open**: `http://localhost:8000/tests/speech/test-speech.html`
 2. **Click**: "Test Basic Speech" (uses current provider)
 3. **Switch Providers**: Try different options in dropdown
 4. **Monitor Console**: Check for any errors or fallback messages

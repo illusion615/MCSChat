@@ -645,83 +645,15 @@
         }
         
         async function saveIconChanges() {
-            if (!currentIcon) return;
-            
-            const newName = document.getElementById('modalIconNameEdit').value.trim();
-            const oldName = currentIcon.name;
-            
-            if (!newName) {
-                alert('Please enter a valid icon name');
-                return;
-            }
-            
-            if (!/^[a-z0-9-]+$/.test(newName)) {
-                alert('Icon name can only contain lowercase letters, numbers, and hyphens');
-                return;
-            }
-            
-            try {
-                // Get current icon SVG from preview
-                const iconElement = document.querySelector('#iconDisplay svg');
-                const svgContent = iconElement ? iconElement.outerHTML : '';
-                
-                const response = await fetch(`http://localhost:3001/api/icons/${oldName}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        name: newName,
-                        svgContent: svgContent
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    log('✅ Icon "' + oldName + '" updated successfully', 'success');
-                    
-                    // Update UI
-                    document.getElementById('modalIconNameDisplay').textContent = newName;
-                    toggleEditIconName(); // Exit edit mode
-                    currentIcon.name = newName;
-                    
-                    await loadCustomIcons(); // Reload custom icons
-                    loadIconLibrary(); // Refresh display
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                console.error('Error updating icon:', error);
-                alert('Failed to update icon. Make sure the icon server is running.');
-            }
+            // Static mode - editing disabled
+            alert('Icon editing is disabled in static mode. This is a read-only icon library.');
+            return;
         }
         
         async function deleteCurrentIcon() {
-            if (!currentIcon) return;
-            
-            const confirmed = confirm(`Are you sure you want to delete the icon "${currentIcon.name}"? This action cannot be undone.`);
-            if (!confirmed) return;
-            
-            try {
-                const response = await fetch(`http://localhost:3001/api/icons/${currentIcon.name}`, {
-                    method: 'DELETE'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    log('✅ Icon "' + currentIcon.name + '" deleted successfully', 'success');
-                    closeModal();
-                    await loadCustomIcons(); // Reload custom icons
-                    loadIconLibrary(); // Refresh display
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                console.error('Error deleting icon:', error);
-                alert('Failed to delete icon. Make sure the icon server is running.');
-            }
+            // Static mode - editing disabled
+            alert('Icon deletion is disabled in static mode. This is a read-only icon library.');
+            return;
         }
         
         // Load custom icons from localStorage
@@ -821,7 +753,7 @@
                 initializeApp();
                 setupEventListeners();
                 
-                // Load custom icons from server
+                // Load custom icons from localStorage (static mode)
                 await loadCustomIcons();
                 
                 await loadIconLibrary();

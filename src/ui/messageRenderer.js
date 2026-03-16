@@ -1,14 +1,25 @@
 /**
  * Message Renderer
  * Handles rendering of chat messages, adaptive cards, and suggested actions
+ * 
+ * @version 2.1.0
+ * @changelog
+ *   2.1.0 (2025-10-04) - Added version tracking system with console output
+ *   2.0.1 (2025-10-02) - Fixed duplicate speech by always tracking speech start (line 1076)
+ *   2.0.0 (2025-10-01) - Major refactor with streaming and speech improvements
  */
 
 import { DOMUtils } from '../utils/domUtils.js';
 import { Utils } from '../utils/helpers.js';
+import { globalAdaptiveCardModal } from '../components/AdaptiveCardModal.js';
 
+const MESSAGE_RENDERER_VERSION = '2.1.0';
 
 export class MessageRenderer {
     constructor() {
+        // Log version for debugging
+        console.log(`🎨 [MessageRenderer] Version ${MESSAGE_RENDERER_VERSION} loaded`);
+        
         this.elements = {
             chatWindow: DOMUtils.getElementById('chatWindow'),
             suggestedActionsContainer: DOMUtils.getElementById('suggestedActionsContainer')
@@ -28,7 +39,9 @@ export class MessageRenderer {
         // Global response time tracking for accurate request-to-response timing
         this.responseTimeTracking = {
             requestStartTime: null,
-            lastRequestId: null
+            lastRequestId: null,
+            ttftRecorded: false,
+            ttft: null
         };
 
         // Initialize side browser state
@@ -120,6 +133,7 @@ export class MessageRenderer {
      * Start speech with complete content immediately - separate from streaming
      * @param {string} completeText - The complete text content to speak
      * @param {string} messageId - Message identifier
+     * @returns {Promise<number|null>} Target streaming speed in ms per character, or null if no sync
      * @private
      */
     async startSpeechWithCompleteContent(completeText, messageId) {
@@ -142,17 +156,38 @@ export class MessageRenderer {
                     console.log(`[Speech] Detected language: ${languageInfo.language} (${languageInfo.displayName}), using voice: ${languageInfo.voice}`);
                 }
 
-                // Start speaking the complete content immediately - not connected to streaming
-                await aiCompanion.speakText(cleanText, {
-                    autoDetectLanguage: true,
-                    forceSpeak: false
-                });
+                // Create message for speech queue with sync support
+                const message = {
+                    text: cleanText,
+                    type: 'agent',
+                    id: messageId,
+                    from: { id: 'assistant' },
+                    metadata: {
+                        isStreaming: true,
+                        language: languageInfo?.language
+                    }
+                };
+
+                // Check if streaming sync is enabled to determine whether to return speed calculation
+                const streamingSyncEnabled = localStorage.getItem('speechStreamingSync') === 'true';
+                
+                // **UNIFIED SPEECH CALL**: Always use aiCompanion.speakTextWithSync to avoid duplication
+                // This method handles both sync and non-sync cases internally
+                const speechItemId = await aiCompanion.speakTextWithSync(message);
+                
+                // Get the calculated target streaming speed from the message if sync is enabled
+                if (streamingSyncEnabled && message.targetStreamingSpeed) {
+                    console.log(`[Speech] Target streaming speed calculated: ${message.targetStreamingSpeed.toFixed(1)}ms per character`);
+                    return message.targetStreamingSpeed;
+                }
 
                 console.log(`[Speech] Successfully started speech for message ${messageId}`);
+                return null; // No sync speed for non-sync mode
             }
         } catch (error) {
             console.error('[Speech] Error starting speech with complete content:', error);
         }
+        return null;
     }
 
     /**
@@ -553,10 +588,15 @@ export class MessageRenderer {
                 await this.stopStreamingSpeech();
             }
 
-            // *** Start speech immediately with complete content if this is an agent message ***
+            // *** Start speech immediately synchronized with message display ***
             if (!isUserMessage && activity.text && this.streamingSpeechState.isEnabled) {
-                console.log(`[Speech] Starting speech immediately for complete message (${activity.text.length} chars)`);
-                this.startSpeechWithCompleteContent(activity.text, messageId);
+                console.log(`[Speech] Starting speech immediately synchronized with complete message display (${activity.text.length} chars)`);
+                try {
+                    // Use the unified speech method to start speech at the same time as message rendering
+                    await this.startSpeechWithCompleteContent(activity.text, messageId);
+                } catch (error) {
+                    console.error('[Speech] Failed to start synchronized speech:', error);
+                }
             }
 
             // Check if there's actual content to display (text or attachments)
@@ -801,8 +841,31 @@ export class MessageRenderer {
             const isUserMessage = activity.from && activity.from.id === 'user';
             if (isUserMessage) {
                 console.log('[MessageRenderer] Stopping ongoing speech due to user message in streaming');
+                await this.stopStreamingSpeech();
+            } else {
+                // For agent messages, don't stop - let the queue handle ordering
+                console.log('[MessageRenderer] Agent streaming message - using speech queue');
             }
-            await this.stopStreamingSpeech();
+
+            // *** START SPEECH IMMEDIATELY WITH STREAMING MESSAGE ***
+            // Start speech as soon as we have any content, synchronized with streaming display
+            if (!isUserMessage && activity.text && this.streamingSpeechState.isEnabled) {
+                console.log(`[Speech] Starting speech immediately for streaming message (${activity.text.length} chars) - synchronized with streaming start`);
+                try {
+                    // Start speech with the current content immediately
+                    const targetStreamingSpeed = await this.startSpeechWithCompleteContent(activity.text, messageId);
+                    // Store target streaming speed for this message if sync is enabled
+                    if (targetStreamingSpeed) {
+                        this.streamingSpeedMap = this.streamingSpeedMap || new Map();
+                        this.streamingSpeedMap.set(messageId, targetStreamingSpeed);
+                        console.log(`[Speech] Streaming message speech started with sync speed: ${targetStreamingSpeed.toFixed(1)}ms per character`);
+                    } else {
+                        console.log(`[Speech] Streaming message speech started without sync`);
+                    }
+                } catch (error) {
+                    console.error('[Speech] Failed to start speech for streaming message:', error);
+                }
+            }
 
             // Create new streaming state for this message
             const messageContainer = this.createMessageContainer(activity);
@@ -893,7 +956,7 @@ export class MessageRenderer {
      * Finalize streaming message
      * @param {Object} activity - Final activity
      */
-    finalizeStreamingMessage(activity) {
+    async finalizeStreamingMessage(activity) {
         const messageId = activity.id || `${activity.from?.id}-${activity.timestamp}-${Date.now()}`;
         const streamingState = this.streamingStates.get(messageId);
 
@@ -923,8 +986,26 @@ export class MessageRenderer {
             // Clear this specific streaming state
             this.streamingStates.delete(messageId);
 
-            // No speech processing here - speech is handled separately at the beginning
-            console.log(`[Streaming] Finalized streaming for message ${messageId} (speech handled separately)`);
+            // *** Speech handling for streaming messages - avoid duplicate calls ***
+            const isUserMessage = activity.from && activity.from.id === 'user';
+            if (!isUserMessage && activity.text && this.streamingSpeechState.isEnabled) {
+                // Check if speech was already started during streaming initialization
+                const speechAlreadyStarted = this.streamingSpeedMap?.has(messageId);
+                
+                if (!speechAlreadyStarted) {
+                    console.log(`[Speech] Starting speech for finalized streaming message (${activity.text.length} chars) - speech not started during streaming initialization`);
+                    try {
+                        // Use unified speech method - this handles cases where speech wasn't started at streaming beginning
+                        await this.startSpeechWithCompleteContent(activity.text, messageId);
+                    } catch (error) {
+                        console.error('[Speech] Failed to start speech for finalized streaming message:', error);
+                    }
+                } else {
+                    console.log(`[Speech] Speech already started during streaming initialization for message ${messageId}, skipping duplicate in finalize`);
+                }
+            }
+
+            console.log(`[Streaming] Finalized streaming for message ${messageId} (speech handled via queue)`);
 
             // Scroll to bottom
             this.scrollToBottom();
@@ -993,15 +1074,26 @@ export class MessageRenderer {
                 return;
             }
 
-            // *** STEP 1: Stop speech if user message, or start speech if agent message ***
+            // *** STEP 1: Start speech immediately and synchronously with streaming display ***
             const isUserMessage = activity.from && activity.from.id === 'user';
             if (isUserMessage) {
                 console.log('[MessageRenderer] Stopping ongoing speech due to user message in simulated streaming');
                 await this.stopStreamingSpeech();
             } else if (activity.text && this.streamingSpeechState.isEnabled) {
-                console.log(`[Speech] Starting speech immediately with complete content (${activity.text.length} chars)`);
-                // Start speech with complete content immediately - separate from streaming
-                this.startSpeechWithCompleteContent(activity.text, messageId);
+                console.log(`[Speech] Starting speech immediately synchronized with streaming display (${activity.text.length} chars)`);
+                // Start speech with complete content immediately - synchronized with streaming start
+                const targetStreamingSpeed = await this.startSpeechWithCompleteContent(activity.text, messageId);
+                
+                // ALWAYS mark speech as started, even if no sync speed returned
+                this.streamingSpeedMap = this.streamingSpeedMap || new Map();
+                this.streamingSpeedMap.set(messageId, targetStreamingSpeed || true);
+                
+                // Store target streaming speed for this message to sync visual display with speech
+                if (targetStreamingSpeed) {
+                    console.log(`[Speech] Speech and streaming synchronized at ${targetStreamingSpeed.toFixed(1)}ms per character`);
+                } else {
+                    console.log(`[Speech] Speech started for message ${messageId} (no sync)`);
+                }
             }
 
             // *** STEP 2: Start streaming display with the same complete content ***
@@ -1075,38 +1167,131 @@ export class MessageRenderer {
 
             console.log('Streaming container created, starting character-by-character simulation');
 
-            // Stream text character by character with improved timing
+            // Stream text with configurable style and speed
             const text = activity.text;
             let currentText = '';
 
-            for (let i = 0; i < text.length; i++) {
-                // Check if streaming was interrupted or queue processing stopped
-                if (!this.streamingStates.has(messageId) || this.currentlyStreamingMessageId !== messageId) {
-                    console.log('Streaming interrupted for message:', messageId);
-                    break;
-                }
+            // Get streaming configuration
+            const streamingStyle = localStorage.getItem('streamingStyle') || 'typewriter';
+            const streamingSpeed = localStorage.getItem('streamingSpeed') || 'normal';
 
-                currentText += text[i];
-                this.updateStreamingContent(streamingState.messageDiv, currentText);
-                streamingState.content = currentText;
-                streamingState.lastUpdate = Date.now();
+            // Speed multipliers
+            const speedMultiplier = { slow: 3, normal: 1, fast: 0.4, ultra: 0.1 }[streamingSpeed] || 1;
 
+            // Get target streaming speed from speech sync (if available)
+            const targetStreamingSpeed = this.streamingSpeedMap?.get(messageId);
+            const useSpeechSync = targetStreamingSpeed && localStorage.getItem('speechStreamingSync') === 'true';
+
+            if (streamingStyle === 'instant') {
+                // Instant: show everything at once
+                this.updateStreamingContent(streamingState.messageDiv, text);
+                streamingState.content = text;
                 this.scrollToBottom();
+            } else if (streamingStyle === 'smooth') {
+                // Smooth light-rendering: words appear with glow, markdown rendered incrementally
+                const words = text.split(/(\s+)/);
+                let wordCount = 0;
 
-                // Improved timing: faster overall to prevent timeouts
-                const char = text[i];
-                let delay;
-                if (char === ' ') {
-                    delay = 8; // Faster spaces
-                } else if (char === '\n') {
-                    delay = 20; // Faster line breaks
-                } else if (/[.!?]/.test(char)) {
-                    delay = 50; // Shorter sentence pauses
-                } else {
-                    delay = Math.random() * 3 + 1; // 1-4ms per character (faster)
+                for (let i = 0; i < words.length; i++) {
+                    if (!this.streamingStates.has(messageId) || this.currentlyStreamingMessageId !== messageId) break;
+                    const word = words[i];
+                    if (!word) continue;
+
+                    currentText += word;
+                    streamingState.content = currentText;
+
+                    if (word.trim()) wordCount++;
+
+                    // Re-render markdown every few words for smooth incremental formatting
+                    if (word.trim()) {
+                        this.updateStreamingContent(streamingState.messageDiv, currentText);
+
+                        // Add glow animation to the last text node in the rendered HTML
+                        this._applyGlowToLastWords(streamingState.messageDiv, word);
+
+                        // Append cursor after content
+                        let cursor = streamingState.messageDiv.querySelector('.streaming-cursor');
+                        if (!cursor) {
+                            cursor = document.createElement('span');
+                            cursor.className = 'streaming-cursor';
+                        }
+                        streamingState.messageDiv.appendChild(cursor);
+
+                        this.scrollToBottom();
+                    }
+
+                    // Variable delay based on punctuation
+                    if (/[.!?]/.test(word)) {
+                        await Utils.sleep(80 * speedMultiplier);
+                    } else if (/[,;:]/.test(word)) {
+                        await Utils.sleep(40 * speedMultiplier);
+                    } else if (word.trim()) {
+                        await Utils.sleep(18 * speedMultiplier);
+                    }
                 }
 
-                await Utils.sleep(delay);
+                // Final render without cursor
+                const cursor = streamingState.messageDiv.querySelector('.streaming-cursor');
+                if (cursor) cursor.remove();
+                this.updateStreamingContent(streamingState.messageDiv, text);
+                streamingState.content = text;
+            } else if (streamingStyle === 'sentence') {
+                // Sentence by sentence
+                const sentences = text.match(/[^.!?\n]+[.!?\n]?\s*/g) || [text];
+                for (let i = 0; i < sentences.length; i++) {
+                    if (!this.streamingStates.has(messageId) || this.currentlyStreamingMessageId !== messageId) break;
+                    currentText += sentences[i];
+                    this.updateStreamingContent(streamingState.messageDiv, currentText);
+                    streamingState.content = currentText;
+                    this.scrollToBottom();
+                    await Utils.sleep(120 * speedMultiplier);
+                }
+            } else if (streamingStyle === 'word') {
+                // Word by word
+                const words = text.split(/(\s+)/);
+                for (let i = 0; i < words.length; i++) {
+                    if (!this.streamingStates.has(messageId) || this.currentlyStreamingMessageId !== messageId) break;
+                    currentText += words[i];
+                    this.updateStreamingContent(streamingState.messageDiv, currentText);
+                    streamingState.content = currentText;
+                    this.scrollToBottom();
+                    if (words[i].trim()) {
+                        await Utils.sleep(30 * speedMultiplier);
+                    }
+                }
+            } else {
+                // Typewriter (character by character) — default
+                for (let i = 0; i < text.length; i++) {
+                    if (!this.streamingStates.has(messageId) || this.currentlyStreamingMessageId !== messageId) break;
+
+                    currentText += text[i];
+                    this.updateStreamingContent(streamingState.messageDiv, currentText);
+                    streamingState.content = currentText;
+                    streamingState.lastUpdate = Date.now();
+                    this.scrollToBottom();
+
+                    let delay;
+                    if (useSpeechSync) {
+                        delay = targetStreamingSpeed;
+                        const char = text[i];
+                        if (/[.!?]/.test(char)) delay *= 2;
+                        else if (char === ' ') delay *= 0.8;
+                        else if (char === '\n') delay *= 1.5;
+                    } else {
+                        const char = text[i];
+                        if (char === ' ') delay = 5 * speedMultiplier;
+                        else if (char === '\n') delay = 15 * speedMultiplier;
+                        else if (/[.!?]/.test(char)) delay = 35 * speedMultiplier;
+                        else if (/[,;:]/.test(char)) delay = 20 * speedMultiplier;
+                        else delay = (Math.random() * 2 + 1) * speedMultiplier;
+                    }
+                    await Utils.sleep(delay);
+                }
+            }
+
+            // Clean up streaming speed map for this message
+            if (this.streamingSpeedMap?.has(messageId)) {
+                this.streamingSpeedMap.delete(messageId);
             }
 
             console.log('Streaming simulation complete, finalizing message');
@@ -1624,6 +1809,9 @@ export class MessageRenderer {
                 // Ensure agent messages are properly wrapped in paragraphs
                 const finalContent = this.ensureParagraphStructure(enhancedContent, messageDiv);
                 messageDiv.innerHTML = finalContent;
+                
+                // Post-process to add target="_blank" to external links after DOM is set
+                this.addTargetBlankToExternalLinks(messageDiv);
             } catch (error) {
                 console.warn('Error processing markdown:', error);
                 console.warn('Marked version check:', typeof marked.parse);
@@ -1728,11 +1916,91 @@ export class MessageRenderer {
     }
 
     /**
+     * Add target="_blank" to external links in a message element
+     * @param {HTMLElement} messageElement - Message element containing links
+     * @private
+     */
+    addTargetBlankToExternalLinks(messageElement) {
+        // Check if Citation Preview Panel is enabled
+        const useSideBrowser = localStorage.getItem('enableSideBrowser') === 'true';
+        
+        const links = messageElement.querySelectorAll('a[href]');
+        links.forEach(link => {
+            try {
+                const linkUrl = new URL(link.href, window.location.href);
+                const currentUrl = new URL(window.location.href);
+                
+                // Only add target="_blank" for external links if Citation Preview Panel is disabled
+                if (linkUrl.hostname !== currentUrl.hostname) {
+                    if (!useSideBrowser) {
+                        link.target = '_blank';
+                        link.rel = 'noopener noreferrer';
+                    } else {
+                        // Remove target="_blank" if it was set, so Citation Preview Panel can intercept
+                        link.removeAttribute('target');
+                        // Still keep security attributes
+                        link.rel = 'noopener noreferrer';
+                    }
+                }
+            } catch (e) {
+                // If URL parsing fails, only add target="_blank" if Citation Preview Panel is disabled
+                if (!useSideBrowser) {
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                } else {
+                    link.removeAttribute('target');
+                    link.rel = 'noopener noreferrer';
+                }
+            }
+        });
+    }
+
+    /**
      * Update streaming content
      * @param {HTMLElement} messageDiv - Message div element
      * @param {string} content - Current content
      * @private
      */
+    /**
+     * Apply glow animation to the last occurrence of a word in the rendered HTML.
+     * Wraps the final text match in a .streaming-word span for the CSS fade-in effect.
+     * @param {HTMLElement} container - The message div
+     * @param {string} word - The last word that was added
+     * @private
+     */
+    _applyGlowToLastWords(container, word) {
+        // Remove any existing glow spans from previous iterations
+        container.querySelectorAll('.streaming-word').forEach(el => {
+            el.replaceWith(...el.childNodes);
+        });
+
+        // Walk text nodes in reverse to find the last occurrence of this word
+        const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
+        const textNodes = [];
+        while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+        for (let i = textNodes.length - 1; i >= 0; i--) {
+            const node = textNodes[i];
+            const idx = node.textContent.lastIndexOf(word);
+            if (idx === -1) continue;
+
+            // Split the text node and wrap the matched word
+            const before = node.textContent.substring(0, idx);
+            const after = node.textContent.substring(idx + word.length);
+
+            const span = document.createElement('span');
+            span.className = 'streaming-word';
+            span.textContent = word;
+
+            const parent = node.parentNode;
+            if (before) parent.insertBefore(document.createTextNode(before), node);
+            parent.insertBefore(span, node);
+            if (after) parent.insertBefore(document.createTextNode(after), node);
+            parent.removeChild(node);
+            break;
+        }
+    }
+
     updateStreamingContent(messageDiv, content) {
         // Handle URLs and markdown links specially during streaming
         const processedContent = this.handleStreamingUrls(content);
@@ -1755,6 +2023,9 @@ export class MessageRenderer {
                 // Ensure agent messages have proper paragraph structure during streaming
                 const finalContent = this.ensureParagraphStructure(enhancedContent, messageDiv);
                 messageDiv.innerHTML = finalContent;
+                
+                // Post-process to add target="_blank" to external links after DOM is set
+                this.addTargetBlankToExternalLinks(messageDiv);
             } catch (error) {
                 console.warn('Error processing streaming markdown:', error);
                 // For fallback, still ensure paragraph structure and process LaTeX
@@ -1866,18 +2137,36 @@ export class MessageRenderer {
      */
     renderAdaptiveCard(attachment, messageDiv) {
         try {
-            if (typeof AdaptiveCards !== 'undefined') {
-                const adaptiveCard = new AdaptiveCards.AdaptiveCard();
-                adaptiveCard.parse(attachment.content);
+            if (typeof AdaptiveCards !== 'undefined' && attachment.content) {
+                // Create adaptive card container with preview and expand button
+                const cardContainer = DOMUtils.createElement('div', {
+                    className: 'adaptive-card-container'
+                });
 
-                const renderedCard = adaptiveCard.render();
-                if (renderedCard) {
-                    const cardContainer = DOMUtils.createElement('div', {
-                        className: 'adaptive-card-container'
-                    });
-                    cardContainer.appendChild(renderedCard);
-                    messageDiv.appendChild(cardContainer);
-                }
+                // Create card preview
+                const cardPreview = DOMUtils.createElement('div', {
+                    className: 'adaptive-card-preview'
+                });
+
+                // Create expand button
+                const expandButton = DOMUtils.createElement('button', {
+                    className: 'adaptive-card-expand-btn',
+                    textContent: 'View Interactive Card',
+                    ariaLabel: 'Open adaptive card in modal'
+                });
+
+                // Add click handler to open modal
+                expandButton.addEventListener('click', () => {
+                    this.openAdaptiveCardModal(attachment.content);
+                });
+
+                // Create simplified preview content
+                const previewContent = this.createAdaptiveCardPreview(attachment.content);
+                cardPreview.appendChild(previewContent);
+                cardPreview.appendChild(expandButton);
+
+                cardContainer.appendChild(cardPreview);
+                messageDiv.appendChild(cardContainer);
             } else {
                 console.warn('AdaptiveCards library not available');
                 this.renderGenericAttachment(attachment, messageDiv);
@@ -1889,11 +2178,112 @@ export class MessageRenderer {
     }
 
     /**
-     * Render image attachment
-     * @param {Object} attachment - Image attachment
-     * @param {HTMLElement} messageDiv - Message div element
+     * Create adaptive card preview
+     * @param {Object} cardContent - Adaptive card content
+     * @returns {HTMLElement} Preview element
      * @private
      */
+    createAdaptiveCardPreview(cardContent) {
+        const preview = DOMUtils.createElement('div', {
+            className: 'adaptive-card-preview-content'
+        });
+
+        try {
+            // Extract basic information from card content for preview
+            const title = cardContent.body?.find(item => item.type === 'TextBlock' && item.size === 'Large')?.text ||
+                         cardContent.body?.find(item => item.type === 'TextBlock')?.text ||
+                         'Adaptive Card';
+            
+            const subtitle = cardContent.body?.filter(item => item.type === 'TextBlock')
+                           .slice(1, 2)[0]?.text || '';
+
+            // Create preview elements
+            const titleElement = DOMUtils.createElement('div', {
+                className: 'adaptive-card-preview-title',
+                textContent: title
+            });
+
+            const subtitleElement = DOMUtils.createElement('div', {
+                className: 'adaptive-card-preview-subtitle',
+                textContent: subtitle
+            });
+
+            const actionsCount = cardContent.actions?.length || 0;
+            const actionsInfo = DOMUtils.createElement('div', {
+                className: 'adaptive-card-preview-info',
+                textContent: `${actionsCount} action${actionsCount !== 1 ? 's' : ''} available`
+            });
+
+            preview.appendChild(titleElement);
+            if (subtitle) preview.appendChild(subtitleElement);
+            preview.appendChild(actionsInfo);
+
+        } catch (error) {
+            console.error('Error creating card preview:', error);
+            preview.textContent = 'Interactive Card Available';
+        }
+
+        return preview;
+    }
+
+    /**
+     * Open adaptive card in modal
+     * @param {Object} cardContent - Adaptive card content
+     * @private
+     */
+    /**
+     * Open adaptive card modal using the common modal component
+     * @param {Object} cardContent - Adaptive card content
+     * @private
+     */
+    async openAdaptiveCardModal(cardContent) {
+        try {
+            // Initialize the global modal if not done already
+            if (!globalAdaptiveCardModal.modal) {
+                globalAdaptiveCardModal.init();
+            }
+
+            // Configure the modal with DirectLine manager
+            globalAdaptiveCardModal.updateOptions({
+                directLineManager: window.MCSChatApp?.directLineManager || window.directLineManager,
+                onAction: async (action, modal) => {
+                    // Custom action handler for MCSChat specific behavior
+                    if (action instanceof AdaptiveCards.SubmitAction) {
+                        console.log('Adaptive card submitted:', action.data);
+                        return true; // Let the modal handle the action
+                    }
+                    return true; // Continue with default handling
+                },
+                onClose: () => {
+                    console.log('Adaptive card modal closed');
+                }
+            });
+
+            // Open the modal with the card content
+            await globalAdaptiveCardModal.open(cardContent, {
+                title: 'Interactive Card'
+            });
+
+        } catch (error) {
+            console.error('Error opening adaptive card modal:', error);
+            this.showErrorMessage('Failed to display interactive card');
+        }
+    }
+
+    /**
+     * Show error message
+     * @param {string} message - Error message
+     * @private
+     */
+    showErrorMessage(message) {
+        // Use existing error display mechanism if available
+        if (window.MCSChatApp && typeof window.MCSChatApp.showErrorMessage === 'function') {
+            window.MCSChatApp.showErrorMessage(message);
+        } else {
+            console.error(message);
+            alert(message); // Fallback
+        }
+    }
     renderImageAttachment(attachment, messageDiv) {
         console.log('MessageRenderer: renderImageAttachment called with:', attachment);
 
@@ -1962,10 +2352,7 @@ export class MessageRenderer {
     renderSuggestedActions(actions) {
         console.log('renderSuggestedActions called with:', actions);
 
-        if (!this.elements.suggestedActionsContainer) {
-            console.error('suggestedActionsContainer not found!');
-            return;
-        }
+        const position = localStorage.getItem('suggestedActionsPosition') || 'aboveInput';
 
         this.clearSuggestedActions();
 
@@ -1986,8 +2373,36 @@ export class MessageRenderer {
             actionsDiv.appendChild(button);
         });
 
-        this.elements.suggestedActionsContainer.appendChild(actionsDiv);
-        console.log('Suggested actions rendered successfully');
+        if (position === 'inline') {
+            // Append inside the last bot message's messageContent div
+            const chatWindow = this.elements.chatWindow;
+            if (chatWindow) {
+                const botMessages = chatWindow.querySelectorAll('.messageContainer.botMessage');
+                const lastBotMsg = botMessages.length > 0 ? botMessages[botMessages.length - 1] : null;
+                const contentDiv = lastBotMsg?.querySelector('.messageContent');
+                if (contentDiv) {
+                    actionsDiv.classList.add('suggested-actions-inline');
+                    const metadata = contentDiv.querySelector('.message-metadata');
+                    if (metadata) {
+                        contentDiv.insertBefore(actionsDiv, metadata);
+                    } else {
+                        contentDiv.appendChild(actionsDiv);
+                    }
+                } else {
+                    this.elements.suggestedActionsContainer?.appendChild(actionsDiv);
+                }
+                this.scrollToBottom();
+            }
+        } else {
+            // Default: above input
+            if (!this.elements.suggestedActionsContainer) {
+                console.error('suggestedActionsContainer not found!');
+                return;
+            }
+            this.elements.suggestedActionsContainer.appendChild(actionsDiv);
+        }
+
+        console.log('Suggested actions rendered successfully (position:', position, ')');
     }
 
     /**
@@ -1996,6 +2411,10 @@ export class MessageRenderer {
     clearSuggestedActions() {
         if (this.elements.suggestedActionsContainer) {
             this.elements.suggestedActionsContainer.innerHTML = '';
+        }
+        // Also clear any inline suggested actions in chatWindow
+        if (this.elements.chatWindow) {
+            this.elements.chatWindow.querySelectorAll('.suggested-actions-inline').forEach(el => el.remove());
         }
     }
 
@@ -2087,8 +2506,22 @@ export class MessageRenderer {
                     className: 'metadata-duration'
                 }, timeSpent);
 
-                metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' • '));
+                metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' · '));
                 metadata.appendChild(timeSpentSpan);
+            }
+
+            // Show TTFT if available
+            if (this.responseTimeTracking.ttft !== null) {
+                const ttftSpan = DOMUtils.createElement('span', {
+                    className: 'metadata-duration'
+                }, `TTFT: ${this.formatDuration(this.responseTimeTracking.ttft)}`);
+
+                metadata.appendChild(DOMUtils.createElement('span', { className: 'metadata-separator' }, ' · '));
+                metadata.appendChild(ttftSpan);
+
+                // Reset TTFT after displaying
+                this.responseTimeTracking.ttft = null;
+                this.responseTimeTracking.ttftRecorded = false;
             }
 
             // Add speaker button and progress bar for bot messages
@@ -2128,8 +2561,13 @@ export class MessageRenderer {
                 metadata.appendChild(speakerControls);
             }
 
-            // Add metadata to the message wrapper (after content)
-            messageWrapper.appendChild(metadata);
+            // Add metadata inside the messageContent div (after text content)
+            const messageContentDiv = messageWrapper.querySelector('.messageContent');
+            if (messageContentDiv) {
+                messageContentDiv.appendChild(metadata);
+            } else {
+                messageWrapper.appendChild(metadata);
+            }
         }
 
         // Check for entities/citations in the activity - add to message content div
@@ -2157,23 +2595,29 @@ export class MessageRenderer {
             return null;
         }
 
-        // Use streaming start time if provided (for streaming messages)
-        if (streamingStartTime) {
-            const duration = Date.now() - streamingStartTime;
-            console.log(`[MessageRenderer] Streaming response time: ${duration}ms`);
-            return this.formatDuration(duration);
+        // Record TTFT fallback: if typing event was missed, record at message arrival
+        if (this.responseTimeTracking.requestStartTime && !this.responseTimeTracking.ttftRecorded) {
+            this.responseTimeTracking.ttft = Date.now() - this.responseTimeTracking.requestStartTime;
+            this.responseTimeTracking.ttftRecorded = true;
+            console.log(`[MessageRenderer] TTFT (fallback, no typing received): ${this.responseTimeTracking.ttft}ms`);
         }
 
-        // Use global response time tracking for accurate request-to-response timing
+        // Always prefer global request-to-response timing when available
         if (this.responseTimeTracking.requestStartTime) {
-            // This is an assistant response, calculate full request-to-response time
             const duration = Date.now() - this.responseTimeTracking.requestStartTime;
 
             // Reset tracking for next request
             this.responseTimeTracking.requestStartTime = null;
             this.responseTimeTracking.lastRequestId = null;
 
-            console.log(`[MessageRenderer] Assistant response time: ${duration}ms`);
+            console.log(`[MessageRenderer] Response time: ${duration}ms`);
+            return this.formatDuration(duration);
+        }
+
+        // Fallback to streaming start time
+        if (streamingStartTime) {
+            const duration = Date.now() - streamingStartTime;
+            console.log(`[MessageRenderer] Streaming response time (fallback): ${duration}ms`);
             return this.formatDuration(duration);
         }
 
@@ -2190,6 +2634,8 @@ export class MessageRenderer {
     startResponseTimeTracking(requestId = null) {
         this.responseTimeTracking.requestStartTime = Date.now();
         this.responseTimeTracking.lastRequestId = requestId;
+        this.responseTimeTracking.ttftRecorded = false;
+        this.responseTimeTracking.ttft = null;
         console.log(`[MessageRenderer] Started response time tracking at ${this.responseTimeTracking.requestStartTime}`);
     }
 
@@ -2870,6 +3316,15 @@ export class MessageRenderer {
      * @private
      */
     openSideBrowser(url) {
+        // Try to use the new Citation Preview Panel system via global app
+        if (window.MCSChatApp && typeof window.MCSChatApp.openCitationPreview === 'function') {
+            console.log('[MessageRenderer] Using Citation Preview Panel for URL:', url);
+            window.MCSChatApp.openCitationPreview(url);
+            return;
+        }
+
+        // Fallback to legacy side browser if Citation Preview Panel not available
+        console.warn('[MessageRenderer] Citation Preview Panel not available, using legacy side browser');
         const sideBrowser = DOMUtils.getElementById('sideBrowser');
         const sideBrowserFrame = DOMUtils.getElementById('sideBrowserFrame');
         const sideBrowserTitle = DOMUtils.getElementById('sideBrowserTitle');
@@ -3016,6 +3471,70 @@ export class MessageRenderer {
 
         // Use event delegation for better reliability
         document.addEventListener('click', (e) => {
+            // Handle external hyperlinks in chat messages only
+            const link = e.target.closest('a[href]');
+            if (link && link.href) {
+                console.log('[MessageRenderer] Link clicked:', link.href, 'Text:', link.textContent);
+                
+                // Only handle links within chat messages, not all links on the page
+                const chatWindow = link.closest('#chatWindow, #llmChatWindow, .message-container, .markdown-content, .message-content, .messageContent');
+                if (chatWindow) {
+                    console.log('[MessageRenderer] Link is within chat window');
+                    
+                    // Only intercept external links (not internal navigation or javascript: links)
+                    try {
+                        // Skip javascript:, mailto:, tel:, and other special protocols
+                        if (link.href.toLowerCase().startsWith('javascript:') || 
+                            link.href.toLowerCase().startsWith('mailto:') || 
+                            link.href.toLowerCase().startsWith('tel:') ||
+                            link.href.startsWith('#')) {
+                            console.log('[MessageRenderer] Skipping special protocol link:', link.href);
+                            return; // Let default behavior handle these
+                        }
+
+                        const linkUrl = new URL(link.href);
+                        const currentUrl = new URL(window.location.href);
+                        
+                        // Check if it's an external link (different hostname) or any http/https URL when enabled
+                        const isExternalLink = linkUrl.hostname !== currentUrl.hostname;
+                        const isHttpLink = linkUrl.protocol === 'http:' || linkUrl.protocol === 'https:';
+                        
+                        console.log('[MessageRenderer] Link analysis:', {
+                            href: link.href,
+                            hostname: linkUrl.hostname,
+                            currentHostname: currentUrl.hostname,
+                            isExternalLink,
+                            isHttpLink
+                        });
+                        
+                        if (isExternalLink && isHttpLink) {
+                            // Check if we should use Citation Preview Panel
+                            const useSideBrowser = localStorage.getItem('enableSideBrowser') === 'true';
+                            console.log('[MessageRenderer] EnableSideBrowser setting:', useSideBrowser);
+                            console.log('[MessageRenderer] MCSChatApp available:', !!window.MCSChatApp);
+                            console.log('[MessageRenderer] openCitationPreview function available:', typeof window.MCSChatApp?.openCitationPreview);
+                            
+                            if (useSideBrowser && window.MCSChatApp && typeof window.MCSChatApp.openCitationPreview === 'function') {
+                                e.preventDefault();
+                                console.log('[MessageRenderer] Intercepting external link for Citation Preview Panel:', link.href);
+                                window.MCSChatApp.openCitationPreview(link.href);
+                                return;
+                            } else {
+                                console.log('[MessageRenderer] Not using Citation Preview Panel, allowing default behavior');
+                            }
+                            // If not using Citation Preview Panel, let default behavior happen
+                            // The link should already have target="_blank" from markdown rendering
+                        } else {
+                            console.log('[MessageRenderer] Link is not external HTTP/HTTPS, allowing default behavior');
+                        }
+                    } catch (urlError) {
+                        console.warn('[MessageRenderer] Invalid URL in link:', link.href, urlError);
+                    }
+                } else {
+                    console.log('[MessageRenderer] Link is not within chat window, ignoring');
+                }
+            }
+
             // Handle close button clicks
             if (e.target.id === 'closeSideBrowser' || e.target.closest('#closeSideBrowser')) {
                 e.preventDefault();
@@ -3217,9 +3736,12 @@ export class MessageRenderer {
     queueMessage(activity, renderType = 'complete') {
         const messageId = activity.id || `${activity.from?.id}-${activity.timestamp}-${Date.now()}`;
 
-        // Add timestamp for proper ordering if not present
+        // Preserve original timestamp or use a sequence number for proper ordering
         if (!activity.timestamp) {
-            activity.timestamp = new Date().toISOString();
+            // Use a sequential timestamp to preserve order for messages without timestamps
+            const baseTime = Date.now();
+            activity.timestamp = new Date(baseTime - (this.messageQueue.length * 100)).toISOString(); // Ensure earlier processing = earlier timestamp
+            console.log(`[MessageRenderer] Assigned sequential timestamp to message ${messageId}: ${activity.timestamp}`);
         }
 
         const queueItem = {
@@ -3229,11 +3751,14 @@ export class MessageRenderer {
             queueTime: Date.now()
         };
 
-        console.log('Queueing message:', messageId, 'Type:', renderType);
+        console.log('Queueing message:', messageId, 'Type:', renderType, 'Timestamp:', activity.timestamp);
         this.messageQueue.push(queueItem);
 
-        // Sort queue by timestamp to ensure proper order
-        this.messageQueue.sort((a, b) => new Date(a.activity.timestamp) - new Date(b.activity.timestamp));
+        // Sort queue by timestamp to ensure proper order (DISABLED during testing)
+        // this.messageQueue.sort((a, b) => new Date(a.activity.timestamp) - new Date(b.activity.timestamp));
+        
+        // For now, process messages in arrival order to maintain sequence
+        console.log(`[MessageRenderer] Queue length: ${this.messageQueue.length}, processing in arrival order`);
 
         // Start processing if not already running
         if (!this.isProcessingQueue) {

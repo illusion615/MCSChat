@@ -24,6 +24,8 @@ Ready to get started? Follow our quick setup guide:
 - **[AI Companion Setup](docs/setup/ai-companion.md)** - Enable AI-powered analysis
 
 ### 🏗️ Architecture & Technical Details
+- **[Architecture Documentation Index](ARCHITECTURE_DOCUMENTATION_INDEX.md)** - 📚 Complete guide to all architecture documents
+- **[DirectLine Component Architecture](DIRECTLINE_COMPONENT_ARCHITECTURE_DESIGN.md)** - 🔧 Three-component modular design with Mermaid diagrams
 - **[System Architecture](docs/architecture/overview.md)** - High-level system design
 - **[Module Structure](docs/architecture/modules.md)** - Code organization and components
 - **[API Integration](docs/architecture/api-integration.md)** - Backend integrations guide
@@ -42,11 +44,20 @@ Ready to get started? Follow our quick setup guide:
 - **[Docker Deployment](docs/deployment/docker.md)** - Containerized deployment
 - **[Security Checklist](docs/deployment/security-checklist.md)** - Production security guide
 
-### 🔧 Development & Migration
+### 🔧 Development & Testing
 - **[Contributing Guide](docs/development/CONTRIBUTING.md)** - How to contribute to the project
 - **[Migration Guides](docs/migration/)** - Legacy system migration documentation
 - **[Performance Optimization](docs/performance/)** - Performance tuning and optimization
 - **[Development Utilities](utils/)** - Debugging tools, test files, and maintenance scripts
+
+### 🧪 DirectLine Architecture & Testing
+- **[DirectLine Component Architecture](DIRECTLINE_COMPONENT_ARCHITECTURE_DESIGN.md)** - 重构后的模块化架构设计
+- **[Refactored Architecture Test](test-directline-refactored-architecture.html)** - 新架构功能测试和演示
+- **[DirectLine Test Tools Guide](DIRECTLINE_TEST_TOOLS_GUIDE.md)** - Comprehensive testing tools for DirectLine implementation
+- **[Real DirectLine Test](test-real-directline.html)** - Full-featured DirectLine testing interface
+- **[Simple DirectLine Test](test-simple-directline.html)** - Lightweight DirectLine functionality test
+- **[Raw DirectLine Test](test-raw-directline.html)** - Core SDK functionality testing and diagnostics
+- **[Implementation Comparison](test-duplicate-directline-fix.html)** - Side-by-side comparison of legacy vs modern DirectLine approaches
 
 ### 🛠️ Troubleshooting & Support
 - **[DirectLine Issues](docs/troubleshooting/DIRECTLINE_COMPLETE_FIX.md)** - Complete DirectLine connection troubleshooting

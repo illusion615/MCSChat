@@ -17,16 +17,21 @@
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
 }
 
-/* Primary buttons (conversations) - aligned to top */
-#sideCommandBar #conversationsButton {
-    margin-bottom: auto;
-    /* Push other buttons to bottom */
+/* Home button - stays at top, hidden by default (shown when entering agent page) */
+#sideCommandBar #backToHomeButton {
+    flex-shrink: 0;
+    display: none;
 }
 
-/* Secondary buttons (documentation, knowledge hub, settings) - aligned to bottom */
+/* Spacer between home button and bottom-aligned buttons */
+.command-bar-spacer {
+    flex: 1;
+}
+
+/* Secondary buttons - aligned to bottom */
+#sideCommandBar #appearanceButton,
 #sideCommandBar #documentationButton,
 #sideCommandBar #knowledgeHubButton,
-#sideCommandBar #loggingButton,
 #sideCommandBar #settingsButton {
     margin-top: 0;
     margin-bottom: 4px;
@@ -66,7 +71,7 @@
     transform: translateY(-50%);
     width: 2px;
     height: 20px;
-    background: #0078d4;
+    background: var(--color-primary);
 }
 
 /* Mobile Header - Hidden on desktop */
@@ -91,7 +96,7 @@
 #mobileTitle {
     font-size: 18px;
     font-weight: 600;
-    color: #323130;
+    color: var(--color-text-primary);
     margin: 0;
     text-align: center;
     flex: 1;
@@ -120,7 +125,7 @@
     display: block;
     width: 20px;
     height: 2px;
-    background-color: #323130;
+    background-color: var(--color-text-primary);
     margin: 2px 0;
     transition: 0.3s;
     border-radius: 1px;
@@ -156,10 +161,10 @@
     justify-content: center;
     width: 40px;
     height: 40px;
-    color: #605e5c;
+    color: var(--color-text-secondary);
 }
 
 .mobile-action-btn:hover {
     background-color: rgba(0, 0, 0, 0.1);
-    color: #323130;
+    color: var(--color-text-primary);
 }

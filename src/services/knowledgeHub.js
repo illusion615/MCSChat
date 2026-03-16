@@ -1,11 +1,16 @@
 /**
  * Knowledge Hub Service
  * Handles PDF upload, processing, and page gallery display
+ * 
+ * Version: 1.0.0
  */
 
 import { DOMUtils } from '../utils/domUtils.js';
 import { Utils } from '../utils/helpers.js';
 import { getUnifiedNotificationManager } from './unifiedNotificationManager.js';
+
+const KNOWLEDGE_HUB_VERSION = '1.0.0';
+console.log(`📚 [KnowledgeHub] Version ${KNOWLEDGE_HUB_VERSION} loaded`);
 
 export class KnowledgeHubService {
     constructor() {

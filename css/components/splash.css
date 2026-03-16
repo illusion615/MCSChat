@@ -5,7 +5,7 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -68,7 +68,7 @@
 
 .splash-progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%);
+    background: linear-gradient(90deg, var(--color-surface) 0%, var(--color-surface-tertiary) 100%);
     border-radius: 2px;
     transition: width 0.3s ease;
     width: 0%;
@@ -144,7 +144,7 @@
 
 /* Success state */
 .splash-success {
-    color: #51cf66;
+    color: var(--color-success);
 }
 
 /* Mobile responsiveness */

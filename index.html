@@ -12,14 +12,9 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="icon" type="image/png" href="images/Microsoft-Copilot-Logo-30.png">
 
-    <!-- Critical Splash Screen CSS - Inline for instant loading -->
-    <style>
-        /* Splash Screen Critical CSS - Embedded for immediate display */
-        #splashScreen{position:fixed;top:0;left:0;width:100vw;height:100vh;background:linear-gradient(135deg,#0078d4 0%,#8b5fbf 100%);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:10000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;transition:opacity .5s ease-out,visibility .5s ease-out}#splashScreen.hidden{opacity:0;visibility:hidden}.splash-logo{width:120px;height:120px;margin-bottom:2rem;background:rgba(255,255,255,.15);border-radius:20px;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);animation:pulse 2s ease-in-out infinite}.splash-logo svg{width:64px;height:64px;color:#fff;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.2))}.splash-title{font-size:2.2rem;font-weight:300;margin-bottom:.5rem;text-align:center;line-height:1.2}.splash-subtitle{font-size:1.1rem;opacity:.8;margin-bottom:3rem;text-align:center}.splash-progress{width:320px;max-width:80vw;margin-bottom:1.5rem}.splash-progress-bar{width:100%;height:4px;background:rgba(255,255,255,.2);border-radius:2px;overflow:hidden;margin-bottom:1rem}.splash-progress-fill{height:100%;background:linear-gradient(90deg,#fff 0%,#f0f0f0 100%);border-radius:2px;transition:width .3s ease;width:0%;box-shadow:0 0 10px rgba(255,255,255,.5)}.splash-status{font-size:.9rem;opacity:.7;text-align:center;min-height:1.2rem;display:flex;align-items:center;justify-content:center}.splash-spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top:2px solid #fff;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px}@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}@media (max-width:768px){.splash-logo{width:80px;height:80px;margin-bottom:1.5rem}.splash-logo svg{width:48px;height:48px}.splash-title{font-size:1.6rem}.splash-subtitle{font-size:1rem;margin-bottom:2rem}.splash-progress{width:280px}}
-    </style>
+    <!-- Splash Screen CSS removed — Home page replaces splash -->
 
-    <!-- Splash Screen JavaScript - Load immediately -->
-    <script src="src/ui/splashScreen.js"></script>
+    <!-- Splash Screen JavaScript removed -->
 
     <!-- External Stylesheets -->
     <!-- Base styles - must be loaded first -->
@@ -39,6 +34,8 @@
     <link rel="stylesheet" href="css/components/kpi.css">
     <link rel="stylesheet" href="css/components/modals.css">
     <link rel="stylesheet" href="css/components/utilities.css">
+    <link rel="stylesheet" href="css/components/about-section.css">
+    <link rel="stylesheet" href="css/components/home.css">
     <link rel="stylesheet" href="src/components/directline/DirectLineManager.css">
     
     <!-- Responsive styles - must be loaded last -->
@@ -50,7 +47,7 @@
     <!-- Adaptive Cards SDK -->
     <script src="https://unpkg.com/adaptivecards@2.9.0/dist/adaptivecards.min.js"></script>
     <!-- Bot Framework DirectLine JS -->
-    <script src="https://unpkg.com/botframework-directlinejs@0.11.6/dist/directline.js"></script>
+    <script src="https://unpkg.com/botframework-directlinejs@0.15.8/dist/directline.js"></script>
     <!-- Markdown Parser (local) -->
     <script src="lib/marked.min.js"></script>
     <!-- HTML Sanitizer (local) -->
@@ -149,27 +146,79 @@
 </head>
 
 <body>
-    <!-- Splash Screen -->
-    <div id="splashScreen">
-        <div class="splash-logo">
-            <svg width="64" height="64" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path d="M5.21 2.816A1.75 1.75 0 0 1 6.69 2H9.5a.5.5 0 0 1 0 1H6.69a.75.75 0 0 0-.635.35L2.114 9.6a.75.75 0 0 0 0 .8l3.863 6.126a1.015 1.015 0 0 0 1.84-.28l3.401-12.753a2.01 2.01 0 0 1 3.65-.545l3.92 6.297a1.43 1.43 0 0 1 0 1.51l-3.996 6.42a1.75 1.75 0 0 1-1.486.825H10.5a.5.5 0 0 1 0-1h2.806c.26 0 .5-.134.637-.354l3.997-6.42a.43.43 0 0 0 0-.453l-3.92-6.296a1.011 1.011 0 0 0-1.836.274l-3.4 12.753a2.015 2.015 0 0 1-3.653.556l-3.863-6.126a1.75 1.75 0 0 1 0-1.868z"/>
-            </svg>
-        </div>
-        <h1 class="splash-title">Microsoft Copilot Studio Companion</h1>
-        <p class="splash-subtitle">Initializing AI Assistant...</p>
-        <div class="splash-progress">
-            <div class="splash-progress-bar">
-                <div class="splash-progress-fill" id="splashProgressFill"></div>
+    <!-- Home Page (visible by default) -->
+    <div id="homePage" class="home-page">
+        <div class="home-header">
+            <div class="home-logo">
+                <svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5.21 2.816A1.75 1.75 0 0 1 6.69 2H9.5a.5.5 0 0 1 0 1H6.69a.75.75 0 0 0-.635.35L2.114 9.6a.75.75 0 0 0 0 .8l3.863 6.126a1.015 1.015 0 0 0 1.84-.28l3.401-12.753a2.01 2.01 0 0 1 3.65-.545l3.92 6.297a1.43 1.43 0 0 1 0 1.51l-3.996 6.42a1.75 1.75 0 0 1-1.486.825H10.5a.5.5 0 0 1 0-1h2.806c.26 0 .5-.134.637-.354l3.997-6.42a.43.43 0 0 0 0-.453l-3.92-6.296a1.011 1.011 0 0 0-1.836.274l-3.4 12.753a2.015 2.015 0 0 1-3.653.556l-3.863-6.126a1.75 1.75 0 0 1 0-1.868z"/>
+                </svg>
             </div>
-            <div class="splash-status" id="splashStatus">
-                <div class="splash-spinner"></div>
-                Starting up...
+            <h1 class="home-title">Copilot Studio Companion</h1>
+            <p class="home-subtitle">Choose an agent to start a conversation</p>
+        </div>
+        <div id="homeAgentGrid" class="home-agent-grid">
+            <!-- Agent cards will be rendered dynamically -->
+        </div>
+        <div class="home-footer">
+            <span>Microsoft Copilot Studio Companion</span>
+            <span id="homeVersionInfo">v2.0.0</span>
+        </div>
+    </div>
+
+    <!-- Agent Splash Overlay (replaces old splash for agent connection) -->
+    <div id="agentSplashOverlay" class="agent-splash-overlay" style="display: none;">
+        <div class="agent-splash-card">
+            <h2 id="agentSplashTitle" class="agent-splash-title">Let's Begin</h2>
+            <div id="agentSplashParams" class="agent-splash-params">
+                <!-- Init params form will be injected here if needed -->
+            </div>
+            <div id="agentSplashProgress" class="agent-splash-progress" style="display: none;">
+                <div class="splash-progress-bar">
+                    <div class="splash-progress-fill" id="agentSplashProgressFill"></div>
+                </div>
+                <div class="agent-splash-status" id="agentSplashStatus">Connecting...</div>
+            </div>
+            <div id="agentSplashActions" class="agent-splash-actions">
+                <button type="button" id="agentSplashCancelBtn" class="btn btn-secondary">Cancel</button>
+                <button type="button" id="agentSplashStartBtn" class="btn btn-primary">Start Session</button>
+            </div>
+            <div id="agentSplashCancelProgress" class="agent-splash-actions" style="display: none;">
+                <button type="button" id="agentSplashCancelProgressBtn" class="btn btn-secondary">Cancel</button>
             </div>
         </div>
     </div>
 
-    <!-- Main Application -->
+    <!-- Agent Add/Edit Overlay (shared for both add and edit) -->
+    <div id="agentEditOverlay" class="init-params-overlay" style="display: none;" role="dialog" aria-modal="true">
+        <div class="init-params-card" style="width: 480px;">
+            <h3 id="agentEditTitle">Add New Agent</h3>
+            <form id="agentEditForm" class="init-params-form">
+                <div class="form-group">
+                    <label for="agentEditName">Agent Name:</label>
+                    <input type="text" id="agentEditName" placeholder="e.g., Customer Support Bot" required />
+                </div>
+                <div class="form-group">
+                    <label for="agentEditSecret">DirectLine Secret:</label>
+                    <input type="password" id="agentEditSecret" placeholder="Enter DirectLine secret" required />
+                </div>
+                <div id="agentEditParamsSection">
+                    <div class="form-group">
+                        <label>Initialization Parameters:</label>
+                        <small class="help-text">Define parameters sent to the bot when starting a conversation. "Key" is sent to the bot; "Display Name" is shown to users.</small>
+                        <div id="agentEditParamsList" class="params-list"></div>
+                        <button type="button" id="agentEditAddParamBtn" class="btn btn-secondary btn-small" style="margin-top: 8px;">+ Add Parameter</button>
+                    </div>
+                </div>
+            </form>
+            <div class="init-params-actions" style="justify-content: center;">
+                <button type="button" id="agentEditCancelBtn" class="btn btn-secondary">Cancel</button>
+                <button type="button" id="agentEditSaveBtn" class="btn btn-primary">Save Agent</button>
+            </div>
+        </div>
+    </div>
+    </div>
+
     <!-- Main Application Container -->
     <div id="container">
         <!-- Mobile Header with Hamburger Menu -->
@@ -198,30 +247,35 @@
         <!-- Mobile Overlay for Sidebar -->
         <div id="mobileOverlay" class="mobile-overlay"></div>
 
-        <!-- Left Sidebar Panel -->
-        <div id="leftPanel">
-            <!-- History Header -->
-            <div id="historyHeader">
-                <h3>Conversations</h3>
-                <button id="clearButton" class="icon-button" title="New chat" data-icon="newChat">
-                    <!-- Icon will be populated by JavaScript -->
-                </button>
-
-                <button id="clearAllHistoryButton" class="icon-button" title="Clear All History" data-icon="delete">
-                </button>
-            </div>
-            <!-- Session List -->
-            <div id="sessionList">
-                <div class="loading-sessions">Loading chat history...</div>
-            </div>
-        </div>
-
         <!-- Main Chat Area -->
         <div id="mainChatArea">
+            <!-- Left Sidebar Panel -->
+            <div id="leftPanel">
+                <!-- History Header -->
+                <div id="historyHeader">
+                    <h3>Conversations</h3>
+                    <button id="clearButton" class="icon-button" title="New chat" data-icon="newChat">
+                        <!-- Icon will be populated by JavaScript -->
+                    </button>
+
+                    <button id="clearAllHistoryButton" class="icon-button" title="Clear All History" data-icon="delete">
+                    </button>
+                </div>
+                <!-- Session List -->
+                <div id="sessionList">
+                    <div class="loading-sessions">Loading chat history...</div>
+                </div>
+            </div>
+
             <!-- Agent Chat Panel -->
             <div id="agentChatPanel" class="chat-panel">
                 <div class="panel-header">
-                    <h3 id="agentConversationTitle">Agent Conversation</h3>
+                    <div class="panel-header-left">
+                        <button id="conversationsButton" class="icon-button panel-header-btn" title="Conversations" aria-label="Toggle conversations panel" data-icon="menu">
+                            <!-- Icon will be populated by main.js -->
+                        </button>
+                        <h3 id="agentConversationTitle">Agent Conversation</h3>
+                    </div>
                     <div>
                     <div class="panel-controls">
                         <span id="agentStatus" class="status-indicator" data-tooltip="Agent: Disconnected"></span>
@@ -382,6 +436,13 @@
                     </div>
                 </div>
 
+                <!-- KPI Insights Section -->
+                <div id="kpiInsightsSection" class="kpi-insights-section">
+                    <div id="kpiInsightsContent" class="kpi-insights-content">
+                        <p class="kpi-insights-placeholder">Performance insights will appear here after agent responses.</p>
+                    </div>
+                </div>
+
                 <!-- AI Chat Window -->
                 <div id="llmChatWindow" class="chat-window">
                     <div class="companion-welcome">
@@ -500,6 +561,21 @@
         </div>
     </div>
 
+    <!-- Init Parameters Overlay -->
+    <div id="initParamsOverlay" class="init-params-overlay" style="display: none;" role="dialog" aria-labelledby="initParamsTitle" aria-modal="true">
+        <div class="init-params-card">
+            <h3 id="initParamsTitle">Let's Begin</h3>
+            <p class="init-params-desc">This agent requires below information. Please fill in the value before starting the conversation.</p>
+            <form id="initParamsForm" class="init-params-form">
+                <!-- Fields will be generated dynamically -->
+            </form>
+            <div class="init-params-actions">
+                <button type="button" id="initParamsCancelBtn" class="btn btn-secondary">Cancel</button>
+                <button type="button" id="initParamsStartBtn" class="btn btn-primary">Start Session</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Setup Modal -->
     <div id="setupModal" class="modal" role="dialog" aria-labelledby="setupModalTitle" aria-hidden="true">
         <div class="modal-content setup-modal">
@@ -513,20 +589,136 @@
                 <!-- Settings Navigation -->
                 <div class="settings-navigation">
                     <ul class="nav-list">
-                        <li><a href="#agent-section" class="nav-item active" data-section="agent-section">Agent
-                                Management</a></li>
+                        <li><a href="#about-section" class="nav-item active" data-section="about-section">About</a></li>
                         <li><a href="#tts-stt-section" class="nav-item" data-section="tts-stt-section">TTS/STT</a></li>
                         <li><a href="#ai-companion-section" class="nav-item" data-section="ai-companion-section">AI
                                 Companion</a></li>
-                        <li><a href="#appearance-section" class="nav-item"
-                                data-section="appearance-section">Appearance</a></li>
                     </ul>
                 </div>
 
                 <!-- Settings Content -->
                 <div class="settings-content">
+                    <!-- About Section -->
+                    <div id="about-section" class="settings-section active">
+                        <h3 class="section-title">About MCSChat</h3>
+
+                        <!-- Application Info -->
+                        <div class="form-group about-app-info">
+                            <div class="about-logo">
+                                <svg width="64" height="64" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M5.21 2.816A1.75 1.75 0 0 1 6.69 2H9.5a.5.5 0 0 1 0 1H6.69a.75.75 0 0 0-.635.35L2.114 9.6a.75.75 0 0 0 0 .8l3.863 6.126a1.015 1.015 0 0 0 1.84-.28l3.401-12.753a2.01 2.01 0 0 1 3.65-.545l3.92 6.297a1.43 1.43 0 0 1 0 1.51l-3.996 6.42a1.75 1.75 0 0 1-1.486.825H10.5a.5.5 0 0 1 0-1h2.806c.26 0 .5-.134.637-.354l3.997-6.42a.43.43 0 0 0 0-.453l-3.92-6.296a1.011 1.011 0 0 0-1.836.274l-3.4 12.753a2.015 2.015 0 0 1-3.653.556l-3.863-6.126a1.75 1.75 0 0 1 0-1.868z"/>
+                                </svg>
+                            </div>
+                            <h4>Microsoft Copilot Studio Companion</h4>
+                            <p class="about-description">A sophisticated chatbot testing interface with multi-agent support, AI companion features, and real-time streaming capabilities.</p>
+                            <div class="about-version-info">
+                                <div class="version-badge">
+                                    <span class="version-label">Version</span>
+                                    <span class="version-number" id="aboutAppVersion">2.0.0</span>
+                                </div>
+                                <div class="version-badge">
+                                    <span class="version-label">Build Date</span>
+                                    <span class="version-number" id="aboutBuildDate">2025-10-04</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Module Versions -->
+                        <div class="form-group">
+                            <label>Module Versions:</label>
+                            <div class="module-versions-container">
+                                <!-- Core Modules -->
+                                <div class="module-category">
+                                    <h5 class="module-category-title">🔧 Core Modules</h5>
+                                    <div class="module-list" id="aboutCoreModules">
+                                        <!-- Populated by JavaScript -->
+                                    </div>
+                                </div>
+
+                                <!-- UI Modules -->
+                                <div class="module-category">
+                                    <h5 class="module-category-title">🎨 UI Modules</h5>
+                                    <div class="module-list" id="aboutUIModules">
+                                        <!-- Populated by JavaScript -->
+                                    </div>
+                                </div>
+
+                                <!-- AI & Speech Modules -->
+                                <div class="module-category">
+                                    <h5 class="module-category-title">🤖 AI & Speech</h5>
+                                    <div class="module-list" id="aboutAIModules">
+                                        <!-- Populated by JavaScript -->
+                                    </div>
+                                </div>
+
+                                <!-- Services -->
+                                <div class="module-category">
+                                    <h5 class="module-category-title">📋 Services</h5>
+                                    <div class="module-list" id="aboutServicesModules">
+                                        <!-- Populated by JavaScript -->
+                                    </div>
+                                </div>
+
+                                <!-- Components -->
+                                <div class="module-category">
+                                    <h5 class="module-category-title">🧩 Components</h5>
+                                    <div class="module-list" id="aboutComponentsModules">
+                                        <!-- Populated by JavaScript -->
+                                    </div>
+                                </div>
+
+                                <!-- Utils -->
+                                <div class="module-category">
+                                    <h5 class="module-category-title">🔨 Utils</h5>
+                                    <div class="module-list" id="aboutUtilsModules">
+                                        <!-- Populated by JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- System Information -->
+                        <div class="form-group">
+                            <label>System Information:</label>
+                            <div class="system-info-container">
+                                <div class="info-row">
+                                    <span class="info-label">Browser:</span>
+                                    <span class="info-value" id="aboutBrowserInfo">Loading...</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">User Agent:</span>
+                                    <span class="info-value" id="aboutUserAgent">Loading...</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Screen Resolution:</span>
+                                    <span class="info-value" id="aboutScreenRes">Loading...</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Language:</span>
+                                    <span class="info-value" id="aboutLanguage">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Links -->
+                        <div class="form-group about-links">
+                            <a href="https://github.com/illusion615/MCSChat" target="_blank" rel="noopener noreferrer" class="about-link">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z"/>
+                                </svg>
+                                View on GitHub
+                            </a>
+                            <button type="button" class="about-link" id="copyVersionInfoBtn">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                                </svg>
+                                Copy Version Info
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Agent Management Section -->
-                    <div id="agent-section" class="settings-section active">
+                    <div id="agent-section" class="settings-section">
                         <h3 class="section-title">Agent Management</h3>
 
                         <!-- Agent Management -->
@@ -597,37 +789,6 @@
                                 <span id="currentAgentName">No agent selected</span>
                                 <span class="agent-status disconnected" id="currentAgentStatus">Disconnected</span>
                             </div>
-                        </div>
-
-                        <!-- Streaming Options - moved here -->
-                        <div class="form-group">
-                            <label>Agent Options:</label>
-                            <div class="feature-options">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="enableStreamingCheckbox" />
-                                    <span class="checkmark"></span>
-                                    Enable streaming responses (simulation mode)
-                                </label>
-                                <small class="help-text">Simulates progressive response display for better UX</small>
-
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="enableSideBrowserCheckbox" />
-                                    <span class="checkmark"></span>
-                                    Open citations in side browser
-                                </label>
-                                <small class="help-text">View citation sources within the app instead of external
-                                    browser</small>
-
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="fullWidthMessagesCheckbox" />
-                                    <span class="checkmark"></span>
-                                    Display agent messages in full width
-                                </label>
-                                <small class="help-text">Show agent responses across the full panel width for maximum
-                                    information display</small>
-                            </div>
-                        </div>
-
                         </div>
                     </div>
 
@@ -877,6 +1038,13 @@
                                     Enable AI Companion (requires API key or local Ollama)
                                 </label>
                                 <small class="help-text">AI assistant for conversation analysis and insights</small>
+
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="useAIThinkingCheckbox" checked />
+                                    <span class="checkmark"></span>
+                                    Use AI Companion for thinking simulation
+                                </label>
+                                <small class="help-text">When enabled, AI Companion generates contextual thinking messages while waiting for agent response. When disabled, a simple typing indicator (thinking dot) is shown instead.</small>
                             </div>
                         </div>
 
@@ -889,6 +1057,7 @@
                                     <option value="anthropic">Anthropic Claude</option>
                                     <option value="azure">Azure OpenAI</option>
                                     <option value="ollama">Local Ollama</option>
+                                    <option value="openai-compatible">OpenAI Compatible</option>
                                 </select>
                                 <small id="providerHelp" class="help-text">Choose your preferred AI provider</small>
                             </div>
@@ -939,6 +1108,47 @@
                                 <div class="form-group">
                                     <button type="button" id="testApiBtn" class="btn btn-secondary">
                                         Test API Connection
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- OpenAI Compatible Configuration -->
+                            <div id="openaiCompatibleConfig" style="display: none;">
+                                <div class="form-group">
+                                    <label for="openaiCompatibleBaseUrlInput">Base URL:</label>
+                                    <input type="url" id="openaiCompatibleBaseUrlInput"
+                                        placeholder="https://api.deepseek.com/v1"
+                                        aria-describedby="openaiCompatibleBaseUrlHelp" />
+                                    <small id="openaiCompatibleBaseUrlHelp" class="help-text">OpenAI-compatible API endpoint (e.g. DeepSeek, Groq, LM Studio)</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="openaiCompatibleApiKeyInput">API Key:</label>
+                                    <input type="password" id="openaiCompatibleApiKeyInput"
+                                        placeholder="Enter your API key..."
+                                        aria-describedby="openaiCompatibleApiKeyHelp" />
+                                    <small id="openaiCompatibleApiKeyHelp" class="help-text">API key for the compatible provider</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="openaiCompatibleModelInput">Model Name:</label>
+                                    <input type="text" id="openaiCompatibleModelInput"
+                                        placeholder="deepseek-chat"
+                                        aria-describedby="openaiCompatibleModelHelp" />
+                                    <small id="openaiCompatibleModelHelp" class="help-text">Model identifier for the provider</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="openaiCompatibleDisplayNameInput">Display Name (optional):</label>
+                                    <input type="text" id="openaiCompatibleDisplayNameInput"
+                                        placeholder="My LLM Provider"
+                                        aria-describedby="openaiCompatibleDisplayNameHelp" />
+                                    <small id="openaiCompatibleDisplayNameHelp" class="help-text">Custom name shown in the UI</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <button type="button" id="testOpenAICompatibleBtn" class="btn btn-secondary">
+                                        Test Connection
                                     </button>
                                 </div>
                             </div>
@@ -1018,113 +1228,6 @@
                                 explanations, and response generation templates</small>
                         </div>
                     </div>
-
-                    <!-- Appearance Section -->
-                    <div id="appearance-section" class="settings-section">
-                        <h3 class="section-title">Appearance</h3>
-
-                        <!-- Message Icon Toggle -->
-                        <div class="form-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="messageIconToggle" checked />
-                                <span class="checkmark"></span>
-                                Show message icons
-                            </label>
-                            <small class="help-text">Display user and agent avatars next to messages</small>
-                        </div>
-
-
-
-                        <!-- Color Theme Selection -->
-                        <div class="form-group">
-                            <label for="colorThemeSelection">
-                                Color Theme:
-                            </label>
-                            <div class="color-theme-gallery">
-                                <div class="theme-options">
-                                    <div class="theme-option" data-theme="default">
-                                        <div class="theme-preview-card">
-                                            <div class="theme-gradient default-theme"></div>
-                                            <span class="theme-name">Default</span>
-                                        </div>
-                                    </div>
-                                    <div class="theme-option" data-theme="ocean">
-                                        <div class="theme-preview-card">
-                                            <div class="theme-gradient ocean-theme"></div>
-                                            <span class="theme-name">Ocean</span>
-                                        </div>
-                                    </div>
-                                    <div class="theme-option" data-theme="sunset">
-                                        <div class="theme-preview-card">
-                                            <div class="theme-gradient sunset-theme"></div>
-                                            <span class="theme-name">Sunset</span>
-                                        </div>
-                                    </div>
-                                    <div class="theme-option" data-theme="forest">
-                                        <div class="theme-preview-card">
-                                            <div class="theme-gradient forest-theme"></div>
-                                            <span class="theme-name">Forest</span>
-                                        </div>
-                                    </div>
-                                    <div class="theme-option" data-theme="cosmic">
-                                        <div class="theme-preview-card">
-                                            <div class="theme-gradient cosmic-theme"></div>
-                                            <span class="theme-name">Cosmic</span>
-                                        </div>
-                                    </div>
-                                    <div class="theme-option" data-theme="aurora">
-                                        <div class="theme-preview-card">
-                                            <div class="theme-gradient aurora-theme"></div>
-                                            <span class="theme-name">Aurora</span>
-                                        </div>
-                                    </div>
-                                    <div class="theme-option" data-theme="minimal">
-                                        <div class="theme-preview-card">
-                                            <div class="theme-gradient minimal-theme"></div>
-                                            <span class="theme-name">Minimal</span>
-                                        </div>
-                                    </div>
-                                    <div class="theme-option" data-theme="dark">
-                                        <div class="theme-preview-card">
-                                            <div class="theme-gradient dark-theme"></div>
-                                            <span class="theme-name">Dark</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <small class="help-text">Choose a background color theme for the chat interface</small>
-                            </div>
-                        </div>
-
-                        <!-- Font Size Configuration - moved to bottom -->
-                        <div class="form-group">
-                            <label>Font Size Settings:</label>
-                            <div class="font-size-config">
-                                <!-- Agent Chat Font Size -->
-                                <div class="font-size-setting">
-                                    <label for="agentFontSize">Agent Chat Font Size:</label>
-                                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
-                                        <input type="range" id="agentFontSize" min="10" max="20" value="15" step="1"
-                                            style="flex: 1;" aria-describedby="agentFontHelp" />
-                                        <span id="agentFontSizeValue" class="font-size-value">15px</span>
-                                    </div>
-                                    <small id="agentFontHelp" class="help-text">Adjust font size for agent conversation
-                                        messages</small>
-                                </div>
-
-                                <!-- AI Companion Font Size -->
-                                <div class="font-size-setting" style="margin-top: 12px;">
-                                    <label for="companionFontSize">AI Companion Font Size:</label>
-                                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
-                                        <input type="range" id="companionFontSize" min="8" max="16" value="12" step="1"
-                                            style="flex: 1;" aria-describedby="companionFontHelp" />
-                                        <span id="companionFontSizeValue" class="font-size-value">12px</span>
-                                    </div>
-                                    <small id="companionFontHelp" class="help-text">Adjust font size for AI companion
-                                        messages</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -1155,23 +1258,178 @@
 
     <!-- Side Command Bar - Vertical Activity Bar -->
     <div id="sideCommandBar">
-        <!-- Primary functions - top aligned -->
-        <button id="conversationsButton" class="side-command-btn" title="Conversations"
-            aria-label="Toggle conversations panel" data-icon="menu">
-            <!-- Icon will be populated by main.js unified icon system -->
+        <!-- Back to Home button -->
+        <button id="backToHomeButton" class="side-command-btn" title="Back to Home" aria-label="Back to Home">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
         </button>
 
-        <!-- Secondary functions - bottom aligned -->
+        <!-- Spacer pushes remaining buttons to bottom -->
+        <div class="command-bar-spacer"></div>
+
+        <!-- Secondary functions -->
+        <button id="appearanceButton" class="side-command-btn" title="Appearance" aria-label="Appearance Settings">
+            <!-- Icon will be populated by main.js unified icon system -->
+        </button>
         <button id="documentationButton" class="side-command-btn" title="Documentation" aria-label="View Documentation">
             <!-- Icon will be populated by main.js unified icon system -->
         </button>
         <button id="knowledgeHubButton" class="side-command-btn" title="Knowledge Hub" aria-label="Knowledge Hub">
             <!-- Icon will be populated by main.js unified icon system -->
         </button>
-        <!-- Logging button removed - using unified notification system -->
         <button id="settingsButton" class="side-command-btn" title="Settings" aria-label="Settings">
             <!-- Icon will be populated by main.js unified icon system -->
         </button>
+    </div>
+
+    <!-- Appearance Side Panel -->
+    <div id="appearanceSidePanel" class="appearance-side-panel">
+        <div class="appearance-panel-header">
+            <h3>Appearance</h3>
+            <button id="closeAppearancePanel" class="side-browser-close" title="Close">×</button>
+        </div>
+        <div class="appearance-panel-body">
+            <!-- Message Icon Toggle -->
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="appearanceMessageIconToggle" checked />
+                    <span class="checkmark"></span>
+                    Show message icons
+                </label>
+                <small class="help-text">Display user and agent avatars next to messages</small>
+            </div>
+
+            <!-- Color Theme Selection -->
+            <div class="form-group">
+                <label>Color Theme:</label>
+                <div class="color-theme-gallery" id="appearanceThemeGallery">
+                    <div class="theme-options">
+                        <div class="theme-option" data-theme="default">
+                            <div class="theme-preview-card"><div class="theme-gradient default-theme"></div><span class="theme-name">Default</span></div>
+                        </div>
+                        <div class="theme-option" data-theme="ocean">
+                            <div class="theme-preview-card"><div class="theme-gradient ocean-theme"></div><span class="theme-name">Ocean</span></div>
+                        </div>
+                        <div class="theme-option" data-theme="sunset">
+                            <div class="theme-preview-card"><div class="theme-gradient sunset-theme"></div><span class="theme-name">Sunset</span></div>
+                        </div>
+                        <div class="theme-option" data-theme="forest">
+                            <div class="theme-preview-card"><div class="theme-gradient forest-theme"></div><span class="theme-name">Forest</span></div>
+                        </div>
+                        <div class="theme-option" data-theme="cosmic">
+                            <div class="theme-preview-card"><div class="theme-gradient cosmic-theme"></div><span class="theme-name">Cosmic</span></div>
+                        </div>
+                        <div class="theme-option" data-theme="aurora">
+                            <div class="theme-preview-card"><div class="theme-gradient aurora-theme"></div><span class="theme-name">Aurora</span></div>
+                        </div>
+                        <div class="theme-option" data-theme="minimal">
+                            <div class="theme-preview-card"><div class="theme-gradient minimal-theme"></div><span class="theme-name">Minimal</span></div>
+                        </div>
+                        <div class="theme-option" data-theme="dark">
+                            <div class="theme-preview-card"><div class="theme-gradient dark-theme"></div><span class="theme-name">Dark</span></div>
+                        </div>
+                    </div>
+                    <small class="help-text">Choose a background color theme</small>
+                </div>
+            </div>
+
+            <!-- Font Size Configuration -->
+            <div class="form-group">
+                <label>Font Size Settings:</label>
+                <div class="font-size-config">
+                    <div class="font-size-setting">
+                        <label for="appearanceAgentFontSize">Agent Chat:</label>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                            <input type="range" id="appearanceAgentFontSize" min="10" max="20" value="15" step="1" style="flex: 1;" />
+                            <span id="appearanceAgentFontSizeValue" class="font-size-value">15px</span>
+                        </div>
+                    </div>
+                    <div class="font-size-setting" style="margin-top: 12px;">
+                        <label for="appearanceCompanionFontSize">AI Companion:</label>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                            <input type="range" id="appearanceCompanionFontSize" min="8" max="16" value="12" step="1" style="flex: 1;" />
+                            <span id="appearanceCompanionFontSizeValue" class="font-size-value">12px</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Streaming Style Configuration -->
+            <div class="form-group">
+                <label for="streamingStyleSelect">Message Streaming Style:</label>
+                <select id="streamingStyleSelect" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--color-border);">
+                    <option value="smooth">Smooth (light rendering)</option>
+                    <option value="typewriter">Typewriter (character by character)</option>
+                    <option value="word">Word by word</option>
+                    <option value="sentence">Sentence by sentence</option>
+                    <option value="instant">Instant (no animation)</option>
+                </select>
+                <small class="help-text">How agent messages appear on screen</small>
+            </div>
+
+            <div class="form-group">
+                <label for="streamingSpeedSelect">Streaming Speed:</label>
+                <select id="streamingSpeedSelect" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--color-border);">
+                    <option value="slow">Slow</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="fast">Fast</option>
+                    <option value="ultra">Ultra Fast</option>
+                </select>
+                <small class="help-text">Speed of the streaming animation</small>
+            </div>
+
+            <!-- Suggested Actions Position -->
+            <div class="form-group">
+                <label for="suggestedActionsPositionSelect">Suggested Actions Position:</label>
+                <select id="suggestedActionsPositionSelect" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--color-border);">
+                    <option value="aboveInput">Above input box (fixed)</option>
+                    <option value="inline">Inline after message</option>
+                </select>
+                <small class="help-text">Where suggested action buttons appear in the chat</small>
+            </div>
+
+            <!-- Thinking Dot Style -->
+            <div class="form-group">
+                <label for="thinkingDotStyleSelect">Thinking Indicator Style:</label>
+                <select id="thinkingDotStyleSelect" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--color-border);">
+                    <option value="bounce">Bounce</option>
+                    <option value="pulse">Pulse</option>
+                    <option value="wave">Wave</option>
+                    <option value="elastic">Elastic</option>
+                    <option value="ripple">Ripple</option>
+                </select>
+                <small class="help-text">Animation style for the typing indicator dots</small>
+            </div>
+
+            <!-- Agent Display Options -->
+            <div class="form-group">
+                <label>Agent Options:</label>
+                <div class="feature-options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="enableStreamingCheckbox" />
+                        <span class="checkmark"></span>
+                        Enable streaming responses (simulation mode)
+                    </label>
+                    <small class="help-text">Simulates progressive response display for better UX</small>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="enableSideBrowserCheckbox" />
+                        <span class="checkmark"></span>
+                        Open citations in side browser
+                    </label>
+                    <small class="help-text">View citation sources within the app instead of external browser</small>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="fullWidthMessagesCheckbox" />
+                        <span class="checkmark"></span>
+                        Display agent messages in full width
+                    </label>
+                    <small class="help-text">Show agent responses across the full panel width</small>
+                </div>
+            </div>
+        </div>
     </div> <!-- Screen Reader Only Content -->
     <div class="sr-only">
         <div id="liveRegion" aria-live="polite" aria-atomic="false"></div>
@@ -1179,36 +1437,6 @@
 
     <!-- Application Scripts -->
     <script type="module" src="src/main.js"></script>
-    <!-- Initialize Splash Screen -->
-    <script>
-        // Event-driven splash screen initialization
-        document.addEventListener('DOMContentLoaded', function() {
-            // Double-check that SplashScreen class is available
-            if (typeof SplashScreen !== 'undefined') {
-                const splashScreen = new SplashScreen();
-                splashScreen.show();
-                
-                // Start with initial progress
-                splashScreen.setProgress(0, 'Starting up...');
-                
-                // Make splash screen globally accessible for debugging
-                window.splashScreen = splashScreen;
-                
-                console.log('[Splash] Event-driven splash screen initialized');
-            } else {
-                console.warn('SplashScreen class not loaded yet');
-                // Fallback: try again after a short delay
-                setTimeout(() => {
-                    if (typeof SplashScreen !== 'undefined') {
-                        const splashScreen = new SplashScreen();
-                        splashScreen.show();
-                        splashScreen.setProgress(0, 'Starting up...');
-                        window.splashScreen = splashScreen;
-                    }
-                }, 100);
-            }
-        });
-    </script>
 </body>
 
 </html>

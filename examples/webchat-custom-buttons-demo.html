@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebChat Custom Buttons Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            min-height: 600px;
+        }
+        
+        .controls {
+            background: #f8f9fa;
+            padding: 20px;
+            border-right: 1px solid #e9ecef;
+        }
+        
+        .chat-area {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .control-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .control-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #495057;
+        }
+        
+        .control-group {
+            margin-bottom: 10px;
+        }
+        
+        .control-group label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .control-group input, .control-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px 0;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .mock-chat {
+            flex: 1;
+            background: #ffffff;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            min-height: 500px;
+        }
+        
+        .chat-header {
+            background: var(--accent-color, #667eea);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .messages {
+            flex: 1;
+            margin-bottom: 20px;
+            overflow-y: auto;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        
+        .message.user {
+            flex-direction: row-reverse;
+        }
+        
+        .avatar {
+            width: var(--avatar-size, 40px);
+            height: var(--avatar-size, 40px);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        
+        .bot-avatar {
+            background: var(--bot-avatar-bg, #667eea);
+            color: white;
+        }
+        
+        .user-avatar {
+            background: var(--user-avatar-bg, #6c757d);
+            color: white;
+        }
+        
+        .bubble {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: var(--bubble-radius, 18px);
+            word-wrap: break-word;
+        }
+        
+        .bot-bubble {
+            background: var(--bubble-bg, #f8f9fa);
+            color: #333;
+            border: 1px solid #e9ecef;
+        }
+        
+        .user-bubble {
+            background: var(--user-bubble-bg, #667eea);
+            color: var(--user-bubble-text, white);
+        }
+        
+        .custom-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .action-btn {
+            background: var(--action-bg, white);
+            color: var(--action-color, #667eea);
+            border: 2px solid var(--action-color, #667eea);
+            padding: 8px 16px;
+            border-radius: var(--action-radius, 20px);
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+        
+        .action-btn:hover {
+            background: var(--action-color, #667eea);
+            color: white;
+            transform: translateY(-1px);
+        }
+        
+        .input-area {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: var(--input-radius, 25px);
+            border: 2px solid var(--accent-color, #667eea);
+        }
+        
+        .input-area input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 8px;
+            outline: none;
+            font-size: 14px;
+        }
+        
+        .send-btn {
+            background: var(--accent-color, #667eea);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        
+        .code-preview {
+            background: #263238;
+            color: #eeffff;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 12px;
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                border-right: none;
+                border-bottom: 1px solid #e9ecef;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="header">
+            <h1>🎨 WebChat Custom Buttons & Styling Demo</h1>
+            <p>Interactive demonstration of WebChat customization options</p>
+        </div>
+        
+        <div class="content">
+            <!-- Controls Panel -->
+            <div class="controls">
+                <!-- Color Settings -->
+                <div class="control-section">
+                    <div class="control-title">🎨 Colors</div>
+                    <div class="control-group">
+                        <label>Accent Color</label>
+                        <input type="color" id="accentColor" value="#667eea">
+                    </div>
+                    <div class="control-group">
+                        <label>Bubble Background</label>
+                        <input type="color" id="bubbleBg" value="#f8f9fa">
+                    </div>
+                    <div class="control-group">
+                        <label>User Bubble</label>
+                        <input type="color" id="userBubbleBg" value="#667eea">
+                    </div>
+                    <div class="control-group">
+                        <label>Bot Avatar</label>
+                        <input type="color" id="botAvatarBg" value="#667eea">
+                    </div>
+                </div>
+                
+                <!-- Layout Settings -->
+                <div class="control-section">
+                    <div class="control-title">📐 Layout</div>
+                    <div class="control-group">
+                        <label>Bubble Radius: <span id="bubbleRadiusValue">18</span>px</label>
+                        <input type="range" id="bubbleRadius" min="0" max="25" value="18">
+                    </div>
+                    <div class="control-group">
+                        <label>Avatar Size: <span id="avatarSizeValue">40</span>px</label>
+                        <input type="range" id="avatarSize" min="20" max="60" value="40">
+                    </div>
+                    <div class="control-group">
+                        <label>Input Radius: <span id="inputRadiusValue">25</span>px</label>
+                        <input type="range" id="inputRadius" min="0" max="30" value="25">
+                    </div>
+                </div>
+                
+                <!-- Button Settings -->
+                <div class="control-section">
+                    <div class="control-title">🔘 Buttons</div>
+                    <div class="control-group">
+                        <label>Button Style</label>
+                        <select id="buttonStyle">
+                            <option value="rounded">Rounded</option>
+                            <option value="square">Square</option>
+                            <option value="pill">Pill</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Action Radius: <span id="actionRadiusValue">20</span>px</label>
+                        <input type="range" id="actionRadius" min="0" max="25" value="20">
+                    </div>
+                    <button class="btn" onclick="addCustomActions()">Add Action Buttons</button>
+                    <button class="btn" onclick="addAdaptiveCard()">Add Adaptive Card</button>
+                </div>
+                
+                <!-- Theme Presets -->
+                <div class="control-section">
+                    <div class="control-title">🎭 Themes</div>
+                    <button class="btn" onclick="applyTheme('modern')">Modern</button>
+                    <button class="btn" onclick="applyTheme('corporate')">Corporate</button>
+                    <button class="btn" onclick="applyTheme('playful')">Playful</button>
+                    <button class="btn" onclick="applyTheme('minimal')">Minimal</button>
+                </div>
+                
+                <!-- Export Code -->
+                <div class="control-section">
+                    <div class="control-title">💾 Export</div>
+                    <button class="btn" onclick="generateCode()">Generate Code</button>
+                    <button class="btn" onclick="copyToClipboard()">Copy to Clipboard</button>
+                </div>
+            </div>
+            
+            <!-- Chat Demo Area -->
+            <div class="chat-area">
+                <div class="mock-chat" id="mockChat">
+                    <div class="chat-header">
+                        <h3>🤖 MCSChat Demo</h3>
+                        <p style="margin: 5px 0 0; opacity: 0.9;">Experience customized WebChat styling</p>
+                    </div>
+                    
+                    <div class="messages" id="messages">
+                        <!-- Bot welcome message -->
+                        <div class="message bot">
+                            <div class="avatar bot-avatar">🤖</div>
+                            <div class="bubble bot-bubble">
+                                Welcome to MCSChat! I'm your AI assistant. How can I help you today?
+                                <div class="custom-actions" id="welcomeActions">
+                                    <div class="action-btn" onclick="selectAction('help')">❓ Get Help</div>
+                                    <div class="action-btn" onclick="selectAction('features')">✨ Show Features</div>
+                                    <div class="action-btn" onclick="selectAction('demo')">🎮 Interactive Demo</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- User response -->
+                        <div class="message user">
+                            <div class="avatar user-avatar">👤</div>
+                            <div class="bubble user-bubble">
+                                I'd like to learn about WebChat customization options.
+                            </div>
+                        </div>
+                        
+                        <!-- Bot detailed response -->
+                        <div class="message bot">
+                            <div class="avatar bot-avatar">🤖</div>
+                            <div class="bubble bot-bubble">
+                                Great! WebChat offers extensive customization options including:
+                                <ul style="margin: 10px 0; padding-left: 20px;">
+                                    <li>Color themes and styling</li>
+                                    <li>Custom button actions</li>
+                                    <li>Adaptive card integration</li>
+                                    <li>Typography and layout controls</li>
+                                </ul>
+                                Try the controls on the left to see real-time changes!
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="input-area">
+                        <input type="text" placeholder="Type your message..." id="messageInput">
+                        <button class="send-btn" onclick="sendMessage()">➤</button>
+                    </div>
+                </div>
+                
+                <!-- Generated Code Preview -->
+                <div class="code-preview" id="codePreview" style="display: none;">
+                    <div style="margin-bottom: 10px; font-weight: bold;">Generated WebChat Configuration:</div>
+                    <pre id="generatedCode"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Current configuration state
+        let currentConfig = {
+            accent: '#667eea',
+            bubbleBackground: '#f8f9fa',
+            userBubbleBackground: '#667eea',
+            botAvatarBackground: '#667eea',
+            bubbleRadius: 18,
+            avatarSize: 40,
+            inputRadius: 25,
+            actionRadius: 20,
+            buttonStyle: 'rounded'
+        };
+        
+        // Theme presets
+        const themes = {
+            modern: {
+                accent: '#667eea',
+                bubbleBackground: '#f8f9fa',
+                userBubbleBackground: '#667eea',
+                botAvatarBackground: '#667eea',
+                bubbleRadius: 18,
+                avatarSize: 40,
+                inputRadius: 25,
+                actionRadius: 20
+            },
+            corporate: {
+                accent: '#005a9e',
+                bubbleBackground: '#ffffff',
+                userBubbleBackground: '#005a9e',
+                botAvatarBackground: '#005a9e',
+                bubbleRadius: 4,
+                avatarSize: 36,
+                inputRadius: 4,
+                actionRadius: 4
+            },
+            playful: {
+                accent: '#ff6b6b',
+                bubbleBackground: '#fff5f5',
+                userBubbleBackground: '#ff6b6b',
+                botAvatarBackground: '#4ecdc4',
+                bubbleRadius: 25,
+                avatarSize: 44,
+                inputRadius: 30,
+                actionRadius: 25
+            },
+            minimal: {
+                accent: '#2d3748',
+                bubbleBackground: '#f7fafc',
+                userBubbleBackground: '#2d3748',
+                botAvatarBackground: '#718096',
+                bubbleRadius: 8,
+                avatarSize: 32,
+                inputRadius: 8,
+                actionRadius: 6
+            }
+        };
+        
+        // Initialize event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            updateStyles();
+        });
+        
+        function setupEventListeners() {
+            // Color inputs
+            document.getElementById('accentColor').addEventListener('input', function() {
+                currentConfig.accent = this.value;
+                updateStyles();
+            });
+            
+            document.getElementById('bubbleBg').addEventListener('input', function() {
+                currentConfig.bubbleBackground = this.value;
+                updateStyles();
+            });
+            
+            document.getElementById('userBubbleBg').addEventListener('input', function() {
+                currentConfig.userBubbleBackground = this.value;
+                updateStyles();
+            });
+            
+            document.getElementById('botAvatarBg').addEventListener('input', function() {
+                currentConfig.botAvatarBackground = this.value;
+                updateStyles();
+            });
+            
+            // Range inputs
+            document.getElementById('bubbleRadius').addEventListener('input', function() {
+                currentConfig.bubbleRadius = parseInt(this.value);
+                document.getElementById('bubbleRadiusValue').textContent = this.value;
+                updateStyles();
+            });
+            
+            document.getElementById('avatarSize').addEventListener('input', function() {
+                currentConfig.avatarSize = parseInt(this.value);
+                document.getElementById('avatarSizeValue').textContent = this.value;
+                updateStyles();
+            });
+            
+            document.getElementById('inputRadius').addEventListener('input', function() {
+                currentConfig.inputRadius = parseInt(this.value);
+                document.getElementById('inputRadiusValue').textContent = this.value;
+                updateStyles();
+            });
+            
+            document.getElementById('actionRadius').addEventListener('input', function() {
+                currentConfig.actionRadius = parseInt(this.value);
+                document.getElementById('actionRadiusValue').textContent = this.value;
+                updateStyles();
+            });
+            
+            // Button style select
+            document.getElementById('buttonStyle').addEventListener('change', function() {
+                currentConfig.buttonStyle = this.value;
+                updateStyles();
+            });
+            
+            // Message input
+            document.getElementById('messageInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+        }
+        
+        function updateStyles() {
+            const root = document.documentElement;
+            
+            // Apply CSS custom properties
+            root.style.setProperty('--accent-color', currentConfig.accent);
+            root.style.setProperty('--bubble-bg', currentConfig.bubbleBackground);
+            root.style.setProperty('--user-bubble-bg', currentConfig.userBubbleBackground);
+            root.style.setProperty('--bot-avatar-bg', currentConfig.botAvatarBackground);
+            root.style.setProperty('--user-avatar-bg', currentConfig.userBubbleBackground);
+            root.style.setProperty('--bubble-radius', currentConfig.bubbleRadius + 'px');
+            root.style.setProperty('--avatar-size', currentConfig.avatarSize + 'px');
+            root.style.setProperty('--input-radius', currentConfig.inputRadius + 'px');
+            root.style.setProperty('--action-radius', currentConfig.actionRadius + 'px');
+            root.style.setProperty('--action-color', currentConfig.accent);
+            root.style.setProperty('--action-bg', 'white');
+            
+            // Update button style based on selection
+            const actionButtons = document.querySelectorAll('.action-btn');
+            actionButtons.forEach(btn => {
+                switch(currentConfig.buttonStyle) {
+                    case 'square':
+                        btn.style.borderRadius = '4px';
+                        break;
+                    case 'pill':
+                        btn.style.borderRadius = '25px';
+                        break;
+                    default:
+                        btn.style.borderRadius = currentConfig.actionRadius + 'px';
+                }
+            });
+        }
+        
+        function applyTheme(themeName) {
+            if (themes[themeName]) {
+                currentConfig = { ...currentConfig, ...themes[themeName] };
+                
+                // Update input values
+                document.getElementById('accentColor').value = currentConfig.accent;
+                document.getElementById('bubbleBg').value = currentConfig.bubbleBackground;
+                document.getElementById('userBubbleBg').value = currentConfig.userBubbleBackground;
+                document.getElementById('botAvatarBg').value = currentConfig.botAvatarBackground;
+                document.getElementById('bubbleRadius').value = currentConfig.bubbleRadius;
+                document.getElementById('avatarSize').value = currentConfig.avatarSize;
+                document.getElementById('inputRadius').value = currentConfig.inputRadius;
+                document.getElementById('actionRadius').value = currentConfig.actionRadius;
+                
+                // Update display values
+                document.getElementById('bubbleRadiusValue').textContent = currentConfig.bubbleRadius;
+                document.getElementById('avatarSizeValue').textContent = currentConfig.avatarSize;
+                document.getElementById('inputRadiusValue').textContent = currentConfig.inputRadius;
+                document.getElementById('actionRadiusValue').textContent = currentConfig.actionRadius;
+                
+                updateStyles();
+            }
+        }
+        
+        function addCustomActions() {
+            const messagesContainer = document.getElementById('messages');
+            const newMessage = document.createElement('div');
+            newMessage.className = 'message bot';
+            newMessage.innerHTML = `
+                <div class="avatar bot-avatar">🤖</div>
+                <div class="bubble bot-bubble">
+                    Here are some quick actions you can try:
+                    <div class="custom-actions">
+                        <div class="action-btn" onclick="selectAction('settings')">⚙️ Settings</div>
+                        <div class="action-btn" onclick="selectAction('theme')">🎨 Change Theme</div>
+                        <div class="action-btn" onclick="selectAction('export')">💾 Export Config</div>
+                        <div class="action-btn" onclick="selectAction('reset')">🔄 Reset</div>
+                    </div>
+                </div>
+            `;
+            messagesContainer.appendChild(newMessage);
+            updateStyles(); // Apply current styles to new buttons
+            scrollToBottom();
+        }
+        
+        function addAdaptiveCard() {
+            const messagesContainer = document.getElementById('messages');
+            const newMessage = document.createElement('div');
+            newMessage.className = 'message bot';
+            newMessage.innerHTML = `
+                <div class="avatar bot-avatar">🤖</div>
+                <div class="bubble bot-bubble">
+                    <strong>🎯 WebChat Customization Options</strong>
+                    <p style="margin: 10px 0;">Choose what you'd like to customize:</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 15px;">
+                        <div class="action-btn" onclick="selectAction('colors')" style="grid-column: span 2;">🎨 Colors & Themes</div>
+                        <div class="action-btn" onclick="selectAction('layout')">📐 Layout</div>
+                        <div class="action-btn" onclick="selectAction('buttons')">🔘 Buttons</div>
+                        <div class="action-btn" onclick="selectAction('typography')">📝 Typography</div>
+                        <div class="action-btn" onclick="selectAction('animations')">✨ Animations</div>
+                    </div>
+                </div>
+            `;
+            messagesContainer.appendChild(newMessage);
+            updateStyles();
+            scrollToBottom();
+        }
+        
+        function selectAction(action) {
+            const responses = {
+                'help': 'Here are the main customization areas you can explore using the controls on the left.',
+                'features': 'WebChat supports color themes, button styling, layout options, and much more!',
+                'demo': 'Try changing the colors and settings in the left panel to see live updates.',
+                'settings': 'Use the controls on the left to modify colors, layout, and button styles.',
+                'theme': 'Click the theme buttons in the left panel to try different presets.',
+                'export': 'Click "Generate Code" to see the configuration for your current styling.',
+                'reset': 'Refresh the page to reset all settings to defaults.',
+                'colors': 'Use the color pickers to customize accent colors, bubble backgrounds, and avatar colors.',
+                'layout': 'Adjust the radius sliders to change bubble roundness and avatar sizes.',
+                'buttons': 'Modify button styles and radius to create different button appearances.',
+                'typography': 'Font customization would be available in the full WebChat implementation.',
+                'animations': 'Animation settings would be part of the advanced styling options.'
+            };
+            
+            addUserMessage(`Tell me about ${action}`);
+            setTimeout(() => {
+                addBotMessage(responses[action] || 'Thanks for your interest in that feature!');
+            }, 500);
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (message) {
+                addUserMessage(message);
+                input.value = '';
+                
+                // Simple bot response
+                setTimeout(() => {
+                    const responses = [
+                        'That\'s a great question! The controls on the left let you customize this chat interface.',
+                        'Try changing the theme or colors to see how it affects the appearance.',
+                        'WebChat customization offers endless possibilities for your chat interface.',
+                        'You can export the current configuration code when you\'re happy with the styling.'
+                    ];
+                    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                    addBotMessage(randomResponse);
+                }, 500);
+            }
+        }
+        
+        function addUserMessage(text) {
+            const messagesContainer = document.getElementById('messages');
+            const newMessage = document.createElement('div');
+            newMessage.className = 'message user';
+            newMessage.innerHTML = `
+                <div class="avatar user-avatar">👤</div>
+                <div class="bubble user-bubble">${text}</div>
+            `;
+            messagesContainer.appendChild(newMessage);
+            scrollToBottom();
+        }
+        
+        function addBotMessage(text) {
+            const messagesContainer = document.getElementById('messages');
+            const newMessage = document.createElement('div');
+            newMessage.className = 'message bot';
+            newMessage.innerHTML = `
+                <div class="avatar bot-avatar">🤖</div>
+                <div class="bubble bot-bubble">${text}</div>
+            `;
+            messagesContainer.appendChild(newMessage);
+            scrollToBottom();
+        }
+        
+        function scrollToBottom() {
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        function generateCode() {
+            const codePreview = document.getElementById('codePreview');
+            const generatedCode = document.getElementById('generatedCode');
+            
+            const config = `// WebChat Style Configuration
+const styleOptions = {
+    // Colors
+    accent: '${currentConfig.accent}',
+    backgroundColor: '#ffffff',
+    bubbleBackground: '${currentConfig.bubbleBackground}',
+    bubbleFromUserBackground: '${currentConfig.userBubbleBackground}',
+    bubbleFromUserTextColor: '#ffffff',
+    
+    // Layout
+    bubbleBorderRadius: ${currentConfig.bubbleRadius},
+    avatarSize: ${currentConfig.avatarSize},
+    
+    // Avatar colors
+    botAvatarBackgroundColor: '${currentConfig.botAvatarBackground}',
+    userAvatarBackgroundColor: '${currentConfig.userBubbleBackground}',
+    
+    // Input styling
+    sendBoxBorderRadius: ${currentConfig.inputRadius},
+    
+    // Button styling
+    cardActionBorderRadius: ${currentConfig.actionRadius},
+    cardActionBackground: '#ffffff',
+    cardActionBorder: '2px solid ${currentConfig.accent}',
+    cardActionColor: '${currentConfig.accent}',
+    
+    // Features
+    hideUploadButton: true
+};
+
+// Usage with WebChatRenderer
+const webChatRenderer = new WebChatRenderer(
+    directLineConnector,
+    messageQueueManager,
+    { styleOptions }
+);
+
+// Render WebChat
+webChatRenderer.renderWebChat(containerElement, styleOptions);`;
+            
+            generatedCode.textContent = config;
+            codePreview.style.display = 'block';
+            
+            // Scroll to code preview
+            codePreview.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function copyToClipboard() {
+            const generatedCode = document.getElementById('generatedCode');
+            const text = generatedCode.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                // Show success feedback
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                btn.style.background = '#28a745';
+                
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '#667eea';
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy code. Please select and copy manually.');
+            });
+        }
+    </script>
+</body>
+</html>

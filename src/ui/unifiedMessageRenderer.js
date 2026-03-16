@@ -438,6 +438,9 @@ export class UnifiedMessageRenderer {
                 const htmlContent = marked.parse(content);
                 const sanitizedContent = DOMPurify.sanitize(htmlContent);
                 element.innerHTML = sanitizedContent;
+                
+                // Add target="_blank" to external links after setting content
+                this.addTargetBlankToExternalLinks(element);
             } else {
                 element.textContent = content;
             }
@@ -445,6 +448,44 @@ export class UnifiedMessageRenderer {
             console.warn('[UnifiedMessageRenderer] Error processing content:', error);
             element.textContent = content;
         }
+    }
+
+    /**
+     * Add target="_blank" to external links in a message element
+     * @param {HTMLElement} messageElement - Message element containing links
+     * @private
+     */
+    addTargetBlankToExternalLinks(messageElement) {
+        const links = messageElement.querySelectorAll('a[href]');
+        links.forEach(link => {
+            try {
+                // Skip javascript:, mailto:, tel:, and other special protocols
+                if (link.href.toLowerCase().startsWith('javascript:') || 
+                    link.href.toLowerCase().startsWith('mailto:') || 
+                    link.href.toLowerCase().startsWith('tel:') ||
+                    link.href.startsWith('#')) {
+                    return; // Don't modify these links
+                }
+
+                const linkUrl = new URL(link.href, window.location.href);
+                const currentUrl = new URL(window.location.href);
+                
+                // Add target="_blank" for external http/https links
+                const isExternalLink = linkUrl.hostname !== currentUrl.hostname;
+                const isHttpLink = linkUrl.protocol === 'http:' || linkUrl.protocol === 'https:';
+                
+                if (isExternalLink && isHttpLink) {
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                }
+            } catch (e) {
+                // If URL parsing fails, check if it's a valid http/https link before adding target="_blank"
+                if (link.href.toLowerCase().startsWith('http://') || link.href.toLowerCase().startsWith('https://')) {
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                }
+            }
+        });
     }
 
     /**

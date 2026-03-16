@@ -2,9 +2,18 @@
  * Enhanced Speech Engine with Multi-Language Support
  * Supports multiple speech providers: Enhanced Web Speech API and Azure Speech Services
  * Features: Language auto-detection, voice switching, continuous recognition with language identification
+ * 
+ * Version: 2.0.0
+ * Changelog:
+ * - 2.0.0: Multi-provider architecture with Azure Speech support
+ * - 1.5.0: Language auto-detection
+ * - 1.0.0: Initial Web Speech API implementation
  */
 
 import { languageDetector } from '../utils/languageDetector.js';
+
+const SPEECH_ENGINE_VERSION = '2.0.0';
+console.log(`🎤 [SpeechEngine] Version ${SPEECH_ENGINE_VERSION} loaded`);
 
 // Get global logging manager instance (will be set by application)
 let loggingManager = null;
@@ -799,7 +808,11 @@ class EnhancedWebSpeechProvider {
 
     rankVoicesByNaturalness() {
         // Enhanced voice ranking algorithm
-        this.voices = this.voices.filter(voice => voice && voice.name && voice.lang).map(voice => {
+        // First filter valid voices
+        const validVoices = this.voices.filter(voice => voice && voice.name && voice.lang);
+        
+        // Calculate naturalness scores separately (don't modify voice objects)
+        const voicesWithScores = validVoices.map(voice => {
             let naturalness = 0.5; // Base score
 
             // Prefer neural/high-quality voices
@@ -829,8 +842,13 @@ class EnhancedWebSpeechProvider {
                 naturalness += 0.1;
             }
 
-            return { ...voice, naturalness: Math.min(naturalness, 1.0) };
-        }).sort((a, b) => b.naturalness - a.naturalness);
+            return { voice, naturalness: Math.min(naturalness, 1.0) };
+        });
+        
+        // Sort by naturalness and extract just the voice objects
+        this.voices = voicesWithScores
+            .sort((a, b) => b.naturalness - a.naturalness)
+            .map(item => item.voice);
     }
 
     setupSpeechRecognition() {

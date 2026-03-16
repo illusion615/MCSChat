@@ -57,7 +57,7 @@
 }
 
 .kpi-guide-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     color: white;
     border: none;
     padding: 4px 8px;
@@ -349,7 +349,7 @@
 
 .kpi-explanation-toggle:hover {
     background: rgba(0, 120, 212, 0.1);
-    color: #0078d4;
+    color: var(--color-primary);
     transform: scale(1.1);
 }
 
@@ -454,3 +454,154 @@
 .kpi-explanation-content .metric-trend.neutral {
     color: #64748b;
 }
+
+/* KPI Insights Section */
+.kpi-insights-section {
+    padding: 12px 16px;
+    border-top: 1px solid var(--color-border, #e0e0e0);
+    flex: 1;
+    overflow-y: auto;
+}
+
+.kpi-insights-content {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-text-primary, #333);
+}
+
+.kpi-insights-content p,
+.kpi-insights-content ul {
+    margin: 4px 0;
+}
+
+.kpi-insights-content ul {
+    padding-left: 18px;
+}
+
+.kpi-insights-content li {
+    margin: 2px 0;
+}
+
+.kpi-insights-content strong {
+    color: var(--color-text-primary, #1a1a1a);
+}
+
+.kpi-insights-placeholder {
+    color: var(--color-text-secondary, #888);
+    font-style: italic;
+    text-align: center;
+    padding: 8px 0;
+}
+
+.kpi-insights-loading {
+    color: var(--color-primary, #0078d4);
+    text-align: center;
+    padding: 8px 0;
+}
+
+.insight-assessment {
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.insight-block {
+    margin-bottom: 6px;
+}
+
+.insight-block ul {
+    margin: 2px 0;
+}
+
+/* Post-processed KPI insight bullet list */
+.kpi-insight-list {
+    list-style: disc;
+    padding-left: 18px;
+    margin: 4px 0 8px 0;
+}
+
+.kpi-insight-list li {
+    margin: 4px 0;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.kpi-insight-list li.insight-item-issue {
+    color: #b45309;
+}
+
+.kpi-insight-list li.insight-item-suggestion {
+    color: #0369a1;
+}
+
+/* Structured per-KPI insight sections */
+.insight-kpi-section {
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    background: var(--color-surface-secondary, #f8f9fa);
+    border-radius: 6px;
+    border-left: 3px solid var(--color-primary, #0078d4);
+}
+
+.insight-kpi-title {
+    margin: 0 0 6px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary, #1a1a1a);
+}
+
+.insight-kpi-row {
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 2px 0;
+    color: var(--color-text-primary, #333);
+}
+
+.insight-kpi-row.insight-issue {
+    color: #b45309;
+}
+
+.insight-kpi-row.insight-suggestion {
+    color: #0369a1;
+}
+
+/* LLM-rendered KPI sections (via markdown h3) */
+.kpi-insights-content h3 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 16px 0 0 0;
+    padding: 8px 12px;
+    background: var(--color-surface-secondary, #f8f9fa);
+    border-radius: 6px 6px 0 0;
+    border-left: 3px solid var(--color-primary, #0078d4);
+    color: var(--color-text-primary, #1a1a1a);
+}
+
+.kpi-insights-content h3:first-child {
+    margin-top: 0;
+}
+
+/* All paragraphs following an h3 are part of that KPI card */
+.kpi-insights-content p {
+    margin: 0;
+    padding: 4px 12px;
+    font-size: 12px;
+    line-height: 1.6;
+    background: var(--color-surface-secondary, #f8f9fa);
+    border-left: 3px solid var(--color-primary, #0078d4);
+}
+
+/* Last paragraph in each card gets bottom rounding and padding */
+.kpi-insights-content p:last-child,
+.kpi-insights-content h3 + p:last-of-type {
+    padding-bottom: 8px;
+    border-radius: 0 0 6px 6px;
+}
+
+/* Color-code the sub-labels within paragraphs */
+.kpi-insights-content p strong {
+    font-size: 12px;
+}
+
+/* When a paragraph starts with "Found Issue:" make it amber */
+/* When a paragraph starts with "Suggestion:" make it blue */
+/* CSS can't match text content, so we rely on JS post-processing below */

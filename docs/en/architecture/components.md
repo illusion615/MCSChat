@@ -1,5 +1,14 @@
 # Component Details
 
+## Status Note (2026-03-15)
+
+- Current DirectLine implementation is `DirectLineService` (single source of truth).
+- Any references below to `DirectLineManager`, `DirectLineConnector`, `MessageQueueManager`, or `WebChatRenderer` should be read as historical architecture context unless explicitly marked current.
+- For active development baseline, start from:
+  - `docs/iterations/TODO.md`
+  - `docs/iterations/batch-3-directline-refactor/`
+  - `src/components/directline/README.md`
+
 Detailed documentation of core components, their APIs, and implementation details.
 
 ## Core Application (`src/core/application.js`)

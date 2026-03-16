@@ -1,6 +1,12 @@
 /**
  * AI Companion Module
  * Handles AI-powered conversation analysis, title generation, and companion features
+ * 
+ * Version: 3.0.0
+ * Changelog:
+ * - 3.0.0: Major refactor with enhanced features
+ * - 2.5.0: Added thinking simulation
+ * - 2.0.0: Provider-agnostic architecture
  */
 
 import { DOMUtils } from '../utils/domUtils.js';
@@ -9,6 +15,9 @@ import { SecureStorage } from '../utils/secureStorage.js';
 import { speechEngine } from '../services/speechEngine.js';
 import { getSVGPath } from '../components/svg-icon-manager/index.js';
 import { promptManager } from './promptManager.js';
+
+const AI_COMPANION_VERSION = '3.0.0';
+console.log(`🤖 [AICompanion] Version ${AI_COMPANION_VERSION} loaded`);
 
 /**
  * Helper function to update SVG path from centralized library
@@ -112,6 +121,7 @@ export class AICompanion {
         this.speechSettings = {
             autoSpeak: false,
             voiceInput: false,
+            playThinkingContent: false, // New setting for thinking content speech
             provider: 'web_speech', // 'web_speech', 'azure'
             selectedVoice: '',
             speechRate: 1.0,
@@ -160,7 +170,7 @@ export class AICompanion {
             llmStatus: DOMUtils.getElementById('llmStatus'),
             llmModelName: DOMUtils.getElementById('llmModelName'),
             companionStatusPanel: DOMUtils.getElementById('companionStatusPanel'), // Container for companion status elements
-            toggleButton: DOMUtils.getElementById('togglerightpanelbtn'),
+            toggleButton: DOMUtils.getElementById('toggleCitationPreviewBtn'),
             expandButton: DOMUtils.getElementById('expandAiCompanionBtn'),
             agentConversationTitle: DOMUtils.getElementById('agentConversationTitle'),
             // AI Companion notification area
@@ -284,6 +294,7 @@ export class AICompanion {
         // Load enhanced speech settings with safe parsing
         this.speechSettings.autoSpeak = localStorage.getItem('speechAutoSpeak') === 'true';
         this.speechSettings.voiceInput = localStorage.getItem('speechVoiceInput') === 'true';
+        this.speechSettings.playThinkingContent = localStorage.getItem('speechPlayThinking') === 'true';
         this.speechSettings.provider = localStorage.getItem('speechProvider') || 'web_speech';
         this.speechSettings.selectedVoice = localStorage.getItem('speechSelectedVoice') || '';
         this.speechSettings.speechRate = parseFloat(localStorage.getItem('speechRate')) || 1.0;
@@ -398,6 +409,40 @@ export class AICompanion {
         // Listen for completed messages
         window.addEventListener('completeMessage', (e) => {
             this.updateConversationContext(e.detail);
+            
+            // Handle agent message for auto-speaking using speech queue
+            const activity = e.detail;
+            if (activity && activity.from && activity.from.id !== 'user' && activity.text) {
+                console.log('[AICompanion] Agent message received for speech queue:', {
+                    id: activity.id,
+                    textLength: activity.text.length,
+                    textPreview: activity.text.substring(0, 100) + '...',
+                    type: activity.type,
+                    isStreaming: activity.streamingMetadata?.isRealtime,
+                    timestamp: activity.timestamp
+                });
+                
+                // Import and use speech queue manager
+                import('../services/speechQueueManager.js').then(({ speechQueueManager }) => {
+                    speechQueueManager.enqueue({
+                        text: activity.text,
+                        type: activity.type || 'agent',
+                        id: activity.id,
+                        from: activity.from,
+                        timestamp: Date.now(),
+                        metadata: {
+                            ...activity,
+                            isStreaming: activity.streamingMetadata?.isRealtime || false,
+                            streamingMetadata: activity.streamingMetadata || null
+                        },
+                        forceSpeak: false
+                    });
+                }).catch(error => {
+                    console.error('[AICompanion] Failed to import speech queue manager:', error);
+                    // Fallback to direct speech handling
+                    this.handleAgentMessage(activity.text);
+                });
+            }
         });
 
         // Listen for conversation updates
@@ -555,11 +600,14 @@ export class AICompanion {
     /**
      * Initialize AI companion panel
      */
-    initialize() {
+    async initialize() {
         this.initializePanelState();
         this.attachEventListeners();
         this.updateStatus();
         this.updateTokenDisplays(); // Initialize token displays
+        
+        // Initialize speech system asynchronously
+        await this.initializeSpeech();
     }
 
     /**
@@ -929,7 +977,10 @@ export class AICompanion {
             this.testOllamaConnectionRealTime();
         } else {
             // For other providers, check if API key exists and additional configuration for Azure
-            SecureStorage.retrieve(`${this.currentProvider}ApiKey`).then(apiKey => {
+            const keyName = this.currentProvider === 'openai-compatible'
+                ? 'openaiCompatibleApiKey'
+                : `${this.currentProvider}ApiKey`;
+            SecureStorage.retrieve(keyName).then(apiKey => {
                 const providerName = this.currentProvider.charAt(0).toUpperCase() + this.currentProvider.slice(1);
 
                 // Update model name display with provider name
@@ -937,6 +988,10 @@ export class AICompanion {
                     if (this.currentProvider === 'azure') {
                         const deployment = localStorage.getItem('azureDeployment');
                         this.elements.llmModelName.textContent = deployment ? `Companion Model: Azure: ${deployment}` : 'Companion Model: Azure OpenAI';
+                    } else if (this.currentProvider === 'openai-compatible') {
+                        const displayName = localStorage.getItem('openaiCompatibleDisplayName');
+                        const modelName = localStorage.getItem('openaiCompatibleModel');
+                        this.elements.llmModelName.textContent = `Companion Model: ${displayName || modelName || 'OpenAI Compatible'}`;
                     } else {
                         this.elements.llmModelName.textContent = providerName ? `Companion Model: ${providerName}` : '';
                     }
@@ -1791,7 +1846,39 @@ Start with phrases like: "Synthesizing our discussion...", "Bringing together th
         if (this.currentThinkingDiv && this.isThinkingSimulationActive) {
             this.currentThinkingDiv.innerHTML = this.formatThinkingContentForHTML(fullContent);
             this.scrollMainChatToBottom();
+            
+            // Add thinking content to speech queue if enabled
+            this.handleThinkingSpeech(fullContent);
         }
+    }
+
+    /**
+     * Handle speech for thinking content
+     * @param {string} thinkingContent - The thinking content to potentially speak
+     * @private
+     */
+    handleThinkingSpeech(thinkingContent) {
+        if (!thinkingContent || !thinkingContent.trim()) {
+            return;
+        }
+
+        // Import and use speech queue manager for thinking content
+        import('../services/speechQueueManager.js').then(({ speechQueueManager }) => {
+            speechQueueManager.enqueue({
+                text: thinkingContent,
+                type: 'thinking',
+                id: `thinking_${Date.now()}`,
+                from: { id: 'ai-companion' },
+                timestamp: Date.now(),
+                metadata: {
+                    contentType: 'thinking',
+                    source: 'ai-companion'
+                },
+                forceSpeak: false // Respect the playThinkingContent setting
+            });
+        }).catch(error => {
+            console.error('[AICompanion] Failed to add thinking content to speech queue:', error);
+        });
     }
 
     /**
@@ -2088,33 +2175,7 @@ ${contextPart}
      * @private
      */
     async generateOllamaThinking(prompt) {
-        const ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
-        const selectedModel = localStorage.getItem('ollamaSelectedModel');
-
-        if (!selectedModel || selectedModel === 'No Model Selected') {
-            throw new Error('No Ollama model selected');
-        }
-
-        const response = await fetch(`${ollamaUrl}/api/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: selectedModel,
-                prompt: prompt,
-                stream: false,
-                options: {
-                    temperature: 0.7,
-                    max_tokens: 200
-                }
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`Ollama request failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data.response || '';
+        return this._llmRequest(prompt, { maxTokens: 200, temperature: 0.7, provider: 'ollama' });
     }
 
     /**
@@ -2124,85 +2185,7 @@ ${contextPart}
      * @private
      */
     async generateAPIThinking(prompt) {
-        const apiKey = await SecureStorage.retrieve(`${this.currentProvider}ApiKey`);
-        if (!apiKey) {
-            throw new Error(`No API key found for ${this.currentProvider}`);
-        }
-
-        let requestBody, url, headers;
-
-        switch (this.currentProvider) {
-            case 'openai':
-                url = 'https://api.openai.com/v1/chat/completions';
-                headers = {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json'
-                };
-                requestBody = {
-                    model: 'gpt-3.5-turbo',
-                    messages: [{ role: 'user', content: prompt }],
-                    max_tokens: 200,
-                    temperature: 0.7
-                };
-                break;
-
-            case 'anthropic':
-                url = 'https://api.anthropic.com/v1/messages';
-                headers = {
-                    'x-api-key': apiKey,
-                    'Content-Type': 'application/json',
-                    'anthropic-version': '2023-06-01'
-                };
-                requestBody = {
-                    model: 'claude-3-haiku-20240307',
-                    max_tokens: 200,
-                    messages: [{ role: 'user', content: prompt }]
-                };
-                break;
-
-            case 'azure':
-                const endpoint = localStorage.getItem('azureEndpoint');
-                const deployment = localStorage.getItem('azureDeployment');
-                if (!endpoint || !deployment) {
-                    throw new Error('Azure endpoint or deployment not configured');
-                }
-                url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=2024-02-15-preview`;
-                headers = {
-                    'api-key': apiKey,
-                    'Content-Type': 'application/json'
-                };
-                requestBody = {
-                    messages: [{ role: 'user', content: prompt }],
-                    max_tokens: 200,
-                    temperature: 0.7
-                };
-                break;
-
-            default:
-                throw new Error(`Unsupported provider: ${this.currentProvider}`);
-        }
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-            throw new Error(`API request failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        switch (this.currentProvider) {
-            case 'openai':
-            case 'azure':
-                return data.choices?.[0]?.message?.content || '';
-            case 'anthropic':
-                return data.content?.[0]?.text || '';
-            default:
-                return '';
-        }
+        return this._llmRequest(prompt, { maxTokens: 200, temperature: 0.7 });
     }
 
     /**
@@ -2216,7 +2199,10 @@ ${contextPart}
                 const selectedModel = localStorage.getItem('ollamaSelectedModel');
                 return selectedModel && selectedModel !== 'No Model Selected';
             } else {
-                const apiKey = await SecureStorage.retrieve(`${this.currentProvider}ApiKey`);
+                const keyName = this.currentProvider === 'openai-compatible'
+                    ? 'openaiCompatibleApiKey'
+                    : `${this.currentProvider}ApiKey`;
+                const apiKey = await SecureStorage.retrieve(keyName);
                 if (this.currentProvider === 'azure') {
                     const endpoint = localStorage.getItem('azureEndpoint');
                     const deployment = localStorage.getItem('azureDeployment');
@@ -2652,33 +2638,7 @@ Agent回应内容: "${agentResponse}"
      * @private
      */
     async generateOllamaAnalysis(prompt) {
-        const ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
-        const selectedModel = localStorage.getItem('ollamaSelectedModel');
-
-        if (!selectedModel || selectedModel === 'No Model Selected') {
-            throw new Error('No Ollama model selected');
-        }
-
-        const response = await fetch(`${ollamaUrl}/api/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: selectedModel,
-                prompt: prompt,
-                stream: false,
-                options: {
-                    temperature: 0.3, // Lower temperature for more consistent JSON
-                    max_tokens: 300
-                }
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`Ollama request failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data.response || '';
+        return this._llmRequest(prompt, { maxTokens: 300, temperature: 0.3, provider: 'ollama' });
     }
 
     /**
@@ -2688,66 +2648,7 @@ Agent回应内容: "${agentResponse}"
      * @private
      */
     async generateAPIAnalysis(prompt) {
-        const apiKey = await SecureStorage.retrieve(`${this.currentProvider}ApiKey`);
-        if (!apiKey) {
-            throw new Error(`No API key found for ${this.currentProvider}`);
-        }
-
-        let requestBody, url, headers;
-
-        switch (this.currentProvider) {
-            case 'openai':
-                url = 'https://api.openai.com/v1/chat/completions';
-                headers = {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json'
-                };
-                requestBody = {
-                    model: 'gpt-3.5-turbo',
-                    messages: [{ role: 'user', content: prompt }],
-                    max_tokens: 300,
-                    temperature: 0.3
-                };
-                break;
-
-            case 'anthropic':
-                url = 'https://api.anthropic.com/v1/messages';
-                headers = {
-                    'x-api-key': apiKey,
-                    'Content-Type': 'application/json',
-                    'anthropic-version': '2023-06-01'
-                };
-                requestBody = {
-                    model: 'claude-3-haiku-20240307',
-                    max_tokens: 300,
-                    messages: [{ role: 'user', content: prompt }],
-                    temperature: 0.3
-                };
-                break;
-
-            default:
-                throw new Error(`Unsupported provider: ${this.currentProvider}`);
-        }
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-            throw new Error(`API request failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (this.currentProvider === 'openai') {
-            return data.choices[0]?.message?.content || '';
-        } else if (this.currentProvider === 'anthropic') {
-            return data.content[0]?.text || '';
-        }
-
-        return '';
+        return this._llmRequest(prompt, { maxTokens: 300, temperature: 0.3 });
     }
 
     /**
@@ -3527,33 +3428,143 @@ Analyze both responses considering the question type:
      * @private
      */
     async getOllamaResponse(prompt) {
-        const selectedModel = localStorage.getItem('ollamaSelectedModel');
-        if (!selectedModel) {
-            throw new Error('No Ollama model selected');
-        }
+        return this._llmRequest(prompt, { maxTokens: 2000, temperature: 0.3, provider: 'ollama' });
+    }
 
-        const response = await fetch('http://localhost:11434/api/generate', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
+    // ═══════════════════════════════════════════════════════
+    // Unified LLM Request Infrastructure
+    // ═══════════════════════════════════════════════════════
+
+    /**
+     * Build provider-specific request configuration.
+     * Single source of truth for URL, headers, body structure, and API key retrieval.
+     * @param {string} prompt - The prompt/message to send
+     * @param {Object} [options] - Request options
+     * @param {boolean} [options.stream=false] - Enable streaming
+     * @param {number} [options.maxTokens=2000] - Max tokens
+     * @param {number} [options.temperature=0.7] - Temperature
+     * @param {string} [options.provider] - Override provider (defaults to this.currentProvider)
+     * @returns {Promise<{ url: string, headers: Object, body: string, provider: string, isOllama: boolean }>}
+     * @private
+     */
+    async _buildProviderConfig(prompt, options = {}) {
+        const provider = options.provider || this.currentProvider;
+        const stream = options.stream ?? false;
+        const maxTokens = options.maxTokens ?? 2000;
+        const temperature = options.temperature ?? 0.7;
+
+        let url, headers, bodyObj;
+
+        if (provider === 'ollama') {
+            const ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
+            const selectedModel = localStorage.getItem('ollamaSelectedModel');
+            if (!selectedModel || selectedModel === 'No Model Selected') {
+                throw new Error('No Ollama model selected. Please select a model in settings.');
+            }
+            url = `${ollamaUrl}/api/generate`;
+            headers = { 'Content-Type': 'application/json' };
+            bodyObj = {
                 model: selectedModel,
                 prompt: prompt,
-                stream: false, // Get complete response
-                options: {
-                    temperature: 0.3, // Lower temperature for more consistent analysis
-                    top_p: 0.9
+                stream: stream,
+                options: { temperature, max_tokens: maxTokens }
+            };
+            return { url, headers, body: JSON.stringify(bodyObj), provider, isOllama: true };
+        }
+
+        // All non-Ollama providers need an API key
+        const keyName = provider === 'openai-compatible'
+            ? 'openaiCompatibleApiKey'
+            : `${provider}ApiKey`;
+        const apiKey = await SecureStorage.retrieve(keyName);
+        if (!apiKey) {
+            throw new Error(`No API key found for ${provider}. Please configure it in settings.`);
+        }
+
+        const messages = [{ role: 'user', content: prompt }];
+
+        switch (provider) {
+            case 'azure': {
+                const endpoint = localStorage.getItem('azureEndpoint');
+                const deployment = localStorage.getItem('azureDeployment');
+                const apiVersion = localStorage.getItem('azureApiVersion') || '2024-02-01';
+                if (!endpoint || !deployment) {
+                    throw new Error('Azure OpenAI configuration incomplete. Please set endpoint and deployment in settings.');
                 }
-            })
+                url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+                headers = { 'Content-Type': 'application/json', 'api-key': apiKey };
+                bodyObj = { messages, max_tokens: maxTokens, temperature, stream };
+                break;
+            }
+            case 'openai':
+                url = 'https://api.openai.com/v1/chat/completions';
+                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` };
+                bodyObj = { model: 'gpt-3.5-turbo', messages, max_tokens: maxTokens, temperature, stream };
+                break;
+            case 'anthropic':
+                url = 'https://api.anthropic.com/v1/messages';
+                headers = { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
+                bodyObj = { model: 'claude-3-haiku-20240307', messages, max_tokens: maxTokens, stream };
+                break;
+            case 'openai-compatible': {
+                const baseUrl = (localStorage.getItem('openaiCompatibleBaseUrl') || '').replace(/\/+$/, '');
+                const model = localStorage.getItem('openaiCompatibleModel');
+                if (!baseUrl || !model) {
+                    throw new Error('OpenAI Compatible configuration incomplete. Please set Base URL and Model in settings.');
+                }
+                url = baseUrl.endsWith('/chat/completions')
+                    ? baseUrl
+                    : baseUrl.replace(/\/v1\/?$/, '') + '/v1/chat/completions';
+                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` };
+                bodyObj = { model, messages, max_tokens: maxTokens, temperature, stream };
+                break;
+            }
+            default:
+                throw new Error(`Unsupported provider: ${provider}`);
+        }
+
+        return { url, headers, body: JSON.stringify(bodyObj), provider, isOllama: false };
+    }
+
+    /**
+     * Unified LLM request — single entry point for all non-streaming LLM calls.
+     * Handles provider routing, error handling, token tracking, and response extraction.
+     * @param {string} prompt - The prompt to send
+     * @param {Object} [options] - Options passed to _buildProviderConfig
+     * @returns {Promise<string>} The LLM response text
+     * @private
+     */
+    async _llmRequest(prompt, options = {}) {
+        const config = await this._buildProviderConfig(prompt, { ...options, stream: false });
+
+        const response = await fetch(config.url, {
+            method: 'POST',
+            headers: config.headers,
+            body: config.body
         });
 
         if (!response.ok) {
-            throw new Error(`Ollama request failed: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            const errMsg = errorData.error?.message || errorData.message || response.statusText;
+            throw new Error(`${config.provider} request failed: ${response.status} ${errMsg}`);
         }
 
         const data = await response.json();
-        return data.response;
+
+        // Track token usage if available
+        if (data.usage) {
+            this.trackTokenUsage(data.usage);
+        }
+
+        // Extract response text based on provider format
+        if (config.isOllama) {
+            return data.response || '';
+        } else if (config.provider === 'anthropic') {
+            return data.content?.[0]?.text || '';
+        } else {
+            // OpenAI, Azure, OpenAI-Compatible all use the same format
+            return data.choices?.[0]?.message?.content || '';
+        }
     }
 
     /**
@@ -3674,19 +3685,25 @@ Analyze both responses considering the question type:
      */
     async handleAPIStreaming(message, provider = this.currentProvider) {
         try {
-            const apiKey = await SecureStorage.retrieve(`${provider}ApiKey`);
-            if (!apiKey) {
-                throw new Error(`${provider} API key not found. Please configure it in settings.`);
+            const config = await this._buildProviderConfig(message, { stream: true });
+
+            console.log(`Sending to ${config.provider}:`, { url: config.url });
+
+            const response = await fetch(config.url, {
+                method: 'POST',
+                headers: config.headers,
+                body: config.body
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`${config.provider} request failed: ${response.status} ${errorData.error?.message || response.statusText}`);
             }
 
-            if (provider === 'azure') {
-                await this.sendToAzureOpenAI(message, apiKey);
-            } else if (provider === 'openai') {
-                await this.sendToOpenAI(message, apiKey);
-            } else if (provider === 'anthropic') {
-                await this.sendToAnthropic(message, apiKey);
+            if (config.provider === 'anthropic') {
+                await this.processAnthropicStreamingResponse(response);
             } else {
-                throw new Error(`${provider} API integration is not implemented yet.`);
+                await this.processStreamingResponse(response);
             }
         } catch (error) {
             console.error(`${provider} API error:`, error);
@@ -3695,129 +3712,14 @@ Analyze both responses considering the question type:
         }
     }
 
-    /**
-     * Send message to Azure OpenAI
-     * @param {string} message - Message to send
-     * @param {string} apiKey - Azure API key
-     * @private
-     */
-    async sendToAzureOpenAI(message, apiKey) {
-        const endpoint = localStorage.getItem('azureEndpoint');
-        const deployment = localStorage.getItem('azureDeployment');
-        const apiVersion = localStorage.getItem('azureApiVersion') || '2024-02-01';
-
-        if (!endpoint || !deployment) {
-            throw new Error('Azure OpenAI configuration incomplete. Please set endpoint and deployment in settings.');
-        }
-
-        const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
-
-        console.log('Sending to Azure OpenAI:', { endpoint, deployment, apiVersion });
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'api-key': apiKey
-            },
-            body: JSON.stringify({
-                messages: [
-                    {
-                        role: 'user',
-                        content: message
-                    }
-                ],
-                max_tokens: 2000,
-                temperature: 0.7,
-                stream: true
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(`Azure OpenAI request failed: ${response.status} ${errorData.error?.message || response.statusText}`);
-        }
-
-        await this.processStreamingResponse(response);
-    }
-
-    /**
-     * Send message to OpenAI
-     * @param {string} message - Message to send
-     * @param {string} apiKey - OpenAI API key
-     * @private
-     */
-    async sendToOpenAI(message, apiKey) {
-        const url = 'https://api.openai.com/v1/chat/completions';
-
-        console.log('Sending to OpenAI API');
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: 'gpt-3.5-turbo',
-                messages: [
-                    {
-                        role: 'user',
-                        content: message
-                    }
-                ],
-                max_tokens: 2000,
-                temperature: 0.7,
-                stream: true
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(`OpenAI request failed: ${response.status} ${errorData.error?.message || response.statusText}`);
-        }
-
-        await this.processStreamingResponse(response);
-    }
-
-    /**
-     * Send message to Anthropic
-     * @param {string} message - Message to send
-     * @param {string} apiKey - Anthropic API key
-     * @private
-     */
-    async sendToAnthropic(message, apiKey) {
-        const url = 'https://api.anthropic.com/v1/messages';
-
-        console.log('Sending to Anthropic API');
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-                model: 'claude-3-haiku-20240307',
-                messages: [
-                    {
-                        role: 'user',
-                        content: message
-                    }
-                ],
-                max_tokens: 2000,
-                stream: true
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(`Anthropic request failed: ${response.status} ${errorData.error?.message || errorData.message || response.statusText}`);
-        }
-
-        await this.processAnthropicStreamingResponse(response);
-    }
+    /** @deprecated Replaced by unified handleAPIStreaming. Kept as thin delegate. */
+    async sendToAzureOpenAI(message, apiKey) { await this.handleAPIStreaming(message, 'azure'); }
+    /** @deprecated Replaced by unified handleAPIStreaming. Kept as thin delegate. */
+    async sendToOpenAI(message, apiKey) { await this.handleAPIStreaming(message, 'openai'); }
+    /** @deprecated Replaced by unified handleAPIStreaming. Kept as thin delegate. */
+    async sendToOpenAICompatible(message, apiKey) { await this.handleAPIStreaming(message, 'openai-compatible'); }
+    /** @deprecated Replaced by unified handleAPIStreaming. Kept as thin delegate. */
+    async sendToAnthropic(message, apiKey) { await this.handleAPIStreaming(message, 'anthropic'); }
 
     /**
      * Process streaming response from OpenAI/Azure OpenAI APIs
@@ -4508,12 +4410,52 @@ Analyze both responses considering the question type:
             const processed = this.processMarkdownContent(content, isError);
             if (processed.html) {
                 parentDiv.innerHTML = processed.content;
+                // Add target="_blank" to external links after setting content
+                this.addTargetBlankToExternalLinks(parentDiv);
             } else {
                 parentDiv.textContent = processed.content;
             }
         }
 
         return parentDiv;
+    }
+
+    /**
+     * Add target="_blank" to external links in a message element
+     * @param {HTMLElement} messageElement - Message element containing links
+     * @private
+     */
+    addTargetBlankToExternalLinks(messageElement) {
+        const links = messageElement.querySelectorAll('a[href]');
+        links.forEach(link => {
+            try {
+                // Skip javascript:, mailto:, tel:, and other special protocols
+                if (link.href.toLowerCase().startsWith('javascript:') || 
+                    link.href.toLowerCase().startsWith('mailto:') || 
+                    link.href.toLowerCase().startsWith('tel:') ||
+                    link.href.startsWith('#')) {
+                    return; // Don't modify these links
+                }
+
+                const linkUrl = new URL(link.href, window.location.href);
+                const currentUrl = new URL(window.location.href);
+                
+                // Add target="_blank" for external http/https links
+                const isExternalLink = linkUrl.hostname !== currentUrl.hostname;
+                const isHttpLink = linkUrl.protocol === 'http:' || linkUrl.protocol === 'https:';
+                
+                if (isExternalLink && isHttpLink) {
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                }
+            } catch (e) {
+                // If URL parsing fails, check if it's a valid http/https link before adding target="_blank"
+                if (link.href.toLowerCase().startsWith('http://') || link.href.toLowerCase().startsWith('https://')) {
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                }
+            }
+        });
     }
 
     /**
@@ -4754,7 +4696,16 @@ Analyze both responses considering the question type:
                 }, '🔗 View Source');
 
                 DOMUtils.addEventListener(linkButton, 'click', () => {
-                    window.open(item.ReferencePath, '_blank', 'noopener,noreferrer');
+                    // Check if side browser is enabled and try to use Citation Preview Panel
+                    const useSideBrowser = localStorage.getItem('enableSideBrowser') === 'true';
+                    
+                    if (useSideBrowser && window.MCSChatApp && typeof window.MCSChatApp.openCitationPreview === 'function') {
+                        console.log('[AICompanion] Opening citation in Citation Preview Panel:', item.ReferencePath);
+                        window.MCSChatApp.openCitationPreview(item.ReferencePath);
+                    } else {
+                        // Fallback to opening in new tab
+                        window.open(item.ReferencePath, '_blank', 'noopener,noreferrer');
+                    }
                 });
 
                 detailItem.appendChild(linkButton);
@@ -5038,9 +4989,12 @@ Analyze both responses considering the question type:
         console.log('[AI Companion] Starting optimized KPI analysis');
 
         // Check if this is a first-time model use to avoid overwhelming the first request
-        const selectedModel = localStorage.getItem('ollamaSelectedModel');
-        const modelStateKey = `ollama_${selectedModel}_firstUse`;
-        const isFirstModelUse = !localStorage.getItem(modelStateKey);
+        let isFirstModelUse = false;
+        if (this.currentProvider === 'ollama') {
+            const selectedModel = localStorage.getItem('ollamaSelectedModel');
+            const modelStateKey = `ollama_${selectedModel}_firstUse`;
+            isFirstModelUse = !localStorage.getItem(modelStateKey);
+        }
 
         if (isFirstModelUse) {
             console.log('[AI Companion] Skipping heavy KPI analysis during first model invocation for better performance');
@@ -5910,17 +5864,7 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
      */
     async getLLMEvaluation(prompt) {
         console.log('[AI Companion] Sending HLS evaluation request to LLM');
-
-        try {
-            if (this.currentProvider === 'ollama') {
-                return await this.getOllamaEvaluation(prompt);
-            } else {
-                return await this.getAPIEvaluation(prompt);
-            }
-        } catch (error) {
-            console.error('[AI Companion] LLM evaluation request failed:', error);
-            throw error;
-        }
+        return this._llmRequest(prompt, { maxTokens: 2000, temperature: 0.3 });
     }
 
     /**
@@ -5929,118 +5873,14 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
      * @returns {string} Ollama response
      * @private
      */
+    /** @deprecated Use _llmRequest() directly. Kept as thin delegate for backward compatibility. */
     async getOllamaEvaluation(prompt) {
-        const ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
-        const selectedModel = localStorage.getItem('ollamaSelectedModel');
-
-        if (!selectedModel) {
-            throw new Error('No Ollama model selected for HLS evaluation');
-        }
-
-        try {
-            const response = await fetch(`${ollamaUrl}/api/generate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: selectedModel,
-                    prompt: prompt,
-                    stream: false,
-                    options: {
-                        temperature: 0.3, // Lower temperature for more consistent analysis
-                        top_p: 0.9
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`Ollama HLS evaluation failed: ${response.status}`);
-            }
-
-            const data = await response.json();
-            return data.response;
-
-        } catch (error) {
-            throw error;
-        }
+        return this._llmRequest(prompt, { maxTokens: 2000, temperature: 0.3, provider: 'ollama' });
     }
 
-    /**
-     * Get evaluation from API providers (OpenAI, Anthropic, Azure)
-     * @param {string} prompt - Evaluation prompt
-     * @returns {string} API response
-     * @private
-     */
+    /** @deprecated Use _llmRequest() directly. Kept as thin delegate for backward compatibility. */
     async getAPIEvaluation(prompt) {
-        const apiKey = await SecureStorage.retrieve(`${this.currentProvider}ApiKey`);
-        if (!apiKey) {
-            throw new Error(`No API key found for ${this.currentProvider}`);
-        }
-
-        let requestBody, url, headers;
-
-        if (this.currentProvider === 'azure') {
-            const endpoint = localStorage.getItem('azureEndpoint');
-            const deployment = localStorage.getItem('azureDeployment');
-            const apiVersion = localStorage.getItem('azureApiVersion') || '2024-02-01';
-
-            url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
-            headers = {
-                'Content-Type': 'application/json',
-                'api-key': apiKey
-            };
-            requestBody = {
-                messages: [{ role: 'user', content: prompt }],
-                max_tokens: 2000,
-                temperature: 0.3
-            };
-        } else if (this.currentProvider === 'openai') {
-            url = 'https://api.openai.com/v1/chat/completions';
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            };
-            requestBody = {
-                model: 'gpt-3.5-turbo',
-                messages: [{ role: 'user', content: prompt }],
-                max_tokens: 2000,
-                temperature: 0.3
-            };
-        } else if (this.currentProvider === 'anthropic') {
-            url = 'https://api.anthropic.com/v1/messages';
-            headers = {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01'
-            };
-            requestBody = {
-                model: 'claude-3-haiku-20240307',
-                messages: [{ role: 'user', content: prompt }],
-                max_tokens: 2000
-            };
-        }
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-            throw new Error(`${this.currentProvider} HLS evaluation failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // Track token usage from API response
-        if (data.usage) {
-            this.trackTokenUsage(data.usage);
-        }
-
-        if (this.currentProvider === 'anthropic') {
-            return data.content[0].text;
-        } else {
-            return data.choices[0].message.content;
-        }
+        return this._llmRequest(prompt, { maxTokens: 2000, temperature: 0.3 });
     }
 
     /**
@@ -6757,7 +6597,10 @@ Example good titles:
      */
     async generateTitleWithAPI(prompt, provider) {
         try {
-            const apiKey = await SecureStorage.retrieve(`${provider}ApiKey`);
+            const keyName = provider === 'openai-compatible'
+                ? 'openaiCompatibleApiKey'
+                : `${provider}ApiKey`;
+            const apiKey = await SecureStorage.retrieve(keyName);
             if (!apiKey) {
                 console.log(`[AI Companion] No API key for ${provider}, skipping title generation`);
                 return '';
@@ -6769,6 +6612,10 @@ Example good titles:
                 return await this.generateTitleWithOpenAI(prompt, apiKey);
             } else if (provider === 'anthropic') {
                 return await this.generateTitleWithAnthropic(prompt, apiKey);
+            } else if (provider === 'openai-compatible') {
+                // Use unified _llmRequest for openai-compatible title generation
+                const title = await this._llmRequest(prompt, { maxTokens: 60, temperature: 0.5 });
+                return title?.trim() || '';
             }
 
             return '';
@@ -7491,6 +7338,9 @@ Example good titles:
         } else if (this.currentProvider === 'azure') {
             const deployment = localStorage.getItem('azureDeployment') || 'unknown';
             return `azure_${deployment}`;
+        } else if (this.currentProvider === 'openai-compatible') {
+            const model = localStorage.getItem('openaiCompatibleModel') || 'unknown';
+            return `compat_${model}`;
         } else {
             return this.currentProvider || 'unknown';
         }
@@ -7512,6 +7362,10 @@ Example good titles:
             return 'Companion Model: OpenAI GPT';
         } else if (this.currentProvider === 'anthropic') {
             return 'Companion Model: Anthropic Claude';
+        } else if (this.currentProvider === 'openai-compatible') {
+            const displayName = localStorage.getItem('openaiCompatibleDisplayName');
+            const modelName = localStorage.getItem('openaiCompatibleModel');
+            return `Companion Model: ${displayName || modelName || 'OpenAI Compatible'}`;
         }
         return 'Companion Model: Unknown Model';
     }
@@ -7825,13 +7679,22 @@ Example good titles:
      */
     getModelDisplayName(modelId) {
         if (modelId.startsWith('ollama_')) {
-            return modelId.substring(7); // Remove 'ollama_' prefix
+            return modelId.substring(7);
         } else if (modelId.startsWith('azure_')) {
-            return modelId.substring(6); // Remove 'azure_' prefix
+            return modelId.substring(6);
+        } else if (modelId.startsWith('compat_')) {
+            const modelName = modelId.substring(7);
+            const displayName = localStorage.getItem('openaiCompatibleDisplayName');
+            return displayName || modelName;
         } else if (modelId === 'openai') {
             return 'OpenAI GPT';
         } else if (modelId === 'anthropic') {
             return 'Anthropic Claude';
+        } else if (modelId === 'openai-compatible') {
+            // Legacy format — migrate display
+            const displayName = localStorage.getItem('openaiCompatibleDisplayName');
+            const modelName = localStorage.getItem('openaiCompatibleModel');
+            return displayName || modelName || 'OpenAI Compatible';
         }
         return modelId;
     }
@@ -7847,6 +7710,8 @@ Example good titles:
             return 'Ollama';
         } else if (modelId.startsWith('azure_')) {
             return 'Azure';
+        } else if (modelId.startsWith('compat_') || modelId === 'openai-compatible') {
+            return 'OpenAI Compatible';
         } else if (modelId === 'openai') {
             return 'OpenAI';
         } else if (modelId === 'anthropic') {
@@ -7947,7 +7812,7 @@ Example good titles:
             this.speechState.availableVoices = await speechEngine.getAvailableVoices();
 
             // Setup UI controls
-            this.setupSpeechControls();
+            await this.setupSpeechControls();
 
             // Listen for speech provider fallback notifications
             window.addEventListener('speechProviderFallback', async (event) => {
@@ -8048,12 +7913,35 @@ Example good titles:
         // Clear existing options
         voiceSelect.innerHTML = '<option value="">Default Voice</option>';
 
-        // Add available voices
+        // Add available voices with better formatting
         this.speechState.availableVoices.forEach((voice, index) => {
             const option = document.createElement('option');
-            option.value = voice.name;
-            option.textContent = `${voice.name} (${voice.lang})`;
-            if (voice.name === this.speechSettings.selectedVoice) {
+            
+            // Better handling of voice properties with fallbacks
+            const voiceName = voice.name || voice.voiceURI || `Voice ${index + 1}`;
+            const voiceLang = voice.lang || 'Unknown';
+            
+            option.value = voiceName;
+            
+            // Create more descriptive display text
+            let displayText = `${voiceName}`;
+            if (voiceLang && voiceLang !== 'Unknown') {
+                displayText += ` (${voiceLang})`;
+            }
+            
+            // Add naturalness info if available
+            if (voice.naturalness && voice.naturalness > 0) {
+                displayText += ` - ${Math.round(voice.naturalness * 100)}% natural`;
+            }
+            
+            // Add default indicator if applicable
+            if (voice.default) {
+                displayText += ' (Default)';
+            }
+            
+            option.textContent = displayText;
+            
+            if (voiceName === this.speechSettings.selectedVoice) {
                 option.selected = true;
             }
             voiceSelect.appendChild(option);
@@ -8218,7 +8106,7 @@ Example good titles:
      * Setup enhanced speech control event handlers with multiple providers
      * @private
      */
-    setupSpeechControls() {
+    async setupSpeechControls() {
         console.log('[AICompanion] Setting up enhanced speech controls...');
 
         // Provider selection dropdown
@@ -8247,9 +8135,10 @@ Example good titles:
                     this.speechState.availableVoices = await speechEngine.getAvailableVoices();
 
                     // Update UI based on new capabilities
-                    this.updateVoiceOptions();
+                    await this.updateVoiceOptions();
                     this.toggleVoiceInputButton();
                     this.toggleAzureSettings();
+                    this.toggleWebSpeechVoiceSelection(); // 新增：控制Web Speech语音选择显示
 
                     // Validate selected voice is compatible with new provider
                     // If not, reset to default for the new provider
@@ -8285,9 +8174,60 @@ Example good titles:
                 this.speechSettings.autoSpeak = e.target.checked;
                 localStorage.setItem('speechAutoSpeak', e.target.checked.toString());
                 console.log('[AICompanion] Auto-speak setting changed to:', e.target.checked);
+                
+                // Update speech queue manager settings
+                import('../services/speechQueueManager.js').then(({ speechQueueManager }) => {
+                    speechQueueManager.updateSetting('autoSpeak', e.target.checked);
+                    this.toggleThinkingContentOption(); // Update thinking content visibility
+                }).catch(error => {
+                    console.error('[AICompanion] Failed to update speech queue manager:', error);
+                });
             });
         } else {
             console.warn('[AICompanion] Auto-speak checkbox not found in DOM');
+        }
+
+        // Play thinking content checkbox (conditional visibility)
+        const playThinkingCheckbox = document.getElementById('speechPlayThinking');
+        if (playThinkingCheckbox) {
+            playThinkingCheckbox.checked = this.speechSettings.playThinkingContent;
+            console.log('[AICompanion] Play thinking content checkbox set to:', this.speechSettings.playThinkingContent);
+            playThinkingCheckbox.addEventListener('change', (e) => {
+                this.speechSettings.playThinkingContent = e.target.checked;
+                localStorage.setItem('speechPlayThinking', e.target.checked.toString());
+                console.log('[AICompanion] Play thinking content setting changed to:', e.target.checked);
+                
+                // Update speech queue manager settings
+                import('../services/speechQueueManager.js').then(({ speechQueueManager }) => {
+                    speechQueueManager.updateSetting('playThinkingContent', e.target.checked);
+                }).catch(error => {
+                    console.error('[AICompanion] Failed to update speech queue manager:', error);
+                });
+            });
+        } else {
+            console.warn('[AICompanion] Play thinking content checkbox not found in DOM');
+        }
+
+        // Initialize thinking content option visibility
+        this.toggleThinkingContentOption();
+
+        // Streaming sync checkbox
+        const streamingSyncCheckbox = document.getElementById('speechStreamingSync');
+        if (streamingSyncCheckbox) {
+            // Load setting from speechQueueManager
+            import('../services/speechQueueManager.js').then(({ speechQueueManager }) => {
+                streamingSyncCheckbox.checked = speechQueueManager.settings.enableStreamingSync;
+                console.log('[AICompanion] Streaming sync checkbox set to:', speechQueueManager.settings.enableStreamingSync);
+                
+                streamingSyncCheckbox.addEventListener('change', (e) => {
+                    speechQueueManager.updateSetting('enableStreamingSync', e.target.checked);
+                    console.log('[AICompanion] Streaming sync setting changed to:', e.target.checked);
+                });
+            }).catch(error => {
+                console.error('[AICompanion] Failed to load speech queue manager for streaming sync:', error);
+            });
+        } else {
+            console.warn('[AICompanion] Streaming sync checkbox not found in DOM');
         }
 
         // Voice input checkbox
@@ -8308,8 +8248,9 @@ Example good titles:
                 this.speechSettings.selectedVoice = e.target.value;
                 localStorage.setItem('speechSelectedVoice', e.target.value);
 
-                // Update speech engine settings
+                // Update speech engine settings and notify provider
                 speechEngine.settings.selectedVoice = e.target.value;
+                speechEngine.setVoice(e.target.value); // 通知提供者更新语音
                 speechEngine.saveSettings();
             });
         }
@@ -8379,10 +8320,26 @@ Example good titles:
         // Multi-language settings
         this.setupMultiLanguageControls();
 
-        // Initial setup
-        this.updateVoiceOptions();
+        // Initial setup with retry mechanism for voice loading
+        await this.updateVoiceOptions();
         this.toggleVoiceInputButton();
         this.toggleAzureSettings();
+        this.toggleWebSpeechVoiceSelection(); // 新增：初始化Web Speech语音选择显示状态
+        
+        // Set up delayed voice refresh for Web Speech API
+        if (this.speechSettings.provider === 'web_speech') {
+            // Retry voice loading after a short delay to handle browser voice loading
+            setTimeout(async () => {
+                console.log('[AICompanion] Delayed voice refresh for Web Speech API');
+                await this.updateVoiceOptions();
+            }, 1000);
+            
+            // Additional retry after longer delay
+            setTimeout(async () => {
+                console.log('[AICompanion] Final voice refresh for Web Speech API');
+                await this.updateVoiceOptions();
+            }, 3000);
+        }
     }
 
     /**
@@ -8530,13 +8487,59 @@ Example good titles:
     }
 
     /**
+     * Toggle thinking content option visibility based on TTS activation
+     * @private
+     */
+    toggleThinkingContentOption() {
+        const playThinkingContainer = document.querySelector('#speechPlayThinking')?.closest('.checkbox-item');
+        
+        if (playThinkingContainer) {
+            // Clear any existing inline styles that might interfere
+            playThinkingContainer.style.removeProperty('display');
+            
+            // Show thinking content option only when auto-speak (TTS) is enabled
+            if (this.speechSettings.autoSpeak) {
+                playThinkingContainer.style.display = 'flex';
+                console.log('[AICompanion] Thinking content option shown (TTS active)');
+            } else {
+                playThinkingContainer.style.display = 'none';
+                console.log('[AICompanion] Thinking content option hidden (TTS inactive)');
+            }
+        }
+    }
+
+    /**
      * Toggle Azure settings panel visibility
      * @private
      */
     toggleAzureSettings() {
         const azureSettings = document.getElementById('azureSpeechSettings');
         if (azureSettings) {
-            azureSettings.style.display = this.speechSettings.provider === 'azure' ? 'block' : 'none';
+            if (this.speechSettings.provider === 'azure') {
+                azureSettings.classList.remove('hidden');
+            } else {
+                azureSettings.classList.add('hidden');
+            }
+        }
+    }
+
+    /**
+     * Toggle Web Speech API voice selection visibility
+     * @private
+     */
+    toggleWebSpeechVoiceSelection() {
+        // Find the web speech voice selection container
+        const webVoiceContainer = document.getElementById('webSpeechVoiceContainer');
+        
+        // Show Web Speech voice selection only for Web Speech API provider
+        const isWebSpeech = this.speechSettings.provider === 'web_speech';
+        
+        if (webVoiceContainer) {
+            if (isWebSpeech) {
+                webVoiceContainer.classList.remove('hidden');
+            } else {
+                webVoiceContainer.classList.add('hidden');
+            }
         }
     }
 
@@ -8544,28 +8547,95 @@ Example good titles:
      * Update voice options based on current provider
      * @private
      */
-    updateVoiceOptions() {
+    async updateVoiceOptions() {
         const voiceSelect = document.getElementById('speechVoiceSelect');
-        if (voiceSelect && this.speechState.availableVoices && Array.isArray(this.speechState.availableVoices)) {
+        if (!voiceSelect) {
+            console.warn('[AICompanion] Voice select element not found');
+            return;
+        }
+
+        // Clear existing options
+        voiceSelect.innerHTML = '<option value="">Loading voices...</option>';
+
+        try {
+            // Refresh available voices from speech engine
+            if (speechEngine && speechEngine.state.currentProvider) {
+                this.speechState.availableVoices = await speechEngine.getAvailableVoices();
+                console.log('[AICompanion] Refreshed voices from speech engine:', this.speechState.availableVoices?.length);
+            }
+
+            // Check if we have valid voice data
+            if (!this.speechState.availableVoices || !Array.isArray(this.speechState.availableVoices)) {
+                console.warn('[AICompanion] No valid voice data available');
+                voiceSelect.innerHTML = '<option value="">No voices available</option>';
+                return;
+            }
+
+            // Populate voice options
             voiceSelect.innerHTML = '<option value="">Default</option>';
 
-            this.speechState.availableVoices.forEach(voice => {
-                const option = document.createElement('option');
+            this.speechState.availableVoices.forEach((voice, index) => {
+                try {
+                    const option = document.createElement('option');
 
-                // Use the voice name or voiceURI
-                option.value = voice.name || voice.voiceURI;
+                    // Enhanced voice property handling with detailed logging
+                    const voiceName = voice?.name || voice?.voiceURI || `Voice ${index + 1}`;
+                    const voiceLang = voice?.lang || 'Unknown';
+                    
+                    // Debug logging for problematic voices
+                    if (!voice?.name && !voice?.voiceURI) {
+                        console.warn(`[AICompanion] Voice ${index} missing name and voiceURI:`, voice);
+                    }
+                    
+                    // Use the voice name or voiceURI as value
+                    option.value = voiceName;
 
-                option.textContent = `${voice.name} (${voice.lang})`;
-                if (voice.naturalness) {
-                    option.textContent += ` - ${Math.round(voice.naturalness * 100)}% natural`;
+                    // Create more descriptive display text
+                    let displayText = voiceName;
+                    if (voiceLang && voiceLang !== 'Unknown') {
+                        displayText += ` (${voiceLang})`;
+                    }
+                    
+                    // Add naturalness info if available
+                    if (voice.naturalness && voice.naturalness > 0) {
+                        displayText += ` - ${Math.round(voice.naturalness * 100)}% natural`;
+                    }
+                    
+                    // Add default indicator if applicable
+                    if (voice.default) {
+                        displayText += ' (Default)';
+                    }
+                    
+                    option.textContent = displayText;
+                    voiceSelect.appendChild(option);
+                    
+                } catch (optionError) {
+                    console.error(`[AICompanion] Error processing voice ${index}:`, optionError, voice);
                 }
-                voiceSelect.appendChild(option);
             });
 
             // Restore selected voice
             if (this.speechSettings.selectedVoice) {
                 voiceSelect.value = this.speechSettings.selectedVoice;
+                console.log(`[AICompanion] Restored selected voice: ${this.speechSettings.selectedVoice}`);
             }
+            
+            console.log(`[AICompanion] Updated voice options: ${this.speechState.availableVoices.length} voices available`);
+            
+            // Log sample of voice data for debugging
+            if (this.speechState.availableVoices.length > 0) {
+                const sampleVoices = this.speechState.availableVoices.slice(0, 3).map(v => ({
+                    name: v?.name,
+                    lang: v?.lang,
+                    voiceURI: v?.voiceURI,
+                    naturalness: v?.naturalness
+                }));
+                console.log('[AICompanion] Sample voice data:', sampleVoices);
+            }
+            
+        } catch (error) {
+            console.error('[AICompanion] Error updating voice options:', error);
+            voiceSelect.innerHTML = '<option value="">Error loading voices</option>';
         }
     }
 
@@ -8744,6 +8814,51 @@ Example good titles:
             console.error('[AICompanion] Speech synthesis with progress error:', error);
             onError?.(error);
             return false;
+        }
+    }
+
+    /**
+     * Speak text with streaming synchronization support
+     * This method uses the speech queue manager to calculate optimal streaming speed
+     * @param {Object} message - Message object with text and metadata
+     * @param {Object} options - Speech options
+     * @returns {Promise<string|null>} Speech item ID or null if failed
+     * @public
+     */
+    async speakTextWithSync(message, options = {}) {
+        console.log('[AICompanion] speakTextWithSync called:', {
+            text: message.text?.substring(0, 50) + '...',
+            isStreaming: message.metadata?.isStreaming,
+            provider: this.speechSettings.provider
+        });
+
+        if (!this.speechState.isInitialized) {
+            console.warn('[AICompanion] Speech not initialized');
+            return null;
+        }
+
+        if (!this.speechSettings.autoSpeak && !options.forceSpeak) {
+            console.log('[AICompanion] Auto-speak disabled, skipping speech');
+            return null;
+        }
+
+        if (!message.text?.trim()) {
+            console.warn('[AICompanion] No text to speak');
+            return null;
+        }
+
+        try {
+            // Import speech queue manager dynamically
+            const { speechQueueManager } = await import('../services/speechQueueManager.js');
+
+            // Use speech queue with sync to calculate target streaming speed
+            const speechItemId = speechQueueManager.enqueueWithSync(message, options.onProgress);
+            
+            console.log('[AICompanion] Speech queued with sync support, ID:', speechItemId);
+            return speechItemId;
+        } catch (error) {
+            console.error('[AICompanion] Speech synthesis with sync error:', error);
+            return null;
         }
     }
 
@@ -9232,36 +9347,145 @@ Analyze both responses considering the question type:
      * @private
      */
     async generateAndDisplayKPIExplanation(results) {
+        const insightsEl = document.getElementById('kpiInsightsContent');
+        if (!insightsEl) return;
+
+        // Show loading state and hide welcome/chat area
+        insightsEl.innerHTML = '<p class="kpi-insights-loading">Analyzing performance...</p>';
+        const welcomeEl = document.querySelector('#llmChatWindow .companion-welcome');
+        if (welcomeEl) welcomeEl.style.display = 'none';
+        const chatWindow = document.getElementById('llmChatWindow');
+        if (chatWindow) chatWindow.style.display = 'none';
+
         try {
-            console.log('[AI Companion] Generating KPI explanation for chat window...');
-
-            // Create a prompt to explain the KPI values
-            const kpiExplanationPrompt = this.buildKPIExplanationPrompt(results);
-
-            // Get explanation from LLM
-            const explanation = await this.getLLMEvaluation(kpiExplanationPrompt);
+            const prompt = this.buildKPIExplanationPrompt(results);
+            const explanation = await this._llmRequest(prompt, { maxTokens: 400, temperature: 0.3 });
 
             if (explanation && explanation.trim()) {
-                // Add KPI explanation as an AI companion message in the chat window
-                const { MessageAPI } = await import('../ui/messageAPI.js');
-                await MessageAPI.addAICompanionMessage(
-                    `📊 **KPI Analysis & Insights**\n\n${explanation}`,
-                    { 
-                        timestamp: new Date().toISOString(),
-                        metadata: { source: 'AI Companion', type: 'kpi-explanation' }
-                    }
-                );
-                console.log('[AI Companion] KPI explanation displayed in chat window');
+                // Render markdown into the insights panel
+                let html = explanation;
+                if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+                    html = DOMPurify.sanitize(
+                        typeof marked.parse === 'function' ? marked.parse(explanation) : marked(explanation)
+                    );
+                }
+                insightsEl.innerHTML = html;
+                this._colorCodeInsightParagraphs(insightsEl);
             } else {
-                console.warn('[AI Companion] Empty KPI explanation received');
-                // Display a fallback explanation
-                this.displayFallbackKPIExplanationInChat(results);
+                this._renderFallbackInsights(insightsEl, results);
             }
         } catch (error) {
-            console.error('[AI Companion] Error generating KPI explanation:', error);
-            // Display a fallback explanation in the chat
-            this.displayFallbackKPIExplanationInChat(results);
+            console.error('[AI Companion] KPI insight generation failed:', error);
+            this._renderFallbackInsights(insightsEl, results);
         }
+    }
+
+    /**
+     * Post-process rendered KPI insights to split sub-items into bullet lists
+     * and color-code Found Issue / Suggestion lines.
+     * @param {HTMLElement} container
+     * @private
+     */
+    _colorCodeInsightParagraphs(container) {
+        // Find paragraphs that contain multiple bold labels crammed together
+        container.querySelectorAll('p').forEach(p => {
+            const html = p.innerHTML;
+            // Check if this paragraph has multiple sub-sections (Overview + Found Issue + Suggestion)
+            const labels = ['Overview:', 'Found Issue:', 'Suggestion:'];
+            const hasMultiple = labels.filter(l => html.includes(l)).length > 1;
+
+            if (hasMultiple) {
+                // Split into separate list items
+                const ul = document.createElement('ul');
+                ul.className = 'kpi-insight-list';
+
+                // Split on bold labels
+                const parts = html.split(/(?=<strong>(?:Overview:|Found Issue:|Suggestion:)<\/strong>)/);
+                parts.forEach(part => {
+                    const trimmed = part.trim();
+                    if (!trimmed) return;
+                    const li = document.createElement('li');
+                    li.innerHTML = trimmed;
+                    // Color code
+                    if (trimmed.includes('Found Issue:')) {
+                        li.className = 'insight-item-issue';
+                    } else if (trimmed.includes('Suggestion:')) {
+                        li.className = 'insight-item-suggestion';
+                    }
+                    ul.appendChild(li);
+                });
+
+                p.replaceWith(ul);
+            } else {
+                // Single-label paragraph — just color code
+                const text = p.textContent || '';
+                if (text.includes('Found Issue:')) {
+                    p.style.color = '#b45309';
+                } else if (text.includes('Suggestion:')) {
+                    p.style.color = '#0369a1';
+                }
+            }
+        });
+    }
+
+    /**
+     * Render fallback insights without LLM
+     * @private
+     */
+    _renderFallbackInsights(el, results) {
+        const eff = this.kpiData.efficiency || 0;
+        const avg = ((results.accuracy + results.helpfulness + results.completeness + eff) / 4);
+        const level = avg >= 8 ? 'Excellent' : avg >= 6 ? 'Good' : avg >= 4 ? 'Fair' : 'Needs Improvement';
+
+        const renderKPI = (name, score, overview, issue, suggestion) => {
+            let html = `<div class="insight-kpi-section">`;
+            html += `<h4 class="insight-kpi-title">${name} (${score.toFixed(1)}/10)</h4>`;
+            html += `<ul class="kpi-insight-list">`;
+            html += `<li><strong>Overview:</strong> ${overview}</li>`;
+            if (score < 8 && issue) {
+                html += `<li class="insight-item-issue"><strong>Found Issue:</strong> ${issue}</li>`;
+            }
+            if (score < 8 && suggestion) {
+                html += `<li class="insight-item-suggestion"><strong>Suggestion:</strong> ${suggestion}</li>`;
+            }
+            html += `</ul></div>`;
+            return html;
+        };
+
+        el.innerHTML = `
+            <div class="insight-assessment"><strong>Overall: ${level}</strong> (${avg.toFixed(1)}/10)</div>
+            ${renderKPI('Accuracy', results.accuracy,
+                results.accuracy >= 8 ? 'Factually correct and relevant to the question.'
+                    : results.accuracy >= 6 ? 'Mostly accurate with minor gaps.'
+                    : 'Contains inaccuracies or off-topic content.',
+                results.accuracy < 6 ? 'Response includes incorrect or irrelevant information.'
+                    : results.accuracy < 8 ? 'Some claims lack supporting evidence.' : null,
+                results.accuracy < 8 ? 'Add source citations and verify facts before responding.' : null
+            )}
+            ${renderKPI('Helpfulness', results.helpfulness,
+                results.helpfulness >= 8 ? 'Provides clear, actionable guidance.'
+                    : results.helpfulness >= 6 ? 'Somewhat helpful but lacks concrete steps.'
+                    : 'Not actionable for the user.',
+                results.helpfulness < 6 ? 'No practical steps or actions provided.'
+                    : results.helpfulness < 8 ? 'Could include more step-by-step instructions.' : null,
+                results.helpfulness < 8 ? 'Include numbered steps and specific actions the user can take.' : null
+            )}
+            ${renderKPI('Completeness', results.completeness,
+                results.completeness >= 8 ? 'Thoroughly covers all aspects of the question.'
+                    : results.completeness >= 6 ? 'Covers main points but misses some details.'
+                    : 'Significant gaps in the response.',
+                results.completeness < 6 ? 'Key aspects of the question were not addressed.'
+                    : results.completeness < 8 ? 'Some sub-topics or edge cases not covered.' : null,
+                results.completeness < 8 ? 'Address all parts of multi-part questions and anticipate follow-ups.' : null
+            )}
+            ${renderKPI('Efficiency', eff,
+                eff >= 8 ? 'Fast response time.'
+                    : eff >= 6 ? 'Acceptable response time.'
+                    : 'Response was slow.',
+                eff < 6 ? 'Long wait time may frustrate users.' : null,
+                eff < 8 ? 'Optimize knowledge source queries and reduce topic complexity.' : null
+            )}
+        `;
     }
 
     /**
@@ -9271,18 +9495,41 @@ Analyze both responses considering the question type:
      * @private
      */
     buildKPIExplanationPrompt(results) {
-        const trendInfo = this.kpiData.trend === 'improving' ? '↗️ improving' :
-            this.kpiData.trend === 'declining' ? '↘️ declining' : '→ stable';
+        const efficiency = this.kpiData.efficiency?.toFixed(1) || '0.0';
+        const trend = this.kpiData.trend || 'stable';
+        const context = this.getConversationContextForThinking() || '';
+        const lastUserMsg = context.split('\n').filter(l => l.startsWith('User:')).pop() || '';
+        const lastAgentMsg = context.split('\n').filter(l => l.startsWith('Agent:')).pop() || '';
 
-        const conversationContext = this.getConversationContextForThinking();
+        return `You are a concise chatbot quality analyst. Analyze each KPI based on the latest exchange.
 
-        // Use centralized prompt manager
-        return promptManager.getFormattedPrompt('kpiExplanation', {
-            kpiName: 'Conversation Quality Metrics',
-            kpiValue: `Accuracy: ${results.accuracy.toFixed(1)}/10, Helpfulness: ${results.helpfulness.toFixed(1)}/10, Completeness: ${results.completeness.toFixed(1)}/10, Efficiency: ${this.kpiData.efficiency.toFixed(1)}/10, Trend: ${trendInfo}`,
-            kpiContext: results.reasoning || 'Based on conversation analysis and response quality assessment.',
-            conversationContext: conversationContext || 'General conversation analysis'
-        });
+Scores: Accuracy ${results.accuracy.toFixed(1)}/10, Helpfulness ${results.helpfulness.toFixed(1)}/10, Completeness ${results.completeness.toFixed(1)}/10, Efficiency ${efficiency}/10. Trend: ${trend}.
+
+Latest exchange:
+${lastUserMsg}
+${lastAgentMsg}
+
+Respond in this EXACT markdown format. Each KPI is a section. "Found Issue" and "Suggestion" only appear when score < 8. Keep each line under 20 words. Be specific to this conversation.
+
+### Accuracy (${results.accuracy.toFixed(1)}/10)
+**Overview:** [One sentence about factual correctness and relevance]
+**Found Issue:** [Specific issue, or omit this line if score >= 8]
+**Suggestion:** [Concrete fix, or omit this line if no issue]
+
+### Helpfulness (${results.helpfulness.toFixed(1)}/10)
+**Overview:** [One sentence about actionability and practical value]
+**Found Issue:** [Specific issue, or omit if score >= 8]
+**Suggestion:** [Concrete fix, or omit if no issue]
+
+### Completeness (${results.completeness.toFixed(1)}/10)
+**Overview:** [One sentence about coverage and thoroughness]
+**Found Issue:** [Specific issue, or omit if score >= 8]
+**Suggestion:** [Concrete fix, or omit if no issue]
+
+### Efficiency (${efficiency}/10)
+**Overview:** [One sentence about response speed]
+**Found Issue:** [Specific issue, or omit if score >= 8]
+**Suggestion:** [Concrete fix, or omit if no issue]`;
     }
 
     /**

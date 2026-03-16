@@ -1,0 +1,225 @@
+/* About Section Styles */
+.about-app-info {
+    text-align: center;
+    padding: 2rem 1rem;
+    background: linear-gradient(135deg, rgba(0, 120, 212, 0.05) 0%, rgba(139, 95, 191, 0.05) 100%);
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+}
+
+.about-logo {
+    margin-bottom: 1rem;
+}
+
+.about-logo svg {
+    width: 64px;
+    height: 64px;
+    color: var(--color-primary);
+    filter: drop-shadow(0 2px 8px rgba(0, 120, 212, 0.3));
+}
+
+.about-app-info h4 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0 0 0.5rem 0;
+}
+
+.about-description {
+    color: var(--color-text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin: 0 0 1.5rem 0;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.about-version-info {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.version-badge {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem 1.5rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    min-width: 120px;
+}
+
+.version-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-text-tertiary);
+    font-weight: 500;
+}
+
+.version-number {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    font-family: 'Courier New', monospace;
+}
+
+/* Module Versions Container */
+.module-versions-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.module-category {
+    background: var(--color-surface-secondary);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid var(--color-border);
+}
+
+.module-category-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0 0 0.75rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--color-border);
+}
+
+.module-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.module-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    transition: background 0.2s;
+}
+
+.module-item:hover {
+    background: #f0f7ff;
+}
+
+.module-name {
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+.module-version {
+    font-family: 'Courier New', monospace;
+    color: var(--color-primary);
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+/* System Information */
+.system-info-container {
+    background: var(--color-surface-secondary);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 0.5rem;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+}
+
+.info-value {
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
+    text-align: right;
+    max-width: 60%;
+    word-break: break-word;
+}
+
+/* About Links */
+.about-links {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.about-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--color-primary);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.about-link:hover {
+    background: #005a9e;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 120, 212, 0.3);
+}
+
+.about-link svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .module-versions-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .about-version-info {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .version-badge {
+        min-width: auto;
+    }
+    
+    .info-value {
+        max-width: 50%;
+        font-size: 0.75rem;
+    }
+    
+    .about-links {
+        flex-direction: column;
+    }
+    
+    .about-link {
+        width: 100%;
+        justify-content: center;
+    }
+}

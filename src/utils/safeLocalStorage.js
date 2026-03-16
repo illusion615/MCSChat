@@ -179,8 +179,4 @@ if (typeof window !== 'undefined') {
 }
 
 // Export for use in other modules
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = SafeLocalStorage;
-} else {
-    window.SafeLocalStorage = SafeLocalStorage;
-}
+export { SafeLocalStorage };

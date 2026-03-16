@@ -2,7 +2,38 @@
  * Splash Screen Controller
  * Manages loading progress and user feedback during application initialization
  * Now synchronized with actual application loading progress
+ * 
+ * Version: 1.1.2
+ * Changelog:
+ * - 1.1.2: Fixed displayVersionInfo undefined error with better type checking
+ * - 1.1.1: Fixed module loading - removed ES6 imports for immediate loading
+ * - 1.1.0: Added version display support
+ * - 1.0.0: Initial release with real-time progress tracking
  */
+
+const SPLASH_VERSION = '1.1.2';
+console.log(`🎬 [SplashScreen] Version ${SPLASH_VERSION} loaded`);
+
+// Version information will be loaded from versionRegistry once it's available
+// For now, use placeholder that will be updated by main.js
+let APP_VERSION = '2.0.0';
+let BUILD_DATE = '2025-10-04';
+let MODULE_VERSIONS = {};
+
+// Function to update version info from versionRegistry (called by main.js)
+window.updateSplashVersionInfo = function(versionInfo) {
+    APP_VERSION = versionInfo.app;
+    BUILD_DATE = versionInfo.buildDate;
+    MODULE_VERSIONS = versionInfo.modules;
+    
+    // Update splash screen display if already initialized
+    if (window.splashScreen && typeof window.splashScreen.displayVersionInfo === 'function') {
+        window.splashScreen.displayVersionInfo();
+    } else {
+        console.log('[SplashScreen] Version info updated, splash screen will display it when initialized');
+    }
+};
+
 class SplashScreen {
     constructor() {
         this.progress = 0;
@@ -16,6 +47,7 @@ class SplashScreen {
         
         // Remove hardcoded steps - now driven by real application events
         this.initializeSplashElements();
+        this.displayVersionInfo();
         this.setupApplicationEventListeners();
     }
 
@@ -36,6 +68,50 @@ class SplashScreen {
         
         if (!this.statusElement) {
             console.error('[SplashScreen] Status element not found');
+        }
+    }
+
+    /**
+     * Display version information on splash screen
+     */
+    displayVersionInfo() {
+        if (!this.splashElement) return;
+        
+        // Find the subtitle element (where it says "Initializing AI Assistant...")
+        const subtitle = this.splashElement.querySelector('.splash-subtitle');
+        
+        if (subtitle) {
+            // Update subtitle to include version
+            subtitle.textContent = `Version ${APP_VERSION} • ${BUILD_DATE}`;
+            subtitle.style.fontSize = '0.9rem';
+            subtitle.style.marginBottom = '2rem';
+        }
+        
+        // Add version footer at the bottom of splash screen
+        let versionFooter = this.splashElement.querySelector('.splash-version-footer');
+        if (!versionFooter) {
+            versionFooter = document.createElement('div');
+            versionFooter.className = 'splash-version-footer';
+            versionFooter.style.cssText = `
+                position: absolute;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 0.75rem;
+                opacity: 0.5;
+                text-align: center;
+                width: 90%;
+                max-width: 500px;
+            `;
+            
+            // Count loaded modules
+            const moduleCount = Object.keys(MODULE_VERSIONS).length;
+            versionFooter.innerHTML = `
+                <div>${moduleCount} modules loaded</div>
+                <div style="margin-top: 4px; font-size: 0.7rem;">Press F12 to view detailed version info in console</div>
+            `;
+            
+            this.splashElement.appendChild(versionFooter);
         }
     }
 

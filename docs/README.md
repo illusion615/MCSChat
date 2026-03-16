@@ -1,5 +1,25 @@
 # MCSChat Documentation Index | MCSChat 文档索引
 
+## Current Development Snapshot | 当前开发快照
+
+- Snapshot Date: 2026-03-15
+- DirectLine baseline: Single implementation based on `DirectLineService`
+- Iteration tracker: `docs/iterations/TODO.md`
+- History sync record: `docs/iterations/HISTORY_REVIEW_2026-03-15.md`
+- Batch 3 status: Completed with initialization stability fix (greeting/timeout/error release paths)
+- Batch 8-12 status: Planning docs completed (requirements + design + checklist + test-plan)
+
+### Important Reading Order | 建议阅读顺序
+
+1. `docs/iterations/TODO.md` (current progress and priority)
+2. `docs/iterations/batch-3-directline-refactor/` (current DirectLine baseline)
+3. `src/components/directline/README.md` (component entry)
+4. language-specific architecture docs in `docs/en/architecture/` or `docs/zh/architecture/`
+
+### Historical Documents Note | 历史文档说明
+
+Some documents in `docs/` record historical migration phases and may describe deprecated architectures. Treat them as historical context unless they match the current baseline above.
+
 ## Language Selection | 语言选择
 
 ### 🇺🇸 [English Documentation](en/) 

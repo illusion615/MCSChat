@@ -2,9 +2,17 @@
  * Message System Migration Adapter
  * Provides compatibility layer between old and new message systems
  * Allows gradual migration to unified message renderer
+ * 
+ * Version: 1.0.1
+ * Changelog:
+ * - 1.0.1: Added migrateLegacyContainer method
+ * - 1.0.0: Initial migration adapter
  */
 
 import { unifiedMessageRenderer, MessageTypes } from './unifiedMessageRenderer.js';
+
+const MESSAGE_MIGRATION_ADAPTER_VERSION = '1.0.1';
+console.log(`🔄 [MessageMigrationAdapter] Version ${MESSAGE_MIGRATION_ADAPTER_VERSION} loaded`);
 
 export class MessageMigrationAdapter {
     constructor() {
@@ -280,6 +288,44 @@ export class MessageMigrationAdapter {
         }
 
         console.log(`[MessageMigrationAdapter] Migrated ${messages.length} existing messages`);
+    }
+
+    /**
+     * Migrate legacy messages from a specific container
+     * @param {HTMLElement} container - The container with legacy messages
+     * @returns {number} Number of messages migrated
+     */
+    async migrateLegacyContainer(container) {
+        if (!container) {
+            console.warn('[MessageMigrationAdapter] No container provided for migration');
+            return 0;
+        }
+
+        const existingMessages = container.querySelectorAll('.messageContainer');
+        const messages = [];
+
+        // Extract data from existing messages
+        existingMessages.forEach((element, index) => {
+            const messageData = this.extractLegacyMessageData(element);
+            if (messageData) {
+                messages.push(messageData);
+            }
+        });
+
+        // Only clear and migrate if we're in unified mode
+        if (this.isUnifiedMode && messages.length > 0) {
+            // Clear existing messages
+            container.innerHTML = '';
+
+            // Re-render using unified system
+            for (const messageData of messages) {
+                await this.addUnifiedMessage(messageData);
+            }
+
+            console.log(`[MessageMigrationAdapter] Migrated ${messages.length} messages from container`);
+        }
+
+        return messages.length;
     }
 
     /**

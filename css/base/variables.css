@@ -127,12 +127,38 @@
     --msg-thinking-font-style: italic;
     
     /* MESSAGE CONTENT: Text flow settings for different message types */
-    --msg-text-flow-default: break-word;
+    --msg-text-flow-default: normal;
     --msg-text-flow-streaming: normal;
-    --msg-hyphens-default: auto;
+    --msg-hyphens-default: none;
     --msg-hyphens-streaming: none;
     --msg-whitespace-default: normal;
     --msg-whitespace-streaming: pre-wrap;
 
     --font-size-lg: 16px;
+
+    /* Common UI colors */
+    --color-primary: #0078d4;
+    --color-primary-dark: #106ebe;
+    --color-primary-light: #2b88d8;
+    --color-text-primary: #323130;
+    --color-text-secondary: #605e5c;
+    --color-text-tertiary: #8a8886;
+    --color-surface: #ffffff;
+    --color-surface-secondary: #f8f9fa;
+    --color-surface-tertiary: #f3f2f1;
+    --color-border: #e1e5e9;
+    --color-border-light: #edebe9;
+    --color-shadow: rgba(0, 0, 0, 0.1);
+    --color-shadow-light: rgba(0, 0, 0, 0.05);
+    --color-overlay: rgba(0, 0, 0, 0.4);
+
+    /* Warning theme */
+    --color-warning-bg: #fff4ce;
+    --color-warning-text: #8a6914;
+
+    /* Companion / Purple theme */
+    --color-companion-primary: #8b5fbf;
+    --color-companion-dark: #744c9e;
+    --color-companion-light: rgba(139, 95, 191, 0.1);
+    --color-companion-border: rgba(139, 95, 191, 0.3);
 }
