@@ -7,14 +7,54 @@
     top: 0;
     bottom: 0;
     width: 48px;
-    background: #2d2d30;
-    border-right: 1px solid #3e3e42;
+    background: rgba(45, 45, 48, 0.72);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: blur(18px) saturate(180%);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
     z-index: 10000;
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 8px 0;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.2);
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.25s ease,
+                transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Auto-hide mode */
+body.auto-hide-sidebar #sideCommandBar {
+    width: 6px;
+    padding: 0;
+    overflow: hidden;
+    opacity: 0.3;
+}
+
+body.auto-hide-sidebar #sideCommandBar:hover {
+    width: 48px;
+    padding: 8px 0;
+    overflow: visible;
+    opacity: 1;
+}
+
+body.auto-hide-sidebar #sideCommandBar .side-command-btn,
+body.auto-hide-sidebar #sideCommandBar .command-bar-spacer {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+body.auto-hide-sidebar #sideCommandBar:hover .side-command-btn,
+body.auto-hide-sidebar #sideCommandBar:hover .command-bar-spacer {
+    opacity: 1;
+}
+
+/* Layout shift when auto-hide is active */
+body.auto-hide-sidebar #container {
+    margin-left: 6px;
+}
+
+body.auto-hide-sidebar .home-page {
+    left: 6px;
 }
 
 /* Home button - stays at top, hidden by default (shown when entering agent page) */

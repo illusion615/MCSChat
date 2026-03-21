@@ -265,6 +265,19 @@
 /* =================================================================
    MESSAGE METADATA
    ================================================================= */
+.hide-user-messages .unified-message.user {
+    display: none;
+}
+
+.hide-metrics .unified-message-metadata {
+    opacity: 0 !important;
+    pointer-events: none;
+    height: 0;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+}
+
 .unified-message-metadata {
     font-size: 11px;
     color: #8a8886;
@@ -503,6 +516,8 @@
     padding: var(--spacing-md) 0;
     margin: var(--spacing-sm) 0;
     box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
 }
 
 .full-width-messages .unified-message.agent,

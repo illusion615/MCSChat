@@ -52,6 +52,44 @@
         border-radius: 12px;
     }
 
+    .reg-models-header-row {
+        display: none;
+    }
+
+    .reg-models-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "name actions"
+            "provider tokens"
+            "perf perf";
+        align-items: start;
+    }
+
+    .reg-col-name {
+        grid-area: name;
+        white-space: normal;
+    }
+
+    .reg-col-provider {
+        grid-area: provider;
+    }
+
+    .reg-col-tokens {
+        grid-area: tokens;
+        text-align: left;
+    }
+
+    .reg-col-perf {
+        grid-area: perf;
+        text-align: left;
+    }
+
+    .reg-col-actions {
+        grid-area: actions;
+        flex-wrap: wrap;
+        max-width: 80px;
+    }
+
     .kpi-item {
         padding: 12px 10px;
         border-radius: 8px;
@@ -63,6 +101,24 @@
 
     .kpi-bar {
         height: 4px;
+    }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+    .reg-models-header-row,
+    .reg-models-row {
+        grid-template-columns: minmax(0, 1fr) 72px 56px 80px 112px;
+        gap: 6px;
+    }
+
+    .reg-col-actions {
+        gap: 2px;
+    }
+
+    .reg-action-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
     }
 }
 
@@ -303,7 +359,7 @@
     #userInput {
         font-size: 16px;
         /* Prevent zoom on iOS */
-        padding: 12px 16px;
+        padding: 10px 8px;
     }
 
     #inputContainer {
@@ -478,6 +534,28 @@
     }
 }
 
+@media (max-width: 768px) {
+    .home-footer {
+        right: var(--spacing-lg, 12px);
+        bottom: var(--spacing-lg, 12px);
+        gap: var(--spacing-sm, 6px);
+    }
+
+    .appearance-panel-body {
+        padding: var(--spacing-lg);
+    }
+
+    .appearance-group {
+        padding: var(--spacing-lg);
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .appearance-group-title {
+        font-size: var(--font-size-sm);
+        margin-bottom: var(--spacing-md);
+    }
+}
+
 /* Landscape mobile orientation */
 @media (max-width: 768px) and (orientation: landscape) {
     #container {
@@ -524,10 +602,25 @@
     }
 
     /* Larger touch targets for buttons */
+    .input-inline-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
     #sendButton,
     .actionButton {
         min-height: 44px;
         padding: 12px 16px;
+    }
+
+    /* Hover menu on touch — toggle on tap via JS, keep usable sizing */
+    .ai-companion-hover-menu {
+        min-width: 180px;
+    }
+
+    .hover-menu-item {
+        padding: 12px 14px;
+        font-size: 14px;
     }
 
     /* Mobile adjustments for action containers */

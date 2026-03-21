@@ -14,6 +14,7 @@ console.log(`💾 [SessionManager] Version ${SESSION_MANAGER_VERSION} loaded`);
 export class SessionManager {
     constructor() {
         this.currentSession = null;
+        this.currentAgentId = null;
         this.sessionStorage = 'chatHistory';
         this.currentSessionStorage = 'currentSession';
         this.initializeElements();
@@ -161,6 +162,15 @@ export class SessionManager {
     }
 
     /**
+     * Set the current agent ID for session filtering
+     * @param {string|null} agentId
+     */
+    setCurrentAgentId(agentId) {
+        this.currentAgentId = agentId || null;
+        console.log('[SessionManager] Current agent ID set to:', this.currentAgentId);
+    }
+
+    /**
      * Add message to current session
      * @param {Object} message - Message object
      */
@@ -171,6 +181,7 @@ export class SessionManager {
         const messageEntry = {
             ...message,
             session: sessionId,
+            agentId: message.agentId || this.currentAgentId || null,
             timestamp: message.timestamp || new Date().toISOString(),
             id: message.id || Utils.generateId('msg')
         };
@@ -335,12 +346,16 @@ export class SessionManager {
 
     /**
      * Load session list and update UI
+     * @param {string|null} [agentId] - If provided, only show sessions for this agent
      */
-    loadSessionList() {
+    loadSessionList(agentId) {
         if (!this.elements.sessionList) return;
 
+        // Use provided agentId, or fall back to current agent
+        const filterAgentId = agentId !== undefined ? agentId : this.currentAgentId;
+
         const chatHistory = this.getChatHistory();
-        const sessions = this.groupMessagesBySession(chatHistory);
+        const sessions = this.groupMessagesBySession(chatHistory, filterAgentId);
 
         this.elements.sessionList.innerHTML = '';
 
@@ -356,34 +371,50 @@ export class SessionManager {
             return bTime - aTime;
         });
 
-        sortedSessions.forEach(([sessionId, sessionData]) => {
+        // Only show sessions that have user messages (skip greeting-only sessions)
+        const meaningfulSessions = sortedSessions.filter(([, data]) => data.userMessageCount > 0);
+
+        if (meaningfulSessions.length === 0) {
+            this.elements.sessionList.innerHTML = '<div class="no-sessions">No chat history</div>';
+            return;
+        }
+
+        meaningfulSessions.forEach(([sessionId, sessionData]) => {
             const sessionItem = this.createSessionItem(sessionId, sessionData);
             this.elements.sessionList.appendChild(sessionItem);
         });
     }
 
     /**
-     * Group messages by session and filter out greeting-only sessions
+     * Group messages by session and optionally filter by agentId
      * @param {Array} messages - All messages
-     * @returns {Object} Grouped sessions (excluding greeting-only sessions)
+     * @param {string|null} [agentId] - If provided, only include sessions for this agent
+     * @returns {Object} Grouped sessions
      * @private
      */
-    groupMessagesBySession(messages) {
+    groupMessagesBySession(messages, agentId = null) {
         const sessions = {};
 
         messages.forEach(message => {
             if (!sessions[message.session]) {
                 sessions[message.session] = {
                     messages: [],
+                    firstActivity: message.timestamp,
                     lastActivity: message.timestamp,
                     messageCount: 0,
-                    userMessageCount: 0, // Track user messages specifically
-                    title: message.sessionTitle || null // Preserve session title if available
+                    userMessageCount: 0,
+                    title: message.sessionTitle || null,
+                    agentId: message.agentId || null
                 };
             }
 
             sessions[message.session].messages.push(message);
             sessions[message.session].messageCount++;
+
+            // Track agent ID from any message in the session
+            if (message.agentId && !sessions[message.session].agentId) {
+                sessions[message.session].agentId = message.agentId;
+            }
 
             // Count user messages specifically
             if (message.from === 'user') {
@@ -395,26 +426,29 @@ export class SessionManager {
                 sessions[message.session].title = message.sessionTitle;
             }
 
+            // Track earliest activity
+            if (new Date(message.timestamp) < new Date(sessions[message.session].firstActivity)) {
+                sessions[message.session].firstActivity = message.timestamp;
+            }
+
             // Update last activity time
             if (new Date(message.timestamp) > new Date(sessions[message.session].lastActivity)) {
                 sessions[message.session].lastActivity = message.timestamp;
             }
         });
 
-        // TEMPORARILY DISABLED: Filter out sessions with no user messages (greeting-only sessions)
-        // const filteredSessions = {};
-        // Object.keys(sessions).forEach(sessionId => {
-        //     const session = sessions[sessionId];
-        //     // Only include sessions where the user has sent at least one message
-        //     if (session.userMessageCount > 0) {
-        //         filteredSessions[sessionId] = session;
-        //     } else {
-        //         console.log(`Filtering out greeting-only session: ${sessionId} (${session.messageCount} bot messages, 0 user messages)`);
-        //     }
-        // });
+        // Filter by agentId if specified
+        if (agentId) {
+            const filtered = {};
+            Object.keys(sessions).forEach(sessionId => {
+                if (sessions[sessionId].agentId === agentId) {
+                    filtered[sessionId] = sessions[sessionId];
+                }
+            });
+            console.log(`[SessionManager] Filtered sessions for agent ${agentId}: ${Object.keys(filtered).length} of ${Object.keys(sessions).length}`);
+            return filtered;
+        }
 
-        // TEMPORARY: Return all sessions without filtering
-        console.log('[SessionManager] GREETING-ONLY FILTERING TEMPORARILY DISABLED - Returning all sessions');
         return sessions;
     }
 
@@ -429,15 +463,29 @@ export class SessionManager {
         const isCurrentSession = sessionId === this.currentSession;
         // Use session title if available, otherwise fallback to message preview
         const preview = sessionData.title || this.getMessagePreview(sessionData.messages[sessionData.messages.length - 1]);
-        const timeAgo = this.getTimeAgo(sessionData.lastActivity);
+
+        // Calculate rounds (each user message counts as one round)
+        const rounds = sessionData.userMessageCount || 0;
+
+        // Format start and end times
+        const startTime = this._formatSessionTime(sessionData.firstActivity);
+        const endTime = this._formatSessionTime(sessionData.lastActivity);
 
         const sessionItem = DOMUtils.createElement('div', {
             className: `sessionItem ${isCurrentSession ? 'active' : ''}`,
             dataset: { sessionId }
         });
 
-        // Create session text span (matches legacy structure)
-        const sessionText = DOMUtils.createElement('span', {}, Utils.escapeHtml(preview));
+        // Create session text span with title
+        const sessionText = DOMUtils.createElement('span', {
+            className: 'session-title'
+        }, Utils.escapeHtml(preview));
+
+        // Create metadata line
+        const sessionMeta = DOMUtils.createElement('div', {
+            className: 'session-meta'
+        });
+        sessionMeta.innerHTML = `<span>${rounds} round${rounds !== 1 ? 's' : ''}</span><span>${startTime} – ${endTime}</span>`;
 
         // Create delete icon span (matches legacy structure)  
         const deleteIcon = DOMUtils.createElement('span', {
@@ -460,11 +508,36 @@ export class SessionManager {
             this.loadSession(sessionId);
         });
 
-        // Append children (matches legacy order)
+        // Append children
         sessionItem.appendChild(sessionText);
+        sessionItem.appendChild(sessionMeta);
         sessionItem.appendChild(deleteIcon);
 
         return sessionItem;
+    }
+
+    /**
+     * Format a timestamp for session card display (compact)
+     * @param {string} timestamp - ISO timestamp
+     * @returns {string} Formatted time string
+     * @private
+     */
+    _formatSessionTime(timestamp) {
+        if (!timestamp) return '--';
+        const d = new Date(timestamp);
+        if (isNaN(d.getTime())) return '--';
+
+        const now = new Date();
+        const isToday = d.toDateString() === now.toDateString();
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const isYesterday = d.toDateString() === yesterday.toDateString();
+
+        const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        if (isToday) return time;
+        if (isYesterday) return `Yesterday ${time}`;
+        return `${d.getMonth() + 1}/${d.getDate()} ${time}`;
     }
 
     /**

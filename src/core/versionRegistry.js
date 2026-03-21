@@ -9,8 +9,8 @@
  * - PATCH: Bug fixes and small improvements
  */
 
-export const APP_VERSION = '2.0.0';
-export const BUILD_DATE = '2025-10-04';
+export const APP_VERSION = '3.6.0';
+export const BUILD_DATE = '2026-03-21';
 
 /**
  * Module versions registry
@@ -20,14 +20,13 @@ export const MODULE_VERSIONS = {
     // Core modules
     'Application': '2.0.0',
     'MessageQueue': '1.5.0',
+    'MessageRendererAdapter': '1.0.0',
     
     // DirectLine & Connection
-    'DirectLineManager': '1.2.0',
-    'DirectLineGreetingManager': '1.0.0',
+    'DirectLineService': '1.0.0',
     
     // UI Modules
     'MessageRenderer': '2.1.0',
-    'SplashScreen': '1.1.2',
     'MessageAPI': '1.0.0',
     'MessageIntegration': '1.0.1',
     'MessageMigrationAdapter': '1.0.1',
@@ -36,6 +35,8 @@ export const MODULE_VERSIONS = {
     
     // AI & Speech
     'AICompanion': '3.0.0',
+    'AutoQAEngine': '1.0.0',
+    'ModelRegistry': '1.0.0',
     'SpeechEngine': '2.0.0',
     'SpeechQueueManager': '1.0.0',
     'PromptManager': '1.0.0',
@@ -47,7 +48,6 @@ export const MODULE_VERSIONS = {
     'KnowledgeHubService': '1.0.0',
     
     // Components
-    'EnhancedChatWidget': '1.0.0',
     'CitationPreviewPanel': '1.0.0',
     'AdaptiveCardModal': '1.0.0',
     'IconManager': '2.0.0',
@@ -57,6 +57,7 @@ export const MODULE_VERSIONS = {
     'LanguageDetector': '1.0.0',
     'StatusIndicator': '1.0.0',
     'MobileUtils': '1.0.0',
+    'I18n': '1.0.0',
 };
 
 /**
@@ -123,21 +124,21 @@ export function logAllVersions() {
     console.log(`📅 Build Date: ${BUILD_DATE}\n`);
     
     console.log('🔧 Core Modules:');
-    ['Application', 'MessageQueue', 'DirectLineManager', 'DirectLineGreetingManager'].forEach(module => {
+    ['Application', 'MessageQueue', 'MessageRendererAdapter', 'DirectLineService'].forEach(module => {
         if (MODULE_VERSIONS[module]) {
             console.log(`   ${module}: v${MODULE_VERSIONS[module]}`);
         }
     });
     
     console.log('\n🎨 UI Modules:');
-    ['MessageRenderer', 'SplashScreen', 'MessageAPI', 'EnhancedTypingIndicator', 'UnifiedMessageRenderer'].forEach(module => {
+    ['MessageRenderer', 'MessageAPI', 'MessageIntegration', 'EnhancedTypingIndicator', 'UnifiedMessageRenderer'].forEach(module => {
         if (MODULE_VERSIONS[module]) {
             console.log(`   ${module}: v${MODULE_VERSIONS[module]}`);
         }
     });
     
     console.log('\n🤖 AI & Speech:');
-    ['AICompanion', 'SpeechEngine', 'SpeechQueueManager', 'PromptManager'].forEach(module => {
+    ['AICompanion', 'AutoQAEngine', 'ModelRegistry', 'SpeechEngine', 'SpeechQueueManager', 'PromptManager'].forEach(module => {
         if (MODULE_VERSIONS[module]) {
             console.log(`   ${module}: v${MODULE_VERSIONS[module]}`);
         }
@@ -151,14 +152,14 @@ export function logAllVersions() {
     });
     
     console.log('\n🧩 Components:');
-    ['EnhancedChatWidget', 'CitationPreviewPanel', 'AdaptiveCardModal', 'IconManager'].forEach(module => {
+    ['CitationPreviewPanel', 'AdaptiveCardModal', 'IconManager'].forEach(module => {
         if (MODULE_VERSIONS[module]) {
             console.log(`   ${module}: v${MODULE_VERSIONS[module]}`);
         }
     });
     
     console.log('\n🔨 Utils:');
-    ['LocalStorageProtection', 'LanguageDetector', 'StatusIndicator', 'MobileUtils'].forEach(module => {
+    ['LocalStorageProtection', 'LanguageDetector', 'StatusIndicator', 'MobileUtils', 'I18n'].forEach(module => {
         if (MODULE_VERSIONS[module]) {
             console.log(`   ${module}: v${MODULE_VERSIONS[module]}`);
         }

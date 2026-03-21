@@ -88,6 +88,8 @@
     position: relative;
     padding: 24px;
     transition: all 0.3s ease;
+    min-height: 0;  /* Allow flex shrink below content size */
+    overflow: hidden;
 }
 
 /* Panel Toggle Button - Always visible */
@@ -170,7 +172,6 @@ body:not(.leftPanelCollapsed) .panel-toggle-btn {
 
 /* Adjust agent chat panel when AI companion is hidden/collapsed */
 #agentChatPanel.companion-hidden {
-    flex: none;
     width: 100%;
     max-width: 100%;
 }

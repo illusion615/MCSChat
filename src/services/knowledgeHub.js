@@ -598,7 +598,7 @@ export class KnowledgeHubService {
 
         if (this.documents.size === 0) {
             const emptyMessage = DOMUtils.createElement('div');
-            emptyMessage.textContent = 'No documents uploaded yet.';
+            emptyMessage.textContent = window.i18n?.t('knowledge.noDocuments') || 'No documents uploaded yet.';
             emptyMessage.style.color = '#64748b';
             emptyMessage.style.fontStyle = 'italic';
             emptyMessage.style.textAlign = 'center';
@@ -728,7 +728,7 @@ export class KnowledgeHubService {
             const usageText = DOMUtils.createElement('div', {
                 style: 'font-size: 12px; color: #0369a1; margin-bottom: 6px; font-weight: 500;'
             });
-            usageText.textContent = `Storage Usage: ${Math.round(currentSize / 1024)}KB / ~10MB (${usagePercent}%)`;
+            usageText.textContent = window.i18n?.t('knowledge.storageUsage', { size: Math.round(currentSize / 1024) + 'KB', percent: usagePercent }) || `Storage Usage: ${Math.round(currentSize / 1024)}KB / ~10MB (${usagePercent}%)`;
 
             const progressBar = DOMUtils.createElement('div', {
                 style: 'width: 100%; height: 4px; background: #e0f2fe; border-radius: 2px; overflow: hidden;'
@@ -746,7 +746,7 @@ export class KnowledgeHubService {
                 const warningText = DOMUtils.createElement('div', {
                     style: 'font-size: 11px; color: #dc2626; margin-top: 4px;'
                 });
-                warningText.textContent = 'Storage nearly full. Consider deleting old documents.';
+                warningText.textContent = window.i18n?.t('knowledge.storageFull') || 'Storage nearly full. Consider deleting old documents.';
                 usageIndicator.appendChild(warningText);
             }
 

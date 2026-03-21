@@ -18,6 +18,11 @@ import Icon from './components/svg-icon-manager/index.js';
 import { getAllVersions } from './core/versionRegistry.js';
 // === IMPORT ABOUT SECTION ===
 import { initializeAboutSection } from './ui/aboutSection.js';
+// === IMPORT I18N ===
+import { i18n } from './utils/i18n.js';
+
+// Expose i18n globally for AI Companion access
+window.i18n = i18n;
 
 const MAIN_VERSION = '2.0.1';
 console.log(`🚀 [Main] Version ${MAIN_VERSION} loaded`);
@@ -71,10 +76,36 @@ async function initializeApplication() {
         // Initialize About section with version information
         initializeAboutSection();
 
+        // Safety timeout: if initialization takes too long, hide loading anyway
+        const loadingTimeout = setTimeout(() => {
+            const homeLoading = document.getElementById('homeLoadingIndicator');
+            if (homeLoading) {
+                console.warn('[Main] Initialization taking too long, hiding loading indicator');
+                homeLoading.style.transition = 'opacity 0.4s ease';
+                homeLoading.style.opacity = '0';
+                setTimeout(() => homeLoading.remove(), 400);
+            }
+        }, 10000); // 10 seconds max
+
         await app.initialize();
+
+        clearTimeout(loadingTimeout);
+
+        // Hide the home-page loading indicator
+        const homeLoading = document.getElementById('homeLoadingIndicator');
+        if (homeLoading) {
+            homeLoading.style.transition = 'opacity 0.4s ease';
+            homeLoading.style.opacity = '0';
+            setTimeout(() => homeLoading.remove(), 400);
+        }
+
         console.log('MCSChat application started successfully');
     } catch (error) {
         console.error('Failed to initialize MCSChat application:', error);
+
+        // Always hide loading indicator on error
+        const homeLoading = document.getElementById('homeLoadingIndicator');
+        if (homeLoading) homeLoading.remove();
 
         // Show user-friendly error message
         const errorDiv = document.createElement('div');

@@ -22,15 +22,9 @@ import { SecureStorage } from '../utils/secureStorage.js';
 import { EnhancedTypingIndicator } from '../ui/enhancedTypingIndicator.js';
 import { mobileUtils } from '../utils/mobileUtils.js';
 import { statusIndicator } from '../utils/statusIndicator.js';
-// REMOVED: import { getSVGDataUri } from '../components/svg-icon-manager/index.js';
-// Now using global Icon manager: window.Icon.create() for DOM elements
-// Using simpler logging manager to fix the issue
+import { i18n } from '../utils/i18n.js';
 import LoggingManager from '../services/simpleLoggingManager.js';
-// import LoggingUIManager from '../ui/loggingUIManager.js';
-// Temporarily comment out speech engine import to isolate the issue
-// import { speechEngine, setLoggingManager as setSpeechLoggingManager } from '../services/speechEngine.js';
 
-// UNIFIED MESSAGE SYSTEM: Import the new unified message system
 import { MessageIntegration } from '../ui/messageIntegration.js';
 
 // Import adaptive card modal for global use
@@ -43,7 +37,7 @@ export class Application {
     constructor() {
         this.isInitialized = false;
         this.elements = {};
-        this.selectedFile = null;
+        this.selectedFiles = [];
         this.state = {
             isConnected: false,
             currentSession: null,
@@ -76,17 +70,22 @@ export class Application {
 
         // Set up global logging manager for other modules
         window.globalLoggingManager = this.loggingManager;
-        // Temporarily comment out speech engine logging setup
-        // setSpeechLoggingManager(this.loggingManager);
 
         // Track UI state
         this.uiState = {
             leftPanelCollapsed: localStorage.getItem('leftPanelCollapsed') === 'true',
-            messageIconsEnabled: localStorage.getItem('messageIconsEnabled') !== 'false' // Default to true
+            messageIconsEnabled: localStorage.getItem('messageIconsEnabled') !== 'false', // Default to true
+            showUserMessages: localStorage.getItem('appearanceShowUserMessages') !== 'false',
+            showMetrics: localStorage.getItem('appearanceShowMetrics') !== 'false',
+            autoHideMetadata: localStorage.getItem('appearanceAutoHideMetadata') !== 'false',
+            autoHideSidebar: localStorage.getItem('appearanceAutoHideSidebar') === 'true'
         };
 
         // DirectLineService is a singleton — global reference for debugging only
         window.directLineService = directLineService;
+
+        // Expose agentManager for AI Companion AutoQA
+        this.agentManager = agentManager;
     }
 
     /**
@@ -223,6 +222,8 @@ export class Application {
             sendButton: DOMUtils.getElementById('sendButton'),
             voiceInputBtn: DOMUtils.getElementById('voiceInputBtn'),
             aiCompanionToggleBtn: DOMUtils.getElementById('aiCompanionToggleBtn'),
+            aiCompanionInlineWrapper: DOMUtils.getElementById('aiCompanionInlineWrapper'),
+            aiCompanionHoverMenu: DOMUtils.getElementById('aiCompanionHoverMenu'),
             llmQuickActionsContainer: DOMUtils.getElementById('llmQuickActionsContainer'),
 
             // Navigation elements
@@ -237,6 +238,10 @@ export class Application {
             fileInput: DOMUtils.getElementById('fileInput'),
             attachButton: DOMUtils.getElementById('attachButton'),
             removeFileButton: DOMUtils.getElementById('removeFileButton'),
+            filePreviewContainer: DOMUtils.getElementById('filePreviewContainer'),
+            uploadProgressBar: DOMUtils.getElementById('uploadProgressBar'),
+            uploadProgressFill: DOMUtils.getElementById('uploadProgressFill'),
+            uploadProgressText: DOMUtils.getElementById('uploadProgressText'),
 
             // Modal elements
             setupModal: DOMUtils.getElementById('setupModal'),
@@ -261,6 +266,8 @@ export class Application {
             fullWidthMessagesCheckbox: DOMUtils.getElementById('fullWidthMessagesCheckbox'),
             enableLLMCheckbox: DOMUtils.getElementById('enableLLMCheckbox'),
             useAIThinkingCheckbox: DOMUtils.getElementById('useAIThinkingCheckbox'),
+            showCompanionModelCheckbox: DOMUtils.getElementById('showCompanionModelCheckbox'),
+            // Old API config elements (removed from UI, kept for backward compat if referenced)
             apiKeySection: DOMUtils.getElementById('apiKeySection'),
             apiProviderSelect: DOMUtils.getElementById('apiProviderSelect'),
             apiKeyInput: DOMUtils.getElementById('apiKeyInput'),
@@ -283,6 +290,13 @@ export class Application {
             openaiCompatibleModelInput: DOMUtils.getElementById('openaiCompatibleModelInput'),
             openaiCompatibleDisplayNameInput: DOMUtils.getElementById('openaiCompatibleDisplayNameInput'),
             testOpenAICompatibleBtn: DOMUtils.getElementById('testOpenAICompatibleBtn'),
+            // New model registry elements
+            addModelBtn: DOMUtils.getElementById('addModelBtn'),
+            addModelFormSection: DOMUtils.getElementById('addModelFormSection'),
+            addModelFormCloseBtn: DOMUtils.getElementById('addModelFormCloseBtn'),
+            regProviderSelect: DOMUtils.getElementById('regProviderSelect'),
+            testModelBtn: DOMUtils.getElementById('testModelBtn'),
+            registerModelBtn: DOMUtils.getElementById('registerModelBtn'),
 
             // Side browser elements
             sideBrowser: DOMUtils.getElementById('sideBrowser'),
@@ -295,11 +309,20 @@ export class Application {
             appearanceSidePanel: DOMUtils.getElementById('appearanceSidePanel'),
             closeAppearancePanel: DOMUtils.getElementById('closeAppearancePanel'),
             appearanceMessageIconToggle: DOMUtils.getElementById('appearanceMessageIconToggle'),
+            appearanceShowUserMessagesToggle: DOMUtils.getElementById('appearanceShowUserMessagesToggle'),
+            appearanceShowMetricsToggle: DOMUtils.getElementById('appearanceShowMetricsToggle'),
+            appearanceAutoHideMetadataToggle: DOMUtils.getElementById('appearanceAutoHideMetadataToggle'),
+            appearanceAutoHideSidebarToggle: DOMUtils.getElementById('appearanceAutoHideSidebarToggle'),
             appearanceAgentFontSize: DOMUtils.getElementById('appearanceAgentFontSize'),
             appearanceAgentFontSizeValue: DOMUtils.getElementById('appearanceAgentFontSizeValue'),
             appearanceCompanionFontSize: DOMUtils.getElementById('appearanceCompanionFontSize'),
             appearanceCompanionFontSizeValue: DOMUtils.getElementById('appearanceCompanionFontSizeValue'),
             appearanceThemeGallery: DOMUtils.getElementById('appearanceThemeGallery'),
+            homeBgFileInput: DOMUtils.getElementById('homeBgFileInput'),
+            homeBgRemoveBtn: DOMUtils.getElementById('homeBgRemoveBtn'),
+            homeTitleInput: DOMUtils.getElementById('homeTitleInput'),
+            homeSubtitleInput: DOMUtils.getElementById('homeSubtitleInput'),
+            languageSelect: DOMUtils.getElementById('languageSelect'),
             streamingStyleSelect: DOMUtils.getElementById('streamingStyleSelect'),
             streamingSpeedSelect: DOMUtils.getElementById('streamingSpeedSelect'),
             suggestedActionsPositionSelect: DOMUtils.getElementById('suggestedActionsPositionSelect'),
@@ -563,12 +586,92 @@ export class Application {
     /**
      * Render agent cards on the Home page
      */
+    /**
+     * Get saved card order from localStorage, sorted with new agents appended at end
+     */
+    _getOrderedAgentIds(agentIds) {
+        try {
+            const saved = JSON.parse(localStorage.getItem('homeCardOrder') || '[]');
+            const ordered = saved.filter(id => agentIds.includes(id));
+            const newIds = agentIds.filter(id => !ordered.includes(id));
+            return [...ordered, ...newIds];
+        } catch {
+            return agentIds;
+        }
+    }
+
+    /**
+     * Save card order to localStorage
+     */
+    _saveCardOrder(grid) {
+        const ids = Array.from(grid.querySelectorAll('.home-agent-card'))
+            .map(card => card.dataset.agentId)
+            .filter(Boolean);
+        localStorage.setItem('homeCardOrder', JSON.stringify(ids));
+    }
+
+    /**
+     * Set up drag-and-drop handlers on the agent card grid
+     */
+    _setupCardDragAndDrop(grid) {
+        let draggedCard = null;
+
+        grid.addEventListener('dragstart', (e) => {
+            const card = e.target.closest('.home-agent-card');
+            if (!card) return;
+            draggedCard = card;
+            card.classList.add('home-card-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', card.dataset.agentId);
+        });
+
+        grid.addEventListener('dragend', (e) => {
+            const card = e.target.closest('.home-agent-card');
+            if (card) card.classList.remove('home-card-dragging');
+            grid.querySelectorAll('.home-card-drag-over').forEach(el => el.classList.remove('home-card-drag-over'));
+            draggedCard = null;
+        });
+
+        grid.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const target = e.target.closest('.home-agent-card');
+            if (!target || target === draggedCard) return;
+            grid.querySelectorAll('.home-card-drag-over').forEach(el => el.classList.remove('home-card-drag-over'));
+            target.classList.add('home-card-drag-over');
+        });
+
+        grid.addEventListener('dragleave', (e) => {
+            const target = e.target.closest('.home-agent-card');
+            if (target) target.classList.remove('home-card-drag-over');
+        });
+
+        grid.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const target = e.target.closest('.home-agent-card');
+            if (!target || !draggedCard || target === draggedCard) return;
+            target.classList.remove('home-card-drag-over');
+
+            // Determine insertion position based on relative position
+            const cards = Array.from(grid.querySelectorAll('.home-agent-card'));
+            const dragIdx = cards.indexOf(draggedCard);
+            const dropIdx = cards.indexOf(target);
+            if (dragIdx < dropIdx) {
+                target.after(draggedCard);
+            } else {
+                target.before(draggedCard);
+            }
+
+            this._saveCardOrder(grid);
+        });
+    }
+
     renderHomeAgentCards() {
         const grid = document.getElementById('homeAgentGrid');
         if (!grid) return;
 
         const agents = agentManager.getAllAgents();
-        const agentIds = Object.keys(agents);
+        const agentIds = this._getOrderedAgentIds(Object.keys(agents));
 
         grid.innerHTML = '';
 
@@ -580,29 +683,35 @@ export class Application {
 
             const card = document.createElement('div');
             card.className = 'home-agent-card';
+            card.draggable = true;
+            card.dataset.agentId = agentId;
+            const descriptionHtml = agent.description
+                ? `<p class="home-agent-card-description">${Utils.escapeHtml(agent.description)}</p>`
+                : '';
             card.innerHTML = `
                 <h3 class="home-agent-card-name">${Utils.escapeHtml(agent.name)}</h3>
                 <div class="home-agent-card-status">
                     <span class="status-dot"></span>
-                    Ready
-                    ${hasParams ? `<span class="home-agent-params-badge">${agent.initParams.length} params</span>` : ''}
+                    <span>${i18n.t('home.ready')}</span>
+                    ${hasParams ? `<span class="home-agent-params-badge">${agent.initParams.length} ${i18n.t('home.params')}</span>` : ''}
                 </div>
+                ${descriptionHtml}
                 <div class="home-agent-card-stats">
                     <div class="home-agent-stat">
                         <span class="home-agent-stat-value">${stats.sessionCount}</span>
-                        <span class="home-agent-stat-label">Conversations</span>
+                        <span class="home-agent-stat-label">${i18n.t('home.conversations')}</span>
                     </div>
                     <div class="home-agent-stat">
                         <span class="home-agent-stat-value">${stats.totalDuration}</span>
-                        <span class="home-agent-stat-label">Total Time</span>
+                        <span class="home-agent-stat-label">${i18n.t('home.totalTime')}</span>
                     </div>
                     <div class="home-agent-stat">
                         <span class="home-agent-stat-value">${stats.messageCount}</span>
-                        <span class="home-agent-stat-label">Messages</span>
+                        <span class="home-agent-stat-label">${i18n.t('home.messages')}</span>
                     </div>
                     <div class="home-agent-stat">
                         <span class="home-agent-stat-value">${stats.lastInteraction}</span>
-                        <span class="home-agent-stat-label">Last Active</span>
+                        <span class="home-agent-stat-label">${i18n.t('home.lastActive')}</span>
                     </div>
                 </div>
             `;
@@ -637,10 +746,51 @@ export class Application {
         addCard.className = 'home-add-card';
         addCard.innerHTML = `
             <div class="home-add-icon">+</div>
-            <div class="home-add-label">Add New Agent</div>
+            <div class="home-add-label">${i18n.t('home.addAgent')}</div>
         `;
         addCard.addEventListener('click', () => this.showAddAgentOverlay());
         grid.appendChild(addCard);
+
+        // Set up drag-and-drop reordering
+        this._setupCardDragAndDrop(grid);
+    }
+
+    /**
+     * Show confirmation overlay before leaving to home page
+     */
+    showLeaveConfirmOverlay() {
+        let overlay = document.getElementById('leaveConfirmOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'leaveConfirmOverlay';
+            overlay.className = 'init-params-overlay';
+            overlay.innerHTML = `
+                <div class="init-params-card">
+                    <h3>${i18n.t('leave.title')}</h3>
+                    <p class="init-params-desc">${i18n.t('leave.message')}</p>
+                    <div class="init-params-actions">
+                        <button type="button" id="leaveConfirmCancelBtn" class="btn btn-secondary">${i18n.t('leave.cancel')}</button>
+                        <button type="button" id="leaveConfirmOkBtn" class="btn btn-primary">${i18n.t('leave.confirm')}</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        overlay.style.display = 'flex';
+
+        const cancelBtn = overlay.querySelector('#leaveConfirmCancelBtn');
+        const okBtn = overlay.querySelector('#leaveConfirmOkBtn');
+
+        const cleanup = () => { overlay.style.display = 'none'; };
+
+        cancelBtn.onclick = cleanup;
+        okBtn.onclick = () => {
+            cleanup();
+            directLineService.disconnect();
+            this.state.isConnected = false;
+            this.showHomePage();
+        };
     }
 
     /**
@@ -657,15 +807,15 @@ export class Application {
             overlay.className = 'init-params-overlay';
             overlay.innerHTML = `
                 <div class="init-params-card">
-                    <h3>Delete Agent</h3>
-                    <p class="init-params-desc">This action cannot be undone. To confirm, type the agent name below:</p>
+                    <h3>${i18n.t('delete.title')}</h3>
+                    <p class="init-params-desc">${i18n.t('delete.message')}</p>
                     <p class="delete-agent-name-display"></p>
                     <div class="form-group">
-                        <input type="text" id="deleteAgentConfirmInput" placeholder="Type agent name to confirm" />
+                        <input type="text" id="deleteAgentConfirmInput" placeholder="${i18n.t('delete.placeholder')}" />
                     </div>
                     <div class="init-params-actions">
-                        <button type="button" id="deleteAgentCancelBtn" class="btn btn-secondary">Cancel</button>
-                        <button type="button" id="deleteAgentConfirmBtn" class="btn btn-danger" disabled>Delete</button>
+                        <button type="button" id="deleteAgentCancelBtn" class="btn btn-secondary">${i18n.t('delete.cancel')}</button>
+                        <button type="button" id="deleteAgentConfirmBtn" class="btn btn-danger" disabled>${i18n.t('delete.confirm')}</button>
                     </div>
                 </div>
             `;
@@ -798,10 +948,10 @@ export class Application {
      */
     _formatRelativeTime(ts) {
         const diff = Date.now() - ts;
-        if (diff < 60000) return 'Just now';
-        if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-        if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-        if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+        if (diff < 60000) return i18n.t('stats.justNow');
+        if (diff < 3600000) return i18n.t('stats.minutesAgo', { n: Math.floor(diff / 60000) });
+        if (diff < 86400000) return i18n.t('stats.hoursAgo', { n: Math.floor(diff / 3600000) });
+        if (diff < 604800000) return i18n.t('stats.daysAgo', { n: Math.floor(diff / 86400000) });
         return new Date(ts).toLocaleDateString();
     }
 
@@ -832,7 +982,7 @@ export class Application {
         if (!overlay) return;
 
         const agent = agentManager.agents[agentId];
-        titleEl.textContent = "Let's Begin";
+        titleEl.textContent = agent?.name || agentId;
 
         // Reset state
         progressSection.style.display = 'none';
@@ -854,8 +1004,10 @@ export class Application {
             `;
             startBtn.textContent = 'Start Session';
         } else {
-            paramsSection.innerHTML = '<p class="params-description">Ready to connect to <strong>' + Utils.escapeHtml(agent.name) + '</strong>.</p>';
-            startBtn.textContent = 'Connect';
+            // No params — hide form and buttons, will auto-connect below
+            paramsSection.innerHTML = '';
+            paramsSection.style.display = 'none';
+            actionsSection.style.display = 'none';
         }
 
         overlay.style.display = 'flex';
@@ -888,95 +1040,121 @@ export class Application {
         });
 
         newStartBtn.addEventListener('click', async () => {
-            // Validate params
-            if (hasParams) {
-                const inputs = paramsSection.querySelectorAll('input[required]');
-                let valid = true;
-                inputs.forEach(input => {
-                    if (!input.value.trim()) { input.classList.add('input-error'); valid = false; }
-                    else { input.classList.remove('input-error'); }
-                });
-                if (!valid) return;
+            await this._doAgentConnect(agentId, agent, hasParams, overlay, paramsSection, progressSection, actionsSection, cancelProgressSection, newCancelProgressBtn, connectionAborted, () => connectionAborted);
+        });
 
-                const context = {};
-                inputs.forEach(input => { context[input.name] = input.value.trim(); });
-                directLineService.setInitContext(context);
-            }
+        // Auto-connect immediately for agents without params
+        if (!hasParams) {
+            // Small delay to let overlay render
+            setTimeout(() => {
+                this._doAgentConnect(agentId, agent, false, overlay, paramsSection, progressSection, actionsSection, cancelProgressSection, newCancelProgressBtn, connectionAborted, () => connectionAborted);
+            }, 100);
+        }
+    }
 
-            // Show progress in-place
-            actionsSection.style.display = 'none';
-            paramsSection.style.display = 'none';
-            progressSection.style.display = 'block';
-            cancelProgressSection.style.display = 'flex';
-            const statusEl = document.getElementById('agentSplashStatus');
-            statusEl.textContent = 'Connecting to ' + agent.name + '...';
+    /**
+     * Internal: execute agent connection from splash overlay
+     * @private
+     */
+    async _doAgentConnect(agentId, agent, hasParams, overlay, paramsSection, progressSection, actionsSection, cancelProgressSection, cancelProgressBtn, _unused, isAborted) {
+        if (isAborted()) return;
 
-            try {
-                await agentManager.setCurrentAgent(agentId);
+        // Validate params
+        if (hasParams) {
+            const inputs = paramsSection.querySelectorAll('input[required]');
+            let valid = true;
+            inputs.forEach(input => {
+                if (!input.value.trim()) { input.classList.add('input-error'); valid = false; }
+                else { input.classList.remove('input-error'); }
+            });
+            if (!valid) return;
 
-                // Clear chat window for fresh session (but keep Home visible behind overlay)
-                messageRenderer.clearMessages();
-                messageRenderer.setTargetWindow('chatWindow');
+            const context = {};
+            inputs.forEach(input => { context[input.name] = input.value.trim(); });
+            directLineService.setInitContext(context);
+        }
 
-                const success = await directLineService.connect(agent.secret);
-                if (connectionAborted) return;
+        // Show progress in-place
+        actionsSection.style.display = 'none';
+        paramsSection.style.display = 'none';
+        progressSection.style.display = 'block';
+        cancelProgressSection.style.display = 'flex';
+        const statusEl = document.getElementById('agentSplashStatus');
+        statusEl.textContent = 'Connecting to ' + agent.name + '...';
+        statusEl.classList.remove('breathing');
 
-                if (success) {
-                    statusEl.textContent = 'Connected! Waiting for agent response...';
-                    this.state.isConnected = true;
-                    this.state.currentAgent = agent;
-                    this.initializeSession();
-                    this.updateAgentStatus('connected', agent.name);
+        try {
+            await agentManager.setCurrentAgent(agentId);
 
-                    // Keep overlay AND home visible — fade both out on first bot message
-                    const fadeOutOnFirstMessage = (entry) => {
-                        if (connectionAborted) return;
-                        directLineService.off('message', fadeOutOnFirstMessage);
+            // Clear chat window for fresh session
+            messageRenderer.clearMessages();
+            messageRenderer.setTargetWindow('chatWindow');
 
-                        // Fade out overlay
-                        overlay.style.transition = 'opacity 0.4s ease';
-                        overlay.style.opacity = '0';
+            const success = await directLineService.connect(agent.secret);
+            if (isAborted()) return;
 
-                        // Fade out home page
-                        const homePage = document.getElementById('homePage');
-                        if (homePage && homePage.style.display !== 'none') {
-                            homePage.style.transition = 'opacity 0.4s ease';
-                            homePage.style.opacity = '0';
-                        }
+            if (success) {
+                statusEl.textContent = 'Initializing conversation, please wait...';
+                statusEl.classList.add('breathing');
+                this.state.isConnected = true;
+                this.state.currentAgent = agent;
 
-                        setTimeout(() => {
-                            overlay.style.display = 'none';
-                            overlay.style.opacity = '';
-                            overlay.style.transition = '';
-                            this.hideHomePage();
-                            if (homePage) {
-                                homePage.style.opacity = '';
-                                homePage.style.transition = '';
-                            }
-                        }, 400);
-                    };
-                    directLineService.on('message', fadeOutOnFirstMessage);
+                // Set agent context on session manager for filtering
+                sessionManager.setCurrentAgentId(agentId);
 
-                    // Safety timeout: close overlay after 15s even if no message
+                this.initializeSession();
+                this.updateAgentStatus('connected', agent.name);
+
+                // Keep overlay AND home visible — fade both out on first bot message
+                const fadeOutOnFirstMessage = (entry) => {
+                    if (isAborted()) return;
+                    directLineService.off('message', fadeOutOnFirstMessage);
+
+                    // Fade out overlay
+                    overlay.style.transition = 'opacity 0.4s ease';
+                    overlay.style.opacity = '0';
+
+                    // Fade out home page
+                    const homePage = document.getElementById('homePage');
+                    if (homePage && homePage.style.display !== 'none') {
+                        homePage.style.transition = 'opacity 0.4s ease';
+                        homePage.style.opacity = '0';
+                    }
+
                     setTimeout(() => {
-                        if (overlay.style.display !== 'none') {
-                            directLineService.off('message', fadeOutOnFirstMessage);
-                            overlay.style.display = 'none';
-                            this.hideHomePage();
+                        overlay.style.display = 'none';
+                        overlay.style.opacity = '';
+                        overlay.style.transition = '';
+                        this.hideHomePage();
+                        if (homePage) {
+                            homePage.style.opacity = '';
+                            homePage.style.transition = '';
                         }
-                    }, 15000);
-                } else {
-                    statusEl.textContent = 'Connection failed. Please try again.';
-                    newCancelProgressBtn.textContent = 'Back';
-                    this.showHomePage();
-                }
-            } catch (error) {
-                if (connectionAborted) return;
-                statusEl.textContent = 'Error: ' + error.message;
-                newCancelProgressBtn.textContent = 'Back';
+                    }, 400);
+                };
+                directLineService.on('message', fadeOutOnFirstMessage);
+
+                // Safety timeout: close overlay after 15s even if no message
+                setTimeout(() => {
+                    if (overlay.style.display !== 'none') {
+                        directLineService.off('message', fadeOutOnFirstMessage);
+                        overlay.style.display = 'none';
+                        this.hideHomePage();
+                    }
+                }, 15000);
+            } else {
+                statusEl.textContent = 'Connection failed. Please try again.';
+                statusEl.classList.remove('breathing');
+                cancelProgressBtn.textContent = 'Back';
                 this.showHomePage();
             }
-        });
+        } catch (error) {
+            if (isAborted()) return;
+            statusEl.textContent = 'Error: ' + error.message;
+            statusEl.classList.remove('breathing');
+            cancelProgressBtn.textContent = 'Back';
+            this.showHomePage();
+        }
     }
 
     /**
@@ -988,6 +1166,7 @@ export class Application {
         const titleEl = document.getElementById('agentEditTitle');
         const nameInput = document.getElementById('agentEditName');
         const secretInput = document.getElementById('agentEditSecret');
+        const descriptionInput = document.getElementById('agentEditDescription');
         const paramsList = document.getElementById('agentEditParamsList');
         const addParamBtn = document.getElementById('agentEditAddParamBtn');
         const saveBtn = document.getElementById('agentEditSaveBtn');
@@ -1000,6 +1179,9 @@ export class Application {
         titleEl.textContent = isEdit ? 'Edit Agent' : 'Add New Agent';
         nameInput.value = isEdit ? agent.name : '';
         secretInput.value = isEdit ? agent.secret : '';
+        if (descriptionInput) {
+            descriptionInput.value = isEdit ? (agent.description || '') : '';
+        }
 
         // Render params
         const params = isEdit ? agentManager.getInitParams(agentId) : [];
@@ -1039,8 +1221,12 @@ export class Application {
             });
 
             const savedId = await agentManager.addOrUpdateAgent(agentId, name, secret);
-            // Save params separately
+            // Save params and description
             agentManager.agents[savedId].initParams = initParams;
+            const descEl = document.getElementById('agentEditDescription');
+            if (descEl) {
+                agentManager.agents[savedId].description = descEl.value.trim().substring(0, 200);
+            }
             agentManager.agents[savedId].updatedAt = new Date().toISOString();
             await agentManager.saveAgents();
 
@@ -1125,6 +1311,10 @@ export class Application {
                 this.state.isConnected = true;
                 this.state.currentAgent = agentManager.getCurrentAgent();
 
+                // Set agent context on session manager for filtering
+                const currentAgentId = agentManager.currentAgentId;
+                sessionManager.setCurrentAgentId(currentAgentId);
+
                 // Emit DirectLine connected event
                 document.dispatchEvent(new CustomEvent('directline:connected'));
 
@@ -1186,11 +1376,24 @@ export class Application {
             this.aiCompanion.startVoiceInput();
         });
 
-        // AI Companion toggle
+        // AI Companion toggle — click toggles mode directly
         DOMUtils.addEventListener(this.elements.aiCompanionToggleBtn, 'click', () => {
             console.log('AI Companion toggle button clicked');
             this.toggleAICompanionMode();
         });
+
+        // Hover menu items — switch mode
+        if (this.elements.aiCompanionHoverMenu) {
+            this.elements.aiCompanionHoverMenu.querySelectorAll('.hover-menu-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    const mode = e.currentTarget.dataset.mode;
+                    const wantCompanion = mode === 'companion';
+                    if (wantCompanion !== this.state.aiCompanionMode) {
+                        this.toggleAICompanionMode();
+                    }
+                });
+            });
+        }
 
         // Quick action buttons
         const quickActionButtons = document.querySelectorAll('.quick-action-btn');
@@ -1198,6 +1401,20 @@ export class Application {
             DOMUtils.addEventListener(btn, 'click', async (e) => {
                 const action = e.target.dataset.action;
                 console.log('Quick action clicked:', action);
+
+                // AutoQA has special handling — opens config modal, doesn't require AI Companion mode
+                if (action === 'autoqa') {
+                    if (window.aiCompanion && window.aiCompanion.isEnabled) {
+                        if (window.aiCompanion.autoQA.isRunning) {
+                            window.aiCompanion.stopAutoQA('manual');
+                        } else {
+                            window.aiCompanion.showAutoQAConfigModal();
+                        }
+                    } else {
+                        console.warn('AI Companion not enabled — AutoQA requires AI Companion');
+                    }
+                    return;
+                }
 
                 if (window.aiCompanion && window.aiCompanion.isEnabled) {
                     try {
@@ -1252,6 +1469,26 @@ export class Application {
                 }
             });
         }
+        if (this.elements.appearanceShowUserMessagesToggle) {
+            DOMUtils.addEventListener(this.elements.appearanceShowUserMessagesToggle, 'change', (e) => {
+                this.toggleUserMessagesVisibility(e.target.checked);
+            });
+        }
+        if (this.elements.appearanceShowMetricsToggle) {
+            DOMUtils.addEventListener(this.elements.appearanceShowMetricsToggle, 'change', (e) => {
+                this.toggleMetricsVisibility(e.target.checked);
+            });
+        }
+        if (this.elements.appearanceAutoHideMetadataToggle) {
+            DOMUtils.addEventListener(this.elements.appearanceAutoHideMetadataToggle, 'change', (e) => {
+                this.toggleAutoHideMetadata(e.target.checked);
+            });
+        }
+        if (this.elements.appearanceAutoHideSidebarToggle) {
+            DOMUtils.addEventListener(this.elements.appearanceAutoHideSidebarToggle, 'change', (e) => {
+                this.toggleAutoHideSidebar(e.target.checked);
+            });
+        }
         // Appearance panel: font size controls
         if (this.elements.appearanceAgentFontSize) {
             DOMUtils.addEventListener(this.elements.appearanceAgentFontSize, 'input', (e) => {
@@ -1281,6 +1518,71 @@ export class Application {
                     this.elements.appearanceThemeGallery.querySelectorAll('.theme-option').forEach(opt => opt.classList.remove('active'));
                     themeOption.classList.add('active');
                 }
+            });
+        }
+        // Appearance panel: home background image upload
+        if (this.elements.homeBgFileInput) {
+            this.elements.homeBgFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Image size must be under 5 MB');
+                    e.target.value = '';
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    localStorage.setItem('homeBgImage', ev.target.result);
+                    this.applyHomeBgImage();
+                    this._syncHomeBgPreview();
+                };
+                reader.readAsDataURL(file);
+                e.target.value = '';
+            });
+        }
+        if (this.elements.homeBgRemoveBtn) {
+            this.elements.homeBgRemoveBtn.addEventListener('click', () => {
+                this.removeHomeBgImage();
+            });
+        }
+        // Home title & subtitle inputs
+        if (this.elements.homeTitleInput) {
+            this.elements.homeTitleInput.addEventListener('input', (e) => {
+                const val = e.target.value.trim();
+                const title = document.querySelector('.home-title');
+                if (title) title.textContent = val || i18n.t('home.defaultTitle');
+                if (val) {
+                    localStorage.setItem('homeTitle', val);
+                } else {
+                    localStorage.removeItem('homeTitle');
+                }
+            });
+        }
+        if (this.elements.homeSubtitleInput) {
+            this.elements.homeSubtitleInput.addEventListener('input', (e) => {
+                const val = e.target.value.trim();
+                const subtitle = document.querySelector('.home-subtitle');
+                if (subtitle) subtitle.textContent = val || i18n.t('home.defaultSubtitle');
+                if (val) {
+                    localStorage.setItem('homeSubtitle', val);
+                } else {
+                    localStorage.removeItem('homeSubtitle');
+                }
+            });
+        }
+        // Language selector
+        if (this.elements.languageSelect) {
+            this.elements.languageSelect.addEventListener('change', (e) => {
+                i18n.setLanguage(e.target.value);
+                // Re-apply custom title/subtitle or defaults
+                const savedTitle = localStorage.getItem('homeTitle');
+                const savedSubtitle = localStorage.getItem('homeSubtitle');
+                const titleEl = document.querySelector('.home-title');
+                const subtitleEl = document.querySelector('.home-subtitle');
+                if (titleEl && !savedTitle) titleEl.textContent = i18n.t('home.defaultTitle');
+                if (subtitleEl && !savedSubtitle) subtitleEl.textContent = i18n.t('home.defaultSubtitle');
+                // Re-render home cards for translated labels
+                this.renderHomeAgentCards();
             });
         }
         // Streaming style and speed controls
@@ -1318,9 +1620,7 @@ export class Application {
         const backToHomeBtn = document.getElementById('backToHomeButton');
         if (backToHomeBtn) {
             DOMUtils.addEventListener(backToHomeBtn, 'click', () => {
-                directLineService.disconnect();
-                this.state.isConnected = false;
-                this.showHomePage();
+                this.showLeaveConfirmOverlay();
             });
         }
 
@@ -1525,7 +1825,7 @@ export class Application {
         });
 
         DOMUtils.addEventListener(this.elements.removeFileButton, 'click', () => {
-            this.removeSelectedFile();
+            this.removeAllSelectedFiles();
         });
 
         // Drag and drop
@@ -1539,6 +1839,11 @@ export class Application {
 
         DOMUtils.addEventListener(this.elements.chatWindow, 'drop', (e) => {
             this.handleFileDrop(e);
+        });
+
+        // Clipboard paste (image from screenshot / web copy)
+        DOMUtils.addEventListener(this.elements.userInput, 'paste', (e) => {
+            this.handlePasteImage(e);
         });
     }
 
@@ -1631,6 +1936,18 @@ export class Application {
                 console.log('AI thinking simulation:', e.target.checked ? 'enabled' : 'disabled (using thinking dot)');
             });
         }
+
+        // Show companion model in header checkbox
+        if (this.elements.showCompanionModelCheckbox) {
+            DOMUtils.addEventListener(this.elements.showCompanionModelCheckbox, 'change', (e) => {
+                localStorage.setItem('showCompanionModel', e.target.checked.toString());
+                const panel = document.getElementById('companionStatusPanel');
+                if (panel) panel.style.display = e.target.checked ? '' : 'none';
+            });
+        }
+
+        // ── Model Registration Form ──
+        this._setupModelRegistrationHandlers();
 
         // Streaming checkbox
         if (this.elements.enableStreamingCheckbox) {
@@ -1844,14 +2161,14 @@ export class Application {
         }
 
         // Font size controls
-        if (this.elements.agentFontSize) {
-            DOMUtils.addEventListener(this.elements.agentFontSize, 'input', (e) => {
+        if (this.elements.appearanceAgentFontSize) {
+            DOMUtils.addEventListener(this.elements.appearanceAgentFontSize, 'input', (e) => {
                 this.updateAgentFontSize(e.target.value);
             });
         }
 
-        if (this.elements.companionFontSize) {
-            DOMUtils.addEventListener(this.elements.companionFontSize, 'input', (e) => {
+        if (this.elements.appearanceCompanionFontSize) {
+            DOMUtils.addEventListener(this.elements.appearanceCompanionFontSize, 'input', (e) => {
                 this.updateCompanionFontSize(e.target.value);
             });
         }
@@ -1927,10 +2244,119 @@ export class Application {
             this.handleSessionChanged(e.detail);
         });
 
+        // AutoQA state change — manage UI and input mode
+        window.addEventListener('autoQAStateChange', (e) => {
+            const { state } = e.detail;
+
+            if (state === 'started') {
+                // Switch text box back to Agent mode (turn off AI Companion mode)
+                if (this.state.aiCompanionMode) {
+                    this.toggleAICompanionMode();
+                }
+                // Disable user input during AutoQA
+                document.body.classList.add('autoqa-active');
+                if (this.elements.userInput) this.elements.userInput.disabled = true;
+                if (this.elements.sendButton) this.elements.sendButton.disabled = true;
+                // Show floating Live banner
+                this._showAutoQALiveBanner();
+            } else if (state === 'stopped') {
+                document.body.classList.remove('autoqa-active');
+                if (this.elements.userInput) this.elements.userInput.disabled = false;
+                if (this.elements.sendButton) this.elements.sendButton.disabled = false;
+                this._removeAutoQALiveBanner();
+            } else if (state === 'paused') {
+                const banner = document.getElementById('autoqa-live-banner');
+                if (banner) {
+                    banner.querySelector('.autoqa-live-text').textContent = 'AutoQA Paused';
+                    banner.classList.add('autoqa-live-paused');
+                }
+            } else if (state === 'resumed') {
+                document.body.classList.add('autoqa-active');
+                if (this.elements.userInput) this.elements.userInput.disabled = true;
+                if (this.elements.sendButton) this.elements.sendButton.disabled = true;
+                const banner = document.getElementById('autoqa-live-banner');
+                if (banner) {
+                    banner.querySelector('.autoqa-live-text').textContent = 'AutoQA Live';
+                    banner.classList.remove('autoqa-live-paused');
+                }
+            }
+
+            // Update quick-action button
+            const autoqaBtn = document.querySelector('.quick-action-btn[data-action="autoqa"]');
+            if (autoqaBtn) {
+                if (state === 'started' || state === 'resumed') {
+                    autoqaBtn.textContent = 'Stop AutoQA';
+                    autoqaBtn.classList.add('autoqa-running');
+                } else if (state === 'stopped') {
+                    autoqaBtn.textContent = 'AutoQA';
+                    autoqaBtn.classList.remove('autoqa-running');
+                } else if (state === 'paused') {
+                    autoqaBtn.textContent = 'AutoQA (Paused)';
+                }
+            }
+
+            // Update round counter on banner
+            if (state === 'roundComplete') {
+                const banner = document.getElementById('autoqa-live-banner');
+                if (banner) {
+                    const { round, total } = e.detail;
+                    banner.querySelector('.autoqa-live-round').textContent = `${round}/${total}`;
+                }
+            }
+        });
+
         // UI events
         window.addEventListener('suggestedActionClicked', (e) => {
             this.handleSuggestedAction(e.detail);
         });
+
+        // AutoQA: programmatic message send (already in Agent mode, goes to DirectLine)
+        window.addEventListener('autoQASendMessage', () => {
+            this.sendMessage();
+        });
+    }
+
+    /**
+     * Show the AutoQA Live floating banner
+     * @private
+     */
+    _showAutoQALiveBanner() {
+        this._removeAutoQALiveBanner();
+
+        const banner = DOMUtils.createElement('div', {
+            id: 'autoqa-live-banner',
+            className: 'autoqa-live-banner'
+        });
+
+        banner.innerHTML = `
+            <span class="autoqa-live-dot"></span>
+            <span class="autoqa-live-text">AutoQA Live</span>
+            <span class="autoqa-live-round">0/${window.aiCompanion?.autoQA?.config?.maxRounds || '?'}</span>
+            <button class="autoqa-live-stop" title="Stop AutoQA">Stop</button>
+        `;
+
+        banner.querySelector('.autoqa-live-stop').addEventListener('click', () => {
+            if (window.aiCompanion) {
+                window.aiCompanion.stopAutoQA('manual');
+            }
+        });
+
+        // Insert at the top of the chat panel
+        const chatPanel = document.getElementById('agentChatPanel');
+        if (chatPanel) {
+            chatPanel.insertBefore(banner, chatPanel.firstChild);
+        } else {
+            document.body.appendChild(banner);
+        }
+    }
+
+    /**
+     * Remove the AutoQA Live floating banner
+     * @private
+     */
+    _removeAutoQALiveBanner() {
+        const existing = document.getElementById('autoqa-live-banner');
+        if (existing) existing.remove();
     }
 
     /**
@@ -1938,13 +2364,13 @@ export class Application {
      */
     async sendMessage() {
         const messageText = this.elements.userInput.value.trim();
-        if (!messageText && !this.selectedFile) return;
+        if (!messageText && (!this.selectedFiles || this.selectedFiles.length === 0)) return;
 
         // Temporarily comment out logging call
         // this.loggingManager.info('ui', 'User sending message', {
         //     messageLength: messageText.length,
-        //     hasFile: !!this.selectedFile,
-        //     fileName: this.selectedFile?.name,
+        //     hasFile: !!this.selectedFiles.length,
+        //     fileName: this.selectedFiles[0]?.name,
         //     isConnected: this.state.isConnected
         // });
 
@@ -2034,12 +2460,24 @@ export class Application {
             sessionManager.addMessage({
                 from: 'user',
                 text: messageText,
-                attachments: this.selectedFile ? [this.selectedFile] : [],
+                attachments: (this.selectedFiles && this.selectedFiles.length > 0) ? [...this.selectedFiles] : [],
                 timestamp: userMessageTimestamp
             });
 
-            // Render user message with explicit timestamp
-            this.renderUserMessage(messageText, userMessageTimestamp);
+            // Build local attachment objects for rendering in user message
+            const userAttachments = [];
+            for (const file of (this.selectedFiles || [])) {
+                const blobUrl = URL.createObjectURL(file);
+                userAttachments.push({
+                    contentType: file.type || 'application/octet-stream',
+                    contentUrl: blobUrl,
+                    name: file.name,
+                    _fileSize: file.size
+                });
+            }
+
+            // Render user message with explicit timestamp and attachments
+            this.renderUserMessage(messageText, userMessageTimestamp, userAttachments);
 
             // Send to DirectLine immediately - don't wait for thinking simulation
             let messagePromise;
@@ -2052,26 +2490,28 @@ export class Application {
                 messagePromise = this.sendMessageToAICompanion(messageText);
             } else {
                 // Normal flow - send to DirectLine
-                if (this.selectedFile) {
-                    messagePromise = this.sendMessageWithFile(messageText, this.selectedFile);
-                    this.removeSelectedFile();
+                if (this.selectedFiles && this.selectedFiles.length > 0) {
+                    messagePromise = this.sendMessageWithFiles(messageText, [...this.selectedFiles]);
+                    this.removeAllSelectedFiles();
                 } else {
                     messagePromise = directLineService.sendMessage(messageText);
                 }
             }
 
             // Start intelligent thinking simulation after DirectLine send
-            this.startIntelligentThinkingSimulation(messageText, messagePromise);
+            this.startIntelligentThinkingSimulation(messageText || 'User sent file attachment(s)', messagePromise);
 
             // Show progress indicator with detected context (only if AI companion is not enabled for thinking simulation)
-            const useAIThinking = window.aiCompanion?.isEnabled === true && localStorage.getItem('useAIThinking') !== 'false';
-            if (!useAIThinking) {
-                this.showProgressIndicator({ source: 'user-message' });
-                // Initial status: message sent, waiting for bot
-                this.enhancedTypingIndicator.setStatus('Waiting for agent...');
-            } else {
-                // Set evaluation flag to prevent typing indicators during the 2-second evaluation period
-                this.isEvaluatingThinkingSimulation = true;
+            {
+                const useAIThinking = window.aiCompanion?.isEnabled === true && localStorage.getItem('useAIThinking') !== 'false';
+                const hasFiles = userAttachments.length > 0;
+
+                if (!useAIThinking || hasFiles) {
+                    this.showProgressIndicator({ source: hasFiles ? 'file-upload' : 'user-message' });
+                    this.enhancedTypingIndicator.setStatus(hasFiles ? 'Uploading and processing...' : 'Waiting for agent...');
+                } else {
+                    this.isEvaluatingThinkingSimulation = true;
+                }
             }
 
             // Re-enable send button after message is processed
@@ -2094,11 +2534,12 @@ export class Application {
      * @param {string} timestamp - Message timestamp
      * @private
      */
-    renderUserMessage(text, timestamp) {
+    renderUserMessage(text, timestamp, attachments) {
         const activity = {
             from: { id: 'user' },
             text: text,
-            timestamp: timestamp || new Date().toISOString()
+            timestamp: timestamp || new Date().toISOString(),
+            attachments: attachments || []
         };
 
         messageRenderer.renderCompleteMessage(activity);
@@ -2201,6 +2642,21 @@ export class Application {
             document.body.classList.remove('ai-companion-active');
             this.elements.userInput.placeholder = "Type your message...";
         }
+
+        // Sync hover menu active-mode indicators and status text
+        if (this.elements.aiCompanionHoverMenu) {
+            this.elements.aiCompanionHoverMenu.querySelectorAll('.hover-menu-item').forEach(item => {
+                const isAgent = item.dataset.mode === 'agent';
+                const active = this.state.aiCompanionMode ? !isAgent : isAgent;
+                item.classList.toggle('active-mode', active);
+            });
+            const statusEl = document.getElementById('aiCompanionModeStatus');
+            if (statusEl) {
+                statusEl.textContent = this.state.aiCompanionMode
+                    ? 'AI Companion Mode — messages are sent to your AI companion for analysis and insights.'
+                    : 'Agent Mode — messages are sent to your Copilot Studio agent.';
+            }
+        }
     }
 
     /**
@@ -2257,8 +2713,13 @@ export class Application {
                 finalIsEnabled: isEnabled
             });
 
-            // Show/hide toggle button based on AI companion enabled status
-            this.elements.aiCompanionToggleBtn.style.display = isEnabled ? 'inline-flex' : 'none';
+            // Show/hide the inline wrapper (contains button + hover menu)
+            const wrapper = this.elements.aiCompanionInlineWrapper;
+            if (wrapper) {
+                wrapper.style.display = isEnabled ? 'flex' : 'none';
+            } else {
+                this.elements.aiCompanionToggleBtn.style.display = isEnabled ? 'inline-flex' : 'none';
+            }
 
             // If AI companion is disabled, also hide the quick actions and reset the mode
             if (!isEnabled) {
@@ -2266,6 +2727,9 @@ export class Application {
                 this.elements.aiCompanionToggleBtn.classList.remove('active');
                 this.elements.llmQuickActionsContainer.classList.remove('expanded');
             }
+
+            // Sync hover menu active-mode indicators on init
+            this.applyAICompanionVisualState();
 
             console.log('AI Companion toggle visibility updated:', isEnabled ? 'visible' : 'hidden');
         } else {
@@ -2282,6 +2746,11 @@ export class Application {
     handleStreamingChunk(entry) {
         this.hideProgressIndicator();
         this._lastMessageTime = Date.now();
+
+        // Skip empty chunks that would create empty bubbles
+        if (!entry.text?.trim() && !this._streamingElements?.has(entry.id || `stream-${entry.timestamp}`)) {
+            return;
+        }
 
         // Use messageRenderer to update the streaming message in place
         const messageId = entry.id || `stream-${entry.timestamp}`;
@@ -2418,6 +2887,18 @@ export class Application {
             return;
         }
 
+        // Skip activities with no renderable content (avoids empty bubbles)
+        if (activity.from && activity.from.id !== 'user') {
+            const textContent = activity.text?.trim();
+            const hasContent = textContent ||
+                (activity.attachments && activity.attachments.length > 0) ||
+                (activity.suggestedActions && activity.suggestedActions.actions.length > 0);
+            if (!hasContent) {
+                console.log('[Application] handleCompleteMessage: Skipping empty bot activity (no text/attachments/suggestedActions)');
+                return;
+            }
+        }
+
         // Wait for thinking simulation to complete before starting agent message rendering
         if (window.aiCompanion && window.aiCompanion.isEnabled && activity.from && activity.from.id !== 'user') {
             try {
@@ -2494,6 +2975,17 @@ export class Application {
     async handleStreamingActivity(activity) {
         this.hideProgressIndicator();
         this._lastMessageTime = Date.now();
+
+        // Skip empty streaming activities (avoids empty bubbles)
+        if (activity.from && activity.from.id !== 'user') {
+            const hasContent = activity.text?.trim() ||
+                (activity.attachments && activity.attachments.length > 0) ||
+                (activity.suggestedActions && activity.suggestedActions.actions.length > 0);
+            if (!hasContent) {
+                console.log('[Application] handleStreamingActivity: Skipping empty bot activity');
+                return;
+            }
+        }
 
         // Wait for thinking simulation to complete before starting agent message rendering
         if (window.aiCompanion && window.aiCompanion.isEnabled && activity.from && activity.from.id !== 'user') {
@@ -2601,21 +3093,27 @@ export class Application {
             return;
         }
 
-        // Add to session if it has content
-        if (activity.text ||
+        // Skip activities with no renderable content (avoids empty bubbles)
+        const textContent = activity.text?.trim();
+        const hasContent = textContent ||
             (activity.attachments && activity.attachments.length > 0) ||
-            (activity.suggestedActions && activity.suggestedActions.actions.length > 0)) {
+            (activity.suggestedActions && activity.suggestedActions.actions.length > 0);
 
-            sessionManager.addMessage({
-                from: activity.from?.id || 'bot',
-                text: activity.text,
-                attachments: activity.attachments,
-                suggestedActions: activity.suggestedActions,
-                timestamp: activity.timestamp,
-                inputHint: activity.inputHint,
-                replyToId: activity.replyToId
-            });
+        if (!hasContent) {
+            console.log('[Application] handleConversationUpdate: Skipping empty activity (no text, attachments, or suggestedActions)');
+            return;
         }
+
+        // Add to session
+        sessionManager.addMessage({
+            from: activity.from?.id || 'bot',
+            text: activity.text,
+            attachments: activity.attachments,
+            suggestedActions: activity.suggestedActions,
+            timestamp: activity.timestamp,
+            inputHint: activity.inputHint,
+            replyToId: activity.replyToId
+        });
 
         messageRenderer.renderCompleteMessage(activity);
     }
@@ -2644,10 +3142,13 @@ export class Application {
             return;
         }
 
-        // Add to session if it has content
-        if (activity.text ||
+        // Skip activities with no renderable content (avoids empty bubbles)
+        const eventHasContent = activity.text?.trim() ||
             (activity.attachments && activity.attachments.length > 0) ||
-            (activity.suggestedActions && activity.suggestedActions.actions.length > 0)) {
+            (activity.suggestedActions && activity.suggestedActions.actions.length > 0);
+
+        // Add to session if it has content
+        if (eventHasContent) {
 
             sessionManager.addMessage({
                 from: activity.from?.id || 'bot',
@@ -2658,6 +3159,11 @@ export class Application {
                 inputHint: activity.inputHint,
                 replyToId: activity.replyToId
             });
+        }
+
+        if (!eventHasContent) {
+            console.log('[Application] handleEventActivity: Skipping empty event activity');
+            return;
         }
 
         messageRenderer.renderCompleteMessage(activity);
@@ -3306,6 +3812,14 @@ export class Application {
             this.elements.useAIThinkingCheckbox.checked = localStorage.getItem('useAIThinking') !== 'false';
         }
 
+        // Load show companion model preference (default: true)
+        if (this.elements.showCompanionModelCheckbox) {
+            const show = localStorage.getItem('showCompanionModel') !== 'false';
+            this.elements.showCompanionModelCheckbox.checked = show;
+            const panel = document.getElementById('companionStatusPanel');
+            if (panel) panel.style.display = show ? '' : 'none';
+        }
+
         // Load streaming settings
         if (this.elements.enableStreamingCheckbox) {
             this.elements.enableStreamingCheckbox.checked = localStorage.getItem('enableStreaming') === 'true';
@@ -3476,6 +3990,18 @@ export class Application {
         if (this.elements.appearanceMessageIconToggle) {
             this.elements.appearanceMessageIconToggle.checked = this.uiState.messageIconsEnabled;
         }
+        if (this.elements.appearanceShowUserMessagesToggle) {
+            this.elements.appearanceShowUserMessagesToggle.checked = this.uiState.showUserMessages;
+        }
+        if (this.elements.appearanceShowMetricsToggle) {
+            this.elements.appearanceShowMetricsToggle.checked = this.uiState.showMetrics;
+        }
+        if (this.elements.appearanceAutoHideMetadataToggle) {
+            this.elements.appearanceAutoHideMetadataToggle.checked = this.uiState.autoHideMetadata;
+        }
+        if (this.elements.appearanceAutoHideSidebarToggle) {
+            this.elements.appearanceAutoHideSidebarToggle.checked = this.uiState.autoHideSidebar;
+        }
         // Sync font sizes
         const agentSize = localStorage.getItem('agentChatFontSize') || '15';
         const companionSize = localStorage.getItem('companionChatFontSize') || '12';
@@ -3506,6 +4032,19 @@ export class Application {
         }
         if (this.elements.thinkingDotStyleSelect) {
             this.elements.thinkingDotStyleSelect.value = localStorage.getItem('thinkingDotStyle') || 'bounce';
+        }
+        // Sync home background image preview
+        this._syncHomeBgPreview();
+        // Sync home title & subtitle inputs
+        if (this.elements.homeTitleInput) {
+            this.elements.homeTitleInput.value = localStorage.getItem('homeTitle') || '';
+        }
+        if (this.elements.homeSubtitleInput) {
+            this.elements.homeSubtitleInput.value = localStorage.getItem('homeSubtitle') || '';
+        }
+        // Sync language selector
+        if (this.elements.languageSelect) {
+            this.elements.languageSelect.value = i18n.language;
         }
     }
 
@@ -3601,8 +4140,10 @@ export class Application {
      */
     showProgressIndicator(context = null) {
         // Check if AI companion handles thinking simulation (only block if AI thinking is enabled)
+        // Exception: always show for file uploads since they need visible feedback
+        const isFileUpload = context?.source === 'file-upload';
         const useAIThinking = window.aiCompanion?.isEnabled === true && localStorage.getItem('useAIThinking') !== 'false';
-        if (useAIThinking) {
+        if (useAIThinking && !isFileUpload) {
             console.log('AI thinking simulation enabled, skipping progress indicator');
             return;
         }
@@ -4141,19 +4682,342 @@ export class Application {
      */
     toggleAICompanionSection(enabled) {
         console.log('toggleAICompanionSection called with enabled:', enabled);
-        if (this.elements.apiKeySection) {
-            if (enabled) {
-                console.log('Showing AI companion section');
-                DOMUtils.show(this.elements.apiKeySection);
-                const currentProvider = this.elements.apiProviderSelect?.value || 'openai';
-                console.log('Current provider:', currentProvider);
-                this.handleAPIProviderChange(currentProvider);
-            } else {
-                console.log('Hiding AI companion section');
-                DOMUtils.hide(this.elements.apiKeySection);
+        // Refresh the registered models table when section becomes visible
+        if (enabled && window.aiCompanion) {
+            window.aiCompanion.renderRegisteredModelsTable();
+        }
+    }
+
+    /**
+     * Set up event handlers for the model registration form
+     * @private
+     */
+    _setupModelRegistrationHandlers() {
+        const addBtn = this.elements.addModelBtn;
+        const formSection = this.elements.addModelFormSection;
+        const closeBtn = this.elements.addModelFormCloseBtn;
+        const providerSelect = this.elements.regProviderSelect;
+        const testBtn = this.elements.testModelBtn;
+        const registerBtn = this.elements.registerModelBtn;
+        const formTitle = formSection?.querySelector('.add-model-form-header h4');
+
+        const formState = {
+            mode: 'create',
+            editingModelId: null
+        };
+
+        if (!addBtn || !formSection) return;
+
+        const getProviderApiKeyStorageKey = (provider) => {
+            switch (provider) {
+                case 'openai-compatible':
+                    return 'openaiCompatibleApiKey';
+                case 'openai':
+                    return 'openaiApiKey';
+                case 'anthropic':
+                    return 'anthropicApiKey';
+                case 'azure':
+                    return 'azureApiKey';
+                default:
+                    return null;
             }
-        } else {
-            console.error('apiKeySection element not found!');
+        };
+
+        const showProviderFields = (provider) => {
+            document.querySelectorAll('.reg-provider-fields').forEach(el => {
+                el.style.display = 'none';
+            });
+            switch (provider) {
+                case 'openai-compatible':
+                    DOMUtils.show(document.getElementById('regCompatFields'));
+                    break;
+                case 'openai':
+                case 'anthropic':
+                    DOMUtils.show(document.getElementById('regDirectFields'));
+                    break;
+                case 'azure':
+                    DOMUtils.show(document.getElementById('regAzureFields'));
+                    break;
+                case 'ollama':
+                    DOMUtils.show(document.getElementById('regOllamaFields'));
+                    break;
+            }
+        };
+
+        const updateApiKeyPlaceholders = () => {
+            const isEditMode = formState.mode === 'edit';
+            const placeholder = isEditMode ? 'Leave blank to keep existing API key' : 'Enter API key...';
+            const compatApiKey = document.getElementById('regCompatApiKey');
+            const directApiKey = document.getElementById('regDirectApiKey');
+            const azureApiKey = document.getElementById('regAzureApiKey');
+
+            if (compatApiKey) compatApiKey.placeholder = placeholder;
+            if (directApiKey) directApiKey.placeholder = placeholder;
+            if (azureApiKey) azureApiKey.placeholder = isEditMode ? 'Leave blank to keep existing Azure API key' : 'Enter Azure API key...';
+        };
+
+        const getSubmitButtonLabel = () => formState.mode === 'edit' ? 'Save Changes' : 'Register Model';
+
+        const syncFormChrome = () => {
+            const isEditMode = formState.mode === 'edit';
+            if (formTitle) {
+                formTitle.textContent = isEditMode ? 'Edit Model' : 'Add New Model';
+            }
+            if (providerSelect) {
+                providerSelect.disabled = isEditMode;
+                providerSelect.title = isEditMode
+                    ? 'Provider is fixed while editing. Add a new model to change provider.'
+                    : '';
+            }
+            if (registerBtn && !registerBtn.disabled) {
+                registerBtn.textContent = getSubmitButtonLabel();
+            }
+            if (formSection.style.display === 'none') {
+                addBtn.textContent = '+ Add Model';
+            } else {
+                addBtn.textContent = isEditMode ? '− Cancel Edit' : '− Cancel';
+            }
+            updateApiKeyPlaceholders();
+        };
+
+        const resetFormFields = () => {
+            formSection.querySelectorAll('input').forEach(input => {
+                if (input.type === 'hidden') return;
+                if (input.type === 'checkbox') {
+                    input.checked = input.defaultChecked;
+                    return;
+                }
+                input.value = input.defaultValue || '';
+            });
+            if (providerSelect) {
+                providerSelect.value = 'openai-compatible';
+                showProviderFields(providerSelect.value);
+            }
+        };
+
+        const closeForm = () => {
+            formState.mode = 'create';
+            formState.editingModelId = null;
+            resetFormFields();
+            formSection.style.display = 'none';
+            if (testBtn) {
+                testBtn.disabled = false;
+                testBtn.textContent = 'Test Connection';
+            }
+            if (registerBtn) {
+                registerBtn.disabled = false;
+                registerBtn.textContent = 'Register Model';
+            }
+            syncFormChrome();
+        };
+
+        const openCreateForm = () => {
+            formState.mode = 'create';
+            formState.editingModelId = null;
+            resetFormFields();
+            formSection.style.display = 'block';
+            syncFormChrome();
+        };
+
+        const openEditForm = (model) => {
+            if (!model) return;
+
+            formState.mode = 'edit';
+            formState.editingModelId = model.id;
+            formSection.style.display = 'block';
+
+            if (providerSelect) {
+                providerSelect.value = model.provider;
+                showProviderFields(model.provider);
+            }
+
+            document.getElementById('regCompatBaseUrl').value = model.provider === 'openai-compatible' ? (model.config.baseUrl || '') : '';
+            document.getElementById('regCompatApiKey').value = '';
+            document.getElementById('regCompatModel').value = model.provider === 'openai-compatible' ? (model.config.model || '') : '';
+            document.getElementById('regCompatDisplayName').value = model.provider === 'openai-compatible' ? (model.config.displayName || model.displayName || '') : '';
+
+            document.getElementById('regDirectApiKey').value = '';
+
+            document.getElementById('regAzureApiKey').value = '';
+            document.getElementById('regAzureEndpoint').value = model.provider === 'azure' ? (model.config.endpoint || '') : '';
+            document.getElementById('regAzureDeployment').value = model.provider === 'azure' ? (model.config.deployment || '') : '';
+            document.getElementById('regAzureApiVersion').value = model.provider === 'azure' ? (model.config.apiVersion || '2024-02-01') : '2024-02-01';
+
+            document.getElementById('regOllamaUrl').value = model.provider === 'ollama' ? (model.config.url || 'http://localhost:11434') : 'http://localhost:11434';
+            document.getElementById('regOllamaModel').value = model.provider === 'ollama' ? (model.config.model || '') : '';
+
+            const reasoningCheckbox = document.getElementById('regDisableReasoning');
+            if (reasoningCheckbox) reasoningCheckbox.checked = model.reasoningDisabled === true;
+
+            syncFormChrome();
+        };
+
+        if (closeBtn) {
+            DOMUtils.addEventListener(closeBtn, 'click', closeForm);
+        }
+
+        DOMUtils.addEventListener(addBtn, 'click', () => {
+            const isHidden = formSection.style.display === 'none';
+            if (isHidden) {
+                openCreateForm();
+            } else {
+                closeForm();
+            }
+        });
+
+        if (providerSelect) {
+            showProviderFields(providerSelect.value || 'openai-compatible');
+            DOMUtils.addEventListener(providerSelect, 'change', (e) => {
+                showProviderFields(e.target.value);
+            });
+        }
+
+        const getFormConfig = ({ allowBlankApiKey = false } = {}) => {
+            const provider = providerSelect?.value || 'openai-compatible';
+            const config = { provider };
+            const requireApiKey = !allowBlankApiKey;
+
+            switch (provider) {
+                case 'openai-compatible':
+                    config.baseUrl = document.getElementById('regCompatBaseUrl')?.value?.trim();
+                    config.apiKey = document.getElementById('regCompatApiKey')?.value?.trim();
+                    config.model = document.getElementById('regCompatModel')?.value?.trim();
+                    config.displayName = document.getElementById('regCompatDisplayName')?.value?.trim();
+                    if (!config.baseUrl || !config.model || (requireApiKey && !config.apiKey)) return null;
+                    break;
+                case 'openai':
+                case 'anthropic':
+                    config.apiKey = document.getElementById('regDirectApiKey')?.value?.trim();
+                    if (requireApiKey && !config.apiKey) return null;
+                    break;
+                case 'azure':
+                    config.apiKey = document.getElementById('regAzureApiKey')?.value?.trim();
+                    config.endpoint = document.getElementById('regAzureEndpoint')?.value?.trim();
+                    config.deployment = document.getElementById('regAzureDeployment')?.value?.trim();
+                    config.apiVersion = document.getElementById('regAzureApiVersion')?.value?.trim() || '2024-02-01';
+                    if (!config.endpoint || !config.deployment || (requireApiKey && !config.apiKey)) return null;
+                    break;
+                case 'ollama':
+                    config.url = document.getElementById('regOllamaUrl')?.value?.trim() || 'http://localhost:11434';
+                    config.model = document.getElementById('regOllamaModel')?.value?.trim();
+                    if (!config.model) return null;
+                    break;
+            }
+            return config;
+        };
+
+        const resolveTestConfig = async (config) => {
+            if (!config || config.provider === 'ollama' || config.apiKey) {
+                return config;
+            }
+
+            const storageKey = getProviderApiKeyStorageKey(config.provider);
+            if (!storageKey) {
+                return config;
+            }
+
+            const storedApiKey = await SecureStorage.retrieve(storageKey);
+            return storedApiKey ? { ...config, apiKey: storedApiKey } : config;
+        };
+
+        // Test connection
+        if (testBtn) {
+            DOMUtils.addEventListener(testBtn, 'click', async () => {
+                const allowBlankApiKey = formState.mode === 'edit';
+                const config = getFormConfig({ allowBlankApiKey });
+                if (!config) {
+                    alert('Please fill in all required fields.');
+                    return;
+                }
+                testBtn.disabled = true;
+                testBtn.textContent = 'Testing...';
+                try {
+                    const testConfig = await resolveTestConfig(config);
+                    if (['openai-compatible', 'openai', 'anthropic', 'azure'].includes(testConfig.provider) && !testConfig.apiKey) {
+                        throw new Error('API key is required for connection testing. Enter a new key or keep an existing provider key configured.');
+                    }
+                    const reasoningCheckbox = document.getElementById('regDisableReasoning');
+                    testConfig.reasoningDisabled = reasoningCheckbox?.checked || false;
+                    const result = await window.aiCompanion.testModelConnection(testConfig);
+                    if (result.ok && result.metrics) {
+                        const m = result.metrics;
+                        const fmtMs = (ms) => {
+                            if (ms == null) return 'N/A';
+                            if (ms >= 60000) return (ms / 60000).toFixed(1) + 'min';
+                            if (ms >= 1000) return (ms / 1000).toFixed(1) + 's';
+                            return ms + 'ms';
+                        };
+                        const ttftStr = fmtMs(m.ttft);
+                        const ttltStr = fmtMs(m.ttlt);
+                        const tpsStr = m.tokensPerSec > 0 ? `${m.tokensPerSec} tok/s` : 'N/A';
+                        // Build model ID to save metrics for registered/to-be-registered model
+                        const entry = window.aiCompanion._buildRegisteredModelEntry(testConfig);
+                        window.aiCompanion.saveModelTestMetrics(entry.id, m);
+                        alert(`✅ Connection successful!\n\nPerformance:\n  TTFT: ${ttftStr}\n  TTLT: ${ttltStr}\n  Speed: ${tpsStr}\n  Tokens: ${m.outputTokens}`);
+                    } else {
+                        alert('❌ Connection failed. Check your settings.');
+                    }
+                } catch (err) {
+                    alert('❌ Error: ' + err.message);
+                } finally {
+                    testBtn.disabled = false;
+                    testBtn.textContent = 'Test Connection';
+                }
+            });
+        }
+
+        // Register model
+        if (registerBtn) {
+            DOMUtils.addEventListener(registerBtn, 'click', async () => {
+                const isEditMode = formState.mode === 'edit';
+                const config = getFormConfig({ allowBlankApiKey: isEditMode });
+                if (!config) {
+                    alert('Please fill in all required fields.');
+                    return;
+                }
+                const reasoningCheckbox = document.getElementById('regDisableReasoning');
+                config.reasoningDisabled = reasoningCheckbox?.checked || false;
+                registerBtn.disabled = true;
+                registerBtn.textContent = isEditMode ? 'Saving...' : 'Registering...';
+                try {
+                    if (isEditMode) {
+                        await window.aiCompanion.updateRegisteredModel(formState.editingModelId, config);
+                        closeForm();
+                        alert('✅ Model updated successfully!');
+                    } else {
+                        await window.aiCompanion.registerModel(config);
+                        closeForm();
+                        alert('✅ Model registered successfully!');
+                    }
+                } catch (err) {
+                    alert('❌ Error: ' + err.message);
+                } finally {
+                    registerBtn.disabled = false;
+                    registerBtn.textContent = getSubmitButtonLabel();
+                }
+            });
+        }
+
+        window.addEventListener('editRegisteredModel', (e) => {
+            const modelId = e.detail?.modelId;
+            if (!modelId || !window.aiCompanion) {
+                return;
+            }
+
+            const model = window.aiCompanion.getRegisteredModel(modelId);
+            if (!model) {
+                alert('Unable to load the selected model for editing.');
+                return;
+            }
+
+            openEditForm(model);
+        });
+
+        syncFormChrome();
+
+        // Render initial table
+        if (window.aiCompanion) {
+            window.aiCompanion.renderRegisteredModelsTable();
         }
     }
 
@@ -4756,39 +5620,233 @@ export class Application {
         this.closeCitationPreview();
     }
 
-    // File handling methods (simplified - implement as needed)
+    // ── File handling ────────────────────────────────────────
+
+    /** Max upload size in bytes (DirectLine limit) */
+    static MAX_FILE_SIZE = 4 * 1024 * 1024; // 4 MB
+
+    /**
+     * Get a simple icon string for a file type
+     * @param {File} file
+     * @returns {string}
+     */
+    _fileTypeIcon(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (['pdf'].includes(ext)) return '📄';
+        if (['doc', 'docx'].includes(ext)) return '📝';
+        if (['xls', 'xlsx'].includes(ext)) return '📊';
+        if (['ppt', 'pptx'].includes(ext)) return '📑';
+        if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return '🖼️';
+        if (['txt'].includes(ext)) return '📃';
+        return '📎';
+    }
+
     handleFileSelection(event) {
-        const file = event.target.files[0];
-        if (file) {
-            console.log('File selected:', file.name, file.size);
-            this.selectedFile = file;
-            this.showFilePreview(file);
+        const files = Array.from(event.target.files);
+        if (!files.length) return;
+
+        const rejected = [];
+        for (const file of files) {
+            if (file.size > Application.MAX_FILE_SIZE) {
+                rejected.push(file.name);
+            } else {
+                this.selectedFiles.push(file);
+            }
+        }
+
+        if (rejected.length) {
+            this.showErrorMessage(`File(s) too large (max 4 MB): ${rejected.join(', ')}`);
+        }
+
+        if (this.selectedFiles.length > 0) {
+            this.showFilePreview();
+        }
+
+        // Reset input so same files can be re-selected
+        event.target.value = '';
+    }
+
+    /**
+     * Remove a specific file by index
+     * @param {number} index
+     */
+    removeSelectedFileAt(index) {
+        this.selectedFiles.splice(index, 1);
+        if (this.selectedFiles.length === 0) {
+            this.hideFilePreview();
+        } else {
+            this.showFilePreview();
         }
     }
 
-    removeSelectedFile() {
-        console.log('File removed');
-        this.selectedFile = null;
+    removeAllSelectedFiles() {
+        this.selectedFiles = [];
         this.hideFilePreview();
+        if (this.elements.fileInput) this.elements.fileInput.value = '';
     }
 
-    showFilePreview(file) {
-        // Implement file preview UI
-        console.log('Showing file preview for:', file.name);
+    showFilePreview() {
+        if (!this.elements.filePreviewContainer) return;
+        const container = this.elements.filePreviewContainer;
+        const listEl = document.getElementById('filePreviewList');
+        if (!listEl) return;
+
+        listEl.innerHTML = '';
+        this.selectedFiles.forEach((file, idx) => {
+            const item = document.createElement('div');
+            item.className = 'file-preview-item';
+            item.innerHTML = `
+                <span class="file-type-icon">${this._fileTypeIcon(file)}</span>
+                <span class="file-preview-name" title="${Utils.escapeHtml(file.name)}">${Utils.escapeHtml(file.name)}</span>
+                <span class="file-preview-size">${Utils.formatBytes(file.size)}</span>
+            `;
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'file-preview-remove';
+            removeBtn.title = 'Remove';
+            removeBtn.textContent = '×';
+            removeBtn.addEventListener('click', () => this.removeSelectedFileAt(idx));
+            item.appendChild(removeBtn);
+            listEl.appendChild(item);
+        });
+
+        container.style.display = 'block';
+        if (this.elements.uploadProgressBar) this.elements.uploadProgressBar.style.display = 'none';
     }
 
     hideFilePreview() {
-        // Hide file preview UI
-        console.log('Hiding file preview');
+        if (this.elements.filePreviewContainer) {
+            this.elements.filePreviewContainer.style.display = 'none';
+        }
     }
 
-    handleDragOver(event) { event.preventDefault(); }
-    handleDragLeave(event) { /* Handle drag leave */ }
-    handleFileDrop(event) { event.preventDefault(); console.log('File dropped'); }
+    handleDragOver(event) {
+        event.preventDefault();
+        if (this.elements.chatWindow) this.elements.chatWindow.classList.add('drag-over');
+    }
 
-    sendMessageWithFile(text, file) {
-        console.log('Sending message with file:', text, file.name);
-        return directLineService.sendMessage(text, [file]);
+    handleDragLeave(event) {
+        if (this.elements.chatWindow) this.elements.chatWindow.classList.remove('drag-over');
+    }
+
+    handleFileDrop(event) {
+        event.preventDefault();
+        if (this.elements.chatWindow) this.elements.chatWindow.classList.remove('drag-over');
+
+        const files = Array.from(event.dataTransfer?.files || []);
+        if (!files.length) return;
+
+        const rejected = [];
+        for (const file of files) {
+            if (file.size > Application.MAX_FILE_SIZE) {
+                rejected.push(file.name);
+            } else {
+                this.selectedFiles.push(file);
+            }
+        }
+
+        if (rejected.length) {
+            this.showErrorMessage(`File(s) too large (max 4 MB): ${rejected.join(', ')}`);
+        }
+
+        if (this.selectedFiles.length > 0) {
+            this.showFilePreview();
+        }
+    }
+
+    /**
+     * Handle paste event to extract images from clipboard
+     * @param {ClipboardEvent} event
+     */
+    handlePasteImage(event) {
+        const items = Array.from(event.clipboardData?.items || []);
+        const imageItems = items.filter(item => item.type.startsWith('image/'));
+
+        if (imageItems.length === 0) return; // Not an image paste — let default behavior proceed
+
+        event.preventDefault();
+
+        const rejected = [];
+        for (const item of imageItems) {
+            const blob = item.getAsFile();
+            if (!blob) continue;
+
+            if (blob.size > Application.MAX_FILE_SIZE) {
+                rejected.push('Pasted image');
+                continue;
+            }
+
+            const ext = blob.type.split('/')[1] || 'png';
+            const fileName = `pasted-image-${Date.now()}.${ext}`;
+            const file = new File([blob], fileName, { type: blob.type });
+            this.selectedFiles.push(file);
+        }
+
+        if (rejected.length) {
+            this.showErrorMessage('Pasted image too large (max 4 MB)');
+        }
+
+        if (this.selectedFiles.length > 0) {
+            this.showFilePreview();
+        }
+    }
+
+    /**
+     * Show upload progress UI
+     * @param {number} percent 0-100
+     * @param {string} statusText
+     */
+    _showUploadProgress(percent, statusText) {
+        if (this.elements.uploadProgressBar) {
+            this.elements.uploadProgressBar.style.display = 'flex';
+        }
+        if (this.elements.uploadProgressFill) {
+            this.elements.uploadProgressFill.style.width = `${percent}%`;
+        }
+        if (this.elements.uploadProgressText) {
+            this.elements.uploadProgressText.textContent = statusText || `${Math.round(percent)}%`;
+        }
+    }
+
+    _hideUploadProgress() {
+        if (this.elements.uploadProgressBar) {
+            this.elements.uploadProgressBar.style.display = 'none';
+        }
+    }
+
+    /**
+     * Send message with file attachments via DirectLine REST upload endpoint.
+     * Uses the proven XHR direct-File approach that works with Copilot Studio.
+     * @param {string} text - Message text
+     * @param {File[]} files - Files to upload
+     * @returns {Promise}
+     */
+    async sendMessageWithFiles(text, files) {
+        console.log('Sending message with', files.length, 'file(s)');
+
+        const label = files.length === 1
+            ? `Uploading: ${files[0].name}`
+            : `Uploading 0/${files.length}...`;
+        this._showUploadProgress(0, label);
+        this.elements.sendButton.disabled = true;
+
+        try {
+            await directLineService.sendMessageWithFiles(text, files, (progress) => {
+                const percent = Math.round(progress * 100);
+                const currentFile = Math.min(Math.floor(progress * files.length) + 1, files.length);
+                const progressLabel = files.length === 1
+                    ? `Uploading: ${files[0].name} ${percent}%`
+                    : `Uploading ${currentFile}/${files.length}... ${percent}%`;
+                this._showUploadProgress(percent, progressLabel);
+            });
+            this._showUploadProgress(100, 'Sent');
+            setTimeout(() => this._hideUploadProgress(), 1500);
+        } catch (error) {
+            console.error('File upload failed:', error);
+            this._hideUploadProgress();
+            this.showErrorMessage('Failed to upload file: ' + (error.message || 'Unknown error'));
+        } finally {
+            this.elements.sendButton.disabled = false;
+        }
     }
 
     /**
@@ -4800,8 +5858,8 @@ export class Application {
         document.documentElement.style.setProperty('--agent-chat-font-size', fontSize);
 
         // Update the display value
-        if (this.elements.agentFontSizeValue) {
-            this.elements.agentFontSizeValue.textContent = fontSize;
+        if (this.elements.appearanceAgentFontSizeValue) {
+            this.elements.appearanceAgentFontSizeValue.textContent = fontSize;
         }
 
         // Force refresh of existing agent messages by triggering reflow
@@ -4821,8 +5879,8 @@ export class Application {
         document.documentElement.style.setProperty('--companion-chat-font-size', fontSize);
 
         // Update the display value
-        if (this.elements.companionFontSizeValue) {
-            this.elements.companionFontSizeValue.textContent = fontSize;
+        if (this.elements.appearanceCompanionFontSizeValue) {
+            this.elements.appearanceCompanionFontSizeValue.textContent = fontSize;
         }
 
         // Force refresh of existing companion messages
@@ -4894,33 +5952,24 @@ export class Application {
      * @private
      */
     loadFontSizeSettings() {
-        console.log('Loading font size settings...');
-
         // Load agent chat font size
         const savedAgentSize = localStorage.getItem('agentChatFontSize') || '15';
-        console.log('Saved agent font size:', savedAgentSize);
-        console.log('Agent font size element:', this.elements.agentFontSize);
-
-        if (this.elements.agentFontSize) {
-            this.elements.agentFontSize.value = savedAgentSize;
+        if (this.elements.appearanceAgentFontSize) {
+            this.elements.appearanceAgentFontSize.value = savedAgentSize;
             this.updateAgentFontSize(savedAgentSize);
         } else {
-            console.warn('Agent font size element not found');
+            // Still apply the CSS variable even if the slider isn't in DOM yet
+            document.documentElement.style.setProperty('--agent-chat-font-size', savedAgentSize + 'px');
         }
 
         // Load companion chat font size
         const savedCompanionSize = localStorage.getItem('companionChatFontSize') || '12';
-        console.log('Saved companion font size:', savedCompanionSize);
-        console.log('Companion font size element:', this.elements.companionFontSize);
-
-        if (this.elements.companionFontSize) {
-            this.elements.companionFontSize.value = savedCompanionSize;
+        if (this.elements.appearanceCompanionFontSize) {
+            this.elements.appearanceCompanionFontSize.value = savedCompanionSize;
             this.updateCompanionFontSize(savedCompanionSize);
         } else {
-            console.warn('Companion font size element not found');
+            document.documentElement.style.setProperty('--companion-chat-font-size', savedCompanionSize + 'px');
         }
-
-        console.log('Font size settings loaded');
     }
 
     /**
@@ -5092,7 +6141,65 @@ export class Application {
         // Apply the theme immediately
         this.applyColorTheme(savedTheme);
 
+        // Apply saved background image
+        this.applyHomeBgImage();
+
         console.log('Color theme setting loaded and applied:', savedTheme);
+    }
+
+    /**
+     * Apply home background image from localStorage
+     */
+    applyHomeBgImage() {
+        const homePage = document.getElementById('homePage');
+        if (!homePage) return;
+
+        const imageData = localStorage.getItem('homeBgImage');
+        let bgLayer = homePage.querySelector('.home-bg-image');
+
+        if (imageData) {
+            if (!bgLayer) {
+                bgLayer = document.createElement('div');
+                bgLayer.className = 'home-bg-image';
+                homePage.prepend(bgLayer);
+            }
+            bgLayer.style.backgroundImage = `url(${imageData})`;
+            homePage.classList.add('has-bg-image');
+        } else {
+            if (bgLayer) bgLayer.remove();
+            homePage.classList.remove('has-bg-image');
+        }
+    }
+
+    /**
+     * Remove home background image
+     */
+    removeHomeBgImage() {
+        localStorage.removeItem('homeBgImage');
+        this.applyHomeBgImage();
+        this._syncHomeBgPreview();
+    }
+
+    /**
+     * Sync background image preview in Appearance panel
+     */
+    _syncHomeBgPreview() {
+        const preview = document.getElementById('homeBgPreview');
+        const removeBtn = document.getElementById('homeBgRemoveBtn');
+        if (!preview) return;
+
+        const imageData = localStorage.getItem('homeBgImage');
+        if (imageData) {
+            preview.innerHTML = '';
+            const img = document.createElement('img');
+            img.src = imageData;
+            img.alt = 'Background preview';
+            preview.appendChild(img);
+            if (removeBtn) removeBtn.style.display = '';
+        } else {
+            preview.innerHTML = '<span class="home-bg-placeholder">No image selected</span>';
+            if (removeBtn) removeBtn.style.display = 'none';
+        }
     }
 
     /**
@@ -5156,6 +6263,72 @@ export class Application {
     }
 
     /**
+     * Toggle visibility of user messages
+     * @param {boolean} enabled
+     */
+    toggleUserMessagesVisibility(enabled) {
+        this.uiState.showUserMessages = enabled;
+        localStorage.setItem('appearanceShowUserMessages', enabled.toString());
+
+        document.body.classList.toggle('hide-user-messages', !enabled);
+
+        if (this.elements.appearanceShowUserMessagesToggle) {
+            this.elements.appearanceShowUserMessagesToggle.checked = enabled;
+        }
+
+        console.log('User messages', enabled ? 'shown' : 'hidden');
+    }
+
+    /**
+     * Toggle visibility of metric information
+     * @param {boolean} enabled
+     */
+    toggleMetricsVisibility(enabled) {
+        this.uiState.showMetrics = enabled;
+        localStorage.setItem('appearanceShowMetrics', enabled.toString());
+
+        document.body.classList.toggle('hide-metrics', !enabled);
+
+        if (this.elements.appearanceShowMetricsToggle) {
+            this.elements.appearanceShowMetricsToggle.checked = enabled;
+        }
+
+        console.log('Metric information', enabled ? 'shown' : 'hidden');
+    }
+
+    /**
+     * Toggle auto-hide metadata behavior
+     * @param {boolean} enabled - true = metadata hidden by default, hover to show
+     */
+    toggleAutoHideMetadata(enabled) {
+        this.uiState.autoHideMetadata = enabled;
+        localStorage.setItem('appearanceAutoHideMetadata', enabled.toString());
+
+        document.body.classList.toggle('auto-hide-metadata', enabled);
+
+        if (this.elements.appearanceAutoHideMetadataToggle) {
+            this.elements.appearanceAutoHideMetadataToggle.checked = enabled;
+        }
+
+        console.log('Auto hide metadata', enabled ? 'on' : 'off');
+    }
+
+    /**
+     * Toggle auto-hide sidebar
+     * @param {boolean} enabled
+     */
+    toggleAutoHideSidebar(enabled) {
+        this.uiState.autoHideSidebar = enabled;
+        localStorage.setItem('appearanceAutoHideSidebar', enabled.toString());
+
+        document.body.classList.toggle('auto-hide-sidebar', enabled);
+
+        if (this.elements.appearanceAutoHideSidebarToggle) {
+            this.elements.appearanceAutoHideSidebarToggle.checked = enabled;
+        }
+    }
+
+    /**
      * Toggle left panel collapsed state
      * @param {boolean} collapsed - Whether to collapse the panel
      */
@@ -5203,6 +6376,12 @@ export class Application {
 
         // Apply message icons state
         this.toggleMessageIcons(this.uiState.messageIconsEnabled);
+        this.toggleUserMessagesVisibility(this.uiState.showUserMessages);
+        this.toggleMetricsVisibility(this.uiState.showMetrics);
+        this.toggleAutoHideMetadata(this.uiState.autoHideMetadata);
+
+        // Apply auto-hide sidebar state
+        this.toggleAutoHideSidebar(this.uiState.autoHideSidebar);
 
         // Apply full-width messages state from localStorage
         const fullWidthEnabled = localStorage.getItem('fullWidthMessages') === 'true';
@@ -5211,8 +6390,31 @@ export class Application {
         // Load and apply color theme early (before settings modal is opened)
         this.loadColorThemeSetting();
 
+        // Apply i18n translations and sync language selector
+        i18n.applyToDOM();
+        if (this.elements.languageSelect) {
+            this.elements.languageSelect.value = i18n.language;
+        }
+
+        // Apply saved home title & subtitle
+        const savedTitle = localStorage.getItem('homeTitle');
+        const savedSubtitle = localStorage.getItem('homeSubtitle');
+        if (savedTitle) {
+            const titleEl = document.querySelector('.home-title');
+            if (titleEl) titleEl.textContent = savedTitle;
+        }
+        if (savedSubtitle) {
+            const subtitleEl = document.querySelector('.home-subtitle');
+            if (subtitleEl) subtitleEl.textContent = savedSubtitle;
+        }
+
         // Initialize side command bar state
         this.updateSideCommandBarState();
+
+        // Apply companion model visibility
+        const showCompanion = localStorage.getItem('showCompanionModel') !== 'false';
+        const companionPanel = document.getElementById('companionStatusPanel');
+        if (companionPanel) companionPanel.style.display = showCompanion ? '' : 'none';
 
         // Restore Appearance panel checkbox states
         if (this.elements.enableStreamingCheckbox) {
@@ -5228,6 +6430,18 @@ export class Application {
         }
         if (this.elements.appearanceMessageIconToggle) {
             this.elements.appearanceMessageIconToggle.checked = this.uiState.messageIconsEnabled;
+        }
+        if (this.elements.appearanceShowUserMessagesToggle) {
+            this.elements.appearanceShowUserMessagesToggle.checked = this.uiState.showUserMessages;
+        }
+        if (this.elements.appearanceShowMetricsToggle) {
+            this.elements.appearanceShowMetricsToggle.checked = this.uiState.showMetrics;
+        }
+        if (this.elements.appearanceAutoHideMetadataToggle) {
+            this.elements.appearanceAutoHideMetadataToggle.checked = this.uiState.autoHideMetadata;
+        }
+        if (this.elements.appearanceAutoHideSidebarToggle) {
+            this.elements.appearanceAutoHideSidebarToggle.checked = this.uiState.autoHideSidebar;
         }
     }
 

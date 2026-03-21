@@ -36,6 +36,14 @@ The AI Companion is an intelligent system that works alongside your conversation
 }
 ```
 
+### Registered Model Management
+
+- Register multiple providers in the `Registered Models` table inside AI Companion settings.
+- Switch the active model directly from the table without re-entering provider settings.
+- Edit an existing registered model in place using the same form as `Add Model`.
+- During edits, the provider stays fixed; register a new model if you need a different provider type.
+- When editing, API key inputs can be left blank to keep the currently stored SecureStorage key.
+
 ## Auto Title Generation
 
 ### How It Works

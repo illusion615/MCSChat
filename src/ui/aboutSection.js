@@ -65,17 +65,17 @@ function populateModuleVersions() {
         { 
             id: 'aboutCoreModules', 
             name: 'Core', 
-            modules: ['Application', 'MessageQueue', 'DirectLineManager', 'DirectLineGreetingManager']
+            modules: ['Application', 'MessageQueue', 'MessageRendererAdapter', 'DirectLineService']
         },
         { 
             id: 'aboutUIModules', 
             name: 'UI', 
-            modules: ['MessageRenderer', 'SplashScreen', 'MessageAPI', 'MessageIntegration', 'MessageMigrationAdapter', 'EnhancedTypingIndicator', 'UnifiedMessageRenderer']
+            modules: ['MessageRenderer', 'MessageAPI', 'MessageIntegration', 'MessageMigrationAdapter', 'EnhancedTypingIndicator', 'UnifiedMessageRenderer']
         },
         { 
             id: 'aboutAIModules', 
             name: 'AI & Speech', 
-            modules: ['AICompanion', 'SpeechEngine', 'SpeechQueueManager', 'PromptManager']
+            modules: ['AICompanion', 'AutoQAEngine', 'ModelRegistry', 'SpeechEngine', 'SpeechQueueManager', 'PromptManager']
         },
         { 
             id: 'aboutServicesModules', 
@@ -85,12 +85,12 @@ function populateModuleVersions() {
         { 
             id: 'aboutComponentsModules', 
             name: 'Components', 
-            modules: ['EnhancedChatWidget', 'CitationPreviewPanel', 'AdaptiveCardModal', 'IconManager']
+            modules: ['CitationPreviewPanel', 'AdaptiveCardModal', 'IconManager']
         },
         { 
             id: 'aboutUtilsModules', 
             name: 'Utils', 
-            modules: ['LocalStorageProtection', 'LanguageDetector', 'StatusIndicator', 'MobileUtils']
+            modules: ['LocalStorageProtection', 'LanguageDetector', 'StatusIndicator', 'MobileUtils', 'I18n']
         }
     ];
     
@@ -245,12 +245,12 @@ function generateVersionInfoText() {
     
     // Organize modules by category
     const categories = [
-        { name: 'Core Modules', modules: ['Application', 'MessageQueue', 'DirectLineManager', 'DirectLineGreetingManager'] },
-        { name: 'UI Modules', modules: ['MessageRenderer', 'SplashScreen', 'MessageAPI', 'MessageIntegration', 'MessageMigrationAdapter', 'EnhancedTypingIndicator', 'UnifiedMessageRenderer'] },
-        { name: 'AI & Speech Modules', modules: ['AICompanion', 'SpeechEngine', 'SpeechQueueManager', 'PromptManager'] },
+        { name: 'Core Modules', modules: ['Application', 'MessageQueue', 'MessageRendererAdapter', 'DirectLineService'] },
+        { name: 'UI Modules', modules: ['MessageRenderer', 'MessageAPI', 'MessageIntegration', 'MessageMigrationAdapter', 'EnhancedTypingIndicator', 'UnifiedMessageRenderer'] },
+        { name: 'AI & Speech Modules', modules: ['AICompanion', 'AutoQAEngine', 'ModelRegistry', 'SpeechEngine', 'SpeechQueueManager', 'PromptManager'] },
         { name: 'Services Modules', modules: ['SessionManager', 'AgentManager', 'UnifiedNotificationManager', 'KnowledgeHubService'] },
-        { name: 'Components Modules', modules: ['EnhancedChatWidget', 'CitationPreviewPanel', 'AdaptiveCardModal', 'IconManager'] },
-        { name: 'Utils Modules', modules: ['LocalStorageProtection', 'LanguageDetector', 'StatusIndicator', 'MobileUtils'] }
+        { name: 'Components Modules', modules: ['CitationPreviewPanel', 'AdaptiveCardModal', 'IconManager'] },
+        { name: 'Utils Modules', modules: ['LocalStorageProtection', 'LanguageDetector', 'StatusIndicator', 'MobileUtils', 'I18n'] }
     ];
     
     categories.forEach(category => {

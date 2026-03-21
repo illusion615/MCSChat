@@ -198,7 +198,7 @@ export class DirectLineService extends EventEmitter {
     /**
      * Send a text message (optionally with attachments).
      * @param {string} text
-     * @param {Array} [attachments]
+     * @param {Array} [attachments] - Attachment objects with { contentType, contentUrl, name }
      * @returns {Promise}
      */
     sendMessage(text, attachments = []) {
@@ -222,6 +222,122 @@ export class DirectLineService extends EventEmitter {
                 }
             );
         });
+    }
+
+    /**
+     * Send a message with file attachments via DirectLine REST upload endpoint.
+     * Uses XHR with direct File object (proven to work with Copilot Studio).
+     * For multiple files, each is sent as a separate upload request.
+     *
+     * @param {string} text - Message text (can be empty)
+     * @param {File[]} files - Array of File objects to send
+     * @param {Function} [onProgress] - Progress callback (0.0 - 1.0)
+     * @returns {Promise<string>} Activity ID of the last upload
+     */
+    sendMessageWithFiles(text, files, onProgress) {
+        if (!this._directLine) {
+            return Promise.reject(new Error('Not connected'));
+        }
+
+        const conversationId = this._directLine.conversationId;
+        if (!conversationId) {
+            return Promise.reject(new Error('No active conversation. Connect first.'));
+        }
+
+        const secret = this._directLine.secret || this._directLine.token;
+        if (!secret) {
+            return Promise.reject(new Error('No authentication credentials available.'));
+        }
+
+        const domain = this._directLine.domain || 'https://directline.botframework.com/v3/directline';
+        const uploadUrl = `${domain}/conversations/${encodeURIComponent(conversationId)}/upload?userId=user`;
+
+        // ═══ DIAGNOSTIC LOG ═══
+        console.group('📤 [FILE UPLOAD DIAGNOSTIC]');
+        console.log('Upload URL:', uploadUrl);
+        console.log('ConversationId:', conversationId);
+        console.log('Auth token (first 20 chars):', secret?.substring(0, 20) + '...');
+        console.log('Domain:', domain);
+        console.log('Files:', files.map(f => ({ name: f.name, size: f.size, type: f.type })));
+        console.log('Text:', text);
+        console.groupEnd();
+        // ═══════════════════════
+
+        // Upload files sequentially; text attached to the first file only
+        const uploadSingleFile = (file, fileText, fileIndex) => {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+
+                // Append file directly as File object (not Blob — this is critical)
+                formData.append('file', file, file.name);
+
+                // Only include activity part when there's actual text
+                // Activity must NOT contain an attachments array (Copilot Studio requirement)
+                if (fileText && fileText.trim()) {
+                    const activityJson = JSON.stringify({
+                        type: 'message',
+                        from: { id: 'user' },
+                        text: fileText
+                    });
+                    const activityBlob = new Blob([activityJson], { type: 'application/vnd.microsoft.activity' });
+                    formData.append('activity', activityBlob);
+                    console.log(`[UPLOAD] File #${fileIndex + 1}: "${file.name}" (${file.size} bytes, ${file.type}) WITH text="${fileText}"`);
+                } else {
+                    console.log(`[UPLOAD] File #${fileIndex + 1}: "${file.name}" (${file.size} bytes, ${file.type}) WITHOUT text (file-only)`);
+                }
+
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', uploadUrl, true);
+                xhr.setRequestHeader('Authorization', `Bearer ${secret}`);
+
+                if (onProgress && xhr.upload) {
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            const fileProgress = (fileIndex + e.loaded / e.total) / files.length;
+                            onProgress(fileProgress);
+                        }
+                    });
+                }
+
+                xhr.addEventListener('load', () => {
+                    // ═══ RESPONSE DIAGNOSTIC ═══
+                    console.group(`📥 [UPLOAD RESPONSE] File #${fileIndex + 1}: ${file.name}`);
+                    console.log('HTTP Status:', xhr.status, xhr.statusText);
+                    console.log('Response Body:', xhr.responseText);
+                    console.log('Response Headers:', xhr.getAllResponseHeaders());
+                    console.groupEnd();
+                    // ════════════════════════════
+
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            console.log(`✅ [UPLOAD SUCCESS] File ${fileIndex + 1}/${files.length}: ${file.name} → activityId: ${response.id}`);
+                            resolve(response.id);
+                        } catch (e) {
+                            console.warn('⚠️ [UPLOAD] 200 OK but response not JSON:', xhr.responseText);
+                            resolve(null);
+                        }
+                    } else {
+                        console.error(`❌ [UPLOAD FAILED] ${xhr.status}: ${xhr.statusText}`, xhr.responseText);
+                        reject(new Error(`Upload failed (${xhr.status}): ${xhr.statusText}`));
+                    }
+                });
+
+                xhr.addEventListener('error', () => reject(new Error('Network error during file upload')));
+                xhr.addEventListener('abort', () => reject(new Error('File upload cancelled')));
+                xhr.send(formData);
+            });
+        };
+
+        // Sequential upload: text only on first file
+        return (async () => {
+            let lastId = null;
+            for (let i = 0; i < files.length; i++) {
+                const fileText = (i === 0) ? text : '';
+                lastId = await uploadSingleFile(files[i], fileText, i);
+            }
+            return lastId;
+        })();
     }
 
     /**

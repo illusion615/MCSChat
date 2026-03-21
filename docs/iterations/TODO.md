@@ -31,6 +31,15 @@
 | Batch 12 | [Appearance 面板移至右侧栏](#batch-12-appearance-面板移至右侧栏) | P3 | � 已完成 | Batch 4 |
 | Batch 13 | [OpenAI Compatible 接口支持](#batch-13-openai-compatible-接口支持) | P2 | � 已完成 | 无 || Batch 14 | [AI Companion LLM 调用统一化](#batch-14-llm-调用统一化) | P1 | 🟢 已完成 | Batch 13 |
 | Batch 15 | [Home 页面与流程统一](#batch-15-home-页面与流程统一) | P0 | 🟢 已完成 | Batch 14 |
+| Batch 16 | [附件上传功能完善](#batch-16-附件上传功能完善) | P2 | 🟡 进行中 | Batch 3 |
+| Batch 17 | [模型注册可编辑与显示控制](#batch-17-模型注册可编辑与显示控制) | P1 | 🟡 进行中 | Batch 13, 15 |
+| Batch 18 | [技术债 Phase 1 — 死代码清理](#batch-18-技术债-phase-1) | P1 | 🟢 已完成 | 无 |
+| Batch 19 | [粘贴图片发送](#batch-19-粘贴图片发送) | P2 | 🟢 已完成 | Batch 16 |
+| Batch 20 | [首页增强与风格化](#batch-20-首页增强与风格化) | P2 | 🟢 已完成 | Batch 15 |
+| Batch 21 | [技术债 Phase 2 — 巨型文件拆分](#batch-21-技术债-phase-2) | P1 | 🔴 未开始 | Batch 18 |
+| Batch 22 | [技术债 Phase 3 — 渲染器统一](#batch-22-技术债-phase-3) | P2 | 🔴 未开始 | Batch 21 |
+| Batch 23 | [技术债 Phase 4 — 规范统一](#batch-23-技术债-phase-4) | P3 | 🔴 未开始 | Batch 18 |
+| Batch 24 | [技术债 Phase 5 — CSS 精细化](#batch-24-技术债-phase-5) | P3 | 🔴 未开始 | Batch 4 |
 **状态图标：** 🔴 未开始 → 🟡 进行中 → 🟢 已完成 → ⚪ 已跳过
 
 ---
@@ -306,6 +315,197 @@
 
 ---
 
+## Batch 16: 附件上传功能完善
+
+**目录：** `docs/iterations/batch-16-file-upload/`
+**优先级：** P2
+**目标：** 完善附件上传功能：前端附件封面展示、DirectLine upload API 对接、上传进度提示
+
+### 任务清单
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 16.1 | 实装文件选择预览 UI（showFilePreview / hideFilePreview） | 🔴 |
+| 16.2 | 文件大小校验（4MB 限制）与拖放支持 | 🔴 |
+| 16.3 | 用户消息渲染附件封面卡片（renderUserMessage 带 attachments） | 🔴 |
+| 16.4 | messageRenderer 新增 renderDocumentAttachment() | 🔴 |
+| 16.5 | DirectLineService 新增 uploadFile() 方法（REST upload endpoint） | 🔴 |
+| 16.6 | sendMessageWithFile 改用 uploadFile + 进度回调 | 🔴 |
+| 16.7 | 上传进度条 UI（进度条 + 状态文字 + 按钮禁用） | 🔴 |
+| 16.8 | 附件封面 CSS 样式（messages.css + chat.css） | 🔴 |
+| 16.9 | 测试验证（T1-T16 + R1-R6） | 🔴 |
+| 16.10 | CHANGELOG.md + TODO.md + 文档同步 | 🔴 |
+
+---
+
+## Batch 17: 模型注册可编辑与显示控制
+
+**目录：** `docs/iterations/batch-17-model-registry-editing/`
+**优先级：** P1
+**目标：** 为 AI Companion 模型注册系统补齐编辑能力，并在 Appearance 中增加用户消息与 metric 信息显示控制。
+
+### 任务清单
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 17.1 | 梳理注册模型当前数据结构与表单复用点 | 🟢 |
+| 17.2 | 根据用户新增需求更新 requirements / design / checklist | 🟢 |
+| 17.3 | aiCompanion.js 增加模型 update/edit 能力 | 🟢 |
+| 17.4 | application.js 接入编辑模式表单状态 | 🟢 |
+| 17.5 | Appearance 增加两个显示控制开关 | 🟢 |
+| 17.6 | CSS 增加编辑动作与隐藏态样式 | 🟢 |
+| 17.7 | 文档、CHANGELOG、TODO 同步 | 🟢 |
+| 17.8 | 用户验证 | 🔴 |
+
+---
+
+## Batch 18: 技术债 Phase 1 — 死代码清理
+
+**目录：** N/A（无独立文档目录，直接执行）
+**优先级：** P1
+**目标：** 归档/删除项目中无运行时引用的死代码模块，清理注释残留
+
+### 任务清单
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 18.1 | 归档 CustomChatInterface.js + .css（749+220 LOC，零引用） | 🟢 |
+| 18.2 | 归档 EnhancedChatWidget.js（1,219 LOC，仅版本列名） | 🟢 |
+| 18.3 | 归档 chat/ui/MessageRenderer.js + styles/component.css（175+120 LOC） | 🟢 |
+| 18.4 | 归档 UNIFIED_CHAT_COMPONENT_DESIGN.md（131KB 设计文档） | 🟢 |
+| 18.5 | 清理 versionRegistry.js 和 aboutSection.js 中已删模块引用 | 🟢 |
+| 18.6 | 清理 application.js 注释掉的导入块 | 🟢 |
+| 18.7 | 用户测试确认无回归 | 🔴 |
+| 18.8 | 确认后删除 .archive-phase1/ 临时目录 | 🔴 |
+| 18.9 | CHANGELOG + 文档同步 | 🔴 |
+
+---
+
+## Batch 19: 粘贴图片发送
+
+**目录：** `docs/iterations/batch-19-image-paste/`
+**优先级：** P2
+**依赖：** Batch 16（文件上传基础设施）
+**目标：** 支持从剪贴板粘贴图片（Ctrl/Cmd+V）到聊天输入区，预览后发送
+
+### 任务清单
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 19.1 | 监听 userInput paste 事件，检测 clipboardData.items 中的图片 | 🔴 |
+| 19.2 | 将粘贴的 Blob 转为 File 对象，复用已有文件上传管线 | 🔴 |
+| 19.3 | 在文件预览区显示图片缩略图 | 🔴 |
+| 19.4 | 测试验证（截图粘贴、网页图片粘贴、多图粘贴） | 🔴 |
+| 19.5 | CHANGELOG + 文档同步 | 🔴 |
+
+---
+
+## Batch 20: 首页增强与风格化
+
+**目录：** `docs/iterations/batch-20-home-enhancement/`
+**优先级：** P2
+**依赖：** Batch 15（Home 页面基础）
+**目标：** 强化首页品牌与信息密度：更名标题、Agent 卡片支持描述、卡片放大
+
+### 任务清单
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 20.1 | 首页标题改为 "Copilot Studio Agent Hub" | � |
+| 20.2 | agentManager 新增 description 字段（新建/编辑 Agent 表单） | 🟢 |
+| 20.3 | Home 页面 Agent 卡片渲染描述文本（截断 + tooltip） | 🟢 |
+| 20.4 | 卡片尺寸放大，容纳描述和更丰富统计信息 | 🟢 |
+| 20.5 | 移动端适配 | 🔴 |
+| 20.6 | CHANGELOG + 文档同步 | 🟢 |
+
+---
+
+## Batch 21: 技术债 Phase 2 — 巨型文件拆分
+
+**目录：** `docs/iterations/batch-21-file-split/`（待创建）
+**优先级：** P1
+**依赖：** Batch 18
+**目标：** 将 aiCompanion.js（11,767 LOC）拆分为 5-6 个聚焦模块；提取 application.js 中职责过重的子系统
+
+### 任务清单
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 21.1 | 从 aiCompanion.js 提取 KPIAnalyzer 模块（~2,500 LOC） | 🔴 |
+| 21.2 | 从 aiCompanion.js 提取 AutoQAEngine 模块（~1,500 LOC） | 🔴 |
+| 21.3 | 从 aiCompanion.js 提取 ModelRegistry 模块（~1,000 LOC） | 🔴 |
+| 21.4 | 从 aiCompanion.js 提取 LLMBridge 模块（~800 LOC） | 🔴 |
+| 21.5 | 从 aiCompanion.js 提取 ThinkingSimulator 模块（~800 LOC） | 🔴 |
+| 21.6 | 从 application.js 提取 FileUploadHandler（~200 LOC） | 🔴 |
+| 21.7 | 从 application.js 提取 ModelRegistrationHandler（~300 LOC） | 🔴 |
+| 21.8 | 全面回归测试 | 🔴 |
+| 21.9 | CHANGELOG + 文档同步 | 🔴 |
+
+---
+
+## Batch 22: 技术债 Phase 3 — 渲染器统一
+
+**目录：** `docs/iterations/batch-22-renderer-merge/`（待创建）
+**优先级：** P2
+**依赖：** Batch 21
+**目标：** 合并 messageRenderer.js 与 unifiedMessageRenderer.js 为单一渲染器；合并对应 CSS
+
+### 任务清单
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 22.1 | 盘点两套渲染器功能差异矩阵 | 🔴 |
+| 22.2 | 将 messageRenderer 差异功能迁入 unifiedMessageRenderer | 🔴 |
+| 22.3 | 合并 messages.css 与 unifiedMessageStyles.css | 🔴 |
+| 22.4 | 归档 messageMigrationAdapter.js 和 messageAPI.js | 🔴 |
+| 22.5 | 更新所有渲染器调用点 | 🔴 |
+| 22.6 | 全面回归测试 | 🔴 |
+| 22.7 | CHANGELOG + 文档同步 | 🔴 |
+
+---
+
+## Batch 23: 技术债 Phase 4 — 规范统一
+
+**目录：** `docs/iterations/batch-23-conventions/`（待创建）
+**优先级：** P3
+**依赖：** Batch 18
+**目标：** 统一存储工具、通知系统、DOM 操作模式和 localStorage 键名规范
+
+### 任务清单
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 23.1 | 合并 4 个 localStorage 工具为 StorageService | 🔴 |
+| 23.2 | 收归通知系统到 unifiedNotificationManager | 🔴 |
+| 23.3 | 统一 DOM show/hide 到 DOMUtils（禁止 style.display） | 🔴 |
+| 23.4 | 收归 82 个 window 全局到 `__MCSCHAT__` 命名空间 | 🔴 |
+| 23.5 | 统一 localStorage 键名规范（`mcschat.{domain}.{key}`） | 🔴 |
+| 23.6 | 全面回归测试 | 🔴 |
+| 23.7 | CHANGELOG + 文档同步 | 🔴 |
+
+---
+
+## Batch 24: 技术债 Phase 5 — CSS 精细化
+
+**目录：** `docs/iterations/batch-24-css-refinement/`（待创建）
+**优先级：** P3
+**依赖：** Batch 4（CSS 令牌迁移基础）
+**目标：** 继续设计令牌迁移（剩余 388 处硬编码色值）；消除 32 处 !important
+
+### 任务清单
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 24.1 | 盘点剩余硬编码色值分布（按文件） | 🔴 |
+| 24.2 | 在 variables.css 补充缺失 token | 🔴 |
+| 24.3 | 按文件批量替换硬编码色值 | 🔴 |
+| 24.4 | 审查并消除 32 处 !important | 🔴 |
+| 24.5 | 合并 metadata 选择器体系 | 🔴 |
+| 24.6 | 视觉回归测试（截图对比） | 🔴 |
+| 24.7 | CHANGELOG + 文档同步 | 🔴 |
+
+---
+
 ## 变更日志
 
 | 日期 | 变更 |
@@ -334,3 +534,12 @@
 | 2026-03-16 | UI 大量改进：Smooth 流式输出、Thinking Dot 5 种风格、KPI Insights 结构化面板、Metadata 悬停显示、消息气泡直角、面板展开动画 |
 | 2026-03-16 | Bug 修复：KPI 评分不更新、标题生成失败、Benchmark API key、Toggle 图标反差、Agent Options 未显示 |
 | 2026-03-16 | 布局重构：Conversations 按钮移到 panel header、Left Panel 浮动化、Command bar Home 按钮、Settings 精简 |
+| 2026-03-16 | 新增 Batch 16（附件上传功能完善），含完整四件套文档 |
+| 2026-03-18 | 新增 Batch 17（模型注册可编辑与显示控制），覆盖模型编辑与 Appearance 可见性开关 |
+| 2026-03-18 | 修复 message metadata 自动隐藏开关无效：移除 bot metadata 默认隐藏逻辑，改为仅在 auto-hide 开启时悬停显示；并补齐 unified metadata 类名契约 |
+| 2026-03-18 | KPI Insights 保留旧结果直到新分析完成；新增 status indicator（Analyzing / Complete / Failed）显示分析进度 |
+| 2026-03-18 | 新增 Batch 18（技术债 Phase 1）、Batch 19（粘贴图片发送）、Batch 20（首页增强与风格化）；开始执行 Phase 1 死代码清理 |
+| 2026-03-18 | 修复 KPI 评估提示词臆测问题：上下文提取前缀不匹配导致 LLM 基于假设评估 |
+| 2026-03-18 | 新增 Batch 21-24（技术债 Phase 2-5）完整计划：巨型文件拆分、渲染器统一、规范统一、CSS 精细化 |
+| 2026-03-18 | Batch 20 完成：首页标题更名、Agent 描述字段、卡片描述展示 |
+| 2026-03-18 | Batch 19 实施：粘贴图片发送（paste 事件监听 + Blob→File + 复用上传管线） |

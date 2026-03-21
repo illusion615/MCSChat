@@ -4,18 +4,18 @@
 .appearance-side-panel {
     position: fixed;
     top: 0;
-    right: -380px;
-    width: 380px;
+    right: -440px;
+    width: 440px;
     height: 100vh;
-    background: rgba(255, 255, 255, 0.98);
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
-    border-left: 1px solid var(--color-border);
+    background: rgba(255, 255, 255, 0.72);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+    border-left: 1px solid rgba(255, 255, 255, 0.3);
     z-index: 1000;
     transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
-    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
+    box-shadow: -12px 0 48px rgba(0, 0, 0, 0.25), -4px 0 12px rgba(0, 0, 0, 0.1);
 }
 
 .appearance-side-panel.open {
@@ -44,8 +44,34 @@
     padding: 20px 24px;
 }
 
+.appearance-group {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
+    box-shadow: 0 2px 10px var(--color-shadow-light);
+}
+
+.appearance-group:last-child {
+    margin-bottom: 0;
+}
+
+.appearance-group-title {
+    margin: 0 0 var(--spacing-lg) 0;
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--color-border-light);
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
 .appearance-panel-body .form-group {
     margin-bottom: 24px;
+}
+
+.appearance-group .form-group:last-child {
+    margin-bottom: 0;
 }
 
 /* Checkbox styling within appearance panel */
@@ -507,9 +533,9 @@
 /* Individual Session Items */
 .sessionItem {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
     align-items: flex-start;
-    padding: 16px 16px;
+    padding: 12px 16px;
     cursor: pointer;
     border-radius: 12px;
     margin-bottom: 4px;
@@ -520,17 +546,33 @@
     border: 1px solid rgba(0, 0, 0, 0.05);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
+    position: relative;
 }
 
-.sessionItem span:first-child {
+.sessionItem .session-title {
     flex: 1;
     min-width: 0;
     word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: normal;
-    font-size: 14px;
+    font-size: 13px;
+    font-weight: 500;
     line-height: 1.4;
-    padding-right: 8px; /* Add some spacing from delete icon */
+    padding-right: 24px;
+}
+
+.sessionItem .session-meta {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: rgba(0, 0, 0, 0.45);
+    margin-top: 4px;
+    line-height: 1.3;
+}
+
+.sessionItem.active .session-meta {
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .sessionItem:hover {
@@ -556,9 +598,10 @@
 
 /* Delete Icon for Session Items */
 .deleteIcon {
+    position: absolute;
+    top: 10px;
+    right: 10px;
     cursor: pointer;
-    margin-left: 12px;
-    margin-top: -2px; /* Align with first line of text */
     font-size: 16px;
     opacity: 0.6;
     padding: 4px;
@@ -571,4 +614,428 @@
     opacity: 1;
     background: rgba(255, 255, 255, 0.2);
     transform: scale(1.1);
+}
+
+/* ═══════════════════════════════════════════
+   AutoQA Modal & UI Styles
+   ═══════════════════════════════════════════ */
+
+.autoqa-modal-content {
+    width: 720px;
+    max-width: 92vw;
+    max-height: 88vh;
+    background: var(--color-bg-primary, #fff);
+    border-radius: 16px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.autoqa-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 0;
+    flex-shrink: 0;
+}
+
+.autoqa-modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-text-primary, #1a1a2e);
+}
+
+.autoqa-close-btn {
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    color: var(--color-text-secondary, #999);
+    line-height: 1;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+
+.autoqa-close-btn:hover {
+    background: var(--color-bg-secondary, #f0f0f0);
+    color: var(--color-text-primary, #333);
+}
+
+.autoqa-modal-body {
+    padding: 16px 24px;
+    overflow-y: auto;
+    max-height: 65vh;
+    flex: 1;
+}
+
+.autoqa-form-group {
+    margin-bottom: 16px;
+}
+
+.autoqa-form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--color-text-primary, #333);
+}
+
+.autoqa-required {
+    color: var(--color-error, #e74c3c);
+}
+
+.autoqa-form-group textarea,
+.autoqa-form-group input:not([type="checkbox"]),
+.autoqa-form-group select {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--color-border, #d0d0d0);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--color-bg-primary, #fff);
+    color: var(--color-text-primary, #333);
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.autoqa-form-group textarea {
+    resize: vertical;
+    min-height: 72px;
+}
+
+.autoqa-form-group textarea:focus,
+.autoqa-form-group input:not([type="checkbox"]):focus,
+.autoqa-form-group select:focus {
+    border-color: var(--color-primary, #007acc);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.12);
+}
+
+.autoqa-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.autoqa-form-row .autoqa-form-group {
+    margin-bottom: 16px;
+}
+
+.autoqa-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-text-secondary, #888);
+    margin: 20px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--color-border, #eee);
+}
+
+.autoqa-section-title:first-of-type {
+    margin-top: 4px;
+}
+
+.autoqa-dimension-desc {
+    font-size: 12px;
+    color: var(--color-text-secondary, #666);
+    padding: 10px 12px;
+    background: var(--color-bg-secondary, #f5f5f7);
+    border-radius: 8px;
+    line-height: 1.6;
+    margin-top: -4px;
+}
+
+.autoqa-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--color-border, #eee);
+    flex-shrink: 0;
+}
+
+.autoqa-btn {
+    padding: 9px 22px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.autoqa-btn:active {
+    transform: scale(0.97);
+}
+
+.autoqa-btn-cancel {
+    background: var(--color-bg-secondary, #e8e8e8);
+    color: var(--color-text-primary, #333);
+}
+
+.autoqa-btn-cancel:hover {
+    background: var(--color-bg-tertiary, #ddd);
+}
+
+.autoqa-btn-start {
+    background: var(--color-primary, #007acc);
+    color: #fff;
+}
+
+.autoqa-btn-start:hover {
+    background: var(--color-primary-hover, #0062a3);
+}
+
+.autoqa-btn-save {
+    background: var(--color-primary, #007acc);
+    color: #fff;
+}
+
+.autoqa-btn-save:hover {
+    background: var(--color-primary-hover, #0062a3);
+}
+
+/* AutoQA Test Case Table */
+.autoqa-testcase-table-wrap {
+    margin-bottom: 8px;
+}
+
+.autoqa-empty-state {
+    text-align: center;
+    padding: 20px 16px;
+    color: var(--color-text-secondary, #999);
+    font-size: 13px;
+    background: var(--color-bg-secondary, #f8f8fa);
+    border-radius: 8px;
+}
+
+.autoqa-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.autoqa-table thead th {
+    text-align: left;
+    padding: 8px 10px;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--color-text-secondary, #888);
+    border-bottom: 1px solid var(--color-border, #eee);
+    white-space: nowrap;
+}
+
+.autoqa-table tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--color-border, #f0f0f0);
+    color: var(--color-text-primary, #333);
+    vertical-align: middle;
+}
+
+.autoqa-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.autoqa-table tbody tr:hover {
+    background: var(--color-bg-secondary, #f5f5f7);
+}
+
+.autoqa-tc-name {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.autoqa-tc-actions {
+    white-space: nowrap;
+    display: flex;
+    gap: 4px;
+}
+
+.autoqa-tc-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    background: var(--color-bg-secondary, #eee);
+    color: var(--color-text-primary, #555);
+}
+
+.autoqa-tc-btn:hover {
+    background: var(--color-bg-tertiary, #ddd);
+}
+
+.autoqa-tc-run {
+    color: var(--color-primary, #007acc);
+}
+
+.autoqa-tc-run:hover {
+    background: rgba(0, 122, 204, 0.12);
+}
+
+.autoqa-tc-delete:hover {
+    background: rgba(231, 76, 60, 0.12);
+    color: var(--color-error, #e74c3c);
+}
+
+/* AutoQA Form Area */
+.autoqa-checkbox-group {
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: 6px;
+}
+
+.autoqa-checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.autoqa-checkbox-group input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.autoqa-form-toggle {
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    transition: color 0.15s;
+}
+
+.autoqa-form-toggle:hover {
+    color: var(--color-primary, #007acc);
+}
+
+.autoqa-form-area {
+    padding: 12px 0 0;
+}
+
+.autoqa-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+/* AutoQA running state button */
+.quick-action-btn.autoqa-running {
+    background: var(--color-error, #e74c3c) !important;
+    color: #fff !important;
+}
+
+/* Disable input area while AutoQA is running */
+body.autoqa-active #userInput {
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+body.autoqa-active #sendButton {
+    pointer-events: none;
+    opacity: 0.4;
+}
+
+body.autoqa-active #attachButton {
+    pointer-events: none;
+    opacity: 0.4;
+}
+
+/* ═══ AutoQA Live Banner ═══ */
+.autoqa-live-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.12), rgba(231, 76, 60, 0.06));
+    border-bottom: 1px solid rgba(231, 76, 60, 0.2);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary, #333);
+    animation: autoqa-banner-breathe 2s ease-in-out infinite;
+    flex-shrink: 0;
+    z-index: 10;
+}
+
+@keyframes autoqa-banner-breathe {
+    0%   { background: linear-gradient(135deg, rgba(231, 76, 60, 0.14), rgba(231, 76, 60, 0.06)); }
+    50%  { background: linear-gradient(135deg, rgba(231, 76, 60, 0.25), rgba(231, 76, 60, 0.12)); }
+    100% { background: linear-gradient(135deg, rgba(231, 76, 60, 0.14), rgba(231, 76, 60, 0.06)); }
+}
+
+.autoqa-live-banner.autoqa-live-paused {
+    animation: none;
+    background: linear-gradient(135deg, rgba(150, 150, 150, 0.12), rgba(150, 150, 150, 0.06));
+    border-bottom-color: rgba(150, 150, 150, 0.2);
+}
+
+.autoqa-live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e74c3c;
+    animation: autoqa-dot-pulse 1.2s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+.autoqa-live-paused .autoqa-live-dot {
+    background: #999;
+    animation: none;
+}
+
+@keyframes autoqa-dot-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.6); }
+    50% { opacity: 0.5; box-shadow: 0 0 6px 3px rgba(231, 76, 60, 0.3); }
+}
+
+.autoqa-live-text {
+    font-weight: 600;
+    color: #e74c3c;
+    letter-spacing: 0.3px;
+}
+
+.autoqa-live-paused .autoqa-live-text {
+    color: #999;
+}
+
+.autoqa-live-round {
+    font-size: 12px;
+    color: var(--color-text-secondary, #888);
+    margin-left: auto;
+}
+
+.autoqa-live-stop {
+    padding: 4px 14px;
+    border: 1px solid rgba(231, 76, 60, 0.4);
+    border-radius: 6px;
+    background: transparent;
+    color: #e74c3c;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.autoqa-live-stop:hover {
+    background: #e74c3c;
+    color: #fff;
 }

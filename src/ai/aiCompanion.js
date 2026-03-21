@@ -15,6 +15,8 @@ import { SecureStorage } from '../utils/secureStorage.js';
 import { speechEngine } from '../services/speechEngine.js';
 import { getSVGPath } from '../components/svg-icon-manager/index.js';
 import { promptManager } from './promptManager.js';
+import { AutoQAEngine } from './autoQAEngine.js';
+import { ModelRegistry } from './modelRegistry.js';
 
 const AI_COMPANION_VERSION = '3.0.0';
 console.log(`🤖 [AICompanion] Version ${AI_COMPANION_VERSION} loaded`);
@@ -99,13 +101,17 @@ export class AICompanion {
             avgResponseTime: 0
         };
 
+        // ═══ AutoQA Engine (extracted module) ═══
+        this.autoQAEngine = new AutoQAEngine(this);
+        this.autoQA = this.autoQAEngine;
+
+        // ═══ Model Registry (extracted module) ═══
+        this.modelRegistry = new ModelRegistry(this);
+
         // Token consumption tracking
         this.tokenTracking = {
-            // Per-conversation tokens (reset when conversation changes)
             conversationTokens: 0,
-            // Per-model tokens (persistent across sessions)
             modelTokens: this.loadModelTokens(),
-            // Current conversation ID for tracking
             currentConversationId: null
         };
 
@@ -149,6 +155,8 @@ export class AICompanion {
             isProcessing: false,
             isRecording: false
         };
+
+        // ═══ AutoQA and ModelRegistry already initialized above ═══
 
         this.initializeElements();
         this.loadSettings();
@@ -196,10 +204,12 @@ export class AICompanion {
             // KPI elements
             kpiConsumption: DOMUtils.getElementById('kpiConsumption'),
             kpiConsumptionBar: DOMUtils.getElementById('kpiConsumptionBar'),
-            // Model comparison view
+            // Model comparison view (legacy — kept for updateModelComparisonView backward compat)
             modelComparisonTable: DOMUtils.getElementById('modelComparisonTable'),
             refreshModelComparisonBtn: DOMUtils.getElementById('refreshModelComparisonBtn'),
             resetAllModelsBtn: DOMUtils.getElementById('resetAllModelsBtn'),
+            // Registered models table (new)
+            registeredModelsTable: DOMUtils.getElementById('registeredModelsTable'),
             // Prompt management
             managePromptsBtn: DOMUtils.getElementById('managePromptsBtn')
         };
@@ -954,9 +964,10 @@ export class AICompanion {
             return;
         }
 
-        // Show the companion status panel when AI Companion is enabled
+        // Show the companion status panel when AI Companion is enabled (respect user preference)
         if (this.elements.companionStatusPanel) {
-            this.elements.companionStatusPanel.style.display = '';
+            const showModel = localStorage.getItem('showCompanionModel') !== 'false';
+            this.elements.companionStatusPanel.style.display = showModel ? '' : 'none';
         } else {
             // Fallback: show individual elements if panel container not found
             this.elements.llmStatus.style.display = '';
@@ -1025,7 +1036,11 @@ export class AICompanion {
             // Set connecting status
             this.elements.llmStatus.className = 'status-indicator connecting';
 
-            const ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
+            let ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
+            if (!ollamaUrl.startsWith('http://') && !ollamaUrl.startsWith('https://')) {
+                ollamaUrl = 'http://localhost:11434';
+                localStorage.setItem('ollamaUrl', ollamaUrl);
+            }
 
             // Test connection with a timeout
             const controller = new AbortController();
@@ -1255,10 +1270,23 @@ export class AICompanion {
      * @private
      */
     async simulateThinkingProcess(userMessage) {
-        // If thinking is already active, don't restart - just continue
+        // If thinking is already active, force-end the previous one before starting new
         if (this.isThinkingSimulationActive) {
-            console.log('[AICompanion] Thinking simulation already active, continuing...');
-            return this.thinkingCompletionPromise;
+            console.log('[AICompanion] Thinking simulation already active, force-ending previous before new start...');
+            this.shouldEndThinkingNaturally = true;
+            if (this.thinkingCompletionResolve) {
+                this.thinkingCompletionResolve();
+                this.thinkingCompletionResolve = null;
+            }
+            this.isThinkingSimulationActive = false;
+            // Remove orphaned thinking div from DOM to prevent empty bubbles
+            if (this.currentThinkingDiv) {
+                const container = this.currentThinkingDiv.closest('.messageContainer');
+                if (container) container.remove();
+                else this.currentThinkingDiv.remove();
+            }
+            this.currentThinkingDiv = null;
+            this.currentThinkingContent = '';
         }
 
         // Create completion promise
@@ -1349,6 +1377,13 @@ export class AICompanion {
                 this.thinkingCompletionResolve();
                 this.thinkingCompletionResolve = null;
                 this.thinkingCompletionPromise = null;
+            }
+
+            // Clean up empty thinking divs (prevent empty bubbles in chat)
+            if (this.currentThinkingDiv && !this.currentThinkingContent?.trim()) {
+                const container = this.currentThinkingDiv.closest('.messageContainer');
+                if (container) container.remove();
+                else this.currentThinkingDiv.remove();
             }
 
             // Reset tracking variables for next thinking session
@@ -1574,11 +1609,11 @@ export class AICompanion {
             ? `\n\nMy thinking so far: ${currentThoughts.slice(-2).join(', ').substring(0, 150)}...`
             : '';
 
-        // Detect the language of the user's question for consistent responses
-        const isChineseQuestion = /[\u4e00-\u9fff]/.test(userMessage);
+        // Use UI language setting for consistent responses
+        const isChineseQuestion = window.i18n?.language === 'zh';
         const languageInstruction = isChineseQuestion
-            ? `\n\n**CRITICAL: Respond in Chinese since the user asked in Chinese.**`
-            : `\n\n**CRITICAL: Respond in English since the user asked in English.**`;
+            ? `\n\n**CRITICAL: Respond in Chinese since the interface language is Chinese.**`
+            : `\n\n**CRITICAL: Respond in English since the interface language is English.**`;
 
         // Create different types of contextual prompts based on thinking progress
         let thoughtPrompt;
@@ -1693,11 +1728,11 @@ Start with phrases like: "Synthesizing our discussion...", "Bringing together th
      * @private
      */
     async generateSingleAIThought() {
-        // Detect language for consistent response
+        // Use UI language setting for consistent response
         const userMessage = this.currentUserMessage || '';
-        const isChineseQuestion = /[\u4e00-\u9fff]/.test(userMessage);
+        const isChineseQuestion = window.i18n?.language === 'zh';
         const languageInstruction = isChineseQuestion
-            ? `\n\nIMPORTANT: Respond in Chinese since the user asked in Chinese.`
+            ? `\n\nIMPORTANT: Respond in Chinese since the interface language is Chinese.`
             : `\n\nIMPORTANT: Respond in the same language as the user's question.`;
 
         const simpleThoughtPrompt = promptManager.getFormattedPrompt('simpleContinuation', {
@@ -1975,8 +2010,7 @@ Start with phrases like: "Synthesizing our discussion...", "Bringing together th
                 this.pendingAnalysis = null;
             } else {
                 // Fallback conclusion
-                const isChineseQuestion = (this.currentUserMessage && /[\u4e00-\u9fff]/.test(this.currentUserMessage)) ||
-                    (currentText && /[\u4e00-\u9fff]/.test(currentText));
+                const isChineseQuestion = window.i18n?.language === 'zh';
                 conclusion = isChineseQuestion ?
                     '思考完成，正在为您整理信息...' :
                     'Analysis complete, organizing information for you...';
@@ -1992,8 +2026,7 @@ Start with phrases like: "Synthesizing our discussion...", "Bringing together th
             console.error('[AICompanion] Error in intelligent conclusion generation:', error);
             
             // Fallback to simple conclusion
-            const isChineseQuestion = (this.currentUserMessage && /[\u4e00-\u9fff]/.test(this.currentUserMessage)) ||
-                (currentText && /[\u4e00-\u9fff]/.test(currentText));
+            const isChineseQuestion = window.i18n?.language === 'zh';
             const fallbackConclusion = isChineseQuestion ?
                 '思考完成，正在查询相关信息...' :
                 'Analysis complete, searching for information...';
@@ -2113,11 +2146,11 @@ Start with phrases like: "Synthesizing our discussion...", "Bringing together th
             contextPart = `\n\nCURRENT USER MESSAGE: ${userMessage}`;
         }
 
-        // Detect user question language for explicit instruction
-        const isChineseQuestion = /[\u4e00-\u9fff]/.test(userMessage);
+        // Use UI language setting for explicit instruction
+        const isChineseQuestion = window.i18n?.language === 'zh';
         const languageInstruction = isChineseQuestion
-            ? 'CRITICAL: The user asked in Chinese, so ALL thinking content must be in Chinese only. Do not use any English, Italian, or other languages.'
-            : 'CRITICAL: The user asked in English, so ALL thinking content must be in English only. Do not use any Chinese, Italian, or other languages.';
+            ? 'CRITICAL: The interface language is Chinese, so ALL thinking content must be in Chinese only. Do not use any English, Italian, or other languages.'
+            : 'CRITICAL: The interface language is English, so ALL thinking content must be in English only. Do not use any Chinese, Italian, or other languages.';
 
         // Enhanced thinking prompt that leverages conversation context
         const thinkingPrompt = `你是一个智慧博学且富有同理心的AI助手，正在展示你的思考过程。你需要生成3-4条体贴入微、富有洞察力的思考内容，体现你对用户请求的深度理解和分析。
@@ -2224,8 +2257,8 @@ ${contextPart}
     generateTemplateThinkingPrompts(userMessage) {
         const thoughts = [];
 
-        // Detect if the question is in Chinese to provide language-consistent thinking
-        const isChineseQuestion = /[\u4e00-\u9fff]/.test(userMessage);
+        // Use UI language setting for language-consistent thinking
+        const isChineseQuestion = window.i18n?.language === 'zh';
 
         // Analyze the question type and generate appropriate thoughts
         const questionType = this.analyzeQuestionType(userMessage);
@@ -2578,8 +2611,8 @@ ${contextPart}
                 return this.generateTemplateBasedConclusion(agentResponse, userMessage);
             }
 
-            // Detect language context
-            const isChineseContext = /[\u4e00-\u9fff]/.test(userMessage || agentResponse);
+            // Use UI language setting
+            const isChineseContext = window.i18n?.language === 'zh';
             const languageInstruction = isChineseContext
                 ? 'CRITICAL: 必须使用中文回应，不要使用英文或其他语言。'
                 : 'CRITICAL: Must respond in English only, do not use Chinese or other languages.';
@@ -2659,7 +2692,7 @@ Agent回应内容: "${agentResponse}"
      * @private
      */
     generateTemplateBasedConclusion(agentResponse, userMessage) {
-        const isChineseContext = /[\u4e00-\u9fff]/.test(userMessage || agentResponse);
+        const isChineseContext = window.i18n?.language === 'zh';
         
         // Check for escalation patterns
         const escalationPatterns = [
@@ -2793,7 +2826,7 @@ Agent回应内容: "${agentResponse}"
         if (!messageDiv) return;
 
         // Determine if context is Chinese based on the thinking content
-        const isChineseContext = /[\u4e00-\u9fff]/.test(fullText);
+        const isChineseContext = window.i18n?.language === 'zh';
 
         // Generate dynamic conclusion based on agent response
         let conclusion;
@@ -2883,11 +2916,13 @@ Agent回应内容: "${agentResponse}"
             switch (action) {
                 case 'analyze':
                     const analysisContext = this.getAdaptiveConversationContext('analysis');
-                    prompt = `${analysisContext}\n\nPlease analyze the agent's responses in this conversation. Focus on:\n1. Response quality and accuracy\n2. Helpfulness and relevance\n3. Communication style\n4. Areas for improvement\n\nProvide a brief but insightful analysis.`;
+                    const analyzeLang = window.i18n?.language === 'zh' ? '\n\n请用中文回答。' : '';
+                    prompt = `${analysisContext}\n\nPlease analyze the agent's responses in this conversation. Focus on:\n1. Response quality and accuracy\n2. Helpfulness and relevance\n3. Communication style\n4. Areas for improvement\n\nProvide a brief but insightful analysis.${analyzeLang}`;
                     break;
                 case 'summarize':
                     const summaryContext = this.getAdaptiveConversationContext('summary');
-                    prompt = `${summaryContext}\n\nPlease provide a concise summary of this conversation, highlighting:\n1. Main topics discussed\n2. Key information provided by the agent\n3. User's main questions or concerns\n4. Overall conversation outcome`;
+                    const summarizeLang = window.i18n?.language === 'zh' ? '\n\n请用中文回答。' : '';
+                    prompt = `${summaryContext}\n\nPlease provide a concise summary of this conversation, highlighting:\n1. Main topics discussed\n2. Key information provided by the agent\n3. User's main questions or concerns\n4. Overall conversation outcome${summarizeLang}`;
                     break;
                 case 'benchmark':
                     // Handle A/B test analysis separately due to its multi-step nature
@@ -3452,22 +3487,34 @@ Analyze both responses considering the question type:
         const stream = options.stream ?? false;
         const maxTokens = options.maxTokens ?? 2000;
         const temperature = options.temperature ?? 0.7;
+        const reasoningOff = this.isReasoningDisabled();
 
         let url, headers, bodyObj;
 
         if (provider === 'ollama') {
-            const ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
+            let ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
+            // Guard against corrupted URL (missing protocol or hostname)
+            if (!ollamaUrl.startsWith('http://') && !ollamaUrl.startsWith('https://')) {
+                ollamaUrl = 'http://localhost:11434';
+                localStorage.setItem('ollamaUrl', ollamaUrl);
+                console.warn('[AI Companion] Fixed corrupted ollamaUrl, reset to default');
+            }
             const selectedModel = localStorage.getItem('ollamaSelectedModel');
             if (!selectedModel || selectedModel === 'No Model Selected') {
                 throw new Error('No Ollama model selected. Please select a model in settings.');
             }
             url = `${ollamaUrl}/api/generate`;
             headers = { 'Content-Type': 'application/json' };
+            const ollamaOpts = { temperature, max_tokens: maxTokens };
+            if (reasoningOff) ollamaOpts.think = false;
+            // Inject language instruction
+            const langInstruction = window.i18n?.t('ai.languageInstruction') || '';
+            const ollamaPrompt = langInstruction ? `${langInstruction}\n\n${prompt}` : prompt;
             bodyObj = {
                 model: selectedModel,
-                prompt: prompt,
+                prompt: ollamaPrompt,
                 stream: stream,
-                options: { temperature, max_tokens: maxTokens }
+                options: ollamaOpts
             };
             return { url, headers, body: JSON.stringify(bodyObj), provider, isOllama: true };
         }
@@ -3482,6 +3529,11 @@ Analyze both responses considering the question type:
         }
 
         const messages = [{ role: 'user', content: prompt }];
+        // Inject language instruction as system message
+        const langInstruction = window.i18n?.t('ai.languageInstruction') || '';
+        if (langInstruction) {
+            messages.unshift({ role: 'system', content: langInstruction });
+        }
 
         switch (provider) {
             case 'azure': {
@@ -3517,6 +3569,9 @@ Analyze both responses considering the question type:
                     : baseUrl.replace(/\/v1\/?$/, '') + '/v1/chat/completions';
                 headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` };
                 bodyObj = { model, messages, max_tokens: maxTokens, temperature, stream };
+                if (reasoningOff) {
+                    bodyObj.chat_template_kwargs = { enable_thinking: false };
+                }
                 break;
             }
             default:
@@ -3524,6 +3579,15 @@ Analyze both responses considering the question type:
         }
 
         return { url, headers, body: JSON.stringify(bodyObj), provider, isOllama: false };
+    }
+
+    /**
+     * Check if reasoning is disabled for the current active model
+     * @returns {boolean}
+     * @private
+     */
+    isReasoningDisabled() {
+        return this.modelRegistry.isReasoningDisabled();
     }
 
     /**
@@ -3550,6 +3614,14 @@ Analyze both responses considering the question type:
         }
 
         const data = await response.json();
+
+        // Mark Ollama model as successfully used (clears first-use skip)
+        if (config.isOllama) {
+            const selectedModel = localStorage.getItem('ollamaSelectedModel');
+            if (selectedModel) {
+                localStorage.setItem(`ollama_${selectedModel}_firstUse`, 'true');
+            }
+        }
 
         // Track token usage if available
         if (data.usage) {
@@ -3870,7 +3942,11 @@ Analyze both responses considering the question type:
      * @private
      */
     async sendToOllama(message) {
-        const ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
+        let ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
+        if (!ollamaUrl.startsWith('http://') && !ollamaUrl.startsWith('https://')) {
+            ollamaUrl = 'http://localhost:11434';
+            localStorage.setItem('ollamaUrl', ollamaUrl);
+        }
         const selectedModel = localStorage.getItem('ollamaSelectedModel');
 
         if (!selectedModel) {
@@ -5192,7 +5268,10 @@ Analyze both responses considering the question type:
      * @private
      */
     buildBatchedKPIPrompt(content, conversationContext) {
-        return `You are an AI conversation quality analyst. Evaluate this agent response across 4 key metrics.
+        const langInst = window.i18n?.language === 'zh'
+            ? '\nCRITICAL: All reasoning text MUST be in Chinese.'
+            : '';
+        return `You are an AI conversation quality analyst. Evaluate this agent response across 4 key metrics.${langInst}
 
 CONVERSATION CONTEXT:
 ${conversationContext.substring(0, 1500)}...
@@ -5287,7 +5366,13 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
                 .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')  // Quote unquoted keys
                 .trim();
 
-            parsed = JSON.parse(jsonString);
+            // Attempt parse; if truncated, try to repair by closing open braces/strings
+            try {
+                parsed = JSON.parse(jsonString);
+            } catch {
+                console.warn('[AI Companion] JSON parse failed, attempting truncated JSON repair...');
+                parsed = this._repairTruncatedJSON(jsonString);
+            }
 
             return {
                 accuracy: Math.max(0, Math.min(10, parsed.accuracy?.score || 7)),
@@ -5312,6 +5397,54 @@ CRITICAL: Your response must be ONLY valid JSON in this exact format. Do not inc
                 }
             };
         }
+    }
+
+    /**
+     * Attempt to repair truncated JSON from LLM responses.
+     * Handles common truncation: unclosed strings, missing braces/brackets.
+     * @param {string} json - Broken JSON string
+     * @returns {Object} Parsed object
+     * @private
+     */
+    _repairTruncatedJSON(json) {
+        let s = json;
+
+        // If truncated inside a string value, close the string
+        // Count unescaped quotes — if odd, we're inside an open string
+        const unescapedQuotes = s.match(/(?<!\\)"/g);
+        if (unescapedQuotes && unescapedQuotes.length % 2 !== 0) {
+            // Trim trailing incomplete escape sequences
+            s = s.replace(/\\+$/, '');
+            s += '"';
+        }
+
+        // Remove any trailing comma or colon (incomplete key-value)
+        s = s.replace(/[,:]\s*$/, '');
+
+        // Close open braces and brackets
+        let openBraces = 0, openBrackets = 0;
+        let inString = false;
+        for (let i = 0; i < s.length; i++) {
+            const ch = s[i];
+            if (ch === '"' && (i === 0 || s[i - 1] !== '\\')) {
+                inString = !inString;
+            }
+            if (!inString) {
+                if (ch === '{') openBraces++;
+                else if (ch === '}') openBraces--;
+                else if (ch === '[') openBrackets++;
+                else if (ch === ']') openBrackets--;
+            }
+        }
+
+        while (openBrackets > 0) { s += ']'; openBrackets--; }
+        while (openBraces > 0) { s += '}'; openBraces--; }
+
+        // Clean trailing commas introduced by truncation
+        s = s.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+
+        console.log('[AI Companion] Repaired JSON:', s.substring(0, 200) + '...');
+        return JSON.parse(s);
     }
 
     /**
@@ -6438,14 +6571,12 @@ Provide your analysis in the exact JSON format above. Be thorough but concise in
      */
     async updateConversationTitle() {
         if (!this.isEnabled) {
-            console.log('[AI Companion] AI Companion not enabled, skipping title update. Enable AI Companion in settings to use automatic title generation.');
+            console.log('[AI Companion] AI Companion not enabled, skipping title update.');
             return;
         }
 
         try {
             const conversationContext = this.getAdaptiveConversationContext('title');
-            console.log('Title generation - conversation context:', conversationContext);
-
             if (!conversationContext || conversationContext === 'No conversation available.') {
                 console.log('[AI Companion] No conversation context available for title generation');
                 return;
@@ -6464,14 +6595,9 @@ Example good titles:
 - "Troubleshooting network connection issues"
 - "Planning budget for quarterly marketing campaign"`;
 
-            let title = '';
-            if (this.currentProvider === 'ollama') {
-                title = await this.generateTitleWithOllama(prompt);
-            } else {
-                title = await this.generateTitleWithAPI(prompt, this.currentProvider);
-            }
+            const title = await this._llmRequest(prompt, { maxTokens: 80, temperature: 0.3, stream: false });
 
-            if (title && title.trim()) {
+            if (title?.trim()) {
                 const processedTitle = this.validateAndLimitTitle(title.trim());
                 this.updateConversationTitleDisplay(processedTitle);
             }
@@ -6521,214 +6647,6 @@ Example good titles:
 
         console.log(`[AI Companion] Title validation: ${words.length} words -> "${cleanTitle}"`);
         return cleanTitle;
-    }
-
-    /**
-     * Send message to Ollama for title generation (with reasonable timeout)
-     * @param {string} message - Message to send
-     * @returns {Promise<Response>} Fetch response
-     * @private
-     */
-    async sendToOllamaForTitle(message) {
-        const ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
-        const selectedModel = localStorage.getItem('ollamaSelectedModel');
-
-        if (!selectedModel) {
-            throw new Error('No Ollama model selected. Please select a model in settings.');
-        }
-
-        console.log('Sending title generation request to Ollama:', { url: ollamaUrl, model: selectedModel });
-
-        try {
-            const response = await fetch(`${ollamaUrl}/api/generate`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    model: selectedModel,
-                    prompt: message,
-                    stream: false, // Use non-streaming for titles for simplicity
-                    options: {
-                        temperature: 0.3, // Lower temperature for more focused title generation
-                        max_tokens: 80, // Increased slightly to allow for better titles but still reasonable
-                        top_p: 0.9
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`Ollama title request failed: ${response.status} ${response.statusText}`);
-            }
-
-            return response;
-
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    /**
-     * Generate title using Ollama
-     * @param {string} prompt - Title generation prompt
-     * @returns {Promise<string>} Generated title
-     * @private
-     */
-    async generateTitleWithOllama(prompt) {
-        try {
-            const response = await this.sendToOllamaForTitle(prompt);
-
-            // Handle non-streaming response
-            const data = await response.json();
-            return data.response ? data.response.trim() : '';
-
-        } catch (error) {
-            console.error('Error generating title with Ollama:', error);
-            return '';
-        }
-    }
-
-    /**
-     * Generate title using API providers
-     * @param {string} prompt - Title generation prompt
-     * @param {string} provider - API provider
-     * @returns {Promise<string>} Generated title
-     * @private
-     */
-    async generateTitleWithAPI(prompt, provider) {
-        try {
-            const keyName = provider === 'openai-compatible'
-                ? 'openaiCompatibleApiKey'
-                : `${provider}ApiKey`;
-            const apiKey = await SecureStorage.retrieve(keyName);
-            if (!apiKey) {
-                console.log(`[AI Companion] No API key for ${provider}, skipping title generation`);
-                return '';
-            }
-
-            if (provider === 'azure') {
-                return await this.generateTitleWithAzure(prompt, apiKey);
-            } else if (provider === 'openai') {
-                return await this.generateTitleWithOpenAI(prompt, apiKey);
-            } else if (provider === 'anthropic') {
-                return await this.generateTitleWithAnthropic(prompt, apiKey);
-            } else if (provider === 'openai-compatible') {
-                // Use unified _llmRequest for openai-compatible title generation
-                const title = await this._llmRequest(prompt, { maxTokens: 60, temperature: 0.5 });
-                return title?.trim() || '';
-            }
-
-            return '';
-        } catch (error) {
-            console.error(`[AI Companion] Error generating title with ${provider}:`, error);
-            return '';
-        }
-    }
-
-    /**
-     * Generate title using Azure OpenAI
-     * @param {string} prompt - Title generation prompt
-     * @param {string} apiKey - Azure API key
-     * @returns {Promise<string>} Generated title
-     * @private
-     */
-    async generateTitleWithAzure(prompt, apiKey) {
-        const endpoint = localStorage.getItem('azureEndpoint');
-        const deployment = localStorage.getItem('azureDeployment');
-        const apiVersion = localStorage.getItem('azureApiVersion') || '2024-02-01';
-
-        if (!endpoint || !deployment) {
-            throw new Error('Azure OpenAI configuration incomplete');
-        }
-
-        const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'api-key': apiKey
-            },
-            body: JSON.stringify({
-                messages: [{ role: 'user', content: prompt }],
-                max_tokens: 80,
-                temperature: 0.3,
-                stream: false
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`Azure OpenAI title request failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data.choices?.[0]?.message?.content?.trim() || '';
-    }
-
-    /**
-     * Generate title using OpenAI
-     * @param {string} prompt - Title generation prompt
-     * @param {string} apiKey - OpenAI API key
-     * @returns {Promise<string>} Generated title
-     * @private
-     */
-    async generateTitleWithOpenAI(prompt, apiKey) {
-        const url = 'https://api.openai.com/v1/chat/completions';
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: 'gpt-3.5-turbo',
-                messages: [{ role: 'user', content: prompt }],
-                max_tokens: 80,
-                temperature: 0.3,
-                stream: false
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`OpenAI title request failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data.choices?.[0]?.message?.content?.trim() || '';
-    }
-
-    /**
-     * Generate title using Anthropic
-     * @param {string} prompt - Title generation prompt
-     * @param {string} apiKey - Anthropic API key
-     * @returns {Promise<string>} Generated title
-     * @private
-     */
-    async generateTitleWithAnthropic(prompt, apiKey) {
-        const url = 'https://api.anthropic.com/v1/messages';
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-                model: 'claude-3-haiku-20240307',
-                messages: [{ role: 'user', content: prompt }],
-                max_tokens: 80,
-                stream: false
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`Anthropic title request failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data.content?.[0]?.text?.trim() || '';
     }
 
     /**
@@ -7315,474 +7233,46 @@ Example good titles:
      * @private
      */
     loadModelTokens() {
-        return Utils.safeParseLocalStorage('aiCompanion_modelTokens', {}, 'object');
+        return this.modelRegistry.loadModelTokens();
     }
 
-    /**
-     * Save model-specific token data to localStorage
-     * @private
-     */
-    saveModelTokens() {
-        localStorage.setItem('aiCompanion_modelTokens', JSON.stringify(this.tokenTracking.modelTokens));
-    }
+    // ═══════════════════════════════════════════════════════════════════
+    // Model Registry — Proxy methods (implementation in modelRegistry.js)
+    // ═══════════════════════════════════════════════════════════════════
 
-    /**
-     * Get current model identifier
-     * @returns {string} Model identifier
-     * @private
-     */
-    getCurrentModelId() {
-        if (this.currentProvider === 'ollama') {
-            const model = localStorage.getItem('ollamaSelectedModel') || 'unknown';
-            return `ollama_${model}`;
-        } else if (this.currentProvider === 'azure') {
-            const deployment = localStorage.getItem('azureDeployment') || 'unknown';
-            return `azure_${deployment}`;
-        } else if (this.currentProvider === 'openai-compatible') {
-            const model = localStorage.getItem('openaiCompatibleModel') || 'unknown';
-            return `compat_${model}`;
-        } else {
-            return this.currentProvider || 'unknown';
-        }
-    }
-
-    /**
-     * Get current model display name
-     * @returns {string} Model display name
-     * @private
-     */
-    getCurrentModelName() {
-        if (this.currentProvider === 'ollama') {
-            const modelName = localStorage.getItem('ollamaSelectedModel') || 'No Model Selected';
-            return modelName !== 'No Model Selected' ? `Companion Model: ${modelName}` : 'No Model Selected';
-        } else if (this.currentProvider === 'azure') {
-            const deployment = localStorage.getItem('azureDeployment');
-            return deployment ? `Companion Model: Azure: ${deployment}` : 'Companion Model: Azure OpenAI';
-        } else if (this.currentProvider === 'openai') {
-            return 'Companion Model: OpenAI GPT';
-        } else if (this.currentProvider === 'anthropic') {
-            return 'Companion Model: Anthropic Claude';
-        } else if (this.currentProvider === 'openai-compatible') {
-            const displayName = localStorage.getItem('openaiCompatibleDisplayName');
-            const modelName = localStorage.getItem('openaiCompatibleModel');
-            return `Companion Model: ${displayName || modelName || 'OpenAI Compatible'}`;
-        }
-        return 'Companion Model: Unknown Model';
-    }
-
-    /**
-     * Load conversation tokens for current conversation
-     * @param {string} conversationId - Conversation ID
-     * @private
-     */
-    loadConversationTokens(conversationId) {
-        if (!conversationId) return;
-
-        const stored = localStorage.getItem(`aiCompanion_conversationTokens_${conversationId}`);
-        if (stored) {
-            this.tokenTracking.conversationTokens = parseInt(stored);
-        } else {
-            this.tokenTracking.conversationTokens = 0;
-        }
-        this.tokenTracking.currentConversationId = conversationId;
-    }
-
-    /**
-     * Save conversation tokens for current conversation
-     * @private
-     */
-    saveConversationTokens() {
-        if (!this.tokenTracking.currentConversationId) return;
-
-        localStorage.setItem(
-            `aiCompanion_conversationTokens_${this.tokenTracking.currentConversationId}`,
-            this.tokenTracking.conversationTokens.toString()
-        );
-    }
-
-    /**
-     * Estimate token usage for content (rough approximation)
-     * @param {string} content - Content to estimate tokens for
-     * @param {boolean} isInput - Whether this is input (user) or output (assistant) content
-     * @private
-     */
-    estimateTokenUsage(content, isInput = false) {
-        if (!content) return;
-
-        // Rough token estimation: ~4 characters per token for English text
-        const estimatedTokens = Math.ceil(content.length / 4);
-
-        const usage = isInput ?
-            { prompt_tokens: estimatedTokens, completion_tokens: 0 } :
-            { prompt_tokens: 0, completion_tokens: estimatedTokens };
-
-        this.trackTokenUsage(usage);
-    }
-
-    /**
-     * Track token consumption from API response
-     * @param {Object} usage - Usage information from API response
-     * @public
-     */
-    trackTokenUsage(usage) {
-        if (!usage) return;
-
-        const inputTokens = usage.prompt_tokens || usage.input_tokens || 0;
-        const outputTokens = usage.completion_tokens || usage.output_tokens || 0;
-        const totalTokens = inputTokens + outputTokens;
-
-        // Update conversation tokens
-        this.tokenTracking.conversationTokens += totalTokens;
-        this.saveConversationTokens();
-
-        // Update model-specific tokens
-        const modelId = this.getCurrentModelId();
-        if (!this.tokenTracking.modelTokens[modelId]) {
-            this.tokenTracking.modelTokens[modelId] = {
-                total: 0,
-                input: 0,
-                output: 0
-            };
-        }
-
-        this.tokenTracking.modelTokens[modelId].total += totalTokens;
-        this.tokenTracking.modelTokens[modelId].input += inputTokens;
-        this.tokenTracking.modelTokens[modelId].output += outputTokens;
-        this.saveModelTokens();
-
-        // Update displays
-        this.updateTokenDisplays();
-
-        console.log('[AI Companion] Token usage tracked:', {
-            input: inputTokens,
-            output: outputTokens,
-            total: totalTokens,
-            conversationTotal: this.tokenTracking.conversationTokens,
-            modelId: modelId,
-            modelTotal: this.tokenTracking.modelTokens[modelId].total
-        });
-    }
-
-    /**
-     * Update all token displays
-     * @private
-     */
-    updateTokenDisplays() {
-        this.updateKPIConsumption();
-        this.updateModelComparisonView();
-    }
-
-    /**
-     * Sync the model dropdown selection with the current model
-     * @private
-     */
-    async syncModelDropdownSelection() {
-        // Only sync for Ollama provider since that's the only one with a model dropdown
-        if (this.currentProvider !== 'ollama') {
-            console.log('[AI Companion] Skipping dropdown sync - not using Ollama provider');
-            return;
-        }
-
-        const ollamaModelSelect = DOMUtils.getElementById('ollamaModelSelect');
-        if (!ollamaModelSelect) {
-            console.log('[AI Companion] Model dropdown not found');
-            return;
-        }
-
-        const currentModel = localStorage.getItem('ollamaSelectedModel');
-        if (!currentModel) {
-            console.log('[AI Companion] No current model saved');
-            return;
-        }
-
-        console.log('[AI Companion] Attempting to sync dropdown to model:', currentModel);
-        console.log('[AI Companion] Dropdown options count:', ollamaModelSelect.options.length);
-
-        // Log all available options for debugging
-        const availableOptions = Array.from(ollamaModelSelect.options).map(opt => opt.value).filter(v => v);
-        console.log('[AI Companion] Available model options:', availableOptions);
-
-        // Check if dropdown is empty or only has placeholder
-        const hasModels = ollamaModelSelect.options.length > 1 &&
-            Array.from(ollamaModelSelect.options).some(option => option.value && option.value !== '');
-
-        if (!hasModels) {
-            console.log('[AI Companion] No models loaded in dropdown, attempting to refresh models');
-
-            // Try to trigger model refresh if application is available
-            if (window.MCSChatApp && window.MCSChatApp.refreshOllamaModels) {
-                try {
-                    await window.MCSChatApp.refreshOllamaModels();
-                    console.log('[AI Companion] Models refreshed, retrying sync');
-
-                    // Retry sync after refresh
-                    setTimeout(() => this.syncModelDropdownSelection(), 500);
-                    return;
-                } catch (error) {
-                    console.error('[AI Companion] Failed to refresh models:', error);
-                }
-            }
-        }
-
-        // Check if the current model exists in the dropdown options
-        const modelExists = Array.from(ollamaModelSelect.options).some(option => option.value === currentModel);
-
-        if (modelExists) {
-            // Set the dropdown to show the current model
-            ollamaModelSelect.value = currentModel;
-            console.log('[AI Companion] ✅ Successfully synced dropdown to model:', currentModel);
-        } else {
-            // If model doesn't exist in dropdown, log detailed info for debugging
-            console.log('[AI Companion] ❌ Current model not found in dropdown:', {
-                currentModel,
-                availableOptions,
-                dropdownOptionsCount: ollamaModelSelect.options.length
-            });
-        }
-    }
-
-    /**
-     * Update KPI consumption display
-     * @private
-     */
-    updateKPIConsumption() {
-        if (!this.elements.kpiConsumption) return;
-
-        const tokens = this.tokenTracking.conversationTokens;
-        this.elements.kpiConsumption.textContent = this.formatTokenCount(tokens);
-
-        // Update progress bar (scale to a reasonable max, e.g., 10K tokens)
-        const maxTokens = 10000;
-        const percentage = Math.min((tokens / maxTokens) * 100, 100);
-        if (this.elements.kpiConsumptionBar) {
-            this.elements.kpiConsumptionBar.style.width = `${percentage}%`;
-
-            // Color coding based on usage
-            let color = '#10b981'; // Green
-            if (percentage > 75) color = '#ef4444'; // Red
-            else if (percentage > 50) color = '#f59e0b'; // Yellow
-
-            this.elements.kpiConsumptionBar.style.background = color;
-        }
-    }
-
-    /**
-     * Format token count for display
-     * @param {number} count - Token count
-     * @returns {string} Formatted count
-     * @private
-     */
-    formatTokenCount(count) {
-        if (count >= 1000000) {
-            return (count / 1000000).toFixed(1) + 'M';
-        } else if (count >= 1000) {
-            return (count / 1000).toFixed(1) + 'K';
-        }
-        return count.toString();
-    }
-
-    /**
-     * Reset current model token metrics
-     * @public
-     */
-    resetModelTokens() {
-        const modelId = this.getCurrentModelId();
-        if (this.tokenTracking.modelTokens[modelId]) {
-            delete this.tokenTracking.modelTokens[modelId];
-            this.saveModelTokens();
-            this.updateModelComparisonView();
-            console.log(`[AI Companion] Reset token metrics for model: ${modelId}`);
-        }
-    }
-
-    /**
-     * Reset all model token metrics
-     * @public
-     */
-    resetAllModelTokens() {
-        if (confirm('Are you sure you want to reset token metrics for ALL models? This action cannot be undone.')) {
-            this.tokenTracking.modelTokens = {};
-            this.saveModelTokens();
-            this.updateModelComparisonView();
-            console.log('[AI Companion] Reset token metrics for all models');
-        }
-    }
-
-    /**
-     * Update the model comparison view in settings
-     * @public
-     */
-    updateModelComparisonView() {
-        if (!this.elements.modelComparisonTable) return;
-
-        const currentModelId = this.getCurrentModelId();
-        const modelTokens = this.tokenTracking.modelTokens;
-        const modelEntries = Object.entries(modelTokens);
-
-        if (modelEntries.length === 0) {
-            this.elements.modelComparisonTable.innerHTML = `
-                <div class="model-comparison-empty">
-                    No token usage data available yet.<br>
-                    Start using AI models to see comparison data here.
-                </div>
-            `;
-            return;
-        }
-
-        // Sort models by total token usage (descending)
-        modelEntries.sort((a, b) => b[1].total - a[1].total);
-
-        let html = `
-            <div class="model-comparison-header-row">
-                <div>Model Name</div>
-                <div>Total Tokens</div>
-                <div>Input Tokens</div>
-                <div>Output Tokens</div>
-                <div>Actions</div>
-            </div>
-        `;
-
-        modelEntries.forEach(([modelId, tokens]) => {
-            const displayName = this.getModelDisplayName(modelId);
-            const isCurrent = modelId === currentModelId;
-            const provider = this.getProviderFromModelId(modelId);
-
-            html += `
-                <div class="model-comparison-row ${isCurrent ? 'current-model' : ''}">
-                    <div class="model-name ${isCurrent ? 'current' : ''}">
-                        ${displayName}
-                        <span class="provider-tag">${provider}</span>
-                        ${isCurrent ? ' (current)' : ''}
-                    </div>
-                    <div class="token-stat total">${this.formatTokenCount(tokens.total)}</div>
-                    <div class="token-stat">${this.formatTokenCount(tokens.input)}</div>
-                    <div class="token-stat">${this.formatTokenCount(tokens.output)}</div>
-                    <div class="model-actions">
-                        <button type="button" class="model-action-btn reset-model-btn" 
-                                onclick="aiCompanion.resetSpecificModelTokens('${modelId}')"
-                                title="Reset this model's tokens">
-                            Reset
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
-
-        this.elements.modelComparisonTable.innerHTML = html;
-    }
-
-    /**
-     * Get display name for a model ID
-     * @param {string} modelId - Model ID
-     * @returns {string} Display name
-     * @private
-     */
-    getModelDisplayName(modelId) {
-        if (modelId.startsWith('ollama_')) {
-            return modelId.substring(7);
-        } else if (modelId.startsWith('azure_')) {
-            return modelId.substring(6);
-        } else if (modelId.startsWith('compat_')) {
-            const modelName = modelId.substring(7);
-            const displayName = localStorage.getItem('openaiCompatibleDisplayName');
-            return displayName || modelName;
-        } else if (modelId === 'openai') {
-            return 'OpenAI GPT';
-        } else if (modelId === 'anthropic') {
-            return 'Anthropic Claude';
-        } else if (modelId === 'openai-compatible') {
-            // Legacy format — migrate display
-            const displayName = localStorage.getItem('openaiCompatibleDisplayName');
-            const modelName = localStorage.getItem('openaiCompatibleModel');
-            return displayName || modelName || 'OpenAI Compatible';
-        }
-        return modelId;
-    }
-
-    /**
-     * Get provider name from model ID
-     * @param {string} modelId - Model ID
-     * @returns {string} Provider name
-     * @private
-     */
-    getProviderFromModelId(modelId) {
-        if (modelId.startsWith('ollama_')) {
-            return 'Ollama';
-        } else if (modelId.startsWith('azure_')) {
-            return 'Azure';
-        } else if (modelId.startsWith('compat_') || modelId === 'openai-compatible') {
-            return 'OpenAI Compatible';
-        } else if (modelId === 'openai') {
-            return 'OpenAI';
-        } else if (modelId === 'anthropic') {
-            return 'Anthropic';
-        }
-        return 'Unknown';
-    }
-
-    /**
-     * Reset tokens for a specific model
-     * @param {string} modelId - Model ID to reset
-     * @public
-     */
-    resetSpecificModelTokens(modelId) {
-        const displayName = this.getModelDisplayName(modelId);
-        if (confirm(`Reset token metrics for "${displayName}"?`)) {
-            delete this.tokenTracking.modelTokens[modelId];
-            this.saveModelTokens();
-            this.updateModelComparisonView();
-
-            console.log(`[AI Companion] Reset token metrics for model: ${modelId}`);
-        }
-    }
-
-    /**
-     * Reset first-use flag for current model (for troubleshooting performance issues)
-     * @public
-     */
-    resetModelFirstUseFlag() {
-        const selectedModel = localStorage.getItem('ollamaSelectedModel');
-        if (selectedModel) {
-            const modelStateKey = `ollama_${selectedModel}_firstUse`;
-            localStorage.removeItem(modelStateKey);
-            console.log(`[AI Companion] First-use flag reset for model: ${selectedModel}. Next invocation will use extended timeout.`);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Get model performance state information
-     * @returns {Object} Model state info
-     * @public
-     */
-    getModelPerformanceState() {
-        const selectedModel = localStorage.getItem('ollamaSelectedModel');
-        if (!selectedModel) {
-            return { error: 'No model selected' };
-        }
-
-        const modelStateKey = `ollama_${selectedModel}_firstUse`;
-        const hasBeenUsed = !!localStorage.getItem(modelStateKey);
-
-        return {
-            model: selectedModel,
-            hasBeenUsed: hasBeenUsed,
-            nextInvocation: hasBeenUsed ? 'Standard response time expected' : 'First use - may take longer for model loading',
-            notificationsEnabled: true,
-            approachType: 'User-friendly notifications (no hard timeouts)'
-        };
-    }
-
-    /**
-     * Set current conversation ID and load its tokens
-     * @param {string} conversationId - Conversation ID
-     * @public
-     */
-    setConversationId(conversationId) {
-        this.loadConversationTokens(conversationId);
-        this.updateKPIConsumption();
-    }
+    saveModelTokens() { this.modelRegistry.saveModelTokens(); }
+    getCurrentModelId() { return this.modelRegistry.getCurrentModelId(); }
+    getCurrentModelName() { return this.modelRegistry.getCurrentModelName(); }
+    getModelDisplayName(modelId) { return this.modelRegistry.getModelDisplayName(modelId); }
+    getProviderFromModelId(modelId) { return this.modelRegistry.getProviderFromModelId(modelId); }
+    loadConversationTokens(conversationId) { this.modelRegistry.loadConversationTokens(conversationId); }
+    saveConversationTokens() { this.modelRegistry.saveConversationTokens(); }
+    estimateTokenUsage(content, isInput) { this.modelRegistry.estimateTokenUsage(content, isInput); }
+    trackTokenUsage(usage) { this.modelRegistry.trackTokenUsage(usage); }
+    updateTokenDisplays() { this.modelRegistry.updateTokenDisplays(); }
+    formatTokenCount(count) { return this.modelRegistry.formatTokenCount(count); }
+    updateKPIConsumption() { this.modelRegistry.updateKPIConsumption(); }
+    resetModelTokens() { this.modelRegistry.resetModelTokens(); }
+    resetAllModelTokens() { this.modelRegistry.resetAllModelTokens(); }
+    async syncModelDropdownSelection() { return this.modelRegistry.syncModelDropdownSelection(); }
+    loadRegisteredModels() { return this.modelRegistry.loadRegisteredModels(); }
+    _saveRegisteredModels(models) { this.modelRegistry._saveRegisteredModels(models); }
+    getRegisteredModel(modelId) { return this.modelRegistry.getRegisteredModel(modelId); }
+    _getRegisteredModelApiKeyStorageKey(provider) { return this.modelRegistry._getRegisteredModelApiKeyStorageKey(provider); }
+    async _storeRegisteredModelApiKey(provider, apiKey) { return this.modelRegistry._storeRegisteredModelApiKey(provider, apiKey); }
+    _buildRegisteredModelEntry(modelConfig, existingEntry) { return this.modelRegistry._buildRegisteredModelEntry(modelConfig, existingEntry); }
+    async registerModel(modelConfig) { return this.modelRegistry.registerModel(modelConfig); }
+    async updateRegisteredModel(modelId, modelConfig) { return this.modelRegistry.updateRegisteredModel(modelId, modelConfig); }
+    deleteRegisteredModel(modelId) { this.modelRegistry.deleteRegisteredModel(modelId); }
+    async switchToModel(modelId) { return this.modelRegistry.switchToModel(modelId); }
+    renderRegisteredModelsTable() { this.modelRegistry.renderRegisteredModelsTable(); }
+    async testModelConnection(modelConfig) { return this.modelRegistry.testModelConnection(modelConfig); }
+    saveModelTestMetrics(modelId, metrics) { this.modelRegistry.saveModelTestMetrics(modelId, metrics); }
+    updateModelComparisonView() { this.modelRegistry.updateModelComparisonView(); }
+    resetSpecificModelTokens(modelId) { this.modelRegistry.resetSpecificModelTokens(modelId); }
+    resetModelFirstUseFlag() { return this.modelRegistry.resetModelFirstUseFlag(); }
+    getModelPerformanceState() { return this.modelRegistry.getModelPerformanceState(); }
+    setConversationId(conversationId) { this.modelRegistry.setConversationId(conversationId); }
 
     // ================================
     // Speech Functionality
@@ -9350,8 +8840,13 @@ Analyze both responses considering the question type:
         const insightsEl = document.getElementById('kpiInsightsContent');
         if (!insightsEl) return;
 
-        // Show loading state and hide welcome/chat area
-        insightsEl.innerHTML = '<p class="kpi-insights-loading">Analyzing performance...</p>';
+        // Show status indicator as "Analyzing" — keep old content visible
+        this._setKPIInsightsStatus('analyzing');
+
+        // Dim old content while analyzing
+        insightsEl.classList.add('kpi-insights-stale');
+
+        // Hide welcome/chat area
         const welcomeEl = document.querySelector('#llmChatWindow .companion-welcome');
         if (welcomeEl) welcomeEl.style.display = 'none';
         const chatWindow = document.getElementById('llmChatWindow');
@@ -9374,9 +8869,56 @@ Analyze both responses considering the question type:
             } else {
                 this._renderFallbackInsights(insightsEl, results);
             }
+            this._setKPIInsightsStatus('ready');
         } catch (error) {
             console.error('[AI Companion] KPI insight generation failed:', error);
             this._renderFallbackInsights(insightsEl, results);
+            this._setKPIInsightsStatus('error');
+        } finally {
+            insightsEl.classList.remove('kpi-insights-stale');
+        }
+    }
+
+    /**
+     * Set the KPI insights status indicator
+     * @param {'analyzing'|'ready'|'error'} state
+     * @private
+     */
+    _setKPIInsightsStatus(state) {
+        const statusEl = document.getElementById('kpiInsightsStatus');
+        if (!statusEl) return;
+
+        const dot = statusEl.querySelector('.kpi-status-dot');
+        const text = statusEl.querySelector('.kpi-status-text');
+        if (!dot || !text) return;
+
+        statusEl.style.display = 'flex';
+        statusEl.className = 'kpi-insights-status';
+
+        switch (state) {
+            case 'analyzing':
+                statusEl.classList.add('status-analyzing');
+                text.textContent = 'Analyzing performance...';
+                break;
+            case 'ready':
+                statusEl.classList.add('status-ready');
+                text.textContent = 'Analysis complete';
+                // Auto-hide after 3 seconds
+                setTimeout(() => {
+                    if (statusEl.classList.contains('status-ready')) {
+                        statusEl.style.display = 'none';
+                    }
+                }, 3000);
+                break;
+            case 'error':
+                statusEl.classList.add('status-error');
+                text.textContent = 'Analysis failed';
+                setTimeout(() => {
+                    if (statusEl.classList.contains('status-error')) {
+                        statusEl.style.display = 'none';
+                    }
+                }, 5000);
+                break;
         }
     }
 
@@ -9497,34 +9039,56 @@ Analyze both responses considering the question type:
     buildKPIExplanationPrompt(results) {
         const efficiency = this.kpiData.efficiency?.toFixed(1) || '0.0';
         const trend = this.kpiData.trend || 'stable';
-        const context = this.getConversationContextForThinking() || '';
-        const lastUserMsg = context.split('\n').filter(l => l.startsWith('User:')).pop() || '';
-        const lastAgentMsg = context.split('\n').filter(l => l.startsWith('Agent:')).pop() || '';
 
-        return `You are a concise chatbot quality analyst. Analyze each KPI based on the latest exchange.
+        // Use adaptive context which returns "User: ...\nAgent: ..." format
+        const fullContext = this.getAdaptiveConversationContext('analysis') || '';
+        const contextLines = fullContext.split('\n');
+        const lastUserMsg = contextLines.filter(l => l.startsWith('User:')).pop() || '';
+        const lastAgentMsg = contextLines.filter(l => l.startsWith('Agent:')).pop() || '';
+
+        // Build a short conversation excerpt (last 3 exchanges max)
+        const userLines = contextLines.filter(l => l.startsWith('User:'));
+        const agentLines = contextLines.filter(l => l.startsWith('Agent:'));
+        const recentPairs = [];
+        const pairCount = Math.min(3, userLines.length, agentLines.length);
+        for (let i = 0; i < pairCount; i++) {
+            const uIdx = userLines.length - pairCount + i;
+            const aIdx = agentLines.length - pairCount + i;
+            if (uIdx >= 0) recentPairs.push(userLines[uIdx]);
+            if (aIdx >= 0) recentPairs.push(agentLines[aIdx]);
+        }
+        const conversationExcerpt = recentPairs.length > 0
+            ? recentPairs.join('\n')
+            : `${lastUserMsg}\n${lastAgentMsg}`;
+
+        const langInst = window.i18n?.language === 'zh'
+            ? '\nCRITICAL: ALL output text MUST be in Chinese. Write Overview, Found Issue, and Suggestion content in Chinese. Keep markdown headers (### Accuracy etc.) in English for parsing but all descriptive content in Chinese.'
+            : '';
+
+        return `You are a concise chatbot quality analyst. You MUST ONLY analyze the actual conversation provided below. Do NOT hypothesize, assume, or invent any conversation content. If the conversation is too short for a dimension, state "Insufficient data" instead of guessing.${langInst}
 
 Scores: Accuracy ${results.accuracy.toFixed(1)}/10, Helpfulness ${results.helpfulness.toFixed(1)}/10, Completeness ${results.completeness.toFixed(1)}/10, Efficiency ${efficiency}/10. Trend: ${trend}.
 
-Latest exchange:
-${lastUserMsg}
-${lastAgentMsg}
+=== ACTUAL CONVERSATION (analyze ONLY this) ===
+${conversationExcerpt}
+=== END OF CONVERSATION ===
 
-Respond in this EXACT markdown format. Each KPI is a section. "Found Issue" and "Suggestion" only appear when score < 8. Keep each line under 20 words. Be specific to this conversation.
+Respond in this EXACT markdown format. Each KPI is a section. "Found Issue" and "Suggestion" only appear when score < 8. Keep each line under 20 words. Be specific to THIS conversation — quote or reference exact words from the messages above.
 
 ### Accuracy (${results.accuracy.toFixed(1)}/10)
-**Overview:** [One sentence about factual correctness and relevance]
-**Found Issue:** [Specific issue, or omit this line if score >= 8]
-**Suggestion:** [Concrete fix, or omit this line if no issue]
+**Overview:** [One sentence about factual correctness based on the actual exchange above]
+**Found Issue:** [Specific issue from the conversation, or omit if score >= 8]
+**Suggestion:** [Concrete fix referencing the actual content, or omit if no issue]
 
 ### Helpfulness (${results.helpfulness.toFixed(1)}/10)
-**Overview:** [One sentence about actionability and practical value]
+**Overview:** [One sentence about actionability based on the actual agent response]
 **Found Issue:** [Specific issue, or omit if score >= 8]
 **Suggestion:** [Concrete fix, or omit if no issue]
 
 ### Completeness (${results.completeness.toFixed(1)}/10)
-**Overview:** [One sentence about coverage and thoroughness]
-**Found Issue:** [Specific issue, or omit if score >= 8]
-**Suggestion:** [Concrete fix, or omit if no issue]
+**Overview:** [One sentence about coverage based on what user asked vs what agent answered]
+**Found Issue:** [Specific gap, or omit if score >= 8]
+**Suggestion:** [What should be added, or omit if no issue]
 
 ### Efficiency (${efficiency}/10)
 **Overview:** [One sentence about response speed]
@@ -9542,7 +9106,25 @@ Respond in this EXACT markdown format. Each KPI is a section. "Found Issue" and 
         const trendEmoji = this.kpiData.trend === 'improving' ? '📈' :
             this.kpiData.trend === 'declining' ? '📉' : '📊';
 
-        const fallbackMessage = `## 📊 Conversation Quality Summary
+        const isZh = window.i18n?.language === 'zh';
+        const qualityLabel = isZh
+            ? (avgScore >= 8 ? '优秀' : avgScore >= 6 ? '良好' : avgScore >= 4 ? '一般' : '待改进')
+            : (avgScore >= 8 ? 'excellent' : avgScore >= 6 ? 'good' : avgScore >= 4 ? 'fair' : 'needs improvement');
+        const trendLabel = isZh
+            ? (this.kpiData.trend === 'improving' ? '上升' : this.kpiData.trend === 'declining' ? '下降' : '稳定')
+            : this.kpiData.trend;
+
+        const fallbackMessage = isZh ? `## 📊 对话质量概要
+
+**综合评分**: ${avgScore}/10 ${trendEmoji}
+
+**关键指标:**
+• **准确性**: ${results.accuracy.toFixed(1)}/10
+• **有用性**: ${results.helpfulness.toFixed(1)}/10
+• **完整性**: ${results.completeness.toFixed(1)}/10
+• **效率**: ${this.kpiData.efficiency.toFixed(1)}/10
+
+当前对话质量为 **${qualityLabel}**，趋势 **${trendLabel}**。` : `## 📊 Conversation Quality Summary
 
 **Overall Score**: ${avgScore}/10 ${trendEmoji}
 
@@ -9552,7 +9134,7 @@ Respond in this EXACT markdown format. Each KPI is a section. "Found Issue" and 
 • **Completeness**: ${results.completeness.toFixed(1)}/10
 • **Efficiency**: ${this.kpiData.efficiency.toFixed(1)}/10
 
-The conversation quality is currently **${avgScore >= 8 ? 'excellent' : avgScore >= 6 ? 'good' : avgScore >= 4 ? 'fair' : 'needs improvement'}** with a **${this.kpiData.trend}** trend.`;
+The conversation quality is currently **${qualityLabel}** with a **${trendLabel}** trend.`;
 
         this.renderMessage('assistant', fallbackMessage);
     }
@@ -9591,6 +9173,33 @@ The conversation quality is currently **${avgScore >= 8 ? 'excellent' : avgScore
             console.error('[AI Companion] Error displaying fallback KPI explanation in chat:', error);
         }
     }
+
+    /**
+     * Escape HTML for safe insertion
+     * @param {string} str
+     * @returns {string}
+     * @private
+     */
+    _escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // AutoQA — Proxy methods (implementation in autoQAEngine.js)
+    // ═══════════════════════════════════════════════════════════════════
+
+    async startAutoQA(config) { return this.autoQAEngine.startAutoQA(config); }
+    async stopAutoQA(reason) { return this.autoQAEngine.stopAutoQA(reason); }
+    toggleAutoQAPause() { this.autoQAEngine.toggleAutoQAPause(); }
+    showAutoQAConfigModal() { this.autoQAEngine.showAutoQAConfigModal(); }
+    getAutoQAStatus() { return this.autoQAEngine.getAutoQAStatus(); }
+    loadAutoQATestCases() { return this.autoQAEngine.loadAutoQATestCases(); }
+    saveAutoQATestCase(config) { return this.autoQAEngine.saveAutoQATestCase(config); }
+    updateAutoQATestCase(id, updates) { this.autoQAEngine.updateAutoQATestCase(id, updates); }
+    deleteAutoQATestCase(id) { this.autoQAEngine.deleteAutoQATestCase(id); }
+
 }
 
 // Create and export singleton instance

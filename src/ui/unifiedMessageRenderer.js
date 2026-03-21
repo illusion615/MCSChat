@@ -495,7 +495,7 @@ export class UnifiedMessageRenderer {
      */
     createMessageMetadata(message) {
         const metadata = DOMUtils.createElement('div', {
-            className: 'message-metadata'
+            className: 'message-metadata unified-message-metadata'
         });
 
         // Timestamp

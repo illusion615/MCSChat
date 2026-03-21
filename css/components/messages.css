@@ -17,6 +17,56 @@
     margin-left: 0;
 }
 
+.hide-user-messages .message-wrapper:has(> .messageContainer.userMessage),
+.hide-user-messages .messageContainer.userMessage,
+.hide-user-messages .userMessage + .message-metadata,
+.hide-user-messages .message-wrapper > .userMessage + .message-metadata,
+.hide-user-messages #llmChatWindow .userMessage {
+    display: none;
+}
+
+.hide-metrics .message-metadata {
+    opacity: 0 !important;
+    pointer-events: none;
+    height: 0;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+}
+
+/* Auto-hide metadata: hidden by default, reveal on hover over message container */
+.auto-hide-metadata .message-metadata {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: opacity 0.25s ease, max-height 0.25s ease, margin 0.25s ease;
+    pointer-events: none;
+    margin: 0;
+}
+
+/* Also override bot-message-specific metadata (nested inside .messageContent) */
+.auto-hide-metadata .botMessage .message-metadata {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    pointer-events: none;
+    margin: 0;
+}
+
+.auto-hide-metadata .messageContainer:hover + .message-metadata,
+.auto-hide-metadata .messageContainer:hover .message-metadata,
+.auto-hide-metadata .message-wrapper:hover .message-metadata,
+.auto-hide-metadata .botMessage .messageContent:hover .message-metadata {
+    opacity: 1;
+    max-height: 40px;
+    margin: 4px 0;
+    pointer-events: auto;
+}
+
+.auto-hide-metadata .botMessage .messageContent:hover .message-metadata {
+    margin: 8px 0 0 0;
+}
+
 /* Message metadata - handles both structures */
 .message-metadata {
     display: flex; /* Visible by default when showMetadata is true */
@@ -40,22 +90,9 @@
 /* Bot message metadata - inside messageContent bubble */
 .botMessage .message-metadata {
     justify-content: flex-start;
-    margin: 0;
-    padding: 0 4px;
-    opacity: 0;
-    max-height: 0;
-    overflow: hidden;
-    transition: opacity 0.25s ease, max-height 0.25s ease, margin 0.25s ease, padding 0.25s ease;
-    pointer-events: none;
-}
-
-/* Show metadata on hover over the message bubble */
-.botMessage .messageContent:hover .message-metadata {
-    opacity: 1;
-    max-height: 40px;
     margin: 8px 0 0 0;
     padding: 0 4px;
-    pointer-events: auto;
+    transition: opacity 0.25s ease, max-height 0.25s ease, margin 0.25s ease, padding 0.25s ease;
 }
 
 /* Adjust user metadata when icons are hidden */
@@ -208,10 +245,16 @@
 
 /* Message wrapper - contains message content and metadata */
 .message-wrapper {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
     max-width: 100%;
+}
+
+/* Bot message wrapper takes available space; user message wrapper shrinks to fit */
+.botMessage .message-wrapper {
+    flex: 1;
+}
+
+.userMessage .message-wrapper {
+    flex: 0 1 auto;
 }
 
 /* Message icons */
@@ -313,6 +356,8 @@
     padding: var(--spacing-md) var(--spacing-xxl);
     margin: var(--spacing-sm) 0;
     box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
 }
 
 .full-width-messages .botMessage {
@@ -845,6 +890,108 @@
 
 .attachment-link:active {
     transform: translateY(0);
+}
+
+/* ===== DOCUMENT ATTACHMENT CARD ===== */
+
+.document-attachment {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    background: rgba(248, 249, 250, 0.85);
+    transition: all 0.2s ease;
+    max-width: 320px;
+}
+
+.document-attachment:hover {
+    background: rgba(240, 242, 245, 0.95);
+    border-color: rgba(0, 120, 212, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.document-attachment-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    line-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.document-attachment-icon svg {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+}
+
+.document-attachment-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.document-attachment-name {
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--color-text-primary);
+    word-break: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.document-attachment-meta {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.document-attachment-action {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark, #005a9e) 100%);
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.document-attachment-action:hover {
+    background: linear-gradient(135deg, #106ebe 0%, #005a9e 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 120, 212, 0.25);
+    color: white;
+}
+
+/* User message document attachment - adjust for dark background */
+.userMessage .document-attachment {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.userMessage .document-attachment:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.userMessage .document-attachment-name {
+    color: inherit;
+}
+
+.userMessage .document-attachment-meta {
+    color: rgba(255, 255, 255, 0.7);
 }
 
 /* ===== STREAMING MESSAGE STYLES ===== */

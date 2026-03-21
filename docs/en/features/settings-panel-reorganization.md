@@ -1,5 +1,42 @@
 # Settings Panel Reorganization - Speech Settings
 
+## 🧩 **Appearance Panel Grouping (March 2026)**
+
+The Appearance side panel now groups controls by intent so users can locate related options faster while keeping all original behavior and persistence logic intact.
+
+### New Appearance Groups
+
+1. **Message Display**
+- Message icons
+- User message visibility
+- Metadata visibility and auto-hide
+- Full-width message mode
+
+2. **Theme & Home Background**
+- Theme gallery
+- Home background image upload/remove
+- Home title and subtitle customization
+
+3. **Typography & Motion**
+- Agent/AI Companion font size sliders
+- Streaming style and speed
+- Thinking indicator style
+
+4. **Agent Behavior**
+- Suggested actions position
+- Streaming simulation toggle
+- Side citation browser toggle
+
+5. **System**
+- Auto-hide sidebar
+- Interface language
+
+### Why This Change
+
+- Reduces scanning overhead in long settings lists.
+- Preserves existing control IDs and event bindings (no migration cost).
+- Improves mobile readability with grouped cards and tighter spacing.
+
 ## 🎨 **Improved Speech Settings Layout**
 
 The speech settings panel has been reorganized into logical, visually grouped sections for better user experience and clarity.

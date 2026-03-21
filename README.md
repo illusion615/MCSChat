@@ -77,6 +77,7 @@ Ready to get started? Follow our quick setup guide:
 - Real-time conversation analysis with performance metrics
 - Support for OpenAI GPT, Anthropic Claude, Azure OpenAI, and local Ollama
 - Interactive KPI tracking (Accuracy, Helpfulness, Completeness)
+- Registered model registry with switch, edit, reset, and delete actions
 
 ### 💬 Advanced Chat Interface
 - Streaming response display with typing indicators
@@ -131,7 +132,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Last Updated**: August 22, 2025  
+**Last Updated**: March 21, 2026  
 **Version**: 3.6.0  
 **Maintained by**: [MCSChat Contributors](https://github.com/illusion615/MCSChat/graphs/contributors)
 ```bash
@@ -258,13 +259,16 @@ MCSChat/
 ### AI Companion Settings
 - **Provider Selection**: OpenAI GPT, Anthropic Claude, Azure OpenAI, or Local Ollama
 - **API Configuration**: Secure storage of API keys and credentials
-- **Model Selection**: Automatic discovery and selection of available models
+- **Model Registry**: Register, edit, switch, and reuse saved AI Companion models
 - **Connection Testing**: Built-in connectivity verification
 
 ### Appearance Settings
+- **Typed Group Layout**: Appearance controls are grouped into Message Display, Theme & Home Background, Typography & Motion, Agent Behavior, and System
 - **Agent Chat Font Size**: Customizable font size (10-20px) with real-time updates
 - **AI Companion Font Size**: Separate font size control (8-16px) with instant preview
 - **Message Display Mode**: Choose between bubble chat or full-width professional mode
+- **Message Visibility**: Show or hide user messages for review-focused workflows
+- **Metrics Visibility**: Show or hide message metadata and AI Companion KPI sections
 - **Professional Interface**: Document-like professional display
 - **Compact Layout**: Space-efficient spacing for maximum information density
 - **Icon System**: Unified SVG icons with consistent styling
@@ -300,6 +304,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Last Updated**: August 14, 2025  
-**Version**: 3.5.0  
+**Last Updated**: March 21, 2026  
+**Version**: 3.6.0  
 **Maintained by**: [MCSChat Contributors](https://github.com/illusion615/MCSChat/graphs/contributors)

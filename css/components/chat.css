@@ -5,12 +5,10 @@
 #llmChatWindow {
     flex: 1;
     padding: 16px;
-    /* Reduced from 20px for compactness */
     overflow-y: auto;
     background: transparent;
     border-radius: 12px;
-    margin-bottom: 12px;
-    /* Reduced from 16px */
+    min-height: 0; /* Critical: allows flex item to shrink and scroll */
 }
 
 /* Compact styling for AI companion chat window */
@@ -168,37 +166,195 @@
     display: flex;
     padding: 10px 16px;
     align-items: center;
-    background: rgba(255, 255, 255, 0.95);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
     margin: 0 -4px;
 }
 
-#fileUploadContainer {
-    display: flex;
-    align-items: center;
-    margin-right: 12px;
+/* LLM Input Container — must not be pushed off screen */
+#llmInputContainer {
+    flex-shrink: 0;
 }
 
-#attachButton {
-    background: rgba(255, 255, 255, 0.9);
+/* Input Wrapper - unified input field container */
+.input-wrapper {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    padding: 4px 8px;
     border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 24px;
+    background: transparent;
+    transition: all 0.2s ease;
+    gap: 2px;
+}
+
+.input-wrapper:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+}
+
+/* AI Companion Mode - input wrapper */
+.ai-companion-active .input-wrapper {
+    border-color: #6c5ce7;
+    background: transparent;
+}
+
+.ai-companion-active .input-wrapper:focus-within {
+    border-color: #6c5ce7;
+    box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.2);
+    background: transparent;
+}
+
+.ai-companion-active #userInput::placeholder {
+    color: #6c5ce7;
+    font-weight: 500;
+}
+
+/* Left & right button groups inside input */
+.input-inline-left,
+.input-inline-right {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+/* Inline button base — no background, icon-only */
+.input-inline-btn {
+    background: none;
+    border: none;
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
     color: var(--color-neutral);
+    padding: 0;
+    flex-shrink: 0;
 }
 
-#attachButton:hover {
-    background: rgba(0, 120, 212, 0.1);
-    border-color: var(--color-primary);
+.input-inline-btn:hover {
     color: var(--color-primary);
-    transform: scale(1.05);
+    filter: brightness(1.2);
+    background: rgba(0, 120, 212, 0.08);
+}
+
+.input-inline-btn:active {
+    filter: brightness(0.95);
+}
+
+/* Send button — slightly brighter icon color */
+.input-inline-send {
+    color: var(--color-primary);
+}
+
+.input-inline-send:hover {
+    filter: brightness(1.3);
+    background: rgba(0, 120, 212, 0.1);
+}
+
+/* AI Companion inline wrapper (for hover menu) */
+.ai-companion-inline-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+/* AI Companion hover menu — slides up from button */
+.ai-companion-hover-menu {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(106, 90, 205, 0.2);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(8px);
+    transition: all 0.2s ease;
+    z-index: 100;
+    min-width: 160px;
+    pointer-events: none;
+}
+
+.ai-companion-inline-wrapper:hover .ai-companion-hover-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+/* Hover menu items */
+.hover-menu-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    color: #6a5acd;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.hover-menu-item:hover {
+    background: rgba(106, 90, 205, 0.1);
+    color: #5d4fc4;
+}
+
+.hover-menu-item:active {
+    background: rgba(106, 90, 205, 0.18);
+}
+
+/* Active mode indicator in hover menu */
+.hover-menu-item.active-mode {
+    background: rgba(106, 90, 205, 0.12);
+    color: #5d4fc4;
+    font-weight: 600;
+}
+
+.hover-menu-item.active-mode::after {
+    content: '✓';
+    margin-left: auto;
+    padding-left: 8px;
+    font-size: 12px;
+}
+
+/* Hover menu status description */
+.hover-menu-status {
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    line-height: 1.4;
+}
+
+.hover-menu-divider {
+    height: 1px;
+    background: rgba(0, 0, 0, 0.08);
+    margin: 2px 6px;
+}
+
+/* Voice button recording state */
+#voiceInputBtn.recording {
+    background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+    color: white;
+    border-radius: 50%;
+}
+
+#fileUploadContainer {
+    display: flex;
+    align-items: center;
 }
 
 #filePreviewContainer {
@@ -206,26 +362,117 @@
     background: rgba(255, 255, 255, 0.9);
     border: 1px solid rgba(0, 120, 212, 0.3);
     border-radius: 12px;
-    margin: 8px 0;
+    margin: 8px 16px;
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
 }
 
 #filePreview {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
     color: var(--color-text-primary);
 }
 
-#fileName {
-    font-weight: 500;
-    color: var(--color-primary);
+.file-preview-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
 }
 
-#fileSize {
-    font-size: 12px;
+.file-preview-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 120, 212, 0.06);
+    border: 1px solid rgba(0, 120, 212, 0.15);
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 13px;
+    max-width: 220px;
+}
+
+.file-preview-item .file-type-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.file-preview-name {
+    font-weight: 500;
+    color: var(--color-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.file-preview-size {
+    font-size: 11px;
     color: var(--color-neutral);
+    flex-shrink: 0;
+}
+
+.file-preview-remove {
+    background: none;
+    border: none;
+    color: var(--color-danger, #dc3545);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 2px;
+    flex-shrink: 0;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.file-preview-remove:hover {
+    opacity: 1;
+}
+
+.file-type-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+/* Upload progress (inline in file preview) */
+.upload-progress-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    height: 20px;
+    position: relative;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.upload-progress-fill-inline {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary) 0%, #3aafff 100%);
+    border-radius: 10px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.upload-progress-text-inline {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    pointer-events: none;
+}
+
+/* Drag-over state for chat window */
+.chat-window.drag-over {
+    outline: 2px dashed var(--color-primary);
+    outline-offset: -4px;
+    background: rgba(0, 120, 212, 0.03);
 }
 
 #removeFileButton {
@@ -249,75 +496,37 @@
     transform: scale(1.1);
 }
 
-/* User Input */
+/* User Input — now borderless inside .input-wrapper */
 #userInput {
     flex: 1;
-    padding: 14px 18px;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    border-radius: 24px;
-    margin-right: 12px;
+    padding: 10px 8px;
+    border: none;
+    border-radius: 0;
+    margin: 0;
     font-size: 15px;
     font-family: inherit;
-    background: rgba(255, 255, 255, 0.9);
+    background: transparent;
     transition: all 0.2s ease;
     outline: none;
+    min-width: 0;
 }
 
 #userInput:focus {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+    /* No box-shadow — the wrapper handles focus ring */
     font-weight: 400;
 }
 
-/* AI Companion Mode - Change input border to indicate talking to AI agent */
-.ai-companion-active #userInput {
-    border-color: #6c5ce7;
-    background: rgba(108, 92, 231, 0.05);
-}
-
-.ai-companion-active #userInput:focus {
-    border-color: #6c5ce7;
-    box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.2);
-    background: rgba(108, 92, 231, 0.08);
-}
-
+/* AI Companion Mode — wrapper color changes applied via body class */
 .ai-companion-active #userInput::placeholder {
     color: #6c5ce7;
     font-weight: 500;
-}
-
-/* Send Button */
-#sendButton {
-    padding: 12px;
-    border: none;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-    color: var(--color-surface);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0, 120, 212, 0.3);
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-#sendButton:hover {
-    background: linear-gradient(135deg, var(--color-primary-dark) 0%, #005a9e 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(0, 120, 212, 0.4);
-}
-
-#sendButton:active {
-    transform: translateY(0);
 }
 
 /* Suggested Actions Container */
 #suggestedActionsContainer {
     padding: 0;
     width: 100%;
+    flex-shrink: 0;
 }
 
 /* Inline suggested actions (inside message bubble) */

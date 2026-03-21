@@ -7,13 +7,117 @@
     right: 0;
     bottom: 0;
     z-index: 100;
-    background: var(--theme-background, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+    background: var(--theme-background, linear-gradient(135deg, #434343 0%, #000000 100%));
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 40px 20px;
+    overflow: hidden;
     overflow-y: auto;
+}
+
+.home-page::-webkit-scrollbar {
+    display: none;
+}
+
+.home-page {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Blurred background image layer */
+.home-bg-image {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: blur(12px);
+    transform: scale(1.05);
+    z-index: 0;
+    pointer-events: none;
+}
+
+.home-bg-image::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.home-page.has-bg-image > *:not(.home-bg-image) {
+    z-index: 1;
+}
+
+/* Upload area in Appearance panel */
+.home-bg-upload-area {
+    padding: 12px;
+    background: rgba(248, 249, 250, 0.5);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.home-bg-preview {
+    width: 100%;
+    height: 100px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.home-bg-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.home-bg-placeholder {
+    font-size: 12px;
+    color: var(--color-text-secondary, #999);
+}
+
+.home-bg-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.home-bg-upload-btn {
+    cursor: pointer;
+    font-size: 13px;
+    padding: 6px 14px;
+}
+
+.home-bg-remove-btn {
+    font-size: 13px;
+    padding: 6px 14px;
+    color: #dc2626;
+}
+
+/* Text input in Appearance panel */
+.appearance-text-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--color-text-primary, #333);
+    background: white;
+    transition: border-color 0.2s ease;
+    box-sizing: border-box;
+    margin-top: 4px;
+}
+
+.appearance-text-input:focus {
+    outline: none;
+    border-color: var(--color-primary, #0078d4);
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.15);
 }
 
 .home-header {
@@ -83,6 +187,20 @@
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
 }
 
+/* Drag-and-drop states */
+.home-card-dragging {
+    opacity: 0.4;
+    transform: scale(0.95);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.home-card-drag-over {
+    outline: 2px dashed rgba(255, 255, 255, 0.7);
+    outline-offset: 4px;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
 .home-agent-card:active {
     transform: translateY(-2px);
 }
@@ -94,12 +212,26 @@
     margin: 0;
 }
 
+.home-agent-card-description {
+    font-size: 13px;
+    color: var(--color-text-secondary, #666);
+    line-height: 1.4;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .home-agent-card-status {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 13px;
     color: #666;
+    flex-wrap: nowrap;
 }
 
 .home-agent-card-status .status-dot {
@@ -332,8 +464,17 @@
 
 .agent-splash-status {
     font-size: 14px;
-    color: #666;
+    color: var(--color-text-secondary, #666);
     margin-top: 12px;
+}
+
+.agent-splash-status.breathing {
+    animation: breathingPulse 2s ease-in-out infinite;
+}
+
+@keyframes breathingPulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.98); color: var(--color-text-secondary, #888); }
+    50%      { opacity: 1;   transform: scale(1);     color: var(--color-text-primary, #333); }
 }
 
 .agent-splash-actions {
@@ -351,15 +492,18 @@
 /* Home footer with version info */
 .home-footer {
     position: absolute;
-    bottom: 20px;
-    left: 48px;
-    right: 0;
-    text-align: center;
+    right: var(--spacing-xxl, 24px);
+    bottom: var(--spacing-xl, 16px);
+    text-align: right;
     color: rgba(255, 255, 255, 0.5);
-    font-size: 12px;
+    font-size: var(--font-size-xs, 12px);
     display: flex;
-    justify-content: center;
-    gap: 8px;
+    justify-content: flex-end;
+    align-items: center;
+    gap: var(--spacing-md, 8px);
+    pointer-events: none;
+    z-index: 101;
+    max-width: calc(100vw - (var(--spacing-xxl, 24px) * 2));
 }
 
 /* Center buttons in agent splash overlay */

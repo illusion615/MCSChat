@@ -30,7 +30,7 @@
     --gradient-copilot-vibrant: linear-gradient(135deg, #0066cc 0%, #8b5fbf 100%);
 
     /* Theme background gradient - can be dynamically changed */
-    --theme-background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --theme-background: linear-gradient(135deg, #434343 0%, #000000 100%);
 
     /* UNIFIED: Common spacing and sizing variables */
     --spacing-xs: 4px;

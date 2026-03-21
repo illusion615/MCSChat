@@ -8,10 +8,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **多语言支持（Phase 1）**：新建 `src/utils/i18n.js` 多语言基础设施，支持英文/中文切换。Appearance 面板新增 Language 选择器，切换后首页、导航、Appearance 面板、Agent 卡片标签、确认弹窗实时切换语言。AI Companion 根据界面语言自动注入 system 指令以对应语言输出。
+- **侧边栏毛玻璃效果与自动隐藏**：左侧 Command Bar 改为毛玻璃（backdrop-filter blur + 半透明背景）效果。Appearance 设置新增 "Auto hide sidebar" 开关，开启后侧边栏收缩为 6px 细条，鼠标悬停时展开恢复 48px，主内容区自动补位。
+- **首页标题自定义**：Appearance 设置新增 Home Title 和 Home Subtitle 输入框，用户可自定义首页标题和副标题，实时预览并自动保存到 localStorage，清空则恢复默认值。
+- **首页背景图片**：Appearance 设置新增首页背景图片上传，图片以虚化（blur）方式显示并叠加半透明遮罩，突出前景 Agent 卡片氛围感。支持预览、移除，图片以 base64 存储在 localStorage，限制 5MB 以内。
+- **首页卡片拖拽排序**：首页 Agent 卡片支持拖拽重新排列顺序，松手后自动保存到 localStorage，刷新页面保持顺序。拖拽中卡片半透明，目标位置显示虚线指示框。
+- **模型测试性能指标**：测试连接改为流式请求，精确采集 TTFT（首字节延迟）、TTLT（总延迟）、Token/s（生成速率）。测试结果持久化到注册模型数据中，在模型列表 Perf 列显示（悬浮查看详情）。
+- **禁用推理模式开关**：模型注册/编辑表单新增 "Disable Reasoning" 复选框。启用后 Ollama 请求追加 `think: false`，OpenAI Compatible 请求追加 `chat_template_kwargs: {enable_thinking: false}`，可显著提升 Qwen/DeepSeek 等推理模型的响应速度。模型列表中以 ⚡ 徽标标识已禁用推理的模型。
+- **输入框内嵌按钮布局**：将 AI Companion 切换按钮、附件按钮、发送按钮全部移入输入框内部，统一为圆角 pill 容器。左侧 AI Companion + 附件、右侧发送，按钮无背景无边框，hover 时高亮响应。
+- **AI Companion 模式切换悬浮菜单**：AI Companion 按钮 hover 时向上滑出切换菜单（Agent Mode / AI Companion Mode），点击即切换消息发送目标，当前模式标记 ✓。
+- **AutoQA 自动化质检功能**：AI Companion 新增 AutoQA 引擎，可自动模拟用户与 Agent 交互并评估 Agent 回复质量。
+  - **场景配置**：自定义测试场景描述，支持售后、咨询、投诉等任意场景。
+  - **性格系统**：4 种模拟用户性格（配合/普通/苛刻/刁难），影响提问语气与内容策略。
+  - **测试维度**：4 种测试维度（业务流程/边界测试/合规测试/综合），可针对性验证 Agent 能力。
+  - **LLM 驱动决策**：每轮 Agent 回复后由 LLM 理解内容并策略性决定下一步行动（输入文本/点击 Suggested Action/填写 Adaptive Card）。
+  - **6 维通用评估指标**：相关性、准确性、完整性、语气适当性、边界意识、引导能力（0-10 分），业务无关的通用质量评估。
+  - **灵活退出机制**：支持固定轮次、指标驱动、先到先退三种退出模式，以及早停条件（连续失败、Agent 死循环、超时）。
+  - **UI 感知交互**：自动感知 Suggested Actions 和 Adaptive Cards，模拟点击按钮和填写表单。
+  - **综合质检报告**：测试结束后生成 Markdown 格式报告，包含逐轮详情、维度分析和改进建议。
+  - **配置弹窗 UI**：Quick Action 区域新增 AutoQA 按钮，点击弹出配置面板。
+  - **Test Case 持久化**：支持按 Agent 保存多个测试用例，避免重复配置。Modal 顶部显示已保存的 test case 表格，支持一键运行(▶)、编辑(✎)、删除(✕)。
+- **AutoQA Prompt 模板**：promptManager 新增 3 个 prompt 模板（消息生成/回复评估/报告生成），支持用户自定义。
+- **模型注册管理重构**：AI Companion 设置界面全新模型管理系统。
+  - **Registered Models 表格**：显示所有已注册模型，包含名称、Provider、Token 用量，当前模型用 ★ 标记。
+  - **⼚ Switch**：一键切换 AI Companion 到任意已注册模型（自动设置 provider + config）。
+  - **+ Add Model**：折叠表单，支持 OpenAI Compatible / OpenAI / Anthropic / Azure / Ollama 五种 provider。
+  - **Test Connection**：仅测试连接，不注册。**Register Model**：测试通过后添加到模型列表。
+  - **持久化存储**：模型注册信息存储在 localStorage，API Key 通过 SecureStorage 加密存储。
+
+- **附件上传功能完善（Batch 16）**：完整实现前端文件上传链路，包括文件选择预览、消息内附件封面卡片、DirectLine REST upload API 对接和上传进度提示。
+  - **文件选择预览 UI**：选择文件后在输入区显示文件类型图标、文件名、大小和移除按钮；支持拖放文件到聊天窗口。
+  - **文件大小校验**：自动校验 4MB 上限（DirectLine 限制），超限文件拒绝并提示。
+  - **消息内附件封面卡片**：用户发送带附件消息后，消息气泡内显示文档封面卡片（PDF/Word/Excel/PPT/图片各有专属图标）。
+  - **DirectLine Upload API**：新增 `uploadFile()` 方法，通过 REST `POST /v3/directline/conversations/{id}/upload` multipart 上传文件，正确对接 Copilot Studio。
+  - **上传进度条**：使用 XMLHttpRequest 跟踪真实上传进度，在文件预览区显示进度条和百分比/状态文字。
+  - **上传状态管理**：上传中禁用发送按钮，完成/失败后自动恢复 UI 状态。
+
+### Changed
+- **Appearance 面板信息分组重构**：按类型将外观设置重组为 5 个分区（消息显示、主题与首页背景、字体与动画、智能体行为、系统），在不改变控件语义与持久化逻辑的前提下提升可发现性与配置效率。
+- **首页页脚定位更新**：将 `.home-footer` 的定位方式调整为 `position: absolute`，使其按首页容器定位而非视口固定定位。
+- **首页页脚定位策略调整**：移除 `home-footer` 的 `position` 固定定位属性，改为遵循页面结构层级布局，避免在背景图模式下被层级规则覆盖后产生定位冲突。
+- **首页背景图层级规则调整**：移除 `.home-page.has-bg-image > *:not(.home-bg-image)` 的 `position` 强制声明，避免覆盖子节点自身定位策略（如页脚/浮层）。
+- **sendMessageWithFile 重构**：从直接调用 `postActivity` 改为调用 `uploadFile()` REST API，支持真实文件上传和进度回调。
+- **renderUserMessage 增强**：支持 `attachments` 参数，用户消息可渲染附件封面卡片。
+- **addAttachments 增加 PDF 分支**：自动识别 PDF 附件并使用专属文档卡片渲染。
+- **Bot Configuration 弹窗加宽**：`max-width` 从 1000px 增加到 1200px，为模型列表 Perf 列提供更多显示空间。
+- **性能指标单位自适应**：TTFT/TTLT 显示根据数值自动选择最合适的单位（ms / s / min），告别固定 ms 的可读性问题。
+- **初始化提示呼吸动画增强**：`breathingPulse` 动画透明度范围从 0.5→1 扩大到 0.3→1，新增微缩放 + 颜色渐变，动态感更明显。
+- **aiCompanion.js 模块拆分（Batch 21）**：将 ~10600 行的单体文件拆分为三个模块，核心降至 9398 行。
+  - `autoQAEngine.js`（1478 行）：AutoQA 自动化质检引擎
+  - `modelRegistry.js`（633 行）：模型注册/切换/Token 跟踪/性能测试/UI 渲染
+  - 标题生成重构：6 个重复的 provider-specific fetch 方法统一为 `_llmRequest()` 调用，消除 ~215 行重复代码
+
+### Fixed
+- **首页底部版本标识位置修复**：将 Home 页底部 `Empowered with Microsoft Copilot Studio + 版本号` 区域改为固定右下角对齐显示，避免因居中布局导致的位置偏移；并在移动端增加右下间距覆盖，保证小屏可见性与对齐一致。
+- **AutoQA 空消息气泡**：thinking simulation 在 AutoQA 快速连续消息时产生孤儿 DOM 元素（空 `currentThinkingDiv` 留在聊天窗口）。修复：force-reset 时从 DOM 移除孤儿 div；`finally` 清理无内容的 thinking div。
+- **全通道空消息过滤**：5 个消息处理入口（handleCompleteMessage / handleStreamingChunk / handleConversationUpdate / handleStreamingActivity / handleEventActivity）统一使用 `text?.trim()` 过滤，防止空白字符串通过。
+- **AutoQA thinking 不显示**：`simulateThinkingProcess()` 在上一轮 thinking 仍活跃时直接返回旧 promise，导致后续 thinking 永远无法启动。改为强制结束前一个并启动新的。
+- **模型测试 reasoning 参数未注入**：测试按钮未将 "Disable Reasoning" checkbox 状态传给测试请求，导致 Qwen 等模型测试时仍进入完整 reasoning 模式、速度异常低。
+- **TTFT 计算不准**：原逻辑以首个 chunk 到达时间作为 TTFT，reasoning 模型首个 chunk 是空的 thinking 标记而非真实 content token。改为仅在解析出有实际内容的 SSE 事件时记录 TTFT。
+- **KPI JSON 截断解析失败**：LLM 返回的 KPI 评估 JSON 因 token 限制被截断（缺少闭合 `}`），新增 `_repairTruncatedJSON()` 自动修复未闭合的字符串、大括号和方括号。
+
 ### Removed
 - **GitHub 提交前清理**：删除 `migration-backup-20250902-032535/`（旧迁移备份）、`legacy/`（旧版代码）、`tests/`（开发调试 HTML）、`utils/`（一次性脚本）、备份文件（`directLineLogsService-backup.js`、`index-old.js`）和 svg-icon-manager 临时文档（CLEANUP/COMPLETION/DESIGN_ANALYSIS/MIGRATION SUMMARY）。新增 `.gitignore` 排除 `.DS_Store`、`.venv/`、`node_modules/`、`.env`、IDE 配置等。
 
 ### Added
+- **模型测试性能指标**：在模型配置测试连接时，新增支持采集 TTFT（首字节延迟）、TTLT（总延迟）和 Token/s 指标，并在注册模型列表中展示。
+- **禁用推理模式开关**：模型配置中新增“禁用 Reasoning 模式”开关，通过注入系统 prompt 来提高部分带有推理功能模型的响应速度。
 - **Home 页面系统**：全新的 Home 页面取代 Splash Screen 作为应用入口。显示 Agent 卡片网格（含名称、状态、对话数、总时长、消息数、最近活跃），支持点击进入会话、"+" 卡片新增 Agent、齿轮按钮编辑 Agent（名称/Secret/参数）、垃圾桶按钮删除 Agent（需输入名称确认）。
 - **Agent 初始化参数系统**：Agent 支持自定义初始化参数（Parameter Key + Display Name）。配置了参数的 Agent 在发起新会话时会弹出 "Let's Begin" overlay 表单，用户填写后参数通过 DirectLine startConversation event 的 value 和 channelData.initParams 传给 Bot。
 - **Suggested Actions 位置选项**：在 Appearance 面板新增 Suggested Actions Position 下拉选项，支持"固定在输入框上方"和"内联在消息气泡内"两种模式。
@@ -65,6 +129,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **原生 Streaming 支持重设计（Batch 8）**：修正此前错误结论，实现自动检测+双路径策略。DirectLineService 新增 activity 诊断日志和 streaming chunk 检测（channelData.streamType/streamSequence/typing+text），检测到原生流式时通过 messageChunk 事件实时渲染，未检测到时自动回退模拟流式。
 
 ### Added
+- **模型测试性能指标**：在模型配置测试连接时，新增支持采集 TTFT（首字节延迟）、TTLT（总延迟）和 Token/s 指标，并在注册模型列表中展示。
+- **禁用推理模式开关**：模型配置中新增“禁用 Reasoning 模式”开关，通过注入系统 prompt 来提高部分带有推理功能模型的响应速度。
 - **OpenAI Compatible 接口支持（Batch 13）**：在 AI Companion 供应方下拉框新增“OpenAI Compatible”选项，支持连接任何兼容 OpenAI `/v1/chat/completions` 协议的 LLM 供应方（DeepSeek、Groq、LM Studio 等）。含 Base URL / API Key / Model Name / Display Name 配置、测试连接按钮、加密存储和 streaming 输出支持。
 - **Conversation-Aware Thinking System**: Revolutionary thinking mechanism that leverages complete conversation context (last 3-5 turns) for more insightful and relevant AI thinking responses
 - **Enhanced Thinking Context Integration**: Rich conversation history formatting with timestamps, role identification, and attachment awareness for deeper contextual understanding
@@ -192,9 +258,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Message icon alignment issues with message content
 - Auto title generation being inadvertently disabled
 
+### Changed
+- **AI Companion 模型注册可编辑**：Registered Models 表格新增 `Edit` 操作，复用 Add Model 表单进行就地修改；编辑时 API Key 可留空以保留 SecureStorage 中现有密钥；若编辑的是当前激活模型，保存后会立即刷新当前 provider 状态和模型显示。
+- **Appearance 可见性控制**：新增 `Show user messages` 与 `Show metric information` 开关，可即时隐藏用户消息气泡、消息 metadata 以及 AI Companion KPI 区域，并持久化到 localStorage。
+- **模型编辑约束与移动端修正**：编辑已注册模型时固定原 provider，避免跨 provider 复用空 API Key 导致配置失效；同时修正窄屏下 Registered Models 表格断点覆盖顺序，恢复 480px 以下两行布局。
+
+### Fixed
+- **Message metadata 自动隐藏开关失效**：修复 bot/agent metadata 被基础样式默认隐藏导致的设置无效问题；关闭 Auto hide 后 metadata 默认显示，开启后才按悬停显示。
+- **统一消息样式契约补齐**：Unified 渲染器输出 metadata 同时携带 `message-metadata` 与 `unified-message-metadata` 类，减少 legacy/unified 样式分裂带来的行为偏差。
+- **KPI 分析期间旧结果闪清问题**：分析进行中保留上一次分析结果（降低不透明度标记陈旧），仅在新结果就绪后替换内容；新增状态指示器（Analyzing / Analysis complete / Analysis failed）显示在 Insights 区域顶部。
+- **Phase 1 死代码清理**：归档删除 CustomChatInterface（749+220 LOC）、EnhancedChatWidget（1,219 LOC）、chat/ui/MessageRenderer（175+120 LOC）、UNIFIED_CHAT_COMPONENT_DESIGN.md（131KB）共 6 个无引用文件；清理 versionRegistry 和 aboutSection 中已删模块引用；移除 application.js 注释掉的导入块。
+- **KPI 评估提示词臆测问题**：修复 `buildKPIExplanationPrompt` 上下文提取前缀不匹配（`User (time):` vs `User:`）导致 LLM 收到空对话、被迫基于假设评估的问题。改用 `getAdaptiveConversationContext('analysis')` 获取完整对话，提示词增加「不得假设、只分析实际对话、引用原文」约束。
+
+### Added
+- **模型测试性能指标**：在模型配置测试连接时，新增支持采集 TTFT（首字节延迟）、TTLT（总延迟）和 Token/s 指标，并在注册模型列表中展示。
+- **禁用推理模式开关**：模型配置中新增“禁用 Reasoning 模式”开关，通过注入系统 prompt 来提高部分带有推理功能模型的响应速度。
+- **首页增强与风格化（Batch 20）**：首页标题更名为「Copilot Studio Agent Hub」；Agent 配置新增 description 字段（新建/编辑表单支持）；卡片上显示描述文本（2 行截断）。
+- **粘贴图片发送（Batch 19）**：支持在聊天输入框 Ctrl/Cmd+V 粘贴剪贴板图片，自动转为 File 对象并复用文件上传管线。
+
 ## [2.0.0] - 2024-01-15
 
 ### Added
+- **模型测试性能指标**：在模型配置测试连接时，新增支持采集 TTFT（首字节延迟）、TTLT（总延迟）和 Token/s 指标，并在注册模型列表中展示。
+- **禁用推理模式开关**：模型配置中新增“禁用 Reasoning 模式”开关，通过注入系统 prompt 来提高部分带有推理功能模型的响应速度。
 - **Multi-Provider AI Support**: OpenAI, Anthropic, Ollama, and Azure OpenAI
 - **Agent Management System**: Pre-configured and custom agents
 - **AI Companion Features**: Auto title generation and suggested actions
@@ -230,6 +316,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.5.1] - 2023-12-10
 
 ### Added
+- **模型测试性能指标**：在模型配置测试连接时，新增支持采集 TTFT（首字节延迟）、TTLT（总延迟）和 Token/s 指标，并在注册模型列表中展示。
+- **禁用推理模式开关**：模型配置中新增“禁用 Reasoning 模式”开关，通过注入系统 prompt 来提高部分带有推理功能模型的响应速度。
 - Basic conversation search functionality
 - Message copy buttons for code blocks
 - Improved keyboard navigation
@@ -241,6 +329,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.5.0] - 2023-11-25
 
 ### Added
+- **模型测试性能指标**：在模型配置测试连接时，新增支持采集 TTFT（首字节延迟）、TTLT（总延迟）和 Token/s 指标，并在注册模型列表中展示。
+- **禁用推理模式开关**：模型配置中新增“禁用 Reasoning 模式”开关，通过注入系统 prompt 来提高部分带有推理功能模型的响应速度。
 - **Conversation Management**: Save, load, and organize multiple conversations
 - **Message History**: Persistent conversation history
 - **Basic Themes**: Dark and light theme options
@@ -269,6 +359,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.4.0] - 2023-10-28
 
 ### Added
+- **模型测试性能指标**：在模型配置测试连接时，新增支持采集 TTFT（首字节延迟）、TTLT（总延迟）和 Token/s 指标，并在注册模型列表中展示。
+- **禁用推理模式开关**：模型配置中新增“禁用 Reasoning 模式”开关，通过注入系统 prompt 来提高部分带有推理功能模型的响应速度。
 - **Multiple AI Providers**: Support for OpenAI and Anthropic
 - **Streaming Responses**: Real-time response streaming
 - **Message Actions**: Edit, delete, and regenerate messages
@@ -296,6 +388,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.1] - 2023-10-05
 
 ### Added
+- **模型测试性能指标**：在模型配置测试连接时，新增支持采集 TTFT（首字节延迟）、TTLT（总延迟）和 Token/s 指标，并在注册模型列表中展示。
+- **禁用推理模式开关**：模型配置中新增“禁用 Reasoning 模式”开关，通过注入系统 prompt 来提高部分带有推理功能模型的响应速度。
 - Basic conversation export functionality
 - Improved error messages and user guidance
 
@@ -306,6 +400,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.0] - 2023-09-20
 
 ### Added
+- **模型测试性能指标**：在模型配置测试连接时，新增支持采集 TTFT（首字节延迟）、TTLT（总延迟）和 Token/s 指标，并在注册模型列表中展示。
+- **禁用推理模式开关**：模型配置中新增“禁用 Reasoning 模式”开关，通过注入系统 prompt 来提高部分带有推理功能模型的响应速度。
 - **Local Storage**: Conversations now persist locally
 - **Session Management**: Basic session handling
 - **Settings Persistence**: User preferences saved across sessions
@@ -332,6 +428,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0] - 2023-08-25
 
 ### Added
+- **模型测试性能指标**：在模型配置测试连接时，新增支持采集 TTFT（首字节延迟）、TTLT（总延迟）和 Token/s 指标，并在注册模型列表中展示。
+- **禁用推理模式开关**：模型配置中新增“禁用 Reasoning 模式”开关，通过注入系统 prompt 来提高部分带有推理功能模型的响应速度。
 - **Markdown Support**: Full markdown rendering in messages
 - **Message Formatting**: Rich text formatting options
 - **Copy Functionality**: Copy messages and code blocks
@@ -365,11 +463,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Memory leak in message handling
 
 ### Added
+- **模型测试性能指标**：在模型配置测试连接时，新增支持采集 TTFT（首字节延迟）、TTLT（总延迟）和 Token/s 指标，并在注册模型列表中展示。
+- **禁用推理模式开关**：模型配置中新增“禁用 Reasoning 模式”开关，通过注入系统 prompt 来提高部分带有推理功能模型的响应速度。
 - Basic error logging for debugging
 
 ## [1.1.0] - 2023-07-20
 
 ### Added
+- **模型测试性能指标**：在模型配置测试连接时，新增支持采集 TTFT（首字节延迟）、TTLT（总延迟）和 Token/s 指标，并在注册模型列表中展示。
+- **禁用推理模式开关**：模型配置中新增“禁用 Reasoning 模式”开关，通过注入系统 prompt 来提高部分带有推理功能模型的响应速度。
 - **User Interface**: Modern chat interface design
 - **Message History**: Basic conversation tracking
 - **Input Validation**: User input sanitization and validation
@@ -398,6 +500,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2023-07-01
 
 ### Added
+- **模型测试性能指标**：在模型配置测试连接时，新增支持采集 TTFT（首字节延迟）、TTLT（总延迟）和 Token/s 指标，并在注册模型列表中展示。
+- **禁用推理模式开关**：模型配置中新增“禁用 Reasoning 模式”开关，通过注入系统 prompt 来提高部分带有推理功能模型的响应速度。
 - **Initial Release**: Basic chat functionality with OpenAI integration
 - **Core Features**:
   - Single conversation interface
@@ -482,6 +586,8 @@ When contributing to this project:
 ## [1.2.3] - 2023-XX-XX
 
 ### Added
+- **模型测试性能指标**：在模型配置测试连接时，新增支持采集 TTFT（首字节延迟）、TTLT（总延迟）和 Token/s 指标，并在注册模型列表中展示。
+- **禁用推理模式开关**：模型配置中新增“禁用 Reasoning 模式”开关，通过注入系统 prompt 来提高部分带有推理功能模型的响应速度。
 - New feature description (#123)
 - Another feature with clear benefits
 

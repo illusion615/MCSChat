@@ -177,6 +177,13 @@ MCS Chat offers extensive configuration options through the Settings panel and l
 - **Smart Responses**: Generate relevant follow-up questions
 - **Learning Mode**: Adapt to user preferences over time
 
+### Registered Model Management
+- **Model Registry**: Save multiple AI Companion providers and keep them available in a single table
+- **In-place Editing**: Edit an existing registered model without deleting and recreating it
+- **Provider Lock During Edit**: Keep the existing provider fixed while editing; register a new model if you need to move to another provider
+- **Safe Key Reuse**: Leave API key fields empty during edits to keep the existing SecureStorage key
+- **Fast Switching**: Switch the active AI Companion model directly from the Registered Models table
+
 ## Appearance Customization
 
 ### Theme Options
@@ -233,6 +240,10 @@ MCS Chat offers extensive configuration options through the Settings panel and l
 - **Message Spacing**: Control vertical spacing
 - **Compact Mode**: Reduce UI padding for more content
 - **Full-Screen Mode**: Hide browser UI elements
+
+#### Visibility Controls
+- **User Messages**: Show or hide user-side chat bubbles for agent-review scenarios
+- **Metric Information**: Show or hide message metadata and AI Companion KPI panels
 
 ## Storage Configuration
 

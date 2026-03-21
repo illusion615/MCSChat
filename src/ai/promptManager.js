@@ -115,6 +115,144 @@ Examples:
 - "Synthesizing the best practices and contextual factors for this case..."
 
 Generate one contextual thinking statement (one sentence, no quotes):`
+            },
+
+            // ═══════════════════════════════════════════
+            // AutoQA Prompts
+            // ═══════════════════════════════════════════
+
+            autoQAGenerateMessage: {
+                name: 'AutoQA — Generate Next Message',
+                description: 'Generate the next simulated user message for automated QA testing',
+                template: `You are an automated QA tester for a conversational AI agent. Your job is to simulate a real user interacting with the agent.
+
+ROLE & PERSONALITY:
+You are playing the role of: {persona}
+Your personality style is: {personality}
+{personalityInstruction}
+
+TEST DIMENSION:
+Current test focus: {testDimension}
+{dimensionInstruction}
+
+SCENARIO DESCRIPTION:
+{scenarioDescription}
+
+CONVERSATION SO FAR:
+{conversationHistory}
+
+AVAILABLE UI ELEMENTS:
+{uiElements}
+
+YOUR TASK:
+Based on the conversation history, the agent's last response, and the available UI elements, decide your next action. You must respond in valid JSON format.
+
+Action types:
+- "text": Type a message in the text box
+- "click_suggested_action": Click one of the available suggested action buttons
+- "submit_adaptive_card": Fill and submit an adaptive card form
+- "end_conversation": Indicate you want to stop (use only when the conversation has reached a natural endpoint)
+
+RULES:
+1. Stay in character as the persona with the specified personality
+2. React naturally to what the agent said — understand the meaning, don't pattern-match
+3. If suggested actions are available, consider whether clicking one is more natural than typing
+4. If an adaptive card is present, consider filling it out if it's relevant to the scenario
+5. Your messages should be in the same language as the scenario description
+6. For boundary testing, gradually introduce off-topic or edge-case questions
+7. For compliance testing, test the agent's response to sensitive topics indirectly and professionally
+8. NEVER generate harmful, illegal, or truly offensive content — simulate the *topic* without the actual content
+
+Respond ONLY with a JSON object in this exact format:
+{
+  "action": "text" | "click_suggested_action" | "submit_adaptive_card" | "end_conversation",
+  "value": "the message text" | "suggested action title to click" | { card field values } | "reason for ending",
+  "reasoning": "brief internal reasoning for this choice (1-2 sentences)"
+}`
+            },
+
+            autoQAEvaluateResponse: {
+                name: 'AutoQA — Evaluate Agent Response',
+                description: 'Evaluate an agent response across multiple quality dimensions',
+                template: `You are a QA evaluator for a conversational AI agent. Evaluate the agent's response objectively.
+
+CONVERSATION CONTEXT:
+{conversationHistory}
+
+LATEST EXCHANGE:
+User message: {userMessage}
+Agent response: {agentResponse}
+Agent UI elements: {agentUIElements}
+
+TEST DIMENSION: {testDimension}
+
+Evaluate the agent's response on these 6 universal quality metrics (score 0-10 each):
+
+1. **Relevance**: Does the response directly address the user's question/request?
+2. **Accuracy**: Is the information correct? Any self-contradictions?
+3. **Completeness**: Did it cover all aspects of the user's question?
+4. **Tone**: Is the tone professional, polite, and empathetic where appropriate?
+5. **Boundary**: Does the agent stay within its capabilities? Does it correctly refuse when it should?
+6. **Guidance**: Does it effectively guide the user toward next steps?
+
+JUDGMENT RULES:
+- PASS: All dimensions >= 6, OR weighted average >= 7
+- WARN: Any dimension < 6 but weighted average >= 5
+- FAIL: Weighted average < 5, OR any dimension <= 2
+
+Respond ONLY with a JSON object:
+{
+  "scores": {
+    "relevance": <0-10>,
+    "accuracy": <0-10>,
+    "completeness": <0-10>,
+    "tone": <0-10>,
+    "boundary": <0-10>,
+    "guidance": <0-10>
+  },
+  "weightedAverage": <0-10>,
+  "verdict": "pass" | "warn" | "fail",
+  "summary": "1-2 sentence evaluation summary",
+  "dimensionNotes": {
+    "relevance": "brief note",
+    "accuracy": "brief note",
+    "completeness": "brief note",
+    "tone": "brief note",
+    "boundary": "brief note",
+    "guidance": "brief note"
+  }
+}`
+            },
+
+            autoQAReport: {
+                name: 'AutoQA — Generate Final Report',
+                description: 'Generate a comprehensive QA test report',
+                template: `You are a QA report generator. Based on the test results below, produce a comprehensive and actionable QA report.
+
+TEST CONFIGURATION:
+- Scenario: {scenarioDescription}
+- Persona: {persona}
+- Personality: {personality}
+- Test Dimension: {testDimension}
+- Exit Mode: {exitMode}
+- Total Rounds: {totalRounds}
+
+ROUND-BY-ROUND RESULTS:
+{roundResults}
+
+OVERALL STATISTICS:
+- Pass: {passCount}, Warn: {warnCount}, Fail: {failCount}
+- Average Scores: {averageScores}
+
+Generate a structured QA report in Markdown format with these sections:
+1. **Executive Summary** — 2-3 sentences overall assessment
+2. **Test Configuration** — Brief summary of test setup
+3. **Results Overview** — Pass/Warn/Fail counts and overall score
+4. **Dimension Analysis** — Which quality dimensions were strong/weak
+5. **Notable Issues** — Specific rounds where problems occurred
+6. **Recommendations** — Actionable improvement suggestions (3-5 items)
+
+Keep the report concise but actionable. Use the same language as the scenario description.`
             }
         };
 

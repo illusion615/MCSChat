@@ -15,6 +15,16 @@
 
 ### User Experience
 [x] Add a setting option to turn message icon on/off
+[x] Home page agent cards support drag-and-drop reordering with auto-save
+[x] Allow uploading a blurred background image for the home page via Appearance settings
+[x] Allow customizing home page title and subtitle via Appearance settings
+[x] Side command bar frosted glass effect and auto-hide option
+[x] i18n Phase 1: Language selector in Appearance, en/zh support for home/nav/appearance/cards/overlays, AI Companion language output
+[x] Fix home footer version badge alignment to bottom-right
+[x] Remove home-footer fixed positioning in home layout
+[x] Remove forced relative positioning from has-bg-image home children
+[x] Set home-footer position to absolute
+[x] Sync About page version info, module list, and build date to current state
 [x] Allow to minimize/expand the left conversation panel, move the setting button to the side command bar. Move ai companion button to agent chat window, put on right side of agent name
 [x] Remove markdown format from generated title as it will not show on history conversation button
 [x] Fix the left panel width and don't let it be impacted by chat window size
@@ -23,6 +33,7 @@
 [x] Change the ai companion icon as it's not beautiful, list some option icons let me choose
 [x] Move "Show Message Icon" from agent management to appearance and put before user icon setting. If it's not selected, hide the user icon setting section
 [x] Add color theme in setting panel to allow user choose background color theme from various candidates
+[x] Group Appearance settings into typed sections (message/theme/typography/agent/system)
 
 ### Message Rendering
 [x] Skip the streaming rendering for URL in markdown and directly output the completed URL part
@@ -47,6 +58,7 @@
 [x] Keep AI companion progress indicator, notifications on a fixed area (just above the quick action area) to leave a clean window for valuable AI companion output (Don't mix the system notification with valuable content together)
 [x] Disable the timeout notification. Only show timeout notification while waiting for response from LLM model and disable it once received content and start processing streaming output
 [x] Add an expand icon button to AI companion panel header to make it expand wider as 50/50 with agent chat panel, this icon button click will restore the default width
+[x] Allow editing registered AI Companion models and add Appearance toggles for user messages and metric information
 
 ### Agent Message Speaking
 [x] Speak the message
@@ -90,6 +102,8 @@ The project is now well-organized with:
 - [ ] Color theme implementation for enhanced user customization
 - [ ] AI companion panel expansion functionality
 - [ ] Continue feature development based on user feedback
+- [ ] AutoQA: Automated quality assurance testing for agents (personality, test dimensions, exit conditions, per-agent test case persistence)
+- [ ] Technical debt cleanup: consolidate metadata styling between legacy (`message-metadata`) and unified (`unified-message-metadata`) selectors
 [x] Upgrade to enhanced Web Speech API with better voice selection and natural speech parameters
 [x] Add local AI models support (Transformers.js with Whisper and SpeechT5)
 [x] Add Azure Speech Services integration as premium option
@@ -107,3 +121,35 @@ The project is now well-organized with:
     - ✅ **IMPROVED**: Better responsive design and mobile support
     - ✅ **IMPROVED**: Immediate modal close on submit button click
 [ ] Sometimes miss the returned entity when initiate the conversation, to investigate with directline protocal to see if there's some shcema didn't appropriately processed, find out why it's happened.
+
+### File Upload (Batch 16)
+[x] Implement file selection preview UI (file icon, name, size, remove button, drag-and-drop)
+[x] File size validation (4MB DirectLine limit)
+[x] Render attachment cover card in user message bubble
+[x] Add document attachment card renderer (PDF/Word/Excel/PPT with type-specific icons)
+[x] Implement DirectLine REST upload API (multipart/form-data with progress tracking)
+[x] Upload progress bar in file preview area
+[x] Upload state management (button disable/enable, error handling)
+[ ] Verify end-to-end file upload with Copilot Studio Agent
+[ ] Mobile layout adaptation for file preview and progress
+
+### Image Paste & Send (Batch 19)
+[ ] Support paste image from clipboard (Ctrl/Cmd+V) with preview and send
+[ ] Convert pasted image to File object and reuse existing file upload pipeline
+
+### Home Page Enhancement (Batch 20)
+[ ] Change home title to "Copilot Studio Agent Hub"
+[ ] Add description field to agent configuration (new/edit)
+[ ] Display agent description on home page cards
+[ ] Enlarge agent cards to accommodate description and richer stats
+
+### Technical Debt Phase 1 (Batch 18)
+[x] Archive dead modules: CustomChatInterface, EnhancedChatWidget, chat/ui/MessageRenderer
+[x] Clean versionRegistry and aboutSection references
+[x] Remove commented-out import blocks in application.js
+
+### Technical Debt Roadmap (Batch 21-24)
+[ ] Phase 2: Split aiCompanion.js (11.7K LOC) into 5-6 focused modules; extract application.js sub-handlers
+[ ] Phase 3: Merge messageRenderer + unifiedMessageRenderer into single renderer; merge CSS
+[ ] Phase 4: Consolidate storage utils, notification systems, DOM patterns, localStorage key naming, window globals
+[ ] Phase 5: Continue CSS design token migration (388 hardcoded colors); eliminate 32 !important rules

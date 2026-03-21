@@ -155,54 +155,49 @@ input[type="checkbox"]:focus {
     line-height: 1.4;
 }
 
-/* AI Companion Toggle - Updated to match input-button style when inactive */
+/* AI Companion Toggle — now an inline icon button */
 .ai-companion-toggle {
     position: relative;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    background: none;
     color: var(--color-text-secondary);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-    transition: all 0.3s ease;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    transition: all 0.2s ease;
 }
 
 .ai-companion-toggle:hover {
-    background: rgba(139, 95, 191, 0.1);
-    border-color: rgba(139, 95, 191, 0.3);
-    color: var(--color-companion-primary);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(139, 95, 191, 0.2);
+    color: var(--color-companion-primary, #8b5fbf);
+    background: rgba(139, 95, 191, 0.08);
 }
 
 .ai-companion-toggle.active {
-    background: linear-gradient(135deg, var(--color-companion-primary) 0%, var(--color-companion-dark) 100%);
-    color: white;
-    box-shadow: 0 2px 8px rgba(139, 95, 191, 0.3);
+    color: var(--color-companion-primary, #8b5fbf);
+    background: rgba(139, 95, 191, 0.12);
+    box-shadow: none;
 }
 
 .ai-companion-toggle.active:hover {
-    background: linear-gradient(135deg, var(--color-companion-dark) 0%, #6a4492 100%);
-    color: white;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(139, 95, 191, 0.4);
+    background: rgba(139, 95, 191, 0.18);
+    color: var(--color-companion-dark, #6a4492);
 }
 
-/* Ensure icons inside active AI companion toggle are white */
+/* Active toggle icon inherits color (no forced white) */
 .ai-companion-toggle.active svg,
 .ai-companion-toggle.active .icon,
 .ai-companion-toggle.active [class*="icon"],
 .ai-companion-toggle.active i {
-    color: white !important;
-    fill: white !important;
+    color: var(--color-companion-primary, #8b5fbf) !important;
+    fill: var(--color-companion-primary, #8b5fbf) !important;
 }
 
 .ai-companion-toggle.active:hover svg,
 .ai-companion-toggle.active:hover .icon,
 .ai-companion-toggle.active:hover [class*="icon"],
 .ai-companion-toggle.active:hover i {
-    color: white !important;
-    fill: white !important;
+    color: var(--color-companion-dark, #6a4492) !important;
+    fill: var(--color-companion-dark, #6a4492) !important;
 }
 
 /* Notification Badge */

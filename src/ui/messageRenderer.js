@@ -2122,11 +2122,32 @@ export class MessageRenderer {
             } else if (attachment.contentType && attachment.contentType.startsWith('image/')) {
                 console.log('MessageRenderer: Rendering image attachment');
                 this.renderImageAttachment(attachment, messageDiv);
+            } else if (this._isDocumentAttachment(attachment)) {
+                console.log('MessageRenderer: Rendering document attachment');
+                this.renderDocumentAttachment(attachment, messageDiv);
             } else {
                 console.log('MessageRenderer: Rendering generic attachment');
                 this.renderGenericAttachment(attachment, messageDiv);
             }
         });
+    }
+
+    /**
+     * Check if attachment is a known document type
+     * @private
+     */
+    _isDocumentAttachment(attachment) {
+        const docTypes = ['application/pdf', 'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'text/plain'];
+        if (attachment.contentType && docTypes.includes(attachment.contentType)) return true;
+        if (attachment.name) {
+            const ext = attachment.name.split('.').pop().toLowerCase();
+            return ['pdf','doc','docx','xls','xlsx','ppt','pptx','txt'].includes(ext);
+        }
+        return false;
     }
 
     /**
@@ -2334,15 +2355,115 @@ export class MessageRenderer {
         `);
 
         if (attachment.contentUrl) {
-            const link = DOMUtils.createElement('a', {
-                href: attachment.contentUrl,
-                target: '_blank',
-                className: 'attachment-link'
+            const openBtn = DOMUtils.createElement('button', {
+                className: 'attachment-link',
+                title: 'Preview file'
             }, 'Open');
-            attachmentContainer.appendChild(link);
+            openBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showDocumentPreview(attachment.contentUrl, attachment.name || 'Attachment', attachment.contentType);
+            });
+            attachmentContainer.appendChild(openBtn);
         }
 
         messageDiv.appendChild(attachmentContainer);
+    }
+
+    /**
+     * Render document attachment (PDF and other documents) with a styled card
+     * @param {Object} attachment - Document attachment
+     * @param {HTMLElement} messageDiv - Message div element
+     * @private
+     */
+    renderDocumentAttachment(attachment, messageDiv) {
+        const name = attachment.name || 'Document';
+        const ext = name.split('.').pop().toLowerCase();
+
+        // SVG file-type icons by extension
+        const iconSvg = this._getFileTypeIconSvg(ext);
+
+        // Size info
+        const sizeText = attachment._fileSize
+            ? Utils.formatBytes(attachment._fileSize)
+            : (attachment.contentType || ext.toUpperCase());
+
+        const card = DOMUtils.createElement('div', {
+            className: 'document-attachment'
+        });
+
+        const iconEl = DOMUtils.createElement('div', {
+            className: `document-attachment-icon file-icon-${ext}`
+        });
+        iconEl.innerHTML = iconSvg;
+
+        const infoEl = DOMUtils.createElement('div', {
+            className: 'document-attachment-info'
+        });
+        infoEl.innerHTML = `
+            <span class="document-attachment-name">${Utils.escapeHtml(name)}</span>
+            <span class="document-attachment-meta">${Utils.escapeHtml(sizeText)}</span>
+        `;
+
+        card.appendChild(iconEl);
+        card.appendChild(infoEl);
+
+        if (attachment.contentUrl) {
+            const openBtn = DOMUtils.createElement('button', {
+                className: 'document-attachment-action',
+                title: 'Preview file'
+            }, 'Open');
+            openBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showDocumentPreview(attachment.contentUrl, name, attachment.contentType);
+            });
+            card.appendChild(openBtn);
+        }
+
+        messageDiv.appendChild(card);
+    }
+
+    /**
+     * Get SVG icon markup for a file extension
+     * @param {string} ext - lowercase file extension
+     * @returns {string} SVG markup
+     * @private
+     */
+    _getFileTypeIconSvg(ext) {
+        const icons = {
+            pdf: `<svg viewBox="0 0 32 32" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="2" width="24" height="28" rx="3" fill="#E5252A"/>
+                <path d="M9 20h14M9 24h10" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+                <text x="16" y="15" text-anchor="middle" fill="#fff" font-size="8" font-weight="700" font-family="Arial">PDF</text>
+            </svg>`,
+            doc: `<svg viewBox="0 0 32 32" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="2" width="24" height="28" rx="3" fill="#2B579A"/>
+                <path d="M9 20h14M9 24h10" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+                <text x="16" y="15" text-anchor="middle" fill="#fff" font-size="7" font-weight="700" font-family="Arial">DOC</text>
+            </svg>`,
+            xls: `<svg viewBox="0 0 32 32" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="2" width="24" height="28" rx="3" fill="#217346"/>
+                <path d="M9 20h14M9 24h10" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+                <text x="16" y="15" text-anchor="middle" fill="#fff" font-size="7" font-weight="700" font-family="Arial">XLS</text>
+            </svg>`,
+            ppt: `<svg viewBox="0 0 32 32" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="2" width="24" height="28" rx="3" fill="#D24726"/>
+                <path d="M9 20h14M9 24h10" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+                <text x="16" y="15" text-anchor="middle" fill="#fff" font-size="7" font-weight="700" font-family="Arial">PPT</text>
+            </svg>`,
+            txt: `<svg viewBox="0 0 32 32" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="2" width="24" height="28" rx="3" fill="#6B7280"/>
+                <path d="M9 12h14M9 16h14M9 20h14M9 24h10" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>`,
+            default: `<svg viewBox="0 0 32 32" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="2" width="24" height="28" rx="3" fill="#9CA3AF"/>
+                <path d="M9 14h14M9 18h14M9 22h10" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M19 2v7h7" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>`
+        };
+        // Map variants to canonical keys
+        const aliasMap = { docx: 'doc', xlsx: 'xls', pptx: 'ppt' };
+        const key = aliasMap[ext] || ext;
+        return icons[key] || icons.default;
     }
 
     /**
@@ -3726,6 +3847,90 @@ export class MessageRenderer {
             enlargedImage.alt = alt;
             DOMUtils.addClass(modal, 'show');
         }
+    }
+
+    /**
+     * Show document preview in an overlay modal.
+     * PDFs and images render inline; other types show a fallback with external link.
+     * @param {string} url - Document URL (can be blob: URL)
+     * @param {string} name - File name
+     * @param {string} [contentType] - MIME type
+     * @private
+     */
+    showDocumentPreview(url, name = 'Document', contentType = '') {
+        const modal = DOMUtils.getElementById('documentPreviewModal');
+        const title = DOMUtils.getElementById('documentPreviewTitle');
+        const body = DOMUtils.getElementById('documentPreviewBody');
+        const openExternal = DOMUtils.getElementById('documentPreviewOpenExternal');
+        const closeBtn = DOMUtils.getElementById('documentPreviewClose');
+
+        if (!modal || !body) return;
+
+        // Set title
+        if (title) title.textContent = name;
+
+        // Set external link
+        if (openExternal) {
+            openExternal.href = url;
+        }
+
+        // Clear previous content
+        body.innerHTML = '';
+
+        // Determine preview type
+        const ext = name.split('.').pop().toLowerCase();
+        const isPdf = contentType === 'application/pdf' || ext === 'pdf';
+        const isImage = contentType?.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext);
+
+        if (isPdf) {
+            const iframe = document.createElement('iframe');
+            iframe.src = url;
+            iframe.title = name;
+            body.appendChild(iframe);
+        } else if (isImage) {
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = name;
+            body.appendChild(img);
+        } else {
+            // Fallback for non-previewable types
+            const fallback = document.createElement('div');
+            fallback.className = 'document-preview-fallback';
+            fallback.innerHTML = `
+                <div class="fallback-icon">📄</div>
+                <p><strong>${Utils.escapeHtml(name)}</strong></p>
+                <p>This file type cannot be previewed in the browser.</p>
+                <a href="${Utils.escapeHtml(url)}" target="_blank" rel="noopener">Open in New Tab</a>
+            `;
+            body.appendChild(fallback);
+        }
+
+        // Show modal
+        DOMUtils.addClass(modal, 'show');
+
+        // Close handlers
+        const closeModal = () => {
+            DOMUtils.removeClass(modal, 'show');
+            body.innerHTML = ''; // Clean up iframe/content
+        };
+
+        if (closeBtn) {
+            closeBtn.onclick = closeModal;
+        }
+
+        // Click outside to close
+        modal.onclick = (e) => {
+            if (e.target === modal) closeModal();
+        };
+
+        // Escape key
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
     }
 
     /**

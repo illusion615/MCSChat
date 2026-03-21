@@ -14,6 +14,44 @@
 
     <!-- Splash Screen CSS removed — Home page replaces splash -->
 
+    <!-- Inline loading bar styles (renders before CSS files load) -->
+    <style>
+        .home-loading {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .home-loading-text {
+            font-size: 13px;
+            color: rgba(255,255,255,0.7);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .home-loading-bar {
+            width: 180px;
+            height: 3px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .home-loading-fill {
+            width: 30%;
+            height: 100%;
+            background: rgba(255,255,255,0.6);
+            border-radius: 3px;
+            animation: homeLoadSlide 1.5s ease-in-out infinite;
+        }
+        @keyframes homeLoadSlide {
+            0%   { transform: translateX(-100%); width: 30%; }
+            50%  { width: 50%; }
+            100% { transform: translateX(350%); width: 30%; }
+        }
+    </style>
+
     <!-- Splash Screen JavaScript removed -->
 
     <!-- External Stylesheets -->
@@ -57,8 +95,7 @@
     <script defer src="lib/katex.min.js"></script>
     <script defer src="lib/auto-render.min.js"></script>
 
-    <!-- Emergency localStorage cleanup to fix JSON parsing errors -->
-    <script src="utils/emergency-cleanup.js"></script>
+    <!-- Emergency localStorage cleanup removed (file no longer exists) -->
 
     <!-- Fallback for offline usage -->
     <script>
@@ -154,15 +191,20 @@
                     <path d="M5.21 2.816A1.75 1.75 0 0 1 6.69 2H9.5a.5.5 0 0 1 0 1H6.69a.75.75 0 0 0-.635.35L2.114 9.6a.75.75 0 0 0 0 .8l3.863 6.126a1.015 1.015 0 0 0 1.84-.28l3.401-12.753a2.01 2.01 0 0 1 3.65-.545l3.92 6.297a1.43 1.43 0 0 1 0 1.51l-3.996 6.42a1.75 1.75 0 0 1-1.486.825H10.5a.5.5 0 0 1 0-1h2.806c.26 0 .5-.134.637-.354l3.997-6.42a.43.43 0 0 0 0-.453l-3.92-6.296a1.011 1.011 0 0 0-1.836.274l-3.4 12.753a2.015 2.015 0 0 1-3.653.556l-3.863-6.126a1.75 1.75 0 0 1 0-1.868z"/>
                 </svg>
             </div>
-            <h1 class="home-title">Copilot Studio Companion</h1>
-            <p class="home-subtitle">Choose an agent to start a conversation</p>
+            <h1 class="home-title" data-i18n="home.defaultTitle">Copilot Studio Agent Hub</h1>
+            <p class="home-subtitle" data-i18n="home.defaultSubtitle">Manage, test and evaluate your Copilot Studio agents.</p>
         </div>
         <div id="homeAgentGrid" class="home-agent-grid">
             <!-- Agent cards will be rendered dynamically -->
         </div>
+        <!-- Loading indicator (visible until app initializes) -->
+        <div id="homeLoadingIndicator" class="home-loading">
+            <div class="home-loading-bar"><div class="home-loading-fill"></div></div>
+            <span class="home-loading-text" data-i18n="home.loading">Loading...</span>
+        </div>
         <div class="home-footer">
-            <span>Microsoft Copilot Studio Companion</span>
-            <span id="homeVersionInfo">v2.0.0</span>
+            <span data-i18n="home.footer">Empowered with Microsoft Copilot Studio</span>
+            <span id="homeVersionInfo">v3.6.0</span>
         </div>
     </div>
 
@@ -202,6 +244,11 @@
                     <label for="agentEditSecret">DirectLine Secret:</label>
                     <input type="password" id="agentEditSecret" placeholder="Enter DirectLine secret" required />
                 </div>
+                <div class="form-group">
+                    <label for="agentEditDescription">Description:</label>
+                    <textarea id="agentEditDescription" placeholder="Describe what this agent does..." maxlength="200" rows="2"></textarea>
+                    <small class="help-text">Optional, max 200 characters</small>
+                </div>
                 <div id="agentEditParamsSection">
                     <div class="form-group">
                         <label>Initialization Parameters:</label>
@@ -228,7 +275,7 @@
                 <span class="hamburger-line"></span>
                 <span class="hamburger-line"></span>
             </button>
-            <h3 id="mobileTitle">Copilot Studio Companion</h3>
+            <h3 id="mobileTitle" data-i18n="chat.mobileTitle">Copilot Studio Companion</h3>
             <div class="mobile-actions">
                 <button id="mobileAiToggle" class="mobile-action-btn" style="display: none;" title="AI Companion"
                     aria-label="AI Companion">
@@ -253,17 +300,17 @@
             <div id="leftPanel">
                 <!-- History Header -->
                 <div id="historyHeader">
-                    <h3>Conversations</h3>
-                    <button id="clearButton" class="icon-button" title="New chat" data-icon="newChat">
+                    <h3 data-i18n="chat.conversations">Conversations</h3>
+                    <button id="clearButton" class="icon-button" title="New chat" data-icon="newChat" data-i18n-title="chat.newChat">
                         <!-- Icon will be populated by JavaScript -->
                     </button>
 
-                    <button id="clearAllHistoryButton" class="icon-button" title="Clear All History" data-icon="delete">
+                    <button id="clearAllHistoryButton" class="icon-button" title="Clear All History" data-icon="delete" data-i18n-title="chat.clearAllHistory">
                     </button>
                 </div>
                 <!-- Session List -->
                 <div id="sessionList">
-                    <div class="loading-sessions">Loading chat history...</div>
+                    <div class="loading-sessions" data-i18n="chat.loadingHistory">Loading chat history...</div>
                 </div>
             </div>
 
@@ -274,7 +321,7 @@
                         <button id="conversationsButton" class="icon-button panel-header-btn" title="Conversations" aria-label="Toggle conversations panel" data-icon="menu">
                             <!-- Icon will be populated by main.js -->
                         </button>
-                        <h3 id="agentConversationTitle">Agent Conversation</h3>
+                        <h3 id="agentConversationTitle" data-i18n="chat.title">Agent Conversation</h3>
                     </div>
                     <div>
                     <div class="panel-controls">
@@ -296,9 +343,8 @@
                         <div class="welcome-icon" data-icon="welcomeDocument">
                             <!-- Icon will be populated by JavaScript -->
                         </div>
-                        <h4>Welcome to Copilot Studio Companion</h4>
-                        <p>Connect with your Copilot Studio agent to test and improve the agent user interactive
-                            experience, configure your bot in settings or start
+                        <h4 data-i18n="chat.welcomeTitle">Welcome to Copilot Studio Companion</h4>
+                        <p data-i18n="chat.welcomeMessage">Connect with your Copilot Studio agent to test and improve the agent user interactive experience, configure your bot in settings or start
                             typing to begin.</p>
                     </div>
                 </div>
@@ -310,62 +356,93 @@
                 <div id="llmInputContainer">
                     <div id="llmQuickActionsContainer" class="llm-quick-actions-container">
                         <div class="llm-quick-actions">
-                            <button class="quick-action-btn" data-action="analyze" title="Analyze agent responses">
-                                Analyze Response
+                            <button class="quick-action-btn" data-action="analyze" title="Analyze agent responses" data-i18n-title="chat.analyzeTitle">
+                                <span data-i18n="chat.analyzeResponse">Analyze Response</span>
                             </button>
-                            <button class="quick-action-btn" data-action="summarize" title="Summarize conversation">
-                                Summarize Chat
+                            <button class="quick-action-btn" data-action="summarize" title="Summarize conversation" data-i18n-title="chat.summarizeTitle">
+                                <span data-i18n="chat.summarizeChat">Summarize Chat</span>
                             </button>
                             <button class="quick-action-btn" data-action="benchmark"
-                                title="Run A/B test: Compare agent response with general knowledge">
-                                A/B Test Response
+                                title="Run A/B test: Compare agent response with general knowledge" data-i18n-title="chat.abTestTitle">
+                                <span data-i18n="chat.abTest">A/B Test Response</span>
+                            </button>
+                            <button class="quick-action-btn" data-action="autoqa"
+                                title="Automated QA: Simulate user interactions and evaluate agent quality" data-i18n-title="chat.autoQATitle">
+                                <span data-i18n="chat.autoQA">AutoQA</span>
                             </button>
                         </div>
                     </div>
                     <div id="inputContainer">
-                        <!-- File Upload -->
-                        <div id="fileUploadContainer">
-                            <input type="file" id="fileInput"
-                                accept=".pdf,.doc,.docx,.txt,.xlsx,.pptx,.png,.jpg,.jpeg,.gif,.webp"
-                                style="display: none;" />
-                            <button id="attachButton" class="input-button" title="Attach file" aria-label="Attach file"
-                                data-icon="attach">
-                                <!-- Icon will be populated by JavaScript -->
-                            </button>
+                        <!-- Hidden file input -->
+                        <input type="file" id="fileInput" multiple
+                            accept=".pdf,.doc,.docx,.txt,.xlsx,.pptx,.png,.jpg,.jpeg,.gif,.webp"
+                            style="display: none;" />
+                        <!-- Unified input wrapper: buttons + text field in one row -->
+                        <div class="input-wrapper">
+                            <!-- Left button group -->
+                            <div class="input-inline-left">
+                                <!-- AI Companion toggle with hover menu -->
+                                <div class="ai-companion-inline-wrapper" id="aiCompanionInlineWrapper" style="display: none;">
+                                    <button id="aiCompanionToggleBtn" class="input-inline-btn ai-companion-toggle"
+                                        title="AI Companion" aria-label="Toggle AI Companion mode">
+                                        <!-- Icon will be populated by JavaScript -->
+                                    </button>
+                                    <!-- Hover tooltip showing current mode -->
+                                    <div class="ai-companion-hover-menu" id="aiCompanionHoverMenu">
+                                        <div class="hover-menu-status" id="aiCompanionModeStatus">
+                                            <span data-i18n="chat.agentModeStatus">Agent Mode — messages are sent to your Copilot Studio agent.</span>
+                                        </div>
+                                        <div class="hover-menu-divider"></div>
+                                        <button class="hover-menu-item" data-mode="agent">
+                                            <span data-i18n="chat.agentMode">Agent Mode</span>
+                                        </button>
+                                        <button class="hover-menu-item" data-mode="companion">
+                                            <span data-i18n="chat.companionMode">AI Companion Mode</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Attach file -->
+                                <div id="fileUploadContainer">
+                                    <button id="attachButton" class="input-inline-btn" title="Attach file" aria-label="Attach file"
+                                        data-icon="attach" data-i18n-title="chat.attachFile" data-i18n-aria="chat.attachFile">
+                                        <!-- Icon will be populated by JavaScript -->
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- Message Input -->
+                            <input type="text" id="userInput" name="mcschat-message" placeholder="Type your message..." autocomplete="off"
+                                aria-label="Message input" data-i18n-placeholder="chat.inputPlaceholder" />
+                            <!-- Right button group -->
+                            <div class="input-inline-right">
+                                <!-- Voice Input Button -->
+                                <button id="voiceInputBtn" class="input-inline-btn" title="Voice input" aria-label="Voice input"
+                                    style="display: none;" data-icon="microphone" data-i18n-title="chat.voiceInput" data-i18n-aria="chat.voiceInput">
+                                    <!-- Icon will be populated by JavaScript -->
+                                </button>
+                                <!-- Send Button -->
+                                <button id="sendButton" class="input-inline-btn input-inline-send" title="Send message"
+                                    aria-label="Send message" data-icon="send" data-i18n-title="chat.send" data-i18n-aria="chat.send">
+                                    <!-- Icon will be populated by JavaScript -->
+                                </button>
+                            </div>
                         </div>
-                        <!-- Message Input -->
-                        <input type="text" id="userInput" placeholder="Type your message..." autocomplete="off"
-                            aria-label="Message input" />
-                        <!-- Voice Input Button -->
-                        <button id="voiceInputBtn" class="voice-input-btn" title="Voice input" aria-label="Voice input"
-                            style="display: none; margin-right: 8px;" data-icon="microphone">
-                            <!-- Icon will be populated by JavaScript -->
-                        </button>
-                        <!-- AI Companion Toggle Button -->
-                        <button id="aiCompanionToggleBtn" class="voice-input-btn ai-companion-toggle"
-                            title="AI Companion" aria-label="Toggle AI Companion mode"
-                            style="display: none; margin-right: 8px;">
-                            <!-- Icon will be populated by JavaScript -->
-                        </button>
-                        <!-- Send Button -->
-                        <button id="sendButton" class="input-button primary" title="Send message"
-                            aria-label="Send message" data-icon="send">
-                            <!-- Icon will be populated by JavaScript -->
-                        </button>
                     </div>
                 </div>
 
                 <!-- File Preview Container -->
                 <div id="filePreviewContainer" style="display: none;">
                     <div id="filePreview">
-                        <div class="file-info">
-                            <span id="fileName">filename.txt</span>
-                            <span id="fileSize">1.2 KB</span>
+                        <div id="filePreviewList" class="file-preview-list">
+                            <!-- File items rendered dynamically -->
                         </div>
-                        <button id="removeFileButton" class="remove-file-btn" title="Remove file"
-                            aria-label="Remove file">
+                        <button id="removeFileButton" class="remove-file-btn" title="Remove all files"
+                            aria-label="Remove all files">
                             &times;
                         </button>
+                    </div>
+                    <div id="uploadProgressBar" class="upload-progress-inline" style="display: none;">
+                        <div id="uploadProgressFill" class="upload-progress-fill-inline"></div>
+                        <span id="uploadProgressText" class="upload-progress-text-inline" data-i18n="chat.uploading">Uploading...</span>
                     </div>
                 </div>
             </div>
@@ -377,7 +454,7 @@
                         <button id="expandAiCompanionBtn" class="icon-button" title="Expand panel to 50/50 layout"
                             aria-label="Expand AI Companion Panel">
                         </button>
-                        <h3>Agent Performance</h3>
+                        <h3 data-i18n="kpi.agentPerformance">Agent Performance</h3>
                     </div>
                     
                 </div>
@@ -386,40 +463,40 @@
                 <div id="agentKpiSection" class="kpi-section">
                     <div class="kpi-grid">
                         <div class="kpi-item">
-                            <div class="kpi-label">Accuracy</div>
+                            <div class="kpi-label" data-i18n="kpi.accuracy">Accuracy</div>
                             <div class="kpi-value" id="kpiAccuracy">-/10</div>
                             <div class="kpi-bar">
                                 <div class="kpi-progress" id="kpiAccuracyBar" style="width: 0%"></div>
                             </div>
                         </div>
                         <div class="kpi-item">
-                            <div class="kpi-label">Helpfulness</div>
+                            <div class="kpi-label" data-i18n="kpi.helpfulness">Helpfulness</div>
                             <div class="kpi-value" id="kpiHelpfulness">-/10</div>
                             <div class="kpi-bar">
                                 <div class="kpi-progress" id="kpiHelpfulnessBar" style="width: 0%"></div>
                             </div>
                         </div>
                         <div class="kpi-item">
-                            <div class="kpi-label">Completeness</div>
+                            <div class="kpi-label" data-i18n="kpi.completeness">Completeness</div>
                             <div class="kpi-value" id="kpiCompleteness">-/10</div>
                             <div class="kpi-bar">
                                 <div class="kpi-progress" id="kpiCompletenessBar" style="width: 0%"></div>
                             </div>
                         </div>
                         <div class="kpi-item">
-                            <div class="kpi-label">Efficiency</div>
+                            <div class="kpi-label" data-i18n="kpi.efficiency">Efficiency</div>
                             <div class="kpi-value" id="kpiEfficiency">-/10</div>
                             <div class="kpi-bar">
                                 <div class="kpi-progress" id="kpiEfficiencyBar" style="width: 0%"></div>
                             </div>
                         </div>
                         <div class="kpi-item">
-                            <div class="kpi-label">Changes</div>
+                            <div class="kpi-label" data-i18n="kpi.changes">Changes</div>
                             <div class="kpi-value">
                                 <span id="kpiChanges">0</span>
                                 <div class="kpi-trend" id="kpiChangesTrend">
                                     <span class="trend-arrow stable">→</span>
-                                    <span class="trend-text">Stable</span>
+                                    <span class="trend-text" data-i18n="kpi.stable">Stable</span>
                                 </div>
                             </div>
                             <div class="kpi-bar">
@@ -427,7 +504,7 @@
                             </div>
                         </div>
                         <div class="kpi-item">
-                            <div class="kpi-label">AI Consumption</div>
+                            <div class="kpi-label" data-i18n="kpi.aiConsumption">AI Consumption</div>
                             <div class="kpi-value" id="kpiConsumption">0</div>
                             <div class="kpi-bar">
                                 <div class="kpi-progress" id="kpiConsumptionBar" style="width: 0%"></div>
@@ -438,8 +515,12 @@
 
                 <!-- KPI Insights Section -->
                 <div id="kpiInsightsSection" class="kpi-insights-section">
+                    <div id="kpiInsightsStatus" class="kpi-insights-status" style="display: none;">
+                        <span class="kpi-status-dot"></span>
+                        <span class="kpi-status-text" data-i18n="kpi.ready">Ready</span>
+                    </div>
                     <div id="kpiInsightsContent" class="kpi-insights-content">
-                        <p class="kpi-insights-placeholder">Performance insights will appear here after agent responses.</p>
+                        <p class="kpi-insights-placeholder" data-i18n="kpi.insightsPlaceholder">Performance insights will appear here after agent responses.</p>
                     </div>
                 </div>
 
@@ -448,7 +529,7 @@
                     <div class="companion-welcome">
                         <div class="companion-icon" id="companionIcon">
                         </div>
-                        <p>AI Companion ready to analyze conversations and provide insights.</p>
+                        <p data-i18n="kpi.companionWelcome">AI Companion ready to analyze conversations and provide insights.</p>
                     </div>
                 </div>
 
@@ -456,22 +537,22 @@
                 <div id="kpiModal" class="kpi-modal">
                     <div class="kpi-modal-content">
                         <div class="kpi-modal-header">
-                            <h3 id="kpiModalTitle">Score Details</h3>
+                            <h3 id="kpiModalTitle" data-i18n="kpi.scoreDetails">Score Details</h3>
                             <button class="kpi-modal-close" id="kpiModalClose">&times;</button>
                         </div>
                         <div class="kpi-modal-body">
                             <div class="kpi-score-display">
-                                <span class="kpi-score-label">Current Score:</span>
+                                <span class="kpi-score-label" data-i18n="kpi.currentScore">Current Score:</span>
                                 <span class="kpi-score-value" id="kpiModalScore">-/10</span>
                             </div>
                             <div class="kpi-explanation" id="kpiModalExplanation">
-                                <h4>How this score is calculated:</h4>
+                                <h4 data-i18n="kpi.howCalculated">How this score is calculated:</h4>
                                 <div class="calculation-details" id="kpiModalDetails">
                                     <!-- Dynamic content will be inserted here -->
                                 </div>
                             </div>
                             <div class="conversation-context" id="kpiModalContext">
-                                <h4>Based on conversation analysis:</h4>
+                                <h4 data-i18n="kpi.basedOnAnalysis">Based on conversation analysis:</h4>
                                 <div class="context-messages" id="kpiModalMessages">
                                     <!-- Dynamic content will be inserted here -->
                                 </div>
@@ -509,11 +590,27 @@
         <img class="modal-content" id="enlargedImage" alt="Enlarged image" />
     </div>
 
+    <!-- Document Preview Modal -->
+    <div id="documentPreviewModal" class="modal" role="dialog" aria-hidden="true">
+        <div class="document-preview-container">
+            <div class="document-preview-header">
+                <span id="documentPreviewTitle" class="document-preview-title">Document Preview</span>
+                <div class="document-preview-actions">
+                    <a id="documentPreviewOpenExternal" href="#" target="_blank" class="document-preview-btn" title="Open in new tab">↗ New Tab</a>
+                    <button id="documentPreviewClose" class="document-preview-btn close" title="Close" aria-label="Close">&times;</button>
+                </div>
+            </div>
+            <div id="documentPreviewBody" class="document-preview-body">
+                <!-- Content injected dynamically: iframe for PDF, img for images, fallback message -->
+            </div>
+        </div>
+    </div>
+
     <!-- Knowledge Hub Modal -->
     <div id="knowledgeHubModal" class="modal" role="dialog" aria-labelledby="knowledgeHubModalTitle" aria-hidden="true">
         <div class="modal-content knowledge-hub-modal">
             <div class="modal-header">
-                <h2 id="knowledgeHubModalTitle">Knowledge Hub</h2>
+                <h2 id="knowledgeHubModalTitle" data-i18n="knowledge.title">Knowledge Hub</h2>
                 <span class="closeModal" title="Close Knowledge Hub" aria-label="Close Knowledge Hub">&times;</span>
             </div>
             <div class="modal-body">
@@ -523,26 +620,26 @@
                         <div class="upload-icon" data-icon="document" data-width="48" data-height="48">
                             <!-- Icon will be populated by main.js unified icon system -->
                         </div>
-                        <h3>Upload PDF Document</h3>
-                        <p>Drag and drop a PDF file here or click to browse</p>
+                        <h3 data-i18n="knowledge.uploadPdf">Upload PDF Document</h3>
+                        <p data-i18n="knowledge.dragDrop">Drag and drop a PDF file here or click to browse</p>
                         <input type="file" id="pdfFileInput" accept=".pdf" style="display: none;">
-                        <button class="btn btn-primary" id="browseButton">Browse Files</button>
+                        <button class="btn btn-primary" id="browseButton" data-i18n="knowledge.browseFiles">Browse Files</button>
                     </div>
                     <div class="upload-progress" id="uploadProgress" style="display: none;">
                         <div class="progress-bar">
                             <div class="progress-fill" id="progressFill"></div>
                         </div>
-                        <div class="progress-text" id="progressText">Processing...</div>
+                        <div class="progress-text" id="progressText" data-i18n="knowledge.processing">Processing...</div>
                     </div>
                 </div>
 
                 <!-- Gallery Section -->
                 <div id="gallerySection" class="gallery-section" style="display: none;">
                     <div class="gallery-header">
-                        <h3 id="documentTitle">Document Pages</h3>
+                        <h3 id="documentTitle" data-i18n="knowledge.docPages">Document Pages</h3>
                         <div class="gallery-controls">
-                            <button class="btn btn-secondary" id="backToUpload">Upload New Document</button>
-                            <button class="btn btn-secondary" id="deleteDocument">Delete Document</button>
+                            <button class="btn btn-secondary" id="backToUpload" data-i18n="knowledge.uploadNew">Upload New Document</button>
+                            <button class="btn btn-secondary" id="deleteDocument" data-i18n="knowledge.deleteDoc">Delete Document</button>
                         </div>
                     </div>
                     <div class="page-gallery" id="pageGallery">
@@ -552,7 +649,7 @@
 
                 <!-- Document Library Section -->
                 <div id="librarySection" class="library-section">
-                    <h3>Document Library</h3>
+                    <h3 data-i18n="knowledge.docLibrary">Document Library</h3>
                     <div class="document-list" id="documentList">
                         <!-- Documents will be listed here -->
                     </div>
@@ -577,10 +674,10 @@
     </div>
 
     <!-- Setup Modal -->
-    <div id="setupModal" class="modal" role="dialog" aria-labelledby="setupModalTitle" aria-hidden="true">
+    <div id="setupModal" class="modal" role="dialog" aria-labelledby="setupModalTitle">
         <div class="modal-content setup-modal">
             <div class="modal-header">
-                <h2 id="setupModalTitle">Bot Configuration</h2>
+                <h2 id="setupModalTitle" data-i18n="settings.title">Bot Configuration</h2>
                 <button class="kpi-modal-close" id="closeSetupModal" title="Close configuration"
                     aria-label="Close configuration">&times;</button>
             </div>
@@ -589,9 +686,9 @@
                 <!-- Settings Navigation -->
                 <div class="settings-navigation">
                     <ul class="nav-list">
-                        <li><a href="#about-section" class="nav-item active" data-section="about-section">About</a></li>
-                        <li><a href="#tts-stt-section" class="nav-item" data-section="tts-stt-section">TTS/STT</a></li>
-                        <li><a href="#ai-companion-section" class="nav-item" data-section="ai-companion-section">AI
+                        <li><a href="#about-section" class="nav-item active" data-section="about-section" data-i18n="settings.about">About</a></li>
+                        <li><a href="#tts-stt-section" class="nav-item" data-section="tts-stt-section" data-i18n="settings.ttsSTT">TTS/STT</a></li>
+                        <li><a href="#ai-companion-section" class="nav-item" data-section="ai-companion-section" data-i18n="settings.aiCompanion">AI
                                 Companion</a></li>
                     </ul>
                 </div>
@@ -600,7 +697,7 @@
                 <div class="settings-content">
                     <!-- About Section -->
                     <div id="about-section" class="settings-section active">
-                        <h3 class="section-title">About MCSChat</h3>
+                        <h3 class="section-title" data-i18n="about.title">About MCSChat</h3>
 
                         <!-- Application Info -->
                         <div class="form-group about-app-info">
@@ -609,27 +706,27 @@
                                     <path d="M5.21 2.816A1.75 1.75 0 0 1 6.69 2H9.5a.5.5 0 0 1 0 1H6.69a.75.75 0 0 0-.635.35L2.114 9.6a.75.75 0 0 0 0 .8l3.863 6.126a1.015 1.015 0 0 0 1.84-.28l3.401-12.753a2.01 2.01 0 0 1 3.65-.545l3.92 6.297a1.43 1.43 0 0 1 0 1.51l-3.996 6.42a1.75 1.75 0 0 1-1.486.825H10.5a.5.5 0 0 1 0-1h2.806c.26 0 .5-.134.637-.354l3.997-6.42a.43.43 0 0 0 0-.453l-3.92-6.296a1.011 1.011 0 0 0-1.836.274l-3.4 12.753a2.015 2.015 0 0 1-3.653.556l-3.863-6.126a1.75 1.75 0 0 1 0-1.868z"/>
                                 </svg>
                             </div>
-                            <h4>Microsoft Copilot Studio Companion</h4>
-                            <p class="about-description">A sophisticated chatbot testing interface with multi-agent support, AI companion features, and real-time streaming capabilities.</p>
+                            <h4 data-i18n="about.appName">Microsoft Copilot Studio Companion</h4>
+                            <p class="about-description" data-i18n="about.description">A sophisticated chatbot testing interface with multi-agent support, AI companion features, and real-time streaming capabilities.</p>
                             <div class="about-version-info">
                                 <div class="version-badge">
                                     <span class="version-label">Version</span>
-                                    <span class="version-number" id="aboutAppVersion">2.0.0</span>
+                                    <span class="version-number" id="aboutAppVersion">3.6.0</span>
                                 </div>
                                 <div class="version-badge">
-                                    <span class="version-label">Build Date</span>
-                                    <span class="version-number" id="aboutBuildDate">2025-10-04</span>
+                                    <span class="version-label" data-i18n="about.buildDate">Build Date</span>
+                                    <span class="version-number" id="aboutBuildDate">2026-03-21</span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Module Versions -->
                         <div class="form-group">
-                            <label>Module Versions:</label>
+                            <label data-i18n="about.moduleVersions">Module Versions:</label>
                             <div class="module-versions-container">
                                 <!-- Core Modules -->
                                 <div class="module-category">
-                                    <h5 class="module-category-title">🔧 Core Modules</h5>
+                                    <h5 class="module-category-title" data-i18n="about.coreModules">🔧 Core Modules</h5>
                                     <div class="module-list" id="aboutCoreModules">
                                         <!-- Populated by JavaScript -->
                                     </div>
@@ -637,7 +734,7 @@
 
                                 <!-- UI Modules -->
                                 <div class="module-category">
-                                    <h5 class="module-category-title">🎨 UI Modules</h5>
+                                    <h5 class="module-category-title" data-i18n="about.uiModules">🎨 UI Modules</h5>
                                     <div class="module-list" id="aboutUIModules">
                                         <!-- Populated by JavaScript -->
                                     </div>
@@ -645,7 +742,7 @@
 
                                 <!-- AI & Speech Modules -->
                                 <div class="module-category">
-                                    <h5 class="module-category-title">🤖 AI & Speech</h5>
+                                    <h5 class="module-category-title" data-i18n="about.aiSpeech">🤖 AI & Speech</h5>
                                     <div class="module-list" id="aboutAIModules">
                                         <!-- Populated by JavaScript -->
                                     </div>
@@ -653,7 +750,7 @@
 
                                 <!-- Services -->
                                 <div class="module-category">
-                                    <h5 class="module-category-title">📋 Services</h5>
+                                    <h5 class="module-category-title" data-i18n="about.services">📋 Services</h5>
                                     <div class="module-list" id="aboutServicesModules">
                                         <!-- Populated by JavaScript -->
                                     </div>
@@ -661,7 +758,7 @@
 
                                 <!-- Components -->
                                 <div class="module-category">
-                                    <h5 class="module-category-title">🧩 Components</h5>
+                                    <h5 class="module-category-title" data-i18n="about.components">🧩 Components</h5>
                                     <div class="module-list" id="aboutComponentsModules">
                                         <!-- Populated by JavaScript -->
                                     </div>
@@ -669,7 +766,7 @@
 
                                 <!-- Utils -->
                                 <div class="module-category">
-                                    <h5 class="module-category-title">🔨 Utils</h5>
+                                    <h5 class="module-category-title" data-i18n="about.utils">🔨 Utils</h5>
                                     <div class="module-list" id="aboutUtilsModules">
                                         <!-- Populated by JavaScript -->
                                     </div>
@@ -679,22 +776,22 @@
 
                         <!-- System Information -->
                         <div class="form-group">
-                            <label>System Information:</label>
+                            <label data-i18n="about.systemInfo">System Information:</label>
                             <div class="system-info-container">
                                 <div class="info-row">
-                                    <span class="info-label">Browser:</span>
+                                    <span class="info-label" data-i18n="about.browser">Browser:</span>
                                     <span class="info-value" id="aboutBrowserInfo">Loading...</span>
                                 </div>
                                 <div class="info-row">
-                                    <span class="info-label">User Agent:</span>
+                                    <span class="info-label" data-i18n="about.userAgent">User Agent:</span>
                                     <span class="info-value" id="aboutUserAgent">Loading...</span>
                                 </div>
                                 <div class="info-row">
-                                    <span class="info-label">Screen Resolution:</span>
+                                    <span class="info-label" data-i18n="about.screenResolution">Screen Resolution:</span>
                                     <span class="info-value" id="aboutScreenRes">Loading...</span>
                                 </div>
                                 <div class="info-row">
-                                    <span class="info-label">Language:</span>
+                                    <span class="info-label" data-i18n="about.language">Language:</span>
                                     <span class="info-value" id="aboutLanguage">Loading...</span>
                                 </div>
                             </div>
@@ -712,24 +809,24 @@
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
                                 </svg>
-                                Copy Version Info
+                                <span data-i18n="about.copyVersionInfo">Copy Version Info</span>
                             </button>
                         </div>
                     </div>
 
                     <!-- Agent Management Section -->
                     <div id="agent-section" class="settings-section">
-                        <h3 class="section-title">Agent Management</h3>
+                        <h3 class="section-title" data-i18n="agent.management">Agent Management</h3>
 
                         <!-- Agent Management -->
                         <div class="form-group">
                             <div class="agents-header">
-                                <label for="agentsList">Configured Agents:</label>
+                                <label for="agentsList" data-i18n="agent.configuredAgents">Configured Agents:</label>
                                 <button type="button" id="addNewAgentBtn" class="btn btn-secondary btn-small"
-                                    title="Add new agent">+ Add New Agent</button>
+                                    title="Add new agent" data-i18n="agent.addNewAgent">+ Add New Agent</button>
                             </div>
                             <div id="agentsList" class="agents-list" role="list">
-                                <div class="no-agents-message">No agents configured. Click "Add New Agent" to create
+                                <div class="no-agents-message" data-i18n="agent.noAgents">No agents configured. Click "Add New Agent" to create
                                     your first
                                     agent.</div>
                             </div>
@@ -744,16 +841,16 @@
                             </div>
 
                             <div class="form-group">
-                                <label for="agentNameInput">Agent Name:</label>
+                                <label for="agentNameInput" data-i18n="agent.agentName">Agent Name:</label>
                                 <input type="text" id="agentNameInput"
                                     placeholder="Enter agent name (e.g., Customer Support Bot)"
-                                    aria-describedby="agentNameHelp" />
-                                <small id="agentNameHelp" class="help-text">A friendly name to identify this
+                                    aria-describedby="agentNameHelp" data-i18n-placeholder="agent.agentNamePlaceholder" />
+                                <small id="agentNameHelp" class="help-text" data-i18n="agent.agentNameHelp">A friendly name to identify this
                                     agent</small>
                             </div>
 
                             <div class="form-group">
-                                <label for="secretInput">DirectLine Secret:</label>
+                                <label for="secretInput" data-i18n="agent.directLineSecret">DirectLine Secret:</label>
                                 <div class="input-with-button">
                                     <input type="password" id="secretInput"
                                         placeholder="Enter your DirectLine secret..." aria-describedby="secretHelp" />
@@ -762,7 +859,7 @@
                                         <!-- Icon will be populated by main.js unified icon system -->
                                     </button>
                                 </div>
-                                <small id="secretHelp" class="help-text">DirectLine secret from Azure Bot Service for
+                                <small id="secretHelp" class="help-text" data-i18n="agent.directLineSecretHelp">DirectLine secret from Azure Bot Service for
                                     this
                                     agent</small>
                             </div>
@@ -770,68 +867,68 @@
                             <div class="form-group">
                                 <div class="connection-status" id="connectionStatus">
                                     <span class="status-indicator" id="statusIndicator"></span>
-                                    <span class="status-text" id="statusText">Not connected</span>
+                                    <span class="status-text" id="statusText" data-i18n="agent.notConnected">Not connected</span>
                                 </div>
                             </div>
 
                             <div class="form-actions">
                                 <button type="button" id="testAgentBtn" class="btn btn-secondary"
-                                    title="Test DirectLine connection">Test Connection</button>
+                                    title="Test DirectLine connection" data-i18n="agent.testConnection">Test Connection</button>
                                 <button type="button" id="saveAgentBtn" class="btn btn-primary"
-                                    title="Save agent configuration">Save Agent</button>
+                                    title="Save agent configuration" data-i18n="agent.saveAgent">Save Agent</button>
                             </div>
                         </div>
 
                         <!-- Current Active Agent Display -->
                         <div class="form-group">
-                            <label>Currently Active Agent:</label>
+                            <label data-i18n="agent.activeAgent">Currently Active Agent:</label>
                             <div class="current-agent-display" id="currentAgentDisplay">
-                                <span id="currentAgentName">No agent selected</span>
-                                <span class="agent-status disconnected" id="currentAgentStatus">Disconnected</span>
+                                <span id="currentAgentName" data-i18n="agent.noAgentSelected">No agent selected</span>
+                                <span class="agent-status disconnected" id="currentAgentStatus" data-i18n="agent.disconnected">Disconnected</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- TTS/STT Section -->
                     <div id="tts-stt-section" class="settings-section">
-                        <h3 class="section-title">TTS/STT</h3>
+                        <h3 class="section-title" data-i18n="settings.ttsSTT">TTS/STT</h3>
 
                         <!-- Speech Settings -->
                         <div class="form-group">
-                            <label>Speech Settings:</label>
+                            <label data-i18n="speech.title">Speech Settings:</label>
 
                             <!-- Speech Behavior Group -->
                             <div class="speech-behavior-group">
-                                <h4 class="sub-section-title">⚙️ Speech Behavior</h4>
+                                <h4 class="sub-section-title" data-i18n="speech.behavior">⚙️ Speech Behavior</h4>
 
                                 <div class="feature-options">
                                     <label class="checkbox-label">
                                         <input type="checkbox" id="speechAutoSpeak" />
                                         <span class="checkmark"></span>
-                                        Auto-speak agent messages when they arrive
+                                        <span data-i18n="speech.autoSpeak">Auto-speak agent messages when they arrive</span>
                                     </label>
-                                    <small class="help-text">Automatically read agent responses aloud using
+                                    <small class="help-text" data-i18n="speech.autoSpeakHelp">Automatically read agent responses aloud using
                                         text-to-speech</small>
 
                                     <label class="checkbox-label">
                                         <input type="checkbox" id="speechVoiceInput" />
                                         <span class="checkmark"></span>
-                                        Enable voice input (microphone)
+                                        <span data-i18n="speech.enableVoice">Enable voice input (microphone)</span>
                                     </label>
-                                    <small class="help-text">Allow sending messages using voice commands</small>
+                                    <small class="help-text" data-i18n="speech.enableVoiceHelp">Allow sending messages using voice commands</small>
                                 </div>
                             </div>
 
                             <!-- Speech Provider & Voice Selection Group -->
                             <div class="speech-provider-group">
-                                <h4 class="sub-section-title">🎤 Voice & Provider</h4>
+                                <h4 class="sub-section-title" data-i18n="speech.voiceProvider">🎤 Voice & Provider</h4>
 
                                 <!-- Speech Provider Selection -->
                                 <div class="form-row">
-                                    <label for="speechProvider">Speech Provider:</label>
+                                    <label for="speechProvider" data-i18n="speech.provider">Speech Provider:</label>
                                     <select id="speechProvider" class="speech-select">
-                                        <option value="web_speech">Enhanced Web Speech API (Recommended)</option>
-                                        <option value="azure">Azure Speech Services (Premium)</option>
+                                        <option value="web_speech" data-i18n="speech.webSpeech">Enhanced Web Speech API (Recommended)</option>
+                                        <option value="azure" data-i18n="speech.azureSpeech">Azure Speech Services (Premium)</option>
                                     </select>
                                 </div>
                                 <small class="help-text">
@@ -843,7 +940,7 @@
 
                                 <!-- Voice Selection -->
                                 <div class="form-row">
-                                    <label for="speechVoiceSelect">Voice:</label>
+                                    <label for="speechVoiceSelect" data-i18n="speech.voice">Voice:</label>
                                     <select id="speechVoiceSelect" class="speech-select">
                                         <option value="">Loading voices...</option>
                                     </select>
@@ -855,7 +952,7 @@
 
                                 <!-- Test Speech Button -->
                                 <div class="form-row">
-                                    <button type="button" id="testSpeechBtn" class="btn btn-small btn-secondary">
+                                    <button type="button" id="testSpeechBtn" class="btn btn-small btn-secondary" data-i18n="speech.testVoice">
                                         🔊 Test Voice
                                     </button>
                                 </div>
@@ -927,37 +1024,37 @@
 
                             <!-- Multi-Language Settings Group -->
                             <div class="multi-language-group">
-                                <h4 class="sub-section-title">🌍 Multi-Language Support</h4>
+                                <h4 class="sub-section-title" data-i18n="speech.multiLanguage">🌍 Multi-Language Support</h4>
 
                                 <div class="feature-options">
                                     <label class="checkbox-label">
                                         <input type="checkbox" id="autoDetectLanguage" />
                                         <span class="checkmark"></span>
-                                        Auto-detect language and switch voice
+                                        <span data-i18n="speech.autoDetectLang">Auto-detect language and switch voice</span>
                                     </label>
-                                    <small class="help-text">Automatically detect the language of text and select
+                                    <small class="help-text" data-i18n="speech.autoDetectLangHelp">Automatically detect the language of text and select
                                         appropriate voice for TTS</small>
 
                                     <label class="checkbox-label">
                                         <input type="checkbox" id="enableLanguageDetection" />
                                         <span class="checkmark"></span>
-                                        Enable speech language identification
+                                        <span data-i18n="speech.enableLangId">Enable speech language identification</span>
                                     </label>
-                                    <small class="help-text">Automatically identify the language of spoken input (Azure
+                                    <small class="help-text" data-i18n="speech.enableLangIdHelp">Automatically identify the language of spoken input (Azure
                                         Speech only)</small>
 
                                     <label class="checkbox-label">
                                         <input type="checkbox" id="continuousLanguageDetection" />
                                         <span class="checkmark"></span>
-                                        Continuous language detection
+                                        <span data-i18n="speech.continuousDetection">Continuous language detection</span>
                                     </label>
-                                    <small class="help-text">Continuously identify language during speech recognition
+                                    <small class="help-text" data-i18n="speech.continuousDetectionHelp">Continuously identify language during speech recognition
                                         (may impact performance)</small>
                                 </div>
 
                                 <!-- Language Candidates Selection -->
                                 <div class="form-row">
-                                    <label for="candidateLanguages">Expected Languages:</label>
+                                    <label for="candidateLanguages" data-i18n="speech.expectedLanguages">Expected Languages:</label>
                                     <select id="candidateLanguages" multiple class="speech-select multi-select"
                                         size="6">
                                         <option value="en-US" selected>English (US)</option>
@@ -978,7 +1075,7 @@
                                         <option value="nl-NL">Dutch</option>
                                     </select>
                                 </div>
-                                <small class="help-text">
+                                <small class="help-text" data-i18n="speech.expectedLanguagesHelp">
                                     Hold Ctrl/Cmd to select multiple languages. This improves accuracy for speech
                                     recognition
                                     and provides better voice matching for text-to-speech.
@@ -987,11 +1084,11 @@
 
                             <!-- Speech Controls Group -->
                             <div class="speech-controls">
-                                <h4 class="sub-section-title">🎛️ Voice Controls</h4>
+                                <h4 class="sub-section-title" data-i18n="speech.voiceControls">🎛️ Voice Controls</h4>
 
                                 <!-- Speech Rate -->
                                 <div class="form-row">
-                                    <label for="speechRate">Speaking Rate:</label>
+                                    <label for="speechRate" data-i18n="speech.speakingRate">Speaking Rate:</label>
                                     <div class="slider-container">
                                         <input type="range" id="speechRate" min="0.5" max="2" step="0.1" value="1"
                                             class="speech-slider">
@@ -1001,7 +1098,7 @@
 
                                 <!-- Speech Volume -->
                                 <div class="form-row">
-                                    <label for="speechVolume">Volume:</label>
+                                    <label for="speechVolume" data-i18n="speech.volume">Volume:</label>
                                     <div class="slider-container">
                                         <input type="range" id="speechVolume" min="0" max="100" step="5" value="100"
                                             class="speech-slider">
@@ -1011,14 +1108,14 @@
 
                                 <!-- Naturalness Setting -->
                                 <div class="form-row">
-                                    <label for="speechNaturalness">Naturalness:</label>
+                                    <label for="speechNaturalness" data-i18n="speech.naturalness">Naturalness:</label>
                                     <div class="slider-container">
                                         <input type="range" id="speechNaturalness" min="0" max="100" step="10"
                                             value="80" class="speech-slider">
                                         <span class="slider-value" id="speechNaturalnessValue">80%</span>
                                     </div>
                                 </div>
-                                <small class="help-text">Higher values provide more natural speech but may be
+                                <small class="help-text" data-i18n="speech.naturalnessHelp">Higher values provide more natural speech but may be
                                     slower</small>
                             </div>
                         </div>
@@ -1026,205 +1123,159 @@
 
                     <!-- AI Companion Section -->
                     <div id="ai-companion-section" class="settings-section">
-                        <h3 class="section-title">AI Companion</h3>
+                        <h3 class="section-title" data-i18n="aiSettings.sectionTitle">AI Companion</h3>
 
                         <!-- AI Companion Enable/Disable -->
                         <div class="form-group">
-                            <label>AI Companion Settings:</label>
+                            <label data-i18n="aiSettings.title">AI Companion Settings:</label>
                             <div class="feature-options">
                                 <label class="checkbox-label">
                                     <input type="checkbox" id="enableLLMCheckbox" />
                                     <span class="checkmark"></span>
-                                    Enable AI Companion (requires API key or local Ollama)
+                                    <span data-i18n="aiSettings.enableLLM">Enable AI Companion (requires API key or local Ollama)</span>
                                 </label>
-                                <small class="help-text">AI assistant for conversation analysis and insights</small>
+                                <small class="help-text" data-i18n="aiSettings.enableLLMHelp">AI assistant for conversation analysis and insights</small>
 
                                 <label class="checkbox-label">
                                     <input type="checkbox" id="useAIThinkingCheckbox" checked />
                                     <span class="checkmark"></span>
-                                    Use AI Companion for thinking simulation
+                                    <span data-i18n="aiSettings.useThinking">Use AI Companion for thinking simulation</span>
                                 </label>
-                                <small class="help-text">When enabled, AI Companion generates contextual thinking messages while waiting for agent response. When disabled, a simple typing indicator (thinking dot) is shown instead.</small>
+                                <small class="help-text" data-i18n="aiSettings.useThinkingHelp">When enabled, AI Companion generates contextual thinking messages while waiting for agent response. When disabled, a simple typing indicator (thinking dot) is shown instead.</small>
+
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="showCompanionModelCheckbox" checked />
+                                    <span class="checkmark"></span>
+                                    <span data-i18n="aiSettings.showModel">Show companion model in header</span>
+                                </label>
+                                <small class="help-text" data-i18n="aiSettings.showModelHelp">Display the current AI Companion model name in the panel header</small>
                             </div>
                         </div>
 
-                        <!-- API Configuration Section -->
-                        <div id="apiKeySection" style="display: none;">
+                        <!-- Registered Models Table -->
+                        <div class="form-group">
+                            <label data-i18n="aiSettings.registeredModels">Registered Models:</label>
+                            <div id="registeredModelsContainer" class="registered-models-container">
+                                <div id="registeredModelsTable" class="registered-models-table">
+                                    <!-- Dynamic content populated by JS -->
+                                </div>
+                                <button type="button" id="addModelBtn" class="btn btn-secondary btn-small add-model-btn" data-i18n="aiSettings.addModel">
+                                    + Add Model
+                                </button>
+                            </div>
+                            <small class="help-text" data-i18n="aiSettings.modelsHelp">Models registered for AI Companion. Click ⚡ to switch.</small>
+                        </div>
+
+                        <!-- Add Model Form (collapsed by default) -->
+                        <div id="addModelFormSection" class="add-model-form-section" style="display: none;">
+                            <div class="add-model-form-header">
+                                <h4 data-i18n="aiSettings.addNewModel">Add New Model</h4>
+                                <button type="button" id="addModelFormCloseBtn" class="add-model-close-btn">&times;</button>
+                            </div>
+
                             <div class="form-group">
-                                <label for="apiProviderSelect">AI Provider:</label>
-                                <select id="apiProviderSelect" aria-describedby="providerHelp">
+                                <label for="regProviderSelect">Provider:</label>
+                                <select id="regProviderSelect">
+                                    <option value="openai-compatible">OpenAI Compatible</option>
                                     <option value="openai">OpenAI GPT</option>
                                     <option value="anthropic">Anthropic Claude</option>
                                     <option value="azure">Azure OpenAI</option>
                                     <option value="ollama">Local Ollama</option>
-                                    <option value="openai-compatible">OpenAI Compatible</option>
                                 </select>
-                                <small id="providerHelp" class="help-text">Choose your preferred AI provider</small>
                             </div>
 
-                            <!-- API Key Field -->
-                            <div id="apiKeyField" class="form-group">
-                                <label for="apiKeyInput">API Key:</label>
-                                <input type="password" id="apiKeyInput" placeholder="Enter your API key..."
-                                    aria-describedby="apiKeyHelp" />
-                                <small id="apiKeyHelp" class="help-text">API key for the selected provider</small>
-                            </div>
-
-                            <!-- Azure OpenAI Configuration -->
-                            <div id="azureConfig" style="display: none;">
+                            <!-- OpenAI Compatible Fields (default visible) -->
+                            <div id="regCompatFields" class="reg-provider-fields">
                                 <div class="form-group">
-                                    <label for="azureEndpointInput">Azure Endpoint:</label>
-                                    <input type="url" id="azureEndpointInput"
-                                        placeholder="https://your-resource.openai.azure.com"
-                                        aria-describedby="azureEndpointHelp" />
-                                    <small id="azureEndpointHelp" class="help-text">Azure OpenAI service endpoint
-                                        URL</small>
+                                    <label for="regCompatBaseUrl">Base URL:</label>
+                                    <input type="url" id="regCompatBaseUrl" placeholder="https://api.deepseek.com/v1" />
                                 </div>
-
                                 <div class="form-group">
-                                    <label for="azureDeploymentInput">Deployment Name:</label>
-                                    <input type="text" id="azureDeploymentInput" placeholder="gpt-4o-mini"
-                                        aria-describedby="azureDeploymentHelp" />
-                                    <small id="azureDeploymentHelp" class="help-text">Azure OpenAI deployment model
-                                        name</small>
+                                    <label for="regCompatApiKey">API Key:</label>
+                                    <input type="password" id="regCompatApiKey" placeholder="Enter API key..." />
                                 </div>
-
                                 <div class="form-group">
-                                    <label for="azureApiVersionInput">API Version:</label>
-                                    <input type="text" id="azureApiVersionInput" placeholder="2024-02-01"
-                                        value="2024-02-01" aria-describedby="azureApiVersionHelp" />
-                                    <small id="azureApiVersionHelp" class="help-text">Azure OpenAI API version</small>
+                                    <label for="regCompatModel">Model Name:</label>
+                                    <input type="text" id="regCompatModel" placeholder="deepseek-chat" />
                                 </div>
-
                                 <div class="form-group">
-                                    <button type="button" id="testAzureBtn" class="btn btn-secondary">
-                                        Test Azure OpenAI Connection
-                                    </button>
+                                    <label for="regCompatDisplayName">Display Name (optional):</label>
+                                    <input type="text" id="regCompatDisplayName" placeholder="My LLM" />
                                 </div>
                             </div>
 
-                            <!-- General API Test Button -->
-                            <div id="apiTestSection" style="display: none;">
+                            <!-- OpenAI / Anthropic Fields -->
+                            <div id="regDirectFields" class="reg-provider-fields" style="display: none;">
                                 <div class="form-group">
-                                    <button type="button" id="testApiBtn" class="btn btn-secondary">
-                                        Test API Connection
-                                    </button>
+                                    <label for="regDirectApiKey">API Key:</label>
+                                    <input type="password" id="regDirectApiKey" placeholder="Enter API key..." />
                                 </div>
                             </div>
 
-                            <!-- OpenAI Compatible Configuration -->
-                            <div id="openaiCompatibleConfig" style="display: none;">
+                            <!-- Azure Fields -->
+                            <div id="regAzureFields" class="reg-provider-fields" style="display: none;">
                                 <div class="form-group">
-                                    <label for="openaiCompatibleBaseUrlInput">Base URL:</label>
-                                    <input type="url" id="openaiCompatibleBaseUrlInput"
-                                        placeholder="https://api.deepseek.com/v1"
-                                        aria-describedby="openaiCompatibleBaseUrlHelp" />
-                                    <small id="openaiCompatibleBaseUrlHelp" class="help-text">OpenAI-compatible API endpoint (e.g. DeepSeek, Groq, LM Studio)</small>
+                                    <label for="regAzureApiKey">API Key:</label>
+                                    <input type="password" id="regAzureApiKey" placeholder="Enter Azure API key..." />
                                 </div>
-
                                 <div class="form-group">
-                                    <label for="openaiCompatibleApiKeyInput">API Key:</label>
-                                    <input type="password" id="openaiCompatibleApiKeyInput"
-                                        placeholder="Enter your API key..."
-                                        aria-describedby="openaiCompatibleApiKeyHelp" />
-                                    <small id="openaiCompatibleApiKeyHelp" class="help-text">API key for the compatible provider</small>
+                                    <label for="regAzureEndpoint">Endpoint:</label>
+                                    <input type="url" id="regAzureEndpoint" placeholder="https://your-resource.openai.azure.com" />
                                 </div>
-
                                 <div class="form-group">
-                                    <label for="openaiCompatibleModelInput">Model Name:</label>
-                                    <input type="text" id="openaiCompatibleModelInput"
-                                        placeholder="deepseek-chat"
-                                        aria-describedby="openaiCompatibleModelHelp" />
-                                    <small id="openaiCompatibleModelHelp" class="help-text">Model identifier for the provider</small>
+                                    <label for="regAzureDeployment">Deployment Name:</label>
+                                    <input type="text" id="regAzureDeployment" placeholder="gpt-4o-mini" />
                                 </div>
-
                                 <div class="form-group">
-                                    <label for="openaiCompatibleDisplayNameInput">Display Name (optional):</label>
-                                    <input type="text" id="openaiCompatibleDisplayNameInput"
-                                        placeholder="My LLM Provider"
-                                        aria-describedby="openaiCompatibleDisplayNameHelp" />
-                                    <small id="openaiCompatibleDisplayNameHelp" class="help-text">Custom name shown in the UI</small>
-                                </div>
-
-                                <div class="form-group">
-                                    <button type="button" id="testOpenAICompatibleBtn" class="btn btn-secondary">
-                                        Test Connection
-                                    </button>
+                                    <label for="regAzureApiVersion">API Version:</label>
+                                    <input type="text" id="regAzureApiVersion" placeholder="2024-02-01" value="2024-02-01" />
                                 </div>
                             </div>
 
-                            <!-- Ollama Configuration -->
-                            <div id="ollamaConfig" style="display: none;">
+                            <!-- Ollama Fields -->
+                            <div id="regOllamaFields" class="reg-provider-fields" style="display: none;">
                                 <div class="form-group">
-                                    <label for="ollamaUrlInput">Ollama Server URL:</label>
-                                    <input type="url" id="ollamaUrlInput" placeholder="http://localhost:11434"
-                                        value="http://localhost:11434" aria-describedby="ollamaUrlHelp" />
-                                    <small id="ollamaUrlHelp" class="help-text">URL of your local Ollama server</small>
+                                    <label for="regOllamaUrl">Server URL:</label>
+                                    <input type="url" id="regOllamaUrl" placeholder="http://localhost:11434" value="http://localhost:11434" />
                                 </div>
-
                                 <div class="form-group">
-                                    <label for="ollamaModelSelect">Available Models:</label>
-                                    <div style="display: flex; gap: 8px; align-items: center;">
-                                        <select id="ollamaModelSelect" style="flex: 1;" aria-describedby="modelHelp">
-                                            <option value="">Select a model...</option>
-                                        </select>
-                                        <button type="button" id="refreshModelsBtn" class="btn btn-secondary btn-small">
-                                            Refresh Models
-                                        </button>
-                                    </div>
-                                    <small id="modelHelp" class="help-text">Models available on your Ollama
-                                        server</small>
-                                </div>
-
-                                <div class="form-group">
-                                    <button type="button" id="testOllamaBtn" class="btn btn-secondary">
-                                        Test Ollama Connection
-                                    </button>
-                                </div>
-
-                                <!-- Hidden field for backward compatibility -->
-                                <input type="hidden" id="ollamaModelInput" />
-                            </div>
-                        </div>
-
-                        <!-- Model Comparison View -->
-                        <div class="form-group">
-                            <label style="margin-bottom: 10px;">Token Usage Across Models:</label>
-                            <div class="model-comparison-container">
-                                <div class="model-comparison-header">
-                                    <button type="button" id="refreshModelComparisonBtn"
-                                        class="btn btn-small btn-secondary">
-                                        Refresh Data
-                                    </button>
-                                    <button type="button" id="resetAllModelsBtn" class="btn btn-small btn-danger"
-                                        style="margin-left: 8px;">
-                                        Reset All Models
-                                    </button>
-                                </div>
-                                <div id="modelComparisonTable" class="model-comparison-table">
-                                    <!-- Dynamic content will be populated here -->
+                                    <label for="regOllamaModel">Model Name:</label>
+                                    <input type="text" id="regOllamaModel" placeholder="llama3" />
                                 </div>
                             </div>
-                            <small class="help-text">Compare token efficiency across different AI models you've
-                                used</small>
+
+                            <div class="add-model-form-actions">
+                                <div class="add-model-form-options">
+                                    <label class="checkbox-label checkbox-inline">
+                                        <input type="checkbox" id="regDisableReasoning" />
+                                        <span class="checkmark"></span>
+                                        Disable Reasoning
+                                    </label>
+                                    <small class="help-text" style="margin: 0;">Skip model thinking/reasoning for faster responses</small>
+                                </div>
+                                <div class="add-model-form-buttons">
+                                    <button type="button" id="testModelBtn" class="btn btn-secondary btn-small">Test Connection</button>
+                                    <button type="button" id="registerModelBtn" class="btn btn-primary btn-small">Register Model</button>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Prompt Management Section -->
                         <div class="form-group">
-                            <label style="margin-bottom: 10px;">AI Companion Prompt Management:</label>
+                            <label data-i18n="aiSettings.promptManagementLabel">AI Companion Prompt Management:</label>
                             <div class="prompt-management-section">
                                 <div class="prompt-management-header">
-                                    <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">
+                                    <p class="help-text" data-i18n="aiSettings.promptDescription" style="margin: 0 0 10px 0;">
                                         Customize how the AI companion thinks and responds. Changes are saved
                                         automatically and only affect your experience.
                                     </p>
                                     <button type="button" id="managePromptsBtn" class="btn btn-secondary"
                                         style="font-size: 14px; padding: 10px 16px; min-width: 180px;">
-                                        🎨 Manage AI Prompts
+                                        <span data-i18n="aiSettings.managePromptsBtn">🎨 Manage AI Prompts</span>
                                     </button>
                                 </div>
                             </div>
-                            <small class="help-text">Review and customize AI companion thinking prompts, KPI
+                            <small class="help-text" data-i18n="aiSettings.promptReviewHelp">Review and customize AI companion thinking prompts, KPI
                                 explanations, and response generation templates</small>
                         </div>
                     </div>
@@ -1238,18 +1289,18 @@
     <!-- Side Browser for Citations -->
     <div id="sideBrowser" class="side-browser">
         <div class="side-browser-header">
-            <h3 id="sideBrowserTitle">Citation Source</h3>
-            <button id="closeSideBrowser" class="side-browser-close" title="Close browser">×</button>
+            <h3 id="sideBrowserTitle" data-i18n="browser.citationSource">Citation Source</h3>
+            <button id="closeSideBrowser" class="side-browser-close" title="Close browser" data-i18n-title="browser.closeBrowser">×</button>
         </div>
         <div id="sideBrowserContent" class="side-browser-content">
             <iframe id="sideBrowserFrame" src="about:blank" title="Citation content"></iframe>
             <div id="sideBrowserLoader" class="side-browser-loader">
                 <div class="loader-spinner"></div>
-                <p>Loading citation source...</p>
+                <p data-i18n="browser.loadingCitation">Loading citation source...</p>
             </div>
             <div id="sideBrowserError" class="side-browser-error" style="display: none;">
-                <p>Unable to load citation source. This content may be blocked by security policies.</p>
-                <button id="openExternalBtn" class="btn btn-secondary">Open in External Browser</button>
+                <p data-i18n="browser.loadFailed">Unable to load citation source. This content may be blocked by security policies.</p>
+                <button id="openExternalBtn" class="btn btn-secondary" data-i18n="browser.openExternal">Open in External Browser</button>
             </div>
         </div>
     </div>
@@ -1259,7 +1310,7 @@
     <!-- Side Command Bar - Vertical Activity Bar -->
     <div id="sideCommandBar">
         <!-- Back to Home button -->
-        <button id="backToHomeButton" class="side-command-btn" title="Back to Home" aria-label="Back to Home">
+        <button id="backToHomeButton" class="side-command-btn" title="Back to Home" aria-label="Back to Home" data-i18n-title="nav.backToHome" data-i18n-aria="nav.backToHome">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                 <polyline points="9 22 9 12 15 12 15 22"/>
@@ -1270,16 +1321,16 @@
         <div class="command-bar-spacer"></div>
 
         <!-- Secondary functions -->
-        <button id="appearanceButton" class="side-command-btn" title="Appearance" aria-label="Appearance Settings">
+        <button id="appearanceButton" class="side-command-btn" title="Appearance" aria-label="Appearance Settings" data-i18n-title="nav.appearance">
             <!-- Icon will be populated by main.js unified icon system -->
         </button>
-        <button id="documentationButton" class="side-command-btn" title="Documentation" aria-label="View Documentation">
+        <button id="documentationButton" class="side-command-btn" title="Documentation" aria-label="View Documentation" data-i18n-title="nav.documentation">
             <!-- Icon will be populated by main.js unified icon system -->
         </button>
-        <button id="knowledgeHubButton" class="side-command-btn" title="Knowledge Hub" aria-label="Knowledge Hub">
+        <button id="knowledgeHubButton" class="side-command-btn" title="Knowledge Hub" aria-label="Knowledge Hub" data-i18n-title="nav.knowledgeHub">
             <!-- Icon will be populated by main.js unified icon system -->
         </button>
-        <button id="settingsButton" class="side-command-btn" title="Settings" aria-label="Settings">
+        <button id="settingsButton" class="side-command-btn" title="Settings" aria-label="Settings" data-i18n-title="nav.settings">
             <!-- Icon will be populated by main.js unified icon system -->
         </button>
     </div>
@@ -1287,148 +1338,235 @@
     <!-- Appearance Side Panel -->
     <div id="appearanceSidePanel" class="appearance-side-panel">
         <div class="appearance-panel-header">
-            <h3>Appearance</h3>
-            <button id="closeAppearancePanel" class="side-browser-close" title="Close">×</button>
+            <h3 data-i18n="appearance.title">Appearance</h3>
+            <button id="closeAppearancePanel" class="side-browser-close" title="Close" data-i18n-title="appearance.close">×</button>
         </div>
         <div class="appearance-panel-body">
-            <!-- Message Icon Toggle -->
-            <div class="form-group">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="appearanceMessageIconToggle" checked />
-                    <span class="checkmark"></span>
-                    Show message icons
-                </label>
-                <small class="help-text">Display user and agent avatars next to messages</small>
-            </div>
+            <section class="appearance-group">
+                <h4 class="appearance-group-title" data-i18n="appearance.groupThemeBackground">Theme &amp; Home Background</h4>
 
-            <!-- Color Theme Selection -->
-            <div class="form-group">
-                <label>Color Theme:</label>
-                <div class="color-theme-gallery" id="appearanceThemeGallery">
-                    <div class="theme-options">
-                        <div class="theme-option" data-theme="default">
-                            <div class="theme-preview-card"><div class="theme-gradient default-theme"></div><span class="theme-name">Default</span></div>
+                <div class="form-group">
+                    <label data-i18n="appearance.colorTheme">Color Theme:</label>
+                    <div class="color-theme-gallery" id="appearanceThemeGallery">
+                        <div class="theme-options">
+                            <div class="theme-option" data-theme="default">
+                                <div class="theme-preview-card"><div class="theme-gradient default-theme"></div><span class="theme-name" data-i18n="theme.default">Default</span></div>
+                            </div>
+                            <div class="theme-option" data-theme="ocean">
+                                <div class="theme-preview-card"><div class="theme-gradient ocean-theme"></div><span class="theme-name" data-i18n="theme.ocean">Ocean</span></div>
+                            </div>
+                            <div class="theme-option" data-theme="sunset">
+                                <div class="theme-preview-card"><div class="theme-gradient sunset-theme"></div><span class="theme-name" data-i18n="theme.sunset">Sunset</span></div>
+                            </div>
+                            <div class="theme-option" data-theme="forest">
+                                <div class="theme-preview-card"><div class="theme-gradient forest-theme"></div><span class="theme-name" data-i18n="theme.forest">Forest</span></div>
+                            </div>
+                            <div class="theme-option" data-theme="cosmic">
+                                <div class="theme-preview-card"><div class="theme-gradient cosmic-theme"></div><span class="theme-name" data-i18n="theme.cosmic">Cosmic</span></div>
+                            </div>
+                            <div class="theme-option" data-theme="aurora">
+                                <div class="theme-preview-card"><div class="theme-gradient aurora-theme"></div><span class="theme-name" data-i18n="theme.aurora">Aurora</span></div>
+                            </div>
+                            <div class="theme-option" data-theme="minimal">
+                                <div class="theme-preview-card"><div class="theme-gradient minimal-theme"></div><span class="theme-name" data-i18n="theme.minimal">Minimal</span></div>
+                            </div>
+                            <div class="theme-option" data-theme="dark">
+                                <div class="theme-preview-card"><div class="theme-gradient dark-theme"></div><span class="theme-name" data-i18n="theme.dark">Dark</span></div>
+                            </div>
                         </div>
-                        <div class="theme-option" data-theme="ocean">
-                            <div class="theme-preview-card"><div class="theme-gradient ocean-theme"></div><span class="theme-name">Ocean</span></div>
-                        </div>
-                        <div class="theme-option" data-theme="sunset">
-                            <div class="theme-preview-card"><div class="theme-gradient sunset-theme"></div><span class="theme-name">Sunset</span></div>
-                        </div>
-                        <div class="theme-option" data-theme="forest">
-                            <div class="theme-preview-card"><div class="theme-gradient forest-theme"></div><span class="theme-name">Forest</span></div>
-                        </div>
-                        <div class="theme-option" data-theme="cosmic">
-                            <div class="theme-preview-card"><div class="theme-gradient cosmic-theme"></div><span class="theme-name">Cosmic</span></div>
-                        </div>
-                        <div class="theme-option" data-theme="aurora">
-                            <div class="theme-preview-card"><div class="theme-gradient aurora-theme"></div><span class="theme-name">Aurora</span></div>
-                        </div>
-                        <div class="theme-option" data-theme="minimal">
-                            <div class="theme-preview-card"><div class="theme-gradient minimal-theme"></div><span class="theme-name">Minimal</span></div>
-                        </div>
-                        <div class="theme-option" data-theme="dark">
-                            <div class="theme-preview-card"><div class="theme-gradient dark-theme"></div><span class="theme-name">Dark</span></div>
-                        </div>
-                    </div>
-                    <small class="help-text">Choose a background color theme</small>
-                </div>
-            </div>
-
-            <!-- Font Size Configuration -->
-            <div class="form-group">
-                <label>Font Size Settings:</label>
-                <div class="font-size-config">
-                    <div class="font-size-setting">
-                        <label for="appearanceAgentFontSize">Agent Chat:</label>
-                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
-                            <input type="range" id="appearanceAgentFontSize" min="10" max="20" value="15" step="1" style="flex: 1;" />
-                            <span id="appearanceAgentFontSizeValue" class="font-size-value">15px</span>
-                        </div>
-                    </div>
-                    <div class="font-size-setting" style="margin-top: 12px;">
-                        <label for="appearanceCompanionFontSize">AI Companion:</label>
-                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
-                            <input type="range" id="appearanceCompanionFontSize" min="8" max="16" value="12" step="1" style="flex: 1;" />
-                            <span id="appearanceCompanionFontSizeValue" class="font-size-value">12px</span>
-                        </div>
+                        <small class="help-text" data-i18n="appearance.colorThemeHelp">Choose a background color theme</small>
                     </div>
                 </div>
-            </div>
 
-            <!-- Streaming Style Configuration -->
-            <div class="form-group">
-                <label for="streamingStyleSelect">Message Streaming Style:</label>
-                <select id="streamingStyleSelect" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--color-border);">
-                    <option value="smooth">Smooth (light rendering)</option>
-                    <option value="typewriter">Typewriter (character by character)</option>
-                    <option value="word">Word by word</option>
-                    <option value="sentence">Sentence by sentence</option>
-                    <option value="instant">Instant (no animation)</option>
-                </select>
-                <small class="help-text">How agent messages appear on screen</small>
-            </div>
+                <div class="form-group">
+                    <label data-i18n="appearance.homeBgImage">Home Background Image:</label>
+                    <div class="home-bg-upload-area">
+                        <div id="homeBgPreview" class="home-bg-preview">
+                            <span class="home-bg-placeholder" data-i18n="appearance.noImage">No image selected</span>
+                        </div>
+                        <div class="home-bg-actions">
+                            <label class="btn btn-secondary home-bg-upload-btn">
+                                <span data-i18n="appearance.uploadImage">Upload Image</span>
+                                <input type="file" id="homeBgFileInput" accept="image/*" hidden />
+                            </label>
+                            <button type="button" id="homeBgRemoveBtn" class="btn btn-secondary home-bg-remove-btn" style="display:none;" data-i18n="appearance.remove">Remove</button>
+                        </div>
+                        <small class="help-text" data-i18n="appearance.bgImageHelp">Image will be displayed with blur effect behind agent cards</small>
+                    </div>
+                </div>
 
-            <div class="form-group">
-                <label for="streamingSpeedSelect">Streaming Speed:</label>
-                <select id="streamingSpeedSelect" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--color-border);">
-                    <option value="slow">Slow</option>
-                    <option value="normal" selected>Normal</option>
-                    <option value="fast">Fast</option>
-                    <option value="ultra">Ultra Fast</option>
-                </select>
-                <small class="help-text">Speed of the streaming animation</small>
-            </div>
+                <div class="form-group">
+                    <label for="homeTitleInput" data-i18n="appearance.homeTitle">Home Title:</label>
+                    <input type="text" id="homeTitleInput" class="appearance-text-input" placeholder="Copilot Studio Agent Hub" maxlength="60" />
+                </div>
 
-            <!-- Suggested Actions Position -->
-            <div class="form-group">
-                <label for="suggestedActionsPositionSelect">Suggested Actions Position:</label>
-                <select id="suggestedActionsPositionSelect" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--color-border);">
-                    <option value="aboveInput">Above input box (fixed)</option>
-                    <option value="inline">Inline after message</option>
-                </select>
-                <small class="help-text">Where suggested action buttons appear in the chat</small>
-            </div>
+                <div class="form-group">
+                    <label for="homeSubtitleInput" data-i18n="appearance.homeSubtitle">Home Subtitle:</label>
+                    <input type="text" id="homeSubtitleInput" class="appearance-text-input" placeholder="Manage, test and evaluate your Copilot Studio agents." maxlength="120" />
+                </div>
+            </section>
 
-            <!-- Thinking Dot Style -->
-            <div class="form-group">
-                <label for="thinkingDotStyleSelect">Thinking Indicator Style:</label>
-                <select id="thinkingDotStyleSelect" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--color-border);">
-                    <option value="bounce">Bounce</option>
-                    <option value="pulse">Pulse</option>
-                    <option value="wave">Wave</option>
-                    <option value="elastic">Elastic</option>
-                    <option value="ripple">Ripple</option>
-                </select>
-                <small class="help-text">Animation style for the typing indicator dots</small>
-            </div>
+            <section class="appearance-group">
+                <h4 class="appearance-group-title" data-i18n="appearance.groupMessageDisplay">Message Display</h4>
 
-            <!-- Agent Display Options -->
-            <div class="form-group">
-                <label>Agent Options:</label>
-                <div class="feature-options">
+                <div class="form-group">
                     <label class="checkbox-label">
-                        <input type="checkbox" id="enableStreamingCheckbox" />
+                        <input type="checkbox" id="appearanceMessageIconToggle" checked />
                         <span class="checkmark"></span>
-                        Enable streaming responses (simulation mode)
+                        <span data-i18n="appearance.showMessageIcons">Show message icons</span>
                     </label>
-                    <small class="help-text">Simulates progressive response display for better UX</small>
+                    <small class="help-text" data-i18n="appearance.showMessageIconsHelp">Display user and agent avatars next to messages</small>
+                </div>
 
+                <div class="form-group">
                     <label class="checkbox-label">
-                        <input type="checkbox" id="enableSideBrowserCheckbox" />
+                        <input type="checkbox" id="appearanceShowUserMessagesToggle" checked />
                         <span class="checkmark"></span>
-                        Open citations in side browser
+                        <span data-i18n="appearance.showUserMessages">Show user messages</span>
                     </label>
-                    <small class="help-text">View citation sources within the app instead of external browser</small>
+                    <small class="help-text" data-i18n="appearance.showUserMessagesHelp">Hide user-side bubbles when reviewing agent-only output</small>
+                </div>
 
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="appearanceShowMetricsToggle" checked />
+                        <span class="checkmark"></span>
+                        <span data-i18n="appearance.showMetadata">Show message metadata</span>
+                    </label>
+                    <small class="help-text" data-i18n="appearance.showMetadataHelp">Control message metadata display after each message</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="appearanceAutoHideMetadataToggle" checked />
+                        <span class="checkmark"></span>
+                        <span data-i18n="appearance.autoHideMetadata">Auto hide message metadata</span>
+                    </label>
+                    <small class="help-text" data-i18n="appearance.autoHideMetadataHelp">Metadata is hidden by default and revealed on hover</small>
+                </div>
+
+                <div class="form-group">
                     <label class="checkbox-label">
                         <input type="checkbox" id="fullWidthMessagesCheckbox" />
                         <span class="checkmark"></span>
-                        Display agent messages in full width
+                        <span data-i18n="appearance.fullWidthMessages">Display agent messages in full width</span>
                     </label>
-                    <small class="help-text">Show agent responses across the full panel width</small>
+                    <small class="help-text" data-i18n="appearance.fullWidthMessagesHelp">Show agent responses across the full panel width</small>
                 </div>
-            </div>
+            </section>
+
+            <section class="appearance-group">
+                <h4 class="appearance-group-title" data-i18n="appearance.groupTypographyMotion">Typography &amp; Motion</h4>
+
+                <div class="form-group">
+                    <label data-i18n="appearance.fontSizeSettings">Font Size Settings:</label>
+                    <div class="font-size-config">
+                        <div class="font-size-setting">
+                            <label for="appearanceAgentFontSize" data-i18n="appearance.agentChat">Agent Chat:</label>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                                <input type="range" id="appearanceAgentFontSize" min="10" max="20" value="15" step="1" style="flex: 1;" />
+                                <span id="appearanceAgentFontSizeValue" class="font-size-value">15px</span>
+                            </div>
+                        </div>
+                        <div class="font-size-setting" style="margin-top: 12px;">
+                            <label for="appearanceCompanionFontSize" data-i18n="appearance.aiCompanion">AI Companion:</label>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                                <input type="range" id="appearanceCompanionFontSize" min="8" max="16" value="12" step="1" style="flex: 1;" />
+                                <span id="appearanceCompanionFontSizeValue" class="font-size-value">12px</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="streamingStyleSelect" data-i18n="appearance.streamingStyle">Message Streaming Style:</label>
+                    <select id="streamingStyleSelect" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--color-border);">
+                        <option value="smooth" data-i18n="appearance.smooth">Smooth (light rendering)</option>
+                        <option value="typewriter" data-i18n="appearance.typewriter">Typewriter (character by character)</option>
+                        <option value="word" data-i18n="appearance.wordByWord">Word by word</option>
+                        <option value="sentence" data-i18n="appearance.sentenceBySentence">Sentence by sentence</option>
+                        <option value="instant" data-i18n="appearance.instant">Instant (no animation)</option>
+                    </select>
+                    <small class="help-text" data-i18n="appearance.streamingStyleHelp">How agent messages appear on screen</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="streamingSpeedSelect" data-i18n="appearance.streamingSpeed">Streaming Speed:</label>
+                    <select id="streamingSpeedSelect" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--color-border);">
+                        <option value="slow" data-i18n="appearance.slow">Slow</option>
+                        <option value="normal" selected data-i18n="appearance.normal">Normal</option>
+                        <option value="fast" data-i18n="appearance.fast">Fast</option>
+                        <option value="ultra" data-i18n="appearance.ultraFast">Ultra Fast</option>
+                    </select>
+                    <small class="help-text" data-i18n="appearance.streamingSpeedHelp">Speed of the streaming animation</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="thinkingDotStyleSelect" data-i18n="appearance.thinkingStyle">Thinking Indicator Style:</label>
+                    <select id="thinkingDotStyleSelect" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--color-border);">
+                        <option value="bounce" data-i18n="thinking.bounce">Bounce</option>
+                        <option value="pulse" data-i18n="thinking.pulse">Pulse</option>
+                        <option value="wave" data-i18n="thinking.wave">Wave</option>
+                        <option value="elastic" data-i18n="thinking.elastic">Elastic</option>
+                        <option value="ripple" data-i18n="thinking.ripple">Ripple</option>
+                    </select>
+                    <small class="help-text" data-i18n="appearance.thinkingStyleHelp">Animation style for the typing indicator dots</small>
+                </div>
+            </section>
+
+            <section class="appearance-group">
+                <h4 class="appearance-group-title" data-i18n="appearance.groupAgentBehavior">Agent Behavior</h4>
+
+                <div class="form-group">
+                    <label for="suggestedActionsPositionSelect" data-i18n="appearance.suggestedActionsPosition">Suggested Actions Position:</label>
+                    <select id="suggestedActionsPositionSelect" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--color-border);">
+                        <option value="aboveInput" data-i18n="appearance.aboveInput">Above input box (fixed)</option>
+                        <option value="inline" data-i18n="appearance.inlineAfterMessage">Inline after message</option>
+                    </select>
+                    <small class="help-text" data-i18n="appearance.suggestedActionsHelp">Where suggested action buttons appear in the chat</small>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="appearance.agentOptions">Agent Options:</label>
+                    <div class="feature-options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="enableStreamingCheckbox" />
+                            <span class="checkmark"></span>
+                            <span data-i18n="appearance.enableStreaming">Enable streaming responses (simulation mode)</span>
+                        </label>
+                        <small class="help-text" data-i18n="appearance.enableStreamingHelp">Simulates progressive response display for better UX</small>
+
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="enableSideBrowserCheckbox" />
+                            <span class="checkmark"></span>
+                            <span data-i18n="appearance.openCitationsSideBrowser">Open citations in side browser</span>
+                        </label>
+                        <small class="help-text" data-i18n="appearance.openCitationsHelp">View citation sources within the app instead of external browser</small>
+                    </div>
+                </div>
+            </section>
+
+            <section class="appearance-group">
+                <h4 class="appearance-group-title" data-i18n="appearance.groupSystem">System</h4>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="appearanceAutoHideSidebarToggle" />
+                        <span class="checkmark"></span>
+                        <span data-i18n="appearance.autoHideSidebar">Auto hide sidebar</span>
+                    </label>
+                    <small class="help-text" data-i18n="appearance.autoHideSidebarHelp">Sidebar collapses to a thin strip and expands on hover</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="languageSelect" data-i18n="appearance.language">Language:</label>
+                    <select id="languageSelect" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--color-border);">
+                        <option value="en">English</option>
+                        <option value="zh">中文</option>
+                    </select>
+                    <small class="help-text" data-i18n="appearance.languageHelp">Interface and AI Companion output language</small>
+                </div>
+            </section>
         </div>
     </div> <!-- Screen Reader Only Content -->
     <div class="sr-only">
