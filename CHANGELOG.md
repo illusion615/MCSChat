@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **LaTeX rendering failures**: Rewrote LaTeX processing pipeline with placeholder isolation. KaTeX HTML is now stored as safe placeholders before passing through marked/DOMPurify, then restored afterward. Eliminates two classes of bugs: (1) `isMathematicalExpression` heuristic incorrectly rejecting valid LaTeX commands like `$\rightarrow$`, `$\pm$`, `$\neq$`; (2) downstream marked/DOMPurify corrupting KaTeX-generated HTML. Now uses KaTeX itself as the authoritative parser — if KaTeX can render it, it renders; if not, original text is preserved.
+- **Citation side browser not opening**: `openCitationPreview()` referenced non-existent DOM IDs (`citationFrame`, `citationPreviewPanel`), causing citations to always open in external browser instead of the in-app side panel. Remapped to use existing `sideBrowser`/`sideBrowserFrame` elements and the CSS `.open` class slide-in animation.
+
+### Added
+- **Analysis panel tab system**: Added a tab bar to the AI Companion panel with **Performance** (KPI scores + insights) tab. Citation browser now opens as a dynamic closable tab within the same panel instead of a separate overlay.
+- **Auto-open message links**: New "Auto-open message links in side browser" setting in Agent Options. When enabled, URLs found in agent replies are automatically opened as a citation tab in the analysis panel, using the link text or page name as the tab title.
+
+### Changed
+- **Citation browser moved to analysis panel**: When "Open citations in side browser" is enabled, citations now open as a tab inside the AI Companion analysis panel instead of a fixed-position side browser overlay. Tab shows hostname, loading spinner, error fallback, and a close button.
+- **Analysis tabs left-aligned**: Tab bar in the AI Companion panel now uses left-aligned layout instead of space-between.
+
+### Removed
+- **Legacy side browser overlay**: Removed the `#sideBrowser` fixed-position panel from `index.html` and cleaned up associated legacy CSS/JS code in `messageRenderer.js` and `application.js`.
+- **Deprecated AI Chat tab**: Removed the AI Chat tab and `llmChatWindow` from the analysis panel. AI Companion output had already migrated to the Performance tab's KPI insights section, making this tab non-functional.
+
 ### Added
 - **多语言支持（Phase 1）**：新建 `src/utils/i18n.js` 多语言基础设施，支持英文/中文切换。Appearance 面板新增 Language 选择器，切换后首页、导航、Appearance 面板、Agent 卡片标签、确认弹窗实时切换语言。AI Companion 根据界面语言自动注入 system 指令以对应语言输出。
 - **侧边栏毛玻璃效果与自动隐藏**：左侧 Command Bar 改为毛玻璃（backdrop-filter blur + 半透明背景）效果。Appearance 设置新增 "Auto hide sidebar" 开关，开启后侧边栏收缩为 6px 细条，鼠标悬停时展开恢复 48px，主内容区自动补位。

@@ -249,8 +249,8 @@ export class Application {
             imageModal: DOMUtils.getElementById('imageModal'),
 
             // Panel elements
-            citationPreviewPanel: DOMUtils.getElementById('citationPreviewPanel'),
-            closeCitationBtn: DOMUtils.getElementById('closeCitationBtn'),
+            citationPreviewPanel: null, // no longer a static element; citation tab created dynamically
+            closeCitationBtn: null,
             expandCitationPreviewBtn: DOMUtils.getElementById('expandCitationPreviewBtn'),
 
             // Chat elements
@@ -263,6 +263,7 @@ export class Application {
             // Setup modal form elements
             enableStreamingCheckbox: DOMUtils.getElementById('enableStreamingCheckbox'),
             enableSideBrowserCheckbox: DOMUtils.getElementById('enableSideBrowserCheckbox'),
+            autoOpenCitationsCheckbox: DOMUtils.getElementById('autoOpenCitationsCheckbox'),
             fullWidthMessagesCheckbox: DOMUtils.getElementById('fullWidthMessagesCheckbox'),
             enableLLMCheckbox: DOMUtils.getElementById('enableLLMCheckbox'),
             useAIThinkingCheckbox: DOMUtils.getElementById('useAIThinkingCheckbox'),
@@ -297,9 +298,6 @@ export class Application {
             regProviderSelect: DOMUtils.getElementById('regProviderSelect'),
             testModelBtn: DOMUtils.getElementById('testModelBtn'),
             registerModelBtn: DOMUtils.getElementById('registerModelBtn'),
-
-            // Side browser elements
-            sideBrowser: DOMUtils.getElementById('sideBrowser'),
 
             // New UI elements for UX improvements
             leftPanel: DOMUtils.getElementById('leftPanel'),
@@ -1683,17 +1681,8 @@ export class Application {
         // Add filter event listeners
         this.attachLoggingFilterListeners();
 
-        // Close right panel
-        DOMUtils.addEventListener(this.elements.closeCitationBtn, 'click', () => {
-            this.closeCitationPreview();
-        });
-
-        // Expand citation preview panel
-        if (this.elements.expandCitationPreviewBtn) {
-            DOMUtils.addEventListener(this.elements.expandCitationPreviewBtn, 'click', () => {
-                this.toggleExpandCitationPreview();
-            });
-        }
+        // Initialize analysis panel tab system
+        this.initAnalysisTabs();
 
         // New UX features
         this.attachUXEnhancementListeners();
@@ -1960,6 +1949,13 @@ export class Application {
         if (this.elements.enableSideBrowserCheckbox) {
             DOMUtils.addEventListener(this.elements.enableSideBrowserCheckbox, 'change', (e) => {
                 localStorage.setItem('enableSideBrowser', e.target.checked.toString());
+            });
+        }
+
+        // Auto-open citations checkbox
+        if (this.elements.autoOpenCitationsCheckbox) {
+            DOMUtils.addEventListener(this.elements.autoOpenCitationsCheckbox, 'change', (e) => {
+                localStorage.setItem('autoOpenCitations', e.target.checked.toString());
             });
         }
 
@@ -2965,6 +2961,11 @@ export class Application {
             console.log('Rendering complete message without streaming');
             messageRenderer.renderCompleteMessage(activity);
         }
+
+        // Auto-open URLs from bot messages in the analysis panel
+        if (activity.from && activity.from.id !== 'user' && activity.text) {
+            this._autoOpenMessageUrls(activity.text);
+        }
     }
 
     /**
@@ -3836,6 +3837,11 @@ export class Application {
             } else {
                 this.elements.enableSideBrowserCheckbox.checked = sideBrowserSetting === 'true';
             }
+        }
+
+        // Load auto-open citations setting
+        if (this.elements.autoOpenCitationsCheckbox) {
+            this.elements.autoOpenCitationsCheckbox.checked = localStorage.getItem('autoOpenCitations') === 'true';
         }
 
         // Load full width messages settings
@@ -5433,180 +5439,300 @@ export class Application {
     }
 
     /**
-     * Open URL in citation preview panel
-     * @param {string} url - URL to open for citation preview
-     */
-    openCitationPreview(url) {
-        console.log('[CitationPreview] Attempting to open URL:', url);
-        
-        const citationFrame = DOMUtils.getElementById('citationFrame');
-        console.log('[CitationPreview] citationFrame found:', !!citationFrame);
-        console.log('[CitationPreview] citationPreviewPanel found:', !!this.elements.citationPreviewPanel);
-        
-        if (citationFrame && this.elements.citationPreviewPanel) {
-            try {
-                console.log('[CitationPreview] Setting iframe src and showing panel');
-                citationFrame.src = url;
-                DOMUtils.show(this.elements.citationPreviewPanel);
-
-                // Initialize expand button if available
-                if (this.elements.expandCitationPreviewBtn) {
-                    // Check if user had a saved preference
-                    const wasExpanded = localStorage.getItem('citationPreviewExpanded') === 'true';
-                    
-                    if (wasExpanded) {
-                        // Apply expanded state
-                        DOMUtils.addClass(this.elements.citationPreviewPanel, 'expanded');
-                        const agentChatPanel = DOMUtils.getElementById('agentChatPanel');
-                        if (agentChatPanel) {
-                            DOMUtils.addClass(agentChatPanel, 'citation-expanded');
-                        }
-                        this.elements.expandCitationPreviewBtn.title = 'Restore default panel width';
-                        if (window.updateButtonIcon) {
-                            window.updateButtonIcon(this.elements.expandCitationPreviewBtn, 'arrowLeft');
-                        }
-                    } else {
-                        // Default state
-                        this.elements.expandCitationPreviewBtn.title = 'Expand panel to 50/50 layout';
-                        if (window.updateButtonIcon) {
-                            window.updateButtonIcon(this.elements.expandCitationPreviewBtn, 'arrowRight');
-                        }
-                    }
-                }
-
-                // Monitor for loading errors and CSP issues
-                const handleLoadError = () => {
-                    console.warn('[CitationPreview] Failed to load URL in citation preview (likely CSP restricted):', url);
-                    // Fallback to external browser
-                    window.open(url, '_blank', 'noopener,noreferrer');
-                    this.closeCitationPreview();
-                };
-
-                // Set up error handler
-                citationFrame.onerror = handleLoadError;
-                
-                // Handle successful load
-                citationFrame.onload = () => {
-                    console.log('[CitationPreview] Content loaded successfully in iframe');
-                    // Clear any pending timeout since content loaded successfully
-                    if (citationFrame._loadTimeout) {
-                        clearTimeout(citationFrame._loadTimeout);
-                        citationFrame._loadTimeout = null;
-                    }
-                };
-
-                // Set a longer timeout for truly problematic URLs
-                citationFrame._loadTimeout = setTimeout(() => {
-                    // Only fallback if the iframe is still trying to load the same URL
-                    // and no load event has been triggered
-                    if (citationFrame.src === url && citationFrame._loadTimeout) {
-                        console.warn('[CitationPreview] Load timeout: URL appears to be blocked or very slow to load');
-                        handleLoadError();
-                    }
-                }, 15000); // Increased to 15 seconds to allow for slow loading content
-
-            } catch (error) {
-                console.error('[CitationPreview] Error loading URL in citation preview:', error);
-                window.open(url, '_blank', 'noopener,noreferrer');
-            }
-        } else {
-            console.error('[CitationPreview] Required elements not found - citationFrame:', !!citationFrame, 'citationPreviewPanel:', !!this.elements.citationPreviewPanel);
-            window.open(url, '_blank', 'noopener,noreferrer');
-        }
-    }
-
-    /**
-     * Close citation preview panel
-     */
-    closeCitationPreview() {
-        if (this.elements.citationPreviewPanel) {
-            DOMUtils.hide(this.elements.citationPreviewPanel);
-            const citationFrame = DOMUtils.getElementById('citationFrame');
-            if (citationFrame) {
-                citationFrame.src = '';
-            }
-            
-            // Reset to default layout when closing
-            this.resetCitationPreviewLayout();
-        }
-    }
-
-    /**
-     * Toggle citation preview panel between default and expanded (50/50) layout
-     */
-    toggleExpandCitationPreview() {
-        if (!this.elements.citationPreviewPanel) return;
-
-        const isExpanded = this.elements.citationPreviewPanel.classList.contains('expanded');
-        const agentChatPanel = DOMUtils.getElementById('agentChatPanel');
-
-        if (isExpanded) {
-            // Collapse to default width
-            DOMUtils.removeClass(this.elements.citationPreviewPanel, 'expanded');
-            if (agentChatPanel) {
-                DOMUtils.removeClass(agentChatPanel, 'citation-expanded');
-            }
-
-            // Update button title and icon
-            if (this.elements.expandCitationPreviewBtn) {
-                this.elements.expandCitationPreviewBtn.title = 'Expand panel to 50/50 layout';
-                this.elements.expandCitationPreviewBtn.setAttribute('aria-label', 'Expand Citation Preview Panel');
-                
-                // Update icon to collapsed state (arrow pointing right to expand)
-                if (window.updateButtonIcon) {
-                    window.updateButtonIcon(this.elements.expandCitationPreviewBtn, 'arrowRight');
-                }
-            }
-
-            console.log('[CitationPreview] Restored default layout');
-        } else {
-            // Expand to 50/50 layout
-            DOMUtils.addClass(this.elements.citationPreviewPanel, 'expanded');
-            if (agentChatPanel) {
-                DOMUtils.addClass(agentChatPanel, 'citation-expanded');
-            }
-
-            // Update button title and icon
-            if (this.elements.expandCitationPreviewBtn) {
-                this.elements.expandCitationPreviewBtn.title = 'Restore default panel width';
-                this.elements.expandCitationPreviewBtn.setAttribute('aria-label', 'Restore Default Citation Preview Width');
-                
-                // Update icon to expanded state (arrow pointing left to collapse)
-                if (window.updateButtonIcon) {
-                    window.updateButtonIcon(this.elements.expandCitationPreviewBtn, 'arrowLeft');
-                }
-            }
-
-            console.log('[CitationPreview] Expanded to 50/50 layout');
-        }
-
-        // Store user preference
-        localStorage.setItem('citationPreviewExpanded', (!isExpanded).toString());
-    }
-
-    /**
-     * Reset citation preview panel layout to default
+     * Initialize analysis panel tab system
      * @private
      */
-    resetCitationPreviewLayout() {
-        if (this.elements.citationPreviewPanel) {
-            DOMUtils.removeClass(this.elements.citationPreviewPanel, 'expanded');
-        }
-        
-        const agentChatPanel = DOMUtils.getElementById('agentChatPanel');
-        if (agentChatPanel) {
-            DOMUtils.removeClass(agentChatPanel, 'citation-expanded');
-        }
+    initAnalysisTabs() {
+        const tabBar = document.getElementById('analysisTabBar');
+        if (!tabBar) return;
 
-        // Reset button state
-        if (this.elements.expandCitationPreviewBtn) {
-            this.elements.expandCitationPreviewBtn.title = 'Expand panel to 50/50 layout';
-            this.elements.expandCitationPreviewBtn.setAttribute('aria-label', 'Expand Citation Preview Panel');
-            
-            if (window.updateButtonIcon) {
-                window.updateButtonIcon(this.elements.expandCitationPreviewBtn, 'arrowRight');
+        tabBar.addEventListener('click', (e) => {
+            const tab = e.target.closest('.analysis-tab');
+            if (!tab) return;
+
+            // Handle close button on citation tabs
+            if (e.target.closest('.tab-close')) {
+                e.stopPropagation();
+                this.closeCitationTab(tab.dataset.tab);
+                return;
+            }
+
+            this.switchAnalysisTab(tab.dataset.tab);
+        });
+    }
+
+    /**
+     * Extract URLs from bot message text and auto-open the first one in a citation tab
+     * @param {string} text - Message text (may contain markdown)
+     * @private
+     */
+    _autoOpenMessageUrls(text) {
+        if (localStorage.getItem('autoOpenCitations') !== 'true') return;
+
+        // Match URLs: markdown links [text](url) and bare http(s) URLs
+        const markdownLinkRe = /\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g;
+        const bareLinkRe = /(?<!\]\()https?:\/\/[^\s)>\]]+/g;
+
+        let url = null;
+        let title = null;
+
+        // Prefer the first markdown link (has a title)
+        const mdMatch = markdownLinkRe.exec(text);
+        if (mdMatch) {
+            title = mdMatch[1].trim() || null;
+            url = mdMatch[2];
+        } else {
+            // Fall back to first bare URL
+            const bareMatch = bareLinkRe.exec(text);
+            if (bareMatch) {
+                url = bareMatch[0];
             }
         }
+
+        if (!url) return;
+
+        // Derive a display name: use markdown link text, else hostname
+        if (!title) {
+            try { title = new URL(url).hostname.replace('www.', ''); } catch { title = 'Link'; }
+        }
+
+        console.log('[AutoOpen] Opening URL from agent message:', url, 'title:', title);
+        this.openCitationPreview(url, title);
+    }
+
+    /**
+     * Switch to a specific analysis tab
+     * @param {string} tabId - Tab identifier (performance, chat, citation-*)
+     */
+    switchAnalysisTab(tabId) {
+        const panel = document.getElementById('llmAnalysisPanel');
+        if (!panel) return;
+
+        // Deactivate all tabs and panes
+        panel.querySelectorAll('.analysis-tab').forEach(t => t.classList.remove('active'));
+        panel.querySelectorAll('.analysis-tab-pane').forEach(p => p.classList.remove('active'));
+
+        // Activate target tab and pane
+        const tab = panel.querySelector(`.analysis-tab[data-tab="${tabId}"]`);
+        const pane = panel.querySelector(`.analysis-tab-pane[data-tab-pane="${tabId}"]`);
+        if (tab) tab.classList.add('active');
+        if (pane) pane.classList.add('active');
+    }
+
+    /**
+     * Open URL in citation tab within the analysis panel
+     * @param {string} url - URL to open for citation preview
+     * @param {string} [title] - Optional display title for the tab (defaults to hostname)
+     */
+    openCitationPreview(url, title) {
+        console.log('[CitationPreview] Opening URL in analysis tab:', url);
+
+        const panel = document.getElementById('llmAnalysisPanel');
+        const tabBar = document.getElementById('analysisTabBar');
+        if (!panel || !tabBar) {
+            console.error('[CitationPreview] Analysis panel not found');
+            window.open(url, '_blank', 'noopener,noreferrer');
+            return;
+        }
+
+        // Ensure analysis panel is visible
+        if (panel.style.display === 'none') {
+            panel.style.display = '';
+            DOMUtils.removeClass(panel, 'collapsed');
+        }
+
+        // Resolve display label: explicit title > hostname > fallback
+        let displayLabel = title || null;
+        if (!displayLabel) {
+            try { displayLabel = new URL(url).hostname.replace('www.', ''); } catch { displayLabel = 'Citation'; }
+        }
+
+        // Derive a tab ID from the URL for uniqueness
+        const tabId = 'citation';
+
+        // Check if citation tab already exists and reuse it
+        let existingPane = panel.querySelector(`.analysis-tab-pane[data-tab-pane="${tabId}"]`);
+        let existingTab = tabBar.querySelector(`.analysis-tab[data-tab="${tabId}"]`);
+
+        if (existingPane) {
+            // Reuse existing tab — update the iframe src
+            const iframe = existingPane.querySelector('.citation-browser-frame');
+            const loader = existingPane.querySelector('.citation-browser-loader');
+            const errorEl = existingPane.querySelector('.citation-browser-error');
+
+            if (loader) loader.style.display = '';
+            if (errorEl) errorEl.style.display = 'none';
+            if (iframe) {
+                iframe.style.display = 'none';
+                this._setupCitationIframe(iframe, url, loader, errorEl);
+            }
+
+            // Update tab label
+            if (existingTab) {
+                const labelSpan = existingTab.querySelector('.tab-label');
+                if (labelSpan) labelSpan.textContent = displayLabel;
+            }
+        } else {
+            // Create citation tab button
+            const tabBtn = document.createElement('button');
+            tabBtn.className = 'analysis-tab';
+            tabBtn.dataset.tab = tabId;
+
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'tab-label';
+            labelSpan.textContent = displayLabel;
+            tabBtn.appendChild(labelSpan);
+
+            const closeSpan = document.createElement('span');
+            closeSpan.className = 'tab-close';
+            closeSpan.title = 'Close';
+            closeSpan.textContent = '\u00d7';
+            tabBtn.appendChild(closeSpan);
+
+            tabBar.appendChild(tabBtn);
+
+            // Create citation tab pane
+            const pane = document.createElement('div');
+            pane.className = 'analysis-tab-pane';
+            pane.dataset.tabPane = tabId;
+
+            const loader = document.createElement('div');
+            loader.className = 'citation-browser-loader';
+            loader.innerHTML = '<div class="loader-spinner"></div><p>Loading citation source...</p>';
+
+            const errorEl = document.createElement('div');
+            errorEl.className = 'citation-browser-error';
+            errorEl.style.display = 'none';
+            errorEl.innerHTML = '<p>Unable to load citation source. This content may be blocked by security policies.</p><button class="btn btn-secondary citation-open-external">Open in External Browser</button>';
+            errorEl.querySelector('.citation-open-external').addEventListener('click', () => {
+                window.open(url, '_blank', 'noopener,noreferrer');
+            });
+
+            const iframe = document.createElement('iframe');
+            iframe.className = 'citation-browser-frame';
+            iframe.title = 'Citation content';
+            iframe.style.display = 'none';
+            iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox');
+            iframe.setAttribute('allow', 'accelerometer; gyroscope; autoplay; clipboard-write; encrypted-media');
+
+            pane.appendChild(loader);
+            pane.appendChild(errorEl);
+            pane.appendChild(iframe);
+
+            // Insert pane before kpiModal
+            const kpiModal = panel.querySelector('#kpiModal');
+            if (kpiModal) {
+                panel.insertBefore(pane, kpiModal);
+            } else {
+                panel.appendChild(pane);
+            }
+
+            this._setupCitationIframe(iframe, url, loader, errorEl);
+        }
+
+        // Switch to citation tab
+        this.switchAnalysisTab(tabId);
+    }
+
+    /**
+     * Set up iframe loading with error/timeout handling
+     * @param {HTMLIFrameElement} iframe
+     * @param {string} url
+     * @param {HTMLElement} loader
+     * @param {HTMLElement} errorEl
+     * @private
+     */
+    _setupCitationIframe(iframe, url, loader, errorEl) {
+        if (iframe._loadTimeout) {
+            clearTimeout(iframe._loadTimeout);
+            iframe._loadTimeout = null;
+        }
+
+        const handleLoadError = () => {
+            console.warn('[CitationPreview] Failed to load URL:', url);
+            if (loader) loader.style.display = 'none';
+            if (errorEl) {
+                errorEl.style.display = '';
+                // Update the external button URL
+                const btn = errorEl.querySelector('.citation-open-external');
+                if (btn) {
+                    btn.onclick = () => window.open(url, '_blank', 'noopener,noreferrer');
+                }
+            }
+        };
+
+        iframe.onerror = handleLoadError;
+        iframe.onload = () => {
+            if (iframe._loadTimeout) {
+                clearTimeout(iframe._loadTimeout);
+                iframe._loadTimeout = null;
+            }
+
+            // Detect X-Frame-Options / CSP blocking: if the iframe loaded
+            // but we can't access its contentDocument, the site likely blocked framing
+            try {
+                const doc = iframe.contentDocument || iframe.contentWindow?.document;
+                // If accessible and has a non-trivial body, show it
+                if (doc && doc.body && doc.body.innerHTML.length > 0) {
+                    console.log('[CitationPreview] Content loaded successfully');
+                    if (loader) loader.style.display = 'none';
+                    iframe.style.display = '';
+                    return;
+                }
+            } catch (e) {
+                // Cross-origin: we can't inspect, but the page DID load — show it
+                console.log('[CitationPreview] Cross-origin frame loaded (assumed OK)');
+                if (loader) loader.style.display = 'none';
+                iframe.style.display = '';
+                return;
+            }
+
+            // Same-origin blank page — likely blocked
+            console.warn('[CitationPreview] Frame loaded but appears blank, treating as blocked');
+            handleLoadError();
+        };
+
+        iframe.src = url;
+
+        iframe._loadTimeout = setTimeout(() => {
+            if (iframe._loadTimeout) {
+                console.warn('[CitationPreview] Load timeout for URL:', url);
+                handleLoadError();
+            }
+        }, 8000);
+    }
+
+    /**
+     * Close a citation tab and switch to the previous tab
+     * @param {string} tabId - The citation tab ID to close
+     */
+    closeCitationTab(tabId) {
+        const panel = document.getElementById('llmAnalysisPanel');
+        if (!panel) return;
+
+        const tab = panel.querySelector(`.analysis-tab[data-tab="${tabId}"]`);
+        const pane = panel.querySelector(`.analysis-tab-pane[data-tab-pane="${tabId}"]`);
+
+        // Clean up iframe
+        if (pane) {
+            const iframe = pane.querySelector('iframe');
+            if (iframe) {
+                if (iframe._loadTimeout) clearTimeout(iframe._loadTimeout);
+                iframe.src = 'about:blank';
+            }
+            pane.remove();
+        }
+        if (tab) tab.remove();
+
+        // Switch to performance tab
+        this.switchAnalysisTab('performance');
+    }
+
+    /**
+     * Close citation preview (called from legacy code paths)
+     */
+    closeCitationPreview() {
+        this.closeCitationTab('citation');
     }
 
     // Legacy support methods for backward compatibility
@@ -6424,6 +6550,9 @@ export class Application {
             const sideBrowserSetting = localStorage.getItem('enableSideBrowser');
             this.elements.enableSideBrowserCheckbox.checked = sideBrowserSetting === null ? true : sideBrowserSetting === 'true';
             if (sideBrowserSetting === null) localStorage.setItem('enableSideBrowser', 'true');
+        }
+        if (this.elements.autoOpenCitationsCheckbox) {
+            this.elements.autoOpenCitationsCheckbox.checked = localStorage.getItem('autoOpenCitations') === 'true';
         }
         if (this.elements.fullWidthMessagesCheckbox) {
             this.elements.fullWidthMessagesCheckbox.checked = fullWidthEnabled;

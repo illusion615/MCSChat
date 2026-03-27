@@ -219,109 +219,7 @@
     }
 }
 
-/* ===== SIDE BROWSER STYLES ===== */
-
-/* Main Side Browser Panel */
-.side-browser {
-    position: fixed;
-    top: 0;
-    right: -40%;
-    width: 40%;
-    height: 100vh;
-    background: rgba(255, 255, 255, 0.98);
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
-    border-left: 1px solid rgba(255, 255, 255, 0.3);
-    z-index: 1000;
-    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex;
-    flex-direction: column;
-    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
-}
-
-.side-browser.open {
-    right: 0;
-}
-
-/* Side Browser Header */
-.side-browser-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 24px;
-    background: rgba(255, 255, 255, 0.9);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    min-height: 70px;
-    flex-shrink: 0;
-}
-
-.side-browser-header h3 {
-    margin: 0;
-    color: var(--color-text-primary);
-    font-size: 18px;
-    font-weight: 600;
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    line-height: 1.4;
-}
-
-/* Side Browser Close Button */
-.side-browser-close {
-    background: rgba(0, 0, 0, 0.05);
-    border: none;
-    font-size: 20px;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    padding: 8px 12px;
-    border-radius: 8px;
-    transition: all 0.2s ease;
-    line-height: 1;
-    min-width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 500;
-    position: relative;
-    z-index: 10;
-    pointer-events: auto;
-}
-
-.side-browser-close:hover {
-    background: rgba(0, 0, 0, 0.1);
-    color: var(--color-text-primary);
-    transform: scale(1.05);
-}
-
-/* Side Browser Content */
-.side-browser-content {
-    flex: 1;
-    position: relative;
-    overflow: hidden;
-    background: var(--color-surface);
-}
-
-.side-browser-content iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-    background: var(--color-surface);
-}
-
-/* Side Browser Loading State */
-.side-browser-loader {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    color: var(--color-text-secondary);
-    background: rgba(255, 255, 255, 0.95);
-}
+/* ===== SHARED LOADING SPINNER ===== */
 
 /* Loading Spinner */
 .loader-spinner {
@@ -348,184 +246,140 @@
     }
 }
 
-/* Side Browser Error State */
-.side-browser-error {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    color: var(--color-text-secondary);
-    padding: 32px;
-    background: rgba(255, 255, 255, 0.95);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    max-width: 280px;
-}
+/* ===== ANALYSIS TAB SYSTEM ===== */
 
-.side-browser-error p {
-    margin: 0 0 20px 0;
-    color: var(--color-danger);
-    font-size: 14px;
-    font-weight: 500;
-    line-height: 1.5;
-}
-
-.side-browser-error .btn {
-    background: var(--gradient-primary, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-decoration: none;
-    display: inline-block;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-    position: relative;
-    z-index: 10;
-    pointer-events: auto;
-}
-
-.side-browser-error .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-}
-
-/* ===== CITATION PREVIEW PANEL STYLES ===== */
-
-/* Citation Preview Panel Support */
-#citationPreviewPanel {
-    display: none;
-    width: 460px;
-    min-width: 460px;
-    overflow: auto;
-    border-left: 1px solid rgba(255, 255, 255, 0.2);
-    position: relative;
-    background: rgba(255, 255, 255, 0.95);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-    transition: width 0.3s ease;
-}
-
-/* Expanded Citation Preview Panel (50/50 layout) */
-#citationPreviewPanel.expanded {
-    width: 50%;
-    min-width: 50%;
-}
-
-#citationPreviewPanel iframe,
-#citationFrame {
-    width: 100%;
-    height: 100%;
-    border: none;
-}
-
-.citation-panel-header {
+/* Tab Bar (merged into panel-header) */
+.analysis-tab-bar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-    background: rgba(255, 255, 255, 0.98);
+    gap: 0;
+    padding: 0 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
 }
 
-.citation-panel-header h3 {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--color-text-primary);
-    flex: 1;
+.analysis-tab-bar::-webkit-scrollbar {
+    display: none;
 }
 
-/* Citation Preview Expand Button */
-#expandCitationPreviewBtn {
-    width: 18px;
-    height: 18px;
+/* When used as panel-header, match the standard panel-header height */
+.panel-header.analysis-tab-bar {
+    justify-content: flex-start;
+    padding: 0 16px;
+    min-height: 60px;
+    border-bottom: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
+}
+
+.analysis-tab {
     position: relative;
-}
-
-#expandCitationPreviewBtn:hover {
-    background-color: rgba(0, 120, 212, 0.1);
-    color: var(--color-primary);
-}
-
-#closeCitationBtn {
-    background: rgba(0, 0, 0, 0.1);
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-secondary, #6b7280);
+    background: none;
     border: none;
-    border-radius: 50%;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
     cursor: pointer;
-    font-size: 18px;
-    font-weight: 400;
-    color: var(--color-text-secondary);
-    transition: all 0.2s ease;
-    width: 24px;
-    height: 24px;
+    white-space: nowrap;
+    transition: color 0.2s ease, border-color 0.2s ease;
+    flex-shrink: 0;
     display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.analysis-tab:hover {
+    color: var(--color-text-primary, #1f2937);
+}
+
+.analysis-tab.active {
+    color: var(--color-primary, #0078d4);
+    border-bottom-color: var(--color-primary, #0078d4);
+}
+
+/* Citation tab close button */
+.analysis-tab .tab-close {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary, #6b7280);
+    font-size: 12px;
     line-height: 1;
+    cursor: pointer;
     padding: 0;
-    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
-#closeCitationBtn:hover {
-    background: rgba(0, 0, 0, 0.15);
-    color: var(--color-text-primary);
+.analysis-tab .tab-close:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: var(--color-text-primary, #1f2937);
 }
 
-/* Legacy support for old right panel references */
+/* Tab Panes */
+.analysis-tab-pane {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.analysis-tab-pane.active {
+    display: flex;
+}
+
+/* Citation tab pane iframe */
+.analysis-tab-pane .citation-browser-frame {
+    width: 100%;
+    flex: 1;
+    border: none;
+    background: var(--color-surface, #fff);
+}
+
+/* Citation browser loading/error states */
+.citation-browser-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    gap: 12px;
+    color: var(--color-text-secondary, #6b7280);
+    font-size: 13px;
+}
+
+.citation-browser-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    gap: 16px;
+    padding: 32px;
+    text-align: center;
+}
+
+.citation-browser-error p {
+    color: var(--color-danger, #dc2626);
+    font-size: 14px;
+    margin: 0;
+}
+
+/* ===== LEGACY SUPPORT ===== */
+
+/* Legacy support for old panel references */
 #rightPanel {
     display: none !important;
 }
 
 #closeButton {
     display: none !important;
-}
-
-/* ===== RESPONSIVE DESIGN ===== */
-
-/* Citation Preview Panel Responsive */
-@media (max-width: 1200px) {
-    #citationPreviewPanel {
-        width: 50%;
-        right: -50%;
-    }
-}
-
-@media (max-width: 768px) {
-    #citationPreviewPanel {
-        width: 100%;
-        right: -100%;
-        border-left: none;
-        box-shadow: 0 0 32px rgba(0, 0, 0, 0.2);
-    }
-
-    .side-browser-header {
-        padding: 16px 20px;
-        min-height: 60px;
-    }
-
-    .side-browser-header h3 {
-        font-size: 16px;
-    }
-
-    .side-browser-close {
-        min-width: 32px;
-        height: 32px;
-        font-size: 18px;
-    }
-
-    .side-browser-loader,
-    .side-browser-error {
-        padding: 24px;
-        max-width: calc(100vw - 48px);
-    }
 }
 
 /* ===== SESSION LIST ITEMS ===== */

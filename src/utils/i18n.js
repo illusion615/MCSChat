@@ -79,6 +79,8 @@ const locales = {
         'appearance.enableStreamingHelp': 'Simulates progressive response display for better UX',
         'appearance.openCitationsSideBrowser': 'Open citations in side browser',
         'appearance.openCitationsHelp': 'View citation sources within the app instead of external browser',
+        'appearance.autoOpenCitations': 'Auto-open message links in side browser',
+        'appearance.autoOpenCitationsHelp': 'Automatically open URLs in agent replies as a tab in the analysis panel',
         'appearance.fullWidthMessages': 'Display agent messages in full width',
         'appearance.fullWidthMessagesHelp': 'Show agent responses across the full panel width',
         'appearance.language': 'Language:',
@@ -163,6 +165,10 @@ const locales = {
         'kpi.currentScore': 'Current Score:',
         'kpi.howCalculated': 'How this score is calculated:',
         'kpi.basedOnAnalysis': 'Based on conversation analysis:',
+
+        // Analysis panel tabs
+        'tabs.performance': 'Performance',
+
 
         // Side browser
         'browser.citationSource': 'Citation Source',
@@ -416,6 +422,8 @@ const locales = {
         'appearance.enableStreamingHelp': '模拟渐进式响应显示以改善体验',
         'appearance.openCitationsSideBrowser': '在侧边浏览器中打开引文',
         'appearance.openCitationsHelp': '在应用内查看引文来源，而非跳转外部浏览器',
+        'appearance.autoOpenCitations': '自动在侧边浏览器中打开消息链接',
+        'appearance.autoOpenCitationsHelp': '自动将智能体回复中的链接在分析面板中以标签页打开',
         'appearance.fullWidthMessages': '全宽显示智能体消息',
         'appearance.fullWidthMessagesHelp': '智能体回复跨越整个面板宽度',
         'appearance.language': '界面语言：',
@@ -500,6 +508,10 @@ const locales = {
         'kpi.currentScore': '当前评分：',
         'kpi.howCalculated': '评分计算方式：',
         'kpi.basedOnAnalysis': '基于对话分析：',
+
+        // Analysis panel tabs
+        'tabs.performance': '性能',
+
 
         // Side browser
         'browser.citationSource': '引文来源',

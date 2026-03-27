@@ -449,18 +449,17 @@
 
             <!-- AI Companion Panel -->
             <div id="llmAnalysisPanel" class="chat-panel collapsed" style="display: none;">
-                <div class="panel-header">
-                    <div class="panel-title-section">
-                        <button id="expandAiCompanionBtn" class="icon-button" title="Expand panel to 50/50 layout"
-                            aria-label="Expand AI Companion Panel">
-                        </button>
-                        <h3 data-i18n="kpi.agentPerformance">Agent Performance</h3>
-                    </div>
-                    
+                <div class="panel-header analysis-tab-bar" id="analysisTabBar">
+                    <button id="expandAiCompanionBtn" class="icon-button" title="Expand panel to 50/50 layout"
+                        aria-label="Expand AI Companion Panel">
+                    </button>
+                    <button class="analysis-tab active" data-tab="performance" data-i18n="tabs.performance">Performance</button>
                 </div>
 
-                <!-- Real-time KPI Section -->
-                <div id="agentKpiSection" class="kpi-section">
+                <!-- Tab: Performance -->
+                <div class="analysis-tab-pane active" id="tabPerformance" data-tab-pane="performance">
+                    <!-- Real-time KPI Section -->
+                    <div id="agentKpiSection" class="kpi-section">
                     <div class="kpi-grid">
                         <div class="kpi-item">
                             <div class="kpi-label" data-i18n="kpi.accuracy">Accuracy</div>
@@ -523,15 +522,12 @@
                         <p class="kpi-insights-placeholder" data-i18n="kpi.insightsPlaceholder">Performance insights will appear here after agent responses.</p>
                     </div>
                 </div>
+                </div><!-- end tabPerformance -->
 
-                <!-- AI Chat Window -->
-                <div id="llmChatWindow" class="chat-window">
-                    <div class="companion-welcome">
-                        <div class="companion-icon" id="companionIcon">
-                        </div>
-                        <p data-i18n="kpi.companionWelcome">AI Companion ready to analyze conversations and provide insights.</p>
-                    </div>
-                </div>
+
+
+                <!-- Dynamic Citation Tab Pane (created by JS when citation is opened) -->
+                <!-- <div class="analysis-tab-pane" id="tabCitation" data-tab-pane="citation"> ... </div> -->
 
                 <!-- KPI Detail Modal -->
                 <div id="kpiModal" class="kpi-modal">
@@ -1286,25 +1282,6 @@
 
     <!-- Old loading indicator removed - now using unified notification system -->
 
-    <!-- Side Browser for Citations -->
-    <div id="sideBrowser" class="side-browser">
-        <div class="side-browser-header">
-            <h3 id="sideBrowserTitle" data-i18n="browser.citationSource">Citation Source</h3>
-            <button id="closeSideBrowser" class="side-browser-close" title="Close browser" data-i18n-title="browser.closeBrowser">×</button>
-        </div>
-        <div id="sideBrowserContent" class="side-browser-content">
-            <iframe id="sideBrowserFrame" src="about:blank" title="Citation content"></iframe>
-            <div id="sideBrowserLoader" class="side-browser-loader">
-                <div class="loader-spinner"></div>
-                <p data-i18n="browser.loadingCitation">Loading citation source...</p>
-            </div>
-            <div id="sideBrowserError" class="side-browser-error" style="display: none;">
-                <p data-i18n="browser.loadFailed">Unable to load citation source. This content may be blocked by security policies.</p>
-                <button id="openExternalBtn" class="btn btn-secondary" data-i18n="browser.openExternal">Open in External Browser</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Old logging panel removed - now using unified notification system -->
 
     <!-- Side Command Bar - Vertical Activity Bar -->
@@ -1542,6 +1519,13 @@
                             <span data-i18n="appearance.openCitationsSideBrowser">Open citations in side browser</span>
                         </label>
                         <small class="help-text" data-i18n="appearance.openCitationsHelp">View citation sources within the app instead of external browser</small>
+
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="autoOpenCitationsCheckbox" />
+                            <span class="checkmark"></span>
+                            <span data-i18n="appearance.autoOpenCitations">Auto-open message links in side browser</span>
+                        </label>
+                        <small class="help-text" data-i18n="appearance.autoOpenCitationsHelp">Automatically open URLs in agent replies as a tab in the analysis panel</small>
                     </div>
                 </div>
             </section>

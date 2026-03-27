@@ -132,29 +132,6 @@ input[type="checkbox"]:focus {
     font-weight: 500;
 }
 
-/* Side Browser Error */
-.side-browser-error {
-    padding: 20px;
-    text-align: center;
-    background: var(--color-warning-bg);
-    border: 1px solid var(--color-warning);
-    border-radius: 8px;
-    margin: 16px;
-    color: var(--color-warning-text);
-}
-
-.side-browser-error h3 {
-    margin: 0 0 8px 0;
-    color: var(--color-warning-text);
-    font-size: 16px;
-}
-
-.side-browser-error p {
-    margin: 0;
-    font-size: 14px;
-    line-height: 1.4;
-}
-
 /* AI Companion Toggle — now an inline icon button */
 .ai-companion-toggle {
     position: relative;
@@ -647,11 +624,6 @@ input[type="checkbox"]:focus {
     .upload-progress {
         margin: 12px 8px;
         padding: 8px;
-    }
-    
-    .side-browser-error {
-        margin: 8px;
-        padding: 16px;
     }
     
     .ai-notification-progress {

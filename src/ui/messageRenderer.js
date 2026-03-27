@@ -368,154 +368,100 @@ export class MessageRenderer {
     /**
      * Analyzes if a string represents a mathematical expression vs regular text
      * @param {string} text - The text to analyze
-     * @returns {boolean} - True if likely mathematical, false otherwise
+     * @returns {boolean} - True if clearly NOT mathematical (should skip KaTeX)
      * @private
      */
-    isMathematicalExpression(text) {
+    isDefinitelyNotMath(text) {
         const trimmed = text.trim();
+        if (!trimmed) return true;
 
-        // Mathematical indicators (strong positive signals)
-        const mathIndicators = [
-            // Mathematical operators
-            /[+\-*/=<>≤≥≠≈∞]/,
-            // Greek letters (common in math)
-            /\\[a-zA-Z]+/,
-            // Mathematical functions
-            /\\(sin|cos|tan|log|ln|exp|sqrt|sum|int|lim|frac|binom)/,
-            // Superscripts/subscripts
-            /[\^_]/,
-            // Mathematical symbols and structures
-            /[{}()[\]]/,
-            // Fractions
-            /\//,
-            // Mathematical relations with variables
-            /[a-zA-Z]\s*[=<>≤≥≠≈]\s*[a-zA-Z0-9]/,
-            // Variables with operators
-            /[a-zA-Z]\s*[+\-*/]\s*[a-zA-Z0-9]/
+        // Negative-only filter: reject patterns that are clearly not math.
+        // Everything else will be tried by KaTeX — if KaTeX rejects it, we keep original.
+        const notMathPatterns = [
+            /^\d+(\.\d+)?\s*[a-zA-Z]{1,3}$/,           // $3bn, $4.1bn, $38m (currency)
+            /^\d+(\.\d+)?\s*(bn|million|billion|trillion|thousand|k|m|b|t)$/i, // units
+            /^\d+(\.\d+)?%$/,                            // percentages
+            /^\d+(\.\d+)?$/,                             // pure numbers
+            /^\d{1,2}:\d{2}$/,                           // time
+            /^\d{1,2}\/\d{1,2}\/\d{2,4}$/,              // dates
+            /^\d+\s*(kg|lb|ft|in|cm|mm|mph|km\/h|°[CF]?)$/i  // units
         ];
 
-        // Non-mathematical patterns (strong negative signals)
-        const nonMathPatterns = [
-            // Pure currency patterns
-            /^\d+(\.\d+)?\s*[a-zA-Z]{1,3}$/,  // $3bn, $4.1bn, $38m
-            // Numbers with common units
-            /^\d+(\.\d+)?\s*(bn|million|billion|trillion|thousand|k|m|b|t)$/i,
-            // Percentages
-            /^\d+(\.\d+)?%$/,
-            // Pure numbers
-            /^\d+(\.\d+)?$/,
-            // Simple words
-            /^[a-zA-Z]+$/,
-            // Time/date patterns
-            /^\d{1,2}:\d{2}$/,
-            /^\d{1,2}\/\d{1,2}\/\d{2,4}$/,
-            // Common abbreviations and units
-            /^\d+\s*(kg|lb|ft|in|cm|mm|mph|km\/h|°[CF]?)$/i
-        ];
-
-        // Context analysis weights
-        let mathScore = 0;
-        let nonMathScore = 0;
-
-        // Check for mathematical indicators
-        for (const pattern of mathIndicators) {
-            if (pattern.test(trimmed)) {
-                mathScore += 1;
-            }
+        for (const pattern of notMathPatterns) {
+            if (pattern.test(trimmed)) return true;
         }
 
-        // Check for non-mathematical patterns
-        for (const pattern of nonMathPatterns) {
-            if (pattern.test(trimmed)) {
-                nonMathScore += 2; // Higher weight for non-math patterns
-            }
-        }
-
-        // Additional contextual analysis
-
-        // If it's very short and alphanumeric only, likely not math
-        if (trimmed.length <= 5 && /^[a-zA-Z0-9]+$/.test(trimmed)) {
-            nonMathScore += 1;
-        }
-
-        // If it contains multiple consecutive letters without operators, likely text
-        if (/[a-zA-Z]{3,}/.test(trimmed) && !/[+\-*/=^_{}\\]/.test(trimmed)) {
-            nonMathScore += 1;
-        }
-
-        // If it starts with a digit and ends with letters (like currency), likely not math
-        if (/^\d/.test(trimmed) && /[a-zA-Z]$/.test(trimmed)) {
-            nonMathScore += 1;
-        }
-
-        // Mathematical expressions usually have structure
-        if (mathScore > 0 && /[a-zA-Z]/.test(trimmed)) {
-            mathScore += 0.5; // Bonus for having variables
-        }
-
-        // Decision logic: require clear mathematical intent
-        return mathScore > nonMathScore && mathScore > 0;
+        return false;
     }
 
     /**
-     * Process LaTeX math expressions in content
+     * Process LaTeX math expressions in content.
+     * Uses placeholder isolation: KaTeX HTML is replaced with unique tokens
+     * so that downstream marked/DOMPurify cannot corrupt it.
+     * Call restoreLatexPlaceholders() after sanitization to swap them back.
      * @param {string} content - Content that may contain LaTeX
-     * @returns {string} - Content with LaTeX rendered as HTML
+     * @returns {string} - Content with LaTeX replaced by placeholders
      * @private
      */
     processLatex(content) {
+        // Reset placeholder store for this render pass
+        this._latexPlaceholders = new Map();
+        this._latexPlaceholderCounter = 0;
+
         if (typeof katex === 'undefined') {
-            return content; // Return original content if KaTeX is not available
+            return content;
         }
 
+        const storePlaceholder = (html) => {
+            const id = `%%KATEX_${this._latexPlaceholderCounter++}%%`;
+            this._latexPlaceholders.set(id, html);
+            return id;
+        };
+
         try {
-            // Process display math first: $$...$$
+            // 1. Process display math: $$...$$
             content = content.replace(/\$\$([^$]+?)\$\$/g, (match, math) => {
                 try {
-                    return katex.renderToString(math.trim(), {
+                    const html = katex.renderToString(math.trim(), {
                         displayMode: true,
-                        throwOnError: false,
-                        errorColor: '#cc0000'
+                        throwOnError: true
                     });
+                    return storePlaceholder(html);
                 } catch (error) {
-                    console.warn('KaTeX display math error:', error.message, 'for:', math);
-                    return match; // Return original if rendering fails
+                    return match;
                 }
             });
 
-            // Process inline math: $...$ with semantic analysis
+            // 2. Process inline math: $...$
+            //    Minimal negative filter + KaTeX as authoritative judge
             content = content.replace(/\$([^$\n]+?)\$/g, (match, math) => {
                 const trimmed = math.trim();
-
-                // Use comprehensive semantic analysis
-                if (!this.isMathematicalExpression(trimmed)) {
-                    return match; // Return original if not mathematical
+                if (this.isDefinitelyNotMath(trimmed)) {
+                    return match;
                 }
-
                 try {
-                    return katex.renderToString(trimmed, {
+                    const html = katex.renderToString(trimmed, {
                         displayMode: false,
-                        throwOnError: false,
-                        errorColor: '#cc0000'
+                        throwOnError: true
                     });
+                    return storePlaceholder(html);
                 } catch (error) {
-                    console.warn('KaTeX inline math error:', error.message, 'for:', math);
-                    return match; // Return original if rendering fails
+                    // KaTeX cannot parse it — not valid LaTeX, keep original
+                    return match;
                 }
             });
 
-            // Process LaTeX environments: \begin{...}\end{...}
+            // 3. Process LaTeX environments: \begin{...}\end{...}
             content = content.replace(/\\begin\{([^}]+)\}([\s\S]*?)\\end\{\1\}/g, (match, env, math) => {
                 try {
                     const latexCode = `\\begin{${env}}${math}\\end{${env}}`;
-                    return katex.renderToString(latexCode, {
+                    const html = katex.renderToString(latexCode, {
                         displayMode: true,
-                        throwOnError: false,
-                        errorColor: '#cc0000'
+                        throwOnError: true
                     });
+                    return storePlaceholder(html);
                 } catch (error) {
-                    console.warn('KaTeX environment error:', error.message, 'for:', env);
-                    return match; // Return original if rendering fails
+                    return match;
                 }
             });
 
@@ -524,6 +470,23 @@ export class MessageRenderer {
         }
 
         return content;
+    }
+
+    /**
+     * Restore KaTeX placeholders with actual rendered HTML.
+     * Must be called AFTER marked.parse() and DOMPurify.sanitize().
+     * @param {string} html - HTML string containing placeholders
+     * @returns {string} - HTML with placeholders replaced by KaTeX output
+     * @private
+     */
+    restoreLatexPlaceholders(html) {
+        if (!this._latexPlaceholders || this._latexPlaceholders.size === 0) {
+            return html;
+        }
+        for (const [placeholder, katexHtml] of this._latexPlaceholders) {
+            html = html.replace(placeholder, katexHtml);
+        }
+        return html;
     }
 
     /**
@@ -1789,7 +1752,7 @@ export class MessageRenderer {
     addTextContent(messageDiv, text) {
         console.log('MessageRenderer: addTextContent called with text length:', text?.length);
 
-        // Process LaTeX math expressions first (before markdown)
+        // Process LaTeX math expressions first — placeholders protect KaTeX HTML
         const latexProcessedText = this.processLatex(text);
 
         // Process markdown if available - exactly like legacy
@@ -1801,10 +1764,13 @@ export class MessageRenderer {
                     marked(latexProcessedText);
                 const sanitizedContent = DOMPurify.sanitize(htmlContent);
 
-                console.log('MessageRenderer: Processed markdown, checking for images in HTML:', sanitizedContent.includes('<img'));
+                // Restore KaTeX HTML after sanitization
+                const latexRestoredContent = this.restoreLatexPlaceholders(sanitizedContent);
+
+                console.log('MessageRenderer: Processed markdown, checking for images in HTML:', latexRestoredContent.includes('<img'));
 
                 // Enhance inline references
-                const enhancedContent = this.enhanceInlineReferences(sanitizedContent);
+                const enhancedContent = this.enhanceInlineReferences(latexRestoredContent);
 
                 // Ensure agent messages are properly wrapped in paragraphs
                 const finalContent = this.ensureParagraphStructure(enhancedContent, messageDiv);
@@ -1815,8 +1781,9 @@ export class MessageRenderer {
             } catch (error) {
                 console.warn('Error processing markdown:', error);
                 console.warn('Marked version check:', typeof marked.parse);
-                // For fallback, still ensure paragraph structure and LaTeX
-                const paragraphText = this.ensureParagraphStructure(latexProcessedText, messageDiv, true);
+                // For fallback, still ensure paragraph structure and restore placeholders
+                const restored = this.restoreLatexPlaceholders(latexProcessedText);
+                const paragraphText = this.ensureParagraphStructure(restored, messageDiv, true);
                 messageDiv.innerHTML = paragraphText;
             }
         } else {
@@ -1824,8 +1791,9 @@ export class MessageRenderer {
                 marked: typeof marked,
                 DOMPurify: typeof DOMPurify
             });
-            // Even without markdown, ensure paragraph structure and process LaTeX
-            const paragraphText = this.ensureParagraphStructure(latexProcessedText, messageDiv, true);
+            // Even without markdown, restore placeholders and ensure paragraph structure
+            const restored = this.restoreLatexPlaceholders(latexProcessedText);
+            const paragraphText = this.ensureParagraphStructure(restored, messageDiv, true);
             messageDiv.innerHTML = paragraphText;
         }
 
@@ -2005,7 +1973,7 @@ export class MessageRenderer {
         // Handle URLs and markdown links specially during streaming
         const processedContent = this.handleStreamingUrls(content);
 
-        // Process LaTeX math expressions first (before markdown)
+        // Process LaTeX math expressions first — placeholders protect KaTeX HTML
         const latexProcessedContent = this.processLatex(processedContent);
 
         // Process markdown if available - removed typing cursor
@@ -2017,8 +1985,11 @@ export class MessageRenderer {
                     marked(latexProcessedContent);
                 const sanitizedContent = DOMPurify.sanitize(htmlContent);
 
+                // Restore KaTeX HTML after sanitization
+                const latexRestoredContent = this.restoreLatexPlaceholders(sanitizedContent);
+
                 // Enhance inline references during streaming like in complete messages
-                const enhancedContent = this.enhanceInlineReferences(sanitizedContent);
+                const enhancedContent = this.enhanceInlineReferences(latexRestoredContent);
 
                 // Ensure agent messages have proper paragraph structure during streaming
                 const finalContent = this.ensureParagraphStructure(enhancedContent, messageDiv);
@@ -2028,13 +1999,15 @@ export class MessageRenderer {
                 this.addTargetBlankToExternalLinks(messageDiv);
             } catch (error) {
                 console.warn('Error processing streaming markdown:', error);
-                // For fallback, still ensure paragraph structure and process LaTeX
-                const paragraphContent = this.ensureParagraphStructure(latexProcessedContent, messageDiv, true);
+                // For fallback, restore placeholders and ensure paragraph structure
+                const restored = this.restoreLatexPlaceholders(latexProcessedContent);
+                const paragraphContent = this.ensureParagraphStructure(restored, messageDiv, true);
                 messageDiv.innerHTML = paragraphContent;
             }
         } else {
-            // Even without markdown, ensure paragraph structure and process LaTeX
-            const paragraphContent = this.ensureParagraphStructure(latexProcessedContent, messageDiv, true);
+            // Even without markdown, restore placeholders and ensure paragraph structure
+            const restored = this.restoreLatexPlaceholders(latexProcessedContent);
+            const paragraphContent = this.ensureParagraphStructure(restored, messageDiv, true);
             messageDiv.innerHTML = paragraphContent;
         }
 
@@ -3408,417 +3381,63 @@ export class MessageRenderer {
      * @returns {boolean} True if domain likely has CSP restrictions
      * @private
      */
-    isCSPRestrictedDomain(url) {
-        try {
-            const urlObj = new URL(url);
-            const hostname = urlObj.hostname.toLowerCase();
-
-            // Only block the most problematic domains that definitely don't allow framing
-            const restrictedDomains = [
-                'sharepoint.com',
-                'sharepointonline.com',
-                'login.microsoft.com',
-                'account.microsoft.com'
-            ];
-
-            return restrictedDomains.some(domain =>
-                hostname === domain || hostname.endsWith('.' + domain)
-            );
-        } catch (e) {
-            // If URL parsing fails, assume it's safe to try
-            console.warn('Failed to parse URL for CSP check:', url);
-            return false;
-        }
-    }
-
     /**
-     * Open side browser with URL
+     * Open side browser with URL — delegates to app citation tab
      * @param {string} url - URL to load
      * @private
      */
     openSideBrowser(url) {
-        // Try to use the new Citation Preview Panel system via global app
         if (window.MCSChatApp && typeof window.MCSChatApp.openCitationPreview === 'function') {
-            console.log('[MessageRenderer] Using Citation Preview Panel for URL:', url);
+            console.log('[MessageRenderer] Opening citation in analysis panel tab:', url);
             window.MCSChatApp.openCitationPreview(url);
             return;
         }
 
-        // Fallback to legacy side browser if Citation Preview Panel not available
-        console.warn('[MessageRenderer] Citation Preview Panel not available, using legacy side browser');
-        const sideBrowser = DOMUtils.getElementById('sideBrowser');
-        const sideBrowserFrame = DOMUtils.getElementById('sideBrowserFrame');
-        const sideBrowserTitle = DOMUtils.getElementById('sideBrowserTitle');
-        const sideBrowserLoader = DOMUtils.getElementById('sideBrowserLoader');
-        const sideBrowserError = DOMUtils.getElementById('sideBrowserError');
-
-        if (!sideBrowser || !sideBrowserFrame) {
-            console.error('Side browser elements not found');
-            window.open(url, '_blank', 'noopener,noreferrer');
-            return;
-        }
-
-        // Show the side browser with loading state
-        DOMUtils.addClass(sideBrowser, 'open');
-        DOMUtils.addClass(sideBrowser, 'loading');
-
-        // Reset state and add loading class to content
-        const sideBrowserContent = DOMUtils.getElementById('sideBrowserContent') ||
-            sideBrowser.querySelector('.side-browser-content');
-        if (sideBrowserContent) {
-            DOMUtils.addClass(sideBrowserContent, 'loading');
-        }
-
-        sideBrowserLoader.style.display = 'block';
-        sideBrowserError.style.display = 'none';
-        sideBrowserFrame.style.display = 'none';
-        DOMUtils.removeClass(sideBrowserFrame, 'loaded');
-
-        // Set title with enhanced formatting
-        try {
-            const urlObj = new URL(url);
-            const hostname = urlObj.hostname || 'Citation Source';
-            sideBrowserTitle.textContent = hostname.replace('www.', '');
-        } catch (e) {
-            sideBrowserTitle.textContent = 'Citation Source';
-        }
-
-        // Store URL for external button
-        sideBrowserError.dataset.url = url;
-
-        // Check if URL might have CSP issues before loading
-        if (this.isCSPRestrictedDomain(url)) {
-            console.warn('URL likely has CSP restrictions, opening in external browser instead:', url);
-            this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError,
-                'This content cannot be displayed in a frame due to security policies.', url);
-            return;
-        }
-
-        // Enhanced iframe loading with better feedback
-        sideBrowserFrame.onload = () => {
-            console.log('Side browser iframe loaded successfully');
-            setTimeout(() => {
-                sideBrowserLoader.style.display = 'none';
-                sideBrowserFrame.style.display = 'block';
-                DOMUtils.addClass(sideBrowserFrame, 'loaded');
-                DOMUtils.removeClass(sideBrowser, 'loading');
-                if (sideBrowserContent) {
-                    DOMUtils.removeClass(sideBrowserContent, 'loading');
-                }
-            }, 300); // Small delay for smooth transition
-        };
-
-        sideBrowserFrame.onerror = () => {
-            console.warn('Failed to load URL in iframe:', url);
-            this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError,
-                'Unable to load citation source. This content may be blocked by security policies.', url);
-        };
-
-        // Monitor for CSP violations and other frame loading issues
-        const cspErrorHandler = (event) => {
-            if (event.data && typeof event.data === 'string' &&
-                (event.data.includes('frame-ancestors') || event.data.includes('CSP'))) {
-                console.warn('CSP violation detected for iframe:', url);
-                this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError,
-                    'Content blocked by security policy.', url);
-            }
-        };
-        window.addEventListener('message', cspErrorHandler, { once: true });
-
-        // Enhanced timeout with better feedback
-        const loadingTimeout = setTimeout(() => {
-            if (sideBrowserLoader.style.display !== 'none') {
-                console.warn('Iframe loading timeout for URL:', url);
-                this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError,
-                    'Loading timeout. This content may be taking too long to load.', url);
-                window.removeEventListener('message', cspErrorHandler);
-            }
-        }, 10000); // 10 second timeout
-
-        // Clear timeout on successful load
-        const originalOnload = sideBrowserFrame.onload;
-        sideBrowserFrame.onload = () => {
-            clearTimeout(loadingTimeout);
-            window.removeEventListener('message', cspErrorHandler);
-            originalOnload();
-        };
-
-        try {
-            sideBrowserFrame.src = url;
-        } catch (error) {
-            console.error('Error setting iframe src:', error);
-            clearTimeout(loadingTimeout);
-            this.showSideBrowserError(sideBrowser, sideBrowserLoader, sideBrowserError,
-                'Failed to load citation source.', url);
-        }
-
-        // Setup event listeners if not already done
-        this.setupSideBrowserEventListeners();
+        // Fallback: open in new window
+        console.warn('[MessageRenderer] openCitationPreview not available, opening externally');
+        window.open(url, '_blank', 'noopener,noreferrer');
     }
 
     /**
-     * Show error state in side browser with consistent styling
-     * @param {HTMLElement} sideBrowser - Side browser container
-     * @param {HTMLElement} loader - Loader element
-     * @param {HTMLElement} errorElement - Error element
-     * @param {string} message - Error message to display
-     * @param {string} url - URL for external button
-     * @private
-     */
-    showSideBrowserError(sideBrowser, loader, errorElement, message, url) {
-        // Update loading states
-        DOMUtils.removeClass(sideBrowser, 'loading');
-        const sideBrowserContent = sideBrowser.querySelector('.side-browser-content');
-        if (sideBrowserContent) {
-            DOMUtils.removeClass(sideBrowserContent, 'loading');
-        }
-
-        // Show error with message
-        loader.style.display = 'none';
-        errorElement.style.display = 'block';
-        const errorParagraph = errorElement.querySelector('p');
-        if (errorParagraph) {
-            errorParagraph.textContent = message;
-        }
-        errorElement.dataset.url = url;
-    }
-
-    /**
-     * Setup side browser event listeners
+     * Setup chat link interception listeners
      * @private
      */
     setupSideBrowserEventListeners() {
-        console.log('[SideBrowser] Setting up event listeners...');
+        if (this._chatLinkListenerAdded) return;
+        this._chatLinkListenerAdded = true;
 
-        // Use event delegation for better reliability
+        // Use event delegation for link interception in chat messages
         document.addEventListener('click', (e) => {
-            // Handle external hyperlinks in chat messages only
             const link = e.target.closest('a[href]');
-            if (link && link.href) {
-                console.log('[MessageRenderer] Link clicked:', link.href, 'Text:', link.textContent);
-                
-                // Only handle links within chat messages, not all links on the page
-                const chatWindow = link.closest('#chatWindow, #llmChatWindow, .message-container, .markdown-content, .message-content, .messageContent');
-                if (chatWindow) {
-                    console.log('[MessageRenderer] Link is within chat window');
-                    
-                    // Only intercept external links (not internal navigation or javascript: links)
-                    try {
-                        // Skip javascript:, mailto:, tel:, and other special protocols
-                        if (link.href.toLowerCase().startsWith('javascript:') || 
-                            link.href.toLowerCase().startsWith('mailto:') || 
-                            link.href.toLowerCase().startsWith('tel:') ||
-                            link.href.startsWith('#')) {
-                            console.log('[MessageRenderer] Skipping special protocol link:', link.href);
-                            return; // Let default behavior handle these
-                        }
+            if (!link || !link.href) return;
 
-                        const linkUrl = new URL(link.href);
-                        const currentUrl = new URL(window.location.href);
-                        
-                        // Check if it's an external link (different hostname) or any http/https URL when enabled
-                        const isExternalLink = linkUrl.hostname !== currentUrl.hostname;
-                        const isHttpLink = linkUrl.protocol === 'http:' || linkUrl.protocol === 'https:';
-                        
-                        console.log('[MessageRenderer] Link analysis:', {
-                            href: link.href,
-                            hostname: linkUrl.hostname,
-                            currentHostname: currentUrl.hostname,
-                            isExternalLink,
-                            isHttpLink
-                        });
-                        
-                        if (isExternalLink && isHttpLink) {
-                            // Check if we should use Citation Preview Panel
-                            const useSideBrowser = localStorage.getItem('enableSideBrowser') === 'true';
-                            console.log('[MessageRenderer] EnableSideBrowser setting:', useSideBrowser);
-                            console.log('[MessageRenderer] MCSChatApp available:', !!window.MCSChatApp);
-                            console.log('[MessageRenderer] openCitationPreview function available:', typeof window.MCSChatApp?.openCitationPreview);
-                            
-                            if (useSideBrowser && window.MCSChatApp && typeof window.MCSChatApp.openCitationPreview === 'function') {
-                                e.preventDefault();
-                                console.log('[MessageRenderer] Intercepting external link for Citation Preview Panel:', link.href);
-                                window.MCSChatApp.openCitationPreview(link.href);
-                                return;
-                            } else {
-                                console.log('[MessageRenderer] Not using Citation Preview Panel, allowing default behavior');
-                            }
-                            // If not using Citation Preview Panel, let default behavior happen
-                            // The link should already have target="_blank" from markdown rendering
-                        } else {
-                            console.log('[MessageRenderer] Link is not external HTTP/HTTPS, allowing default behavior');
-                        }
-                    } catch (urlError) {
-                        console.warn('[MessageRenderer] Invalid URL in link:', link.href, urlError);
+            // Only handle links within chat messages
+            const chatWindow = link.closest('#chatWindow, #llmChatWindow, .message-container, .markdown-content, .message-content, .messageContent');
+            if (!chatWindow) return;
+
+            // Skip special protocols
+            const href = link.href.toLowerCase();
+            if (href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:') || link.href.startsWith('#')) {
+                return;
+            }
+
+            try {
+                const linkUrl = new URL(link.href);
+                const currentUrl = new URL(window.location.href);
+                const isExternalLink = linkUrl.hostname !== currentUrl.hostname;
+                const isHttpLink = linkUrl.protocol === 'http:' || linkUrl.protocol === 'https:';
+
+                if (isExternalLink && isHttpLink) {
+                    const useSideBrowser = localStorage.getItem('enableSideBrowser') === 'true';
+                    if (useSideBrowser && window.MCSChatApp && typeof window.MCSChatApp.openCitationPreview === 'function') {
+                        e.preventDefault();
+                        window.MCSChatApp.openCitationPreview(link.href);
                     }
-                } else {
-                    console.log('[MessageRenderer] Link is not within chat window, ignoring');
                 }
-            }
-
-            // Handle close button clicks
-            if (e.target.id === 'closeSideBrowser' || e.target.closest('#closeSideBrowser')) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('[SideBrowser] Close button clicked via delegation');
-                this.closeSideBrowser();
-                return;
-            }
-
-            // Handle external button clicks
-            if (e.target.id === 'openExternalBtn' || e.target.closest('#openExternalBtn')) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('[SideBrowser] External button clicked via delegation');
-
-                // Try multiple ways to get the URL
-                const sideBrowserError = DOMUtils.getElementById('sideBrowserError');
-                let url = sideBrowserError?.dataset?.url;
-
-                // Fallback: look for URL in button itself
-                if (!url) {
-                    const button = e.target.closest('#openExternalBtn') || e.target;
-                    url = button?.dataset?.url;
-                }
-
-                // Fallback: look for URL in any parent elements
-                if (!url) {
-                    const errorContainer = e.target.closest('.side-browser-error');
-                    url = errorContainer?.dataset?.url;
-                }
-
-                console.log('[SideBrowser] External button URL found:', url);
-                console.log('[SideBrowser] sideBrowserError element:', sideBrowserError);
-                console.log('[SideBrowser] sideBrowserError dataset:', sideBrowserError?.dataset);
-
-                if (url) {
-                    console.log('[SideBrowser] Opening URL in external browser:', url);
-                    window.open(url, '_blank', 'noopener,noreferrer');
-                } else {
-                    console.warn('[SideBrowser] No URL found for external button');
-                    console.warn('[SideBrowser] All available data:', {
-                        sideBrowserError: sideBrowserError,
-                        errorDataset: sideBrowserError?.dataset,
-                        buttonTarget: e.target,
-                        buttonDataset: e.target.dataset
-                    });
-                }
-                return;
+            } catch (urlError) {
+                console.warn('[MessageRenderer] Invalid URL in link:', link.href, urlError);
             }
         });
-
-        // Also try direct event listeners as backup
-        const closeSideBrowser = DOMUtils.getElementById('closeSideBrowser');
-        const openExternalBtn = DOMUtils.getElementById('openExternalBtn');
-        const sideBrowser = DOMUtils.getElementById('sideBrowser');
-
-        console.log('[SideBrowser] Elements found:', {
-            closeSideBrowser: !!closeSideBrowser,
-            openExternalBtn: !!openExternalBtn,
-            sideBrowser: !!sideBrowser
-        });
-
-        // Direct listeners as backup
-        if (closeSideBrowser && !closeSideBrowser.dataset.listenerAdded) {
-            console.log('[SideBrowser] Adding direct close button listener');
-            DOMUtils.addEventListener(closeSideBrowser, 'click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('[SideBrowser] Close button clicked directly');
-                this.closeSideBrowser();
-            });
-            closeSideBrowser.dataset.listenerAdded = 'true';
-        }
-
-        if (openExternalBtn && !openExternalBtn.dataset.listenerAdded) {
-            console.log('[SideBrowser] Adding direct external button listener');
-            DOMUtils.addEventListener(openExternalBtn, 'click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('[SideBrowser] External button clicked directly');
-
-                // Try multiple ways to get the URL
-                const sideBrowserError = DOMUtils.getElementById('sideBrowserError');
-                let url = sideBrowserError?.dataset?.url;
-
-                // Fallback: look for URL in button itself
-                if (!url) {
-                    url = openExternalBtn?.dataset?.url;
-                }
-
-                // Fallback: look for URL in any parent elements
-                if (!url) {
-                    const errorContainer = openExternalBtn.closest('.side-browser-error');
-                    url = errorContainer?.dataset?.url;
-                }
-
-                console.log('[SideBrowser] External button URL found:', url);
-                console.log('[SideBrowser] sideBrowserError element:', sideBrowserError);
-                console.log('[SideBrowser] sideBrowserError dataset:', sideBrowserError?.dataset);
-
-                if (url) {
-                    console.log('[SideBrowser] Opening URL in external browser:', url);
-                    window.open(url, '_blank', 'noopener,noreferrer');
-                } else {
-                    console.warn('[SideBrowser] No URL found for external button');
-                    console.warn('[SideBrowser] All available data:', {
-                        sideBrowserError: sideBrowserError,
-                        errorDataset: sideBrowserError?.dataset,
-                        buttonElement: openExternalBtn,
-                        buttonDataset: openExternalBtn.dataset
-                    });
-                }
-            });
-            openExternalBtn.dataset.listenerAdded = 'true';
-        }
-
-        // Close on escape key
-        if (sideBrowser && !this.escapeListenerAdded) {
-            console.log('[SideBrowser] Adding escape key listener');
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && DOMUtils.hasClass(sideBrowser, 'open')) {
-                    console.log('[SideBrowser] Escape key pressed');
-                    this.closeSideBrowser();
-                }
-            });
-            this.escapeListenerAdded = true;
-        }
-
-        console.log('[SideBrowser] Event listeners setup complete');
-    }
-
-    /**
-     * Close side browser
-     * @private
-     */
-    closeSideBrowser() {
-        console.log('[SideBrowser] Closing side browser...');
-
-        const sideBrowser = DOMUtils.getElementById('sideBrowser');
-        const sideBrowserFrame = DOMUtils.getElementById('sideBrowserFrame');
-
-        if (sideBrowser) {
-            console.log('[SideBrowser] Removing classes and closing...');
-            // Remove all loading states
-            DOMUtils.removeClass(sideBrowser, 'open');
-            DOMUtils.removeClass(sideBrowser, 'loading');
-
-            const sideBrowserContent = sideBrowser.querySelector('.side-browser-content');
-            if (sideBrowserContent) {
-                DOMUtils.removeClass(sideBrowserContent, 'loading');
-            }
-        } else {
-            console.warn('[SideBrowser] Could not find sideBrowser element to close');
-        }
-
-        // Clear iframe and reset states after transition
-        setTimeout(() => {
-            if (sideBrowserFrame) {
-                console.log('[SideBrowser] Clearing iframe content');
-                sideBrowserFrame.src = 'about:blank';
-                DOMUtils.removeClass(sideBrowserFrame, 'loaded');
-            }
-        }, 300);
     }
 
     /**
