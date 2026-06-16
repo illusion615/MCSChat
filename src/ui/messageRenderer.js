@@ -510,7 +510,13 @@ export class MessageRenderer {
     async renderCompleteMessageDirect(activity) {
         // Check if this is an agent response that should be filtered
         const isAgentMessage = activity.from && activity.from.id !== 'user';
-        if (isAgentMessage && window.aiCompanion && window.aiCompanion.shouldFilterAgentResponse) {
+        // Only apply the text-quality filter to PURELY textual messages. A message
+        // that carries attachments (e.g. an adaptive card) or suggested actions is
+        // meaningful even with empty text — passing only activity.text to the filter
+        // made such answers be dropped as "empty response" (D2E card answers).
+        const hasNonTextContent = (activity.attachments && activity.attachments.length > 0)
+            || (activity.suggestedActions && activity.suggestedActions.actions && activity.suggestedActions.actions.length > 0);
+        if (isAgentMessage && !hasNonTextContent && window.aiCompanion && window.aiCompanion.shouldFilterAgentResponse) {
             const shouldFilter = window.aiCompanion.shouldFilterAgentResponse(activity.text || '');
             if (shouldFilter) {
                 console.log('[MessageRenderer] Filtering agent response - no useful information');
@@ -802,6 +808,10 @@ export class MessageRenderer {
 
             // Stop any ongoing speech from previous messages OR if this is a user message
             const isUserMessage = activity.from && activity.from.id === 'user';
+            // Alias used by the DOM-construction code further down. (Previously
+            // referenced `isUser` which was never defined in this function — a
+            // latent ReferenceError that only surfaced with real native streaming.)
+            const isUser = isUserMessage;
             if (isUserMessage) {
                 console.log('[MessageRenderer] Stopping ongoing speech due to user message in streaming');
                 await this.stopStreamingSpeech();
@@ -988,6 +998,24 @@ export class MessageRenderer {
             // Fallback: render as complete message if streaming state is lost
             this.renderCompleteMessage(activity);
         }
+    }
+
+    /**
+     * Cancel and remove a streaming message bubble (e.g. a "regretted" livestream
+     * where the bot concluded with no content). Removes both the DOM element and
+     * the tracked streaming state.
+     * @param {string} messageId - Stream/message id used when streaming started
+     */
+    cancelStreamingMessage(messageId) {
+        const streamingState = this.streamingStates.get(messageId);
+        if (streamingState && streamingState.messageContainer) {
+            streamingState.messageContainer.remove();
+        }
+        this.streamingStates.delete(messageId);
+        if (this.renderingInProgress?.has(messageId)) {
+            this.renderingInProgress.delete(messageId);
+        }
+        console.log('[MessageRenderer] Cancelled streaming message:', messageId);
     }
 
     /**
@@ -2237,16 +2265,27 @@ export class MessageRenderer {
                 globalAdaptiveCardModal.init();
             }
 
-            // Configure the modal with DirectLine manager
+            // Configure the modal with MCSChat specific behavior. Card submits are
+            // routed through the active agent's connector (DirectLine or D2E) via
+            // the application layer — the modal itself stays transport-agnostic.
             globalAdaptiveCardModal.updateOptions({
-                directLineManager: window.MCSChatApp?.directLineManager || window.directLineManager,
                 onAction: async (action, modal) => {
-                    // Custom action handler for MCSChat specific behavior
                     if (action instanceof AdaptiveCards.SubmitAction) {
                         console.log('Adaptive card submitted:', action.data);
-                        return true; // Let the modal handle the action
+                        try {
+                            if (window.MCSChatApp && typeof window.MCSChatApp.submitAdaptiveCard === 'function') {
+                                await window.MCSChatApp.submitAdaptiveCard(action.data || {});
+                            } else {
+                                console.warn('[MessageRenderer] submitAdaptiveCard not available on app');
+                            }
+                        } catch (err) {
+                            console.error('[MessageRenderer] Failed to submit Adaptive Card:', err);
+                        }
+                        // We handled the submit ourselves — stop the modal's default
+                        // (legacy DirectLine) send path.
+                        return false;
                     }
-                    return true; // Continue with default handling
+                    return true; // Continue with default handling for non-submit actions
                 },
                 onClose: () => {
                     console.log('Adaptive card modal closed');
@@ -3477,6 +3516,13 @@ export class MessageRenderer {
      * @private
      */
     showDocumentPreview(url, name = 'Document', contentType = '') {
+        // If "Open attachments in side browser" is enabled, open in analysis panel tab
+        const useSideBrowser = localStorage.getItem('openAttachmentsSideBrowser') === 'true';
+        if (useSideBrowser && window.MCSChatApp && typeof window.MCSChatApp.openAttachmentInPanel === 'function') {
+            window.MCSChatApp.openAttachmentInPanel(url, name, contentType);
+            return;
+        }
+
         const modal = DOMUtils.getElementById('documentPreviewModal');
         const title = DOMUtils.getElementById('documentPreviewTitle');
         const body = DOMUtils.getElementById('documentPreviewBody');

@@ -12,11 +12,20 @@ const locales = {
         'home.footer': 'Empowered with Microsoft Copilot Studio',
         'home.addAgent': 'Add New Agent',
         'home.ready': 'Ready',
+        'home.website': 'Website',
         'home.conversations': 'Conversations',
         'home.totalTime': 'Total Time',
         'home.messages': 'Messages',
         'home.lastActive': 'Last Active',
         'home.params': 'params',
+
+        // Agent edit form
+        'agentEdit.type': 'Agent Type:',
+        'agentEdit.typeCopilot': 'Copilot Studio Agent (Direct Line)',
+        'agentEdit.typeDirectEngine': 'Copilot Studio Agent (Direct-to-Engine)',
+        'agentEdit.typeWebsite': 'Website',
+        'agentEdit.websiteUrl': 'Website URL:',
+        'agentEdit.websiteUrlHelp': 'The URL to embed in the chat area when this agent is opened',
 
         // Navigation & sidebar
         'nav.backToHome': 'Back to Home',
@@ -81,6 +90,8 @@ const locales = {
         'appearance.openCitationsHelp': 'View citation sources within the app instead of external browser',
         'appearance.autoOpenCitations': 'Auto-open message links in side browser',
         'appearance.autoOpenCitationsHelp': 'Automatically open URLs in agent replies as a tab in the analysis panel',
+        'appearance.openAttachmentsSideBrowser': 'Open attachments in side browser',
+        'appearance.openAttachmentsSideBrowserHelp': 'Open file attachments in a side browser tab instead of the overlay preview',
         'appearance.fullWidthMessages': 'Display agent messages in full width',
         'appearance.fullWidthMessagesHelp': 'Show agent responses across the full panel width',
         'appearance.language': 'Language:',
@@ -355,11 +366,20 @@ const locales = {
         'home.footer': '由 Microsoft Copilot Studio 赋能',
         'home.addAgent': '添加新智能体',
         'home.ready': '就绪',
+        'home.website': '网站',
         'home.conversations': '对话数',
         'home.totalTime': '总时长',
         'home.messages': '消息数',
         'home.lastActive': '最后活跃',
         'home.params': '个参数',
+
+        // Agent edit form
+        'agentEdit.type': '智能体类型：',
+        'agentEdit.typeCopilot': 'Copilot Studio 智能体（Direct Line）',
+        'agentEdit.typeDirectEngine': 'Copilot Studio 智能体（Direct-to-Engine）',
+        'agentEdit.typeWebsite': '网站',
+        'agentEdit.websiteUrl': '网站地址：',
+        'agentEdit.websiteUrlHelp': '打开此智能体时在聊天区域中嵌入的网页地址',
 
         // Navigation & sidebar
         'nav.backToHome': '返回主页',
@@ -424,6 +444,8 @@ const locales = {
         'appearance.openCitationsHelp': '在应用内查看引文来源，而非跳转外部浏览器',
         'appearance.autoOpenCitations': '自动在侧边浏览器中打开消息链接',
         'appearance.autoOpenCitationsHelp': '自动将智能体回复中的链接在分析面板中以标签页打开',
+        'appearance.openAttachmentsSideBrowser': '将附件在侧边浏览器中打开',
+        'appearance.openAttachmentsSideBrowserHelp': '点击消息中的附件时在侧边浏览器标签页中打开，而非弹出预览浮层',
         'appearance.fullWidthMessages': '全宽显示智能体消息',
         'appearance.fullWidthMessagesHelp': '智能体回复跨越整个面板宽度',
         'appearance.language': '界面语言：',

@@ -13,6 +13,18 @@
 			"group": "build",
 			"isBackground": true,
 			"problemMatcher": []
+		},
+		{
+			"label": "Launch Chat Application (8001)",
+			"type": "shell",
+			"command": "python3",
+			"args": [
+				"-m",
+				"http.server",
+				"8001"
+			],
+			"isBackground": true,
+			"group": "build"
 		}
 	]
 }

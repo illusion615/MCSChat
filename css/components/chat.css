@@ -674,3 +674,31 @@
     line-height: 1.4;
     opacity: 0.8;
 }
+
+/* Website Agent Embedded Browser */
+#chatWindow.website-agent-mode {
+    padding: 0;
+    overflow: hidden;
+}
+
+.website-agent-frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
+
+/* Website agent status dot color */
+.status-dot-website {
+    background: var(--color-accent, #0078d4) !important;
+}
+
+/* Agent edit form select */
+.form-select {
+    width: 100%;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-secondary);
+    color: var(--color-text);
+}

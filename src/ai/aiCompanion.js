@@ -2912,17 +2912,26 @@ Agent回应内容: "${agentResponse}"
 
         try {
             let prompt = '';
+            const isWebsite = !!window.MCSChatApp?.getWebsiteContent?.();
 
             switch (action) {
                 case 'analyze':
                     const analysisContext = this.getAdaptiveConversationContext('analysis');
                     const analyzeLang = window.i18n?.language === 'zh' ? '\n\n请用中文回答。' : '';
-                    prompt = `${analysisContext}\n\nPlease analyze the agent's responses in this conversation. Focus on:\n1. Response quality and accuracy\n2. Helpfulness and relevance\n3. Communication style\n4. Areas for improvement\n\nProvide a brief but insightful analysis.${analyzeLang}`;
+                    if (isWebsite) {
+                        prompt = `${analysisContext}\n\nPlease analyze this webpage. Focus on:\n1. Content quality and accuracy\n2. User experience and readability\n3. Information structure and organization\n4. Key takeaways and potential improvements\n\nProvide a brief but insightful analysis.${analyzeLang}`;
+                    } else {
+                        prompt = `${analysisContext}\n\nPlease analyze the agent's responses in this conversation. Focus on:\n1. Response quality and accuracy\n2. Helpfulness and relevance\n3. Communication style\n4. Areas for improvement\n\nProvide a brief but insightful analysis.${analyzeLang}`;
+                    }
                     break;
                 case 'summarize':
                     const summaryContext = this.getAdaptiveConversationContext('summary');
                     const summarizeLang = window.i18n?.language === 'zh' ? '\n\n请用中文回答。' : '';
-                    prompt = `${summaryContext}\n\nPlease provide a concise summary of this conversation, highlighting:\n1. Main topics discussed\n2. Key information provided by the agent\n3. User's main questions or concerns\n4. Overall conversation outcome${summarizeLang}`;
+                    if (isWebsite) {
+                        prompt = `${summaryContext}\n\nPlease provide a concise summary of this webpage, highlighting:\n1. Main topics and purpose\n2. Key information presented\n3. Target audience\n4. Overall content quality${summarizeLang}`;
+                    } else {
+                        prompt = `${summaryContext}\n\nPlease provide a concise summary of this conversation, highlighting:\n1. Main topics discussed\n2. Key information provided by the agent\n3. User's main questions or concerns\n4. Overall conversation outcome${summarizeLang}`;
+                    }
                     break;
                 case 'benchmark':
                     // Handle A/B test analysis separately due to its multi-step nature
@@ -4963,6 +4972,17 @@ Analyze both responses considering the question type:
      */
     getAdaptiveConversationContext(purpose = 'general') {
         console.log(`[AI Companion] Getting adaptive context for purpose: ${purpose}`);
+
+        // Check if current agent is a website agent — use extracted page content
+        const websiteContent = window.MCSChatApp?.getWebsiteContent?.();
+        if (websiteContent && websiteContent.text) {
+            const truncated = websiteContent.text.length > 30000
+                ? websiteContent.text.substring(0, 30000) + '\n\n[Content truncated...]'
+                : websiteContent.text;
+            const ctx = `Website: ${websiteContent.title}\nURL: ${websiteContent.url}\nExtracted at: ${websiteContent.extractedAt}\n\nPage Content:\n${truncated}`;
+            console.log(`[AI Companion] Using website content (${websiteContent.text.length} chars) for ${purpose}`);
+            return ctx;
+        }
 
         // Get total message count first by requesting a large number
         const eventDetail = { maxMessages: 1000 }; // Get a large number to count all messages

@@ -24,7 +24,7 @@
 | Batch 5 | [文档补全与导出统一](#batch-5-文档补全与导出统一) | P3 | � 已完成 | Batch 3, 4 |
 | Batch 6 | [消息性能指标增强](#batch-6-消息性能指标增强) | P3 | � 已完成 | Batch 5 |
 | Batch 7 | [认证登录界面](#batch-7-认证登录界面) | P3 | 🔴 未开始 | Batch 6 |
-| Batch 8 | [原生 Streaming 输出](#batch-8-原生-streaming-输出) | P3 | � 已完成 | Batch 6 |
+| Batch 8 | [原生 Streaming 输出](#batch-8-原生-streaming-输出) | P3 | 🟢 已完成（结论被 Batch 25 修正） | Batch 6 |
 | Batch 9 | [Thinking Dot 行为改进](#batch-9-thinking-dot-行为改进) | P2 | � 已完成 | Batch 4 |
 | Batch 10 | [IME 回车误触发送修复](#batch-10-ime-回车误触发送修复) | P1 | � 已完成 | 无 |
 | Batch 11 | [Streaming 样式与速度优化](#batch-11-streaming-样式与速度优化) | P3 | � 已完成 | Batch 8 |
@@ -40,6 +40,7 @@
 | Batch 22 | [技术债 Phase 3 — 渲染器统一](#batch-22-技术债-phase-3) | P2 | 🔴 未开始 | Batch 21 |
 | Batch 23 | [技术债 Phase 4 — 规范统一](#batch-23-技术债-phase-4) | P3 | 🔴 未开始 | Batch 18 |
 | Batch 24 | [技术债 Phase 5 — CSS 精细化](#batch-24-技术债-phase-5) | P3 | 🔴 未开始 | Batch 4 |
+| Batch 25 | [Livestreaming 兼容性与渲染统一](#batch-25-livestreaming-兼容性与渲染统一) | P2 | 🟡 进行中 | Batch 8 |
 **状态图标：** 🔴 未开始 → 🟡 进行中 → 🟢 已完成 → ⚪ 已跳过
 
 ---
@@ -213,13 +214,15 @@
 
 | # | 任务 | 状态 |
 |---|------|------|
-| 8.1 | 调研 DirectLine API streaming 文档 | � |
+| 8.1 | 调研 DirectLine API streaming 文档 | 🟢 |
 | 8.2 | 调研 Copilot Studio streaming 设置 | 🟢 |
 | 8.3 | 编写调研报告 | 🟢 |
-| 8.4 | 设计实施方案（如支持） | ⚪ 不适用 |
-| 8.5 | 实现 streaming 接入 | ⚪ 不适用 |
-| 8.6 | 测试验证 | ⚪ 不适用 |
+| 8.4 | 设计实施方案 | ➡️ 移交 Batch 25 |
+| 8.5 | 实现 streaming 接入 | ➡️ 移交 Batch 25 |
+| 8.6 | 测试验证 | ➡️ 移交 Batch 25 |
 | 8.7 | CHANGELOG.md + Git commit | 🟢 |
+
+> **结论已被 Batch 25 修正**：当年判断"不支持原生 streaming"有误。Copilot Studio 实际支持基于 typing 活动的 livestreaming，已在 Batch 25 补齐兼容性与渲染统一。
 
 ---
 
@@ -506,6 +509,30 @@
 
 ---
 
+## Batch 25: Livestreaming 兼容性与渲染统一
+
+**目录：** `docs/iterations/batch-25-livestreaming-enhancement/`
+**优先级：** P2
+**依赖：** Batch 8（原生 streaming 调研）
+**目标：** 对齐 BotFramework-WebChat LIVESTREAMING.md 约定，补齐原生 livestreaming 兼容性缺口并统一渲染路径
+
+### 任务清单
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 25.1 | `_getStreamInfo`：channelData + entities[streaminfo] 双路解析 | 🟢 |
+| 25.2 | `_handleActivity` 改用 `_getStreamInfo` | 🟢 |
+| 25.3 | `streamSequence` 乱序/过期片段丢弃 | 🟢 |
+| 25.4 | 流首片段稳定 id（= streamId），finalize 不覆盖 | 🟢 |
+| 25.5 | 空 final（"反悔"）移除气泡 + `streamCancelled` 事件 | 🟢 |
+| 25.6 | 原生 chunk 改走 messageRenderer 流式渲染 | 🟢 |
+| 25.7 | final 复用 `finalizeStreamingMessage`，修复重复气泡隐患 | 🟢 |
+| 25.8 | 回写 Batch 8 文档结论 | 🟢 |
+| 25.9 | 真实数据确认 + 修复 DELTA 累加 bug（离线回放验证） | 🟢 |
+| 25.10 | 用真实 streaming agent 端到端验证 | 🟡 |
+
+---
+
 ## 变更日志
 
 | 日期 | 变更 |
@@ -523,6 +550,7 @@
 | 2026-03-15 | 新增 Batch 13（OpenAI Compatible 接口支持），含完整四件套文档 |
 | 2026-03-15 | Batch 10 完成：Enter keydown 增加 isComposing 判断，修复 IME 误发送 |
 | 2026-03-15 | Batch 13 完成：OpenAI Compatible 接口支持（UI + 请求层 + 测试连接 + 持久化） |
+| 2026-06-13 | 新增 Batch 25（Livestreaming 兼容性与渲染统一）；修正 Batch 8 过期结论 |
 | 2026-03-15 | AI Companion 设置改进：Test Connection 点击后按钮进入 Testing... 并禁用，完成后自动恢复 |
 | 2026-03-15 | 修复 full-width 模式新会话不持久化问题；修复 thinking dot 文字换行（正确定位到 typing-status-area） |
 | 2026-03-15 | Batch 4 进行中：补充 variables.css token，完成 splash/navigation/buttons/panels/chat CSS 令牌迁移 |

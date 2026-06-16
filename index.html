@@ -86,6 +86,8 @@
     <script src="https://unpkg.com/adaptivecards@2.9.0/dist/adaptivecards.min.js"></script>
     <!-- Bot Framework DirectLine JS -->
     <script src="https://unpkg.com/botframework-directlinejs@0.15.8/dist/directline.js"></script>
+    <!-- MSAL.js — only used by Direct-to-Engine streaming connector (interactive login). Safe no-op otherwise. -->
+    <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.0/lib/msal-browser.min.js"></script>
     <!-- Markdown Parser (local) -->
     <script src="lib/marked.min.js"></script>
     <!-- HTML Sanitizer (local) -->
@@ -152,7 +154,7 @@
                 console.log('marked.parse available:', typeof marked.parse === 'function');
                 console.log('DirectLine available:', typeof DirectLine !== 'undefined');
                 console.log('KaTeX available:', typeof katex !== 'undefined');
-                console.log('KaTeX version:', katex?.version || 'unknown');
+                console.log('KaTeX version:', typeof katex !== 'undefined' ? (katex.version || 'unknown') : 'N/A');
 
                 // Initialize KaTeX auto-render if available
                 if (typeof katex !== 'undefined' && typeof renderMathInElement !== 'undefined') {
@@ -237,12 +239,45 @@
             <h3 id="agentEditTitle">Add New Agent</h3>
             <form id="agentEditForm" class="init-params-form">
                 <div class="form-group">
+                    <label for="agentEditType" data-i18n="agentEdit.type">Agent Type:</label>
+                    <select id="agentEditType" class="form-select">
+                        <option value="copilot" data-i18n="agentEdit.typeCopilot">Copilot Studio Agent (Direct Line)</option>
+                        <option value="directengine" data-i18n="agentEdit.typeDirectEngine">Copilot Studio Agent (Direct-to-Engine)</option>
+                        <option value="website" data-i18n="agentEdit.typeWebsite">Website</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="agentEditName">Agent Name:</label>
                     <input type="text" id="agentEditName" placeholder="e.g., Customer Support Bot" required />
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="agentEditSecretGroup">
                     <label for="agentEditSecret">DirectLine Secret:</label>
                     <input type="password" id="agentEditSecret" placeholder="Enter DirectLine secret" required />
+                </div>
+                <div id="agentEditD2EGroup" style="display: none;">
+                    <div class="form-group">
+                        <label for="agentEditAppClientId">App Client ID:</label>
+                        <input type="text" id="agentEditAppClientId" placeholder="Entra app (client) ID" autocomplete="off" />
+                        <small class="help-text">Entra SPA app registration used for interactive sign-in.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="agentEditTenantId">Tenant ID:</label>
+                        <input type="text" id="agentEditTenantId" placeholder="Entra directory (tenant) ID" autocomplete="off" />
+                    </div>
+                    <div class="form-group">
+                        <label for="agentEditEnvironmentId">Environment ID:</label>
+                        <input type="text" id="agentEditEnvironmentId" placeholder="Copilot Studio environment ID" autocomplete="off" />
+                    </div>
+                    <div class="form-group">
+                        <label for="agentEditSchemaName">Schema Name:</label>
+                        <input type="text" id="agentEditSchemaName" placeholder="Agent schema name (Settings → Advanced → Metadata)" autocomplete="off" />
+                        <small class="help-text">Direct-to-Engine streams token-by-token. Requires an anonymous agent and interactive sign-in.</small>
+                    </div>
+                </div>
+                <div class="form-group" id="agentEditUrlGroup" style="display: none;">
+                    <label for="agentEditUrl" data-i18n="agentEdit.websiteUrl">Website URL:</label>
+                    <input type="url" id="agentEditUrl" placeholder="https://example.com" />
+                    <small class="help-text" data-i18n="agentEdit.websiteUrlHelp">The URL to embed in the chat area when this agent is opened</small>
                 </div>
                 <div class="form-group">
                     <label for="agentEditDescription">Description:</label>
@@ -1526,6 +1561,13 @@
                             <span data-i18n="appearance.autoOpenCitations">Auto-open message links in side browser</span>
                         </label>
                         <small class="help-text" data-i18n="appearance.autoOpenCitationsHelp">Automatically open URLs in agent replies as a tab in the analysis panel</small>
+
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="openAttachmentsSideBrowserCheckbox" />
+                            <span class="checkmark"></span>
+                            <span data-i18n="appearance.openAttachmentsSideBrowser">Open attachments in side browser</span>
+                        </label>
+                        <small class="help-text" data-i18n="appearance.openAttachmentsSideBrowserHelp">Open file attachments in a side browser tab instead of the overlay preview</small>
                     </div>
                 </div>
             </section>

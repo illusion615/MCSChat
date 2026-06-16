@@ -34,6 +34,7 @@
 [x] Move "Show Message Icon" from agent management to appearance and put before user icon setting. If it's not selected, hide the user icon setting section
 [x] Add color theme in setting panel to allow user choose background color theme from various candidates
 [x] Group Appearance settings into typed sections (message/theme/typography/agent/system)
+[x] Update agent type labels to "Copilot Studio Agent (Direct Line)" and "Copilot Studio Agent (Direct-to-Engine)"
 
 ### Message Rendering
 [x] Skip the streaming rendering for URL in markdown and directly output the completed URL part

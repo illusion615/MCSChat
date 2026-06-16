@@ -13,6 +13,8 @@ import { agentManager } from '../managers/agentManager.js';
 import { sessionManager } from '../managers/sessionManager.js';
 // DirectLine Service — unified connection + message queue component
 import { directLineService } from '../components/directline/DirectLineService.js';
+// Direct-to-Engine connector — alternative streaming transport (isolated, opt-in per agent)
+import { directEngineConnector } from '../components/directline/DirectEngineConnector.js';
 import { messageRenderer } from '../ui/messageRenderer.js';
 import { aiCompanion } from '../ai/aiCompanion.js';
 import { getKnowledgeHub } from '../services/knowledgeHub.js';
@@ -264,6 +266,7 @@ export class Application {
             enableStreamingCheckbox: DOMUtils.getElementById('enableStreamingCheckbox'),
             enableSideBrowserCheckbox: DOMUtils.getElementById('enableSideBrowserCheckbox'),
             autoOpenCitationsCheckbox: DOMUtils.getElementById('autoOpenCitationsCheckbox'),
+            openAttachmentsSideBrowserCheckbox: DOMUtils.getElementById('openAttachmentsSideBrowserCheckbox'),
             fullWidthMessagesCheckbox: DOMUtils.getElementById('fullWidthMessagesCheckbox'),
             enableLLMCheckbox: DOMUtils.getElementById('enableLLMCheckbox'),
             useAIThinkingCheckbox: DOMUtils.getElementById('useAIThinkingCheckbox'),
@@ -401,11 +404,33 @@ export class Application {
         // Configure MessageRenderer to target the agent chat window (middle panel)
         messageRenderer.setTargetWindow('chatWindow');
 
-        // Set up DirectLine event listeners via on/off
-        directLineService.on('statusChange', (status) => this.handleConnectionStatus(status));
-        directLineService.on('message', (entry) => this.handleCompleteMessage(entry));
-        directLineService.on('messageChunk', (entry) => this.handleStreamingChunk(entry));
-        directLineService.on('typing', () => {
+        // Wire connector events. Both transports emit the SAME event surface, so
+        // the rendering pipeline is identical. Only one is connected at a time.
+        this.wireConnectorEvents(directLineService);
+        this.wireConnectorEvents(directEngineConnector);
+
+        // Initialize logging UI manager - temporarily disabled
+        // this.loggingUIManager = new LoggingUIManager(this.loggingManager);
+
+        console.log('Managers and services initialized');
+        // Re-enable basic logging
+        this.loggingManager.info('system', 'Application managers initialized successfully');
+    }
+
+    /**
+     * Wire a connector's events to the shared rendering/handling pipeline.
+     * Both DirectLineService and DirectEngineConnector expose the same event
+     * surface, so this is identical for either transport. Only one connector
+     * is connected at a time, so double-wiring is safe.
+     * @param {Object} connector - directLineService | directEngineConnector
+     * @private
+     */
+    wireConnectorEvents(connector) {
+        connector.on('statusChange', (status) => this.handleConnectionStatus(status));
+        connector.on('message', (entry) => this.handleCompleteMessage(entry));
+        connector.on('messageChunk', (entry) => this.handleStreamingChunk(entry));
+        connector.on('streamCancelled', (entry) => this.handleStreamCancelled(entry));
+        connector.on('typing', () => {
             // Record true TTFT: time from user send to first typing signal from bot
             if (messageRenderer.responseTimeTracking.requestStartTime &&
                 !messageRenderer.responseTimeTracking.ttftRecorded) {
@@ -423,44 +448,65 @@ export class Application {
             // Update status to reflect bot is processing
             this.enhancedTypingIndicator.setStatus('Agent is processing...');
         });
-        directLineService.on('greeting', () => {
+        connector.on('greeting', () => {
             document.dispatchEvent(new CustomEvent('agent:greeting:received'));
             document.dispatchEvent(new CustomEvent('app:init:complete', { detail: { hasAgent: true } }));
         });
-        directLineService.on('greetingTimeout', () => {
+        connector.on('greetingTimeout', () => {
             document.dispatchEvent(new CustomEvent('agent:greeting:timeout'));
             const hasAgent = agentManager.getCurrentAgent() !== null;
             document.dispatchEvent(new CustomEvent('app:init:complete', { detail: { hasAgent } }));
         });
-        directLineService.on('connected', () => {
+        connector.on('connected', () => {
             document.dispatchEvent(new CustomEvent('agent:greeting:sending'));
             // Release splash screen immediately on connection — don't wait for greeting to finish
             document.dispatchEvent(new CustomEvent('app:init:complete', { detail: { hasAgent: true } }));
             this.hideProgressIndicator();
         });
-        directLineService.on('disconnected', () => {
+        connector.on('disconnected', () => {
             // If connection drops before greeting, release splash screen
             if (!this.isInitialized) return;
             this.state.isConnected = false;
         });
-        directLineService.on('error', (error) => {
+        connector.on('error', (error) => {
             this.handleConnectionError(error);
             // Release splash screen if stuck
             document.dispatchEvent(new CustomEvent('app:init:complete', { detail: { hasAgent: false } }));
         });
-        directLineService.on('conversationUpdate', (activity) => {
+        connector.on('informative', (info) => this.handleInformativeActivity(info));
+        connector.on('conversationUpdate', (activity) => {
             this.handleConversationUpdate(activity);
         });
-        directLineService.on('event', (activity) => {
+        connector.on('event', (activity) => {
             this.handleEventActivity(activity);
         });
+    }
 
-        // Initialize logging UI manager - temporarily disabled
-        // this.loggingUIManager = new LoggingUIManager(this.loggingManager);
+    /**
+     * Return the connector for a given agent (Direct-to-Engine vs classic DirectLine).
+     * @param {Object} [agent] - agent config; defaults to the current agent
+     * @returns {Object} directEngineConnector | directLineService
+     * @private
+     */
+    getConnectorForAgent(agent) {
+        const a = agent || agentManager.getCurrentAgent();
+        return a && a.agentType === 'directengine' ? directEngineConnector : directLineService;
+    }
 
-        console.log('Managers and services initialized');
-        // Re-enable basic logging
-        this.loggingManager.info('system', 'Application managers initialized successfully');
+    /**
+     * Submit an Adaptive Card response through the active agent's connector.
+     * Routes to DirectLine or Direct-to-Engine depending on the current agent,
+     * so card submits work regardless of transport. Called by the global
+     * Adaptive Card modal via window.MCSChatApp.
+     * @param {Object} value - The card submit data (action.data)
+     * @returns {Promise<void>}
+     */
+    async submitAdaptiveCard(value) {
+        const connector = this.getConnectorForAgent();
+        if (!connector || typeof connector.sendCardResponse !== 'function') {
+            throw new Error('No active connector available to submit the Adaptive Card.');
+        }
+        return connector.sendCardResponse(value);
     }
 
     /**
@@ -678,6 +724,7 @@ export class Application {
             const agent = agents[agentId];
             const stats = this._computeAgentStats(agentId);
             const hasParams = agentManager.agentHasInitParams(agentId);
+            const isWebsite = agent.agentType === 'website';
 
             const card = document.createElement('div');
             card.className = 'home-agent-card';
@@ -686,12 +733,14 @@ export class Application {
             const descriptionHtml = agent.description
                 ? `<p class="home-agent-card-description">${Utils.escapeHtml(agent.description)}</p>`
                 : '';
+            const statusLabel = isWebsite ? i18n.t('home.website') : i18n.t('home.ready');
+            const paramsHtml = (!isWebsite && hasParams) ? `<span class="home-agent-params-badge">${agent.initParams.length} ${i18n.t('home.params')}</span>` : '';
             card.innerHTML = `
                 <h3 class="home-agent-card-name">${Utils.escapeHtml(agent.name)}</h3>
                 <div class="home-agent-card-status">
-                    <span class="status-dot"></span>
-                    <span>${i18n.t('home.ready')}</span>
-                    ${hasParams ? `<span class="home-agent-params-badge">${agent.initParams.length} ${i18n.t('home.params')}</span>` : ''}
+                    <span class="status-dot${isWebsite ? ' status-dot-website' : ''}"></span>
+                    <span>${statusLabel}</span>
+                    ${paramsHtml}
                 </div>
                 ${descriptionHtml}
                 <div class="home-agent-card-stats">
@@ -785,6 +834,7 @@ export class Application {
         cancelBtn.onclick = cleanup;
         okBtn.onclick = () => {
             cleanup();
+            this.cleanupWebsiteAgent();
             directLineService.disconnect();
             this.state.isConnected = false;
             this.showHomePage();
@@ -960,8 +1010,180 @@ export class Application {
         const agent = agentManager.agents[agentId];
         if (!agent) return;
 
+        if (agent.agentType === 'website') {
+            this.openWebsiteAgent(agentId, agent);
+            return;
+        }
+
         const hasParams = agentManager.agentHasInitParams(agentId);
         this.showAgentSplashOverlay(agentId, hasParams);
+    }
+
+    /**
+     * Open a website-type agent by embedding its URL in the chat area
+     */
+    openWebsiteAgent(agentId, agent) {
+        if (!agent.websiteUrl) return;
+
+        agentManager.setCurrentAgent(agentId);
+        this.state.currentAgent = agent;
+        this.state.isConnected = true;
+
+        this.hideHomePage();
+        this.updateAgentStatus('connected', agent.name);
+
+        const chatWindow = document.getElementById('chatWindow');
+        const inputContainer = document.getElementById('inputContainer');
+        const suggestedActions = document.getElementById('suggestedActionsContainer');
+
+        // Hide text input and suggested actions — not needed for website agents
+        if (inputContainer) inputContainer.style.display = 'none';
+        if (suggestedActions) suggestedActions.style.display = 'none';
+
+        // Replace chat window content with iframe
+        if (chatWindow) {
+            chatWindow.innerHTML = '';
+            chatWindow.classList.add('website-agent-mode');
+
+            const iframe = document.createElement('iframe');
+            iframe.className = 'website-agent-frame';
+            iframe.src = agent.websiteUrl;
+            iframe.title = agent.name;
+            iframe.setAttribute('allow', 'accelerometer; gyroscope; autoplay; clipboard-write; encrypted-media; fullscreen');
+
+            // On load, try to extract content for AI Companion
+            iframe.addEventListener('load', () => {
+                this._extractWebsiteContent(iframe, agent);
+            });
+
+            chatWindow.appendChild(iframe);
+        }
+    }
+
+    /**
+     * Extract text content from the website agent iframe for AI Companion analysis.
+     * Tries same-origin DOM access first, then falls back to fetch().
+     * @private
+     */
+    async _extractWebsiteContent(iframe, agent) {
+        let textContent = '';
+        let pageTitle = '';
+
+        // Attempt 1: Same-origin DOM access
+        try {
+            const doc = iframe.contentDocument || iframe.contentWindow?.document;
+            if (doc && doc.body) {
+                pageTitle = doc.title || '';
+                textContent = doc.body.innerText || '';
+                console.log('[WebsiteAgent] Extracted content via DOM:', textContent.length, 'chars');
+            }
+        } catch (e) {
+            console.log('[WebsiteAgent] Cross-origin, trying proxy/fetch fallback');
+        }
+
+        // Attempt 2: Server-side proxy (works when chat-server.js is running)
+        if (!textContent && agent.websiteUrl) {
+            // Try same-origin proxy first, then known chat-server port
+            const proxyBases = [
+                window.location.origin,
+                'http://localhost:8080'
+            ];
+            // Deduplicate if already on 8080
+            const uniqueBases = [...new Set(proxyBases)];
+
+            for (const base of uniqueBases) {
+                if (textContent) break;
+                try {
+                    const proxyUrl = `${base}/api/proxy?url=${encodeURIComponent(agent.websiteUrl)}`;
+                    const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(5000) });
+                    if (resp.ok) {
+                        const html = await resp.text();
+                        const result = this._parseHtmlToText(html);
+                        pageTitle = result.title;
+                        textContent = result.text;
+                        console.log(`[WebsiteAgent] Extracted content via proxy (${base}):`, textContent.length, 'chars');
+                    }
+                } catch (proxyError) {
+                    console.log(`[WebsiteAgent] Proxy at ${base} not available`);
+                }
+            }
+        }
+
+        // Attempt 3: Direct fetch (may fail due to CORS on GitHub Pages)
+        if (!textContent && agent.websiteUrl) {
+            try {
+                const resp = await fetch(agent.websiteUrl, { mode: 'cors' });
+                if (resp.ok) {
+                    const html = await resp.text();
+                    const result = this._parseHtmlToText(html);
+                    pageTitle = result.title;
+                    textContent = result.text;
+                    console.log('[WebsiteAgent] Extracted content via direct fetch:', textContent.length, 'chars');
+                }
+            } catch (fetchError) {
+                console.warn('[WebsiteAgent] Direct fetch failed (likely CORS):', fetchError.message);
+            }
+        }
+
+        // Store extracted content for AI Companion
+        this._websiteContent = {
+            url: agent.websiteUrl,
+            title: pageTitle || agent.name,
+            text: textContent,
+            extractedAt: new Date().toISOString()
+        };
+
+        // Dispatch event so AI Companion can pick it up
+        window.dispatchEvent(new CustomEvent('websiteContentExtracted', {
+            detail: this._websiteContent
+        }));
+    }
+
+    /**
+     * Parse HTML string to extract title and text content
+     * @private
+     */
+    _parseHtmlToText(html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const title = doc.title || '';
+        doc.querySelectorAll('script, style, noscript').forEach(el => el.remove());
+        const text = doc.body?.innerText || '';
+        return { title, text };
+    }
+
+    /**
+     * Get the currently extracted website content (for AI Companion)
+     * @returns {Object|null}
+     */
+    getWebsiteContent() {
+        return this._websiteContent || null;
+    }
+
+    /**
+     * Clean up website agent mode when leaving
+     */
+    cleanupWebsiteAgent() {
+        const chatWindow = document.getElementById('chatWindow');
+        const inputContainer = document.getElementById('inputContainer');
+        const suggestedActions = document.getElementById('suggestedActionsContainer');
+
+        if (chatWindow) {
+            chatWindow.classList.remove('website-agent-mode');
+            // Remove iframe if present
+            const iframe = chatWindow.querySelector('.website-agent-frame');
+            if (iframe) {
+                iframe.src = 'about:blank';
+                iframe.remove();
+            }
+        }
+
+        // Restore chat input UI
+        if (inputContainer) inputContainer.style.display = '';
+        if (suggestedActions) suggestedActions.style.display = '';
+
+        // Clear stored website content
+        this._websiteContent = null;
     }
 
     /**
@@ -1027,6 +1249,7 @@ export class Application {
         newCancelProgressBtn.addEventListener('click', () => {
             connectionAborted = true;
             directLineService.disconnect();
+            directEngineConnector.disconnect();
             this.state.isConnected = false;
             // Reset overlay
             progressSection.style.display = 'none';
@@ -1057,6 +1280,9 @@ export class Application {
     async _doAgentConnect(agentId, agent, hasParams, overlay, paramsSection, progressSection, actionsSection, cancelProgressSection, cancelProgressBtn, _unused, isAborted) {
         if (isAborted()) return;
 
+        // Pick the transport for this agent (classic DirectLine vs Direct-to-Engine streaming)
+        const connector = this.getConnectorForAgent(agent);
+
         // Validate params
         if (hasParams) {
             const inputs = paramsSection.querySelectorAll('input[required]');
@@ -1069,7 +1295,7 @@ export class Application {
 
             const context = {};
             inputs.forEach(input => { context[input.name] = input.value.trim(); });
-            directLineService.setInitContext(context);
+            connector.setInitContext(context);
         }
 
         // Show progress in-place
@@ -1088,7 +1314,9 @@ export class Application {
             messageRenderer.clearMessages();
             messageRenderer.setTargetWindow('chatWindow');
 
-            const success = await directLineService.connect(agent.secret);
+            const success = agent.agentType === 'directengine'
+                ? await connector.connect(agent.directEngine || {})
+                : await connector.connect(agent.secret);
             if (isAborted()) return;
 
             if (success) {
@@ -1106,7 +1334,7 @@ export class Application {
                 // Keep overlay AND home visible — fade both out on first bot message
                 const fadeOutOnFirstMessage = (entry) => {
                     if (isAborted()) return;
-                    directLineService.off('message', fadeOutOnFirstMessage);
+                    connector.off('message', fadeOutOnFirstMessage);
 
                     // Fade out overlay
                     overlay.style.transition = 'opacity 0.4s ease';
@@ -1130,12 +1358,12 @@ export class Application {
                         }
                     }, 400);
                 };
-                directLineService.on('message', fadeOutOnFirstMessage);
+                connector.on('message', fadeOutOnFirstMessage);
 
                 // Safety timeout: close overlay after 15s even if no message
                 setTimeout(() => {
                     if (overlay.style.display !== 'none') {
-                        directLineService.off('message', fadeOutOnFirstMessage);
+                        connector.off('message', fadeOutOnFirstMessage);
                         overlay.style.display = 'none';
                         this.hideHomePage();
                     }
@@ -1169,6 +1397,11 @@ export class Application {
         const addParamBtn = document.getElementById('agentEditAddParamBtn');
         const saveBtn = document.getElementById('agentEditSaveBtn');
         const cancelBtn = document.getElementById('agentEditCancelBtn');
+        const typeSelect = document.getElementById('agentEditType');
+        const secretGroup = document.getElementById('agentEditSecretGroup');
+        const urlGroup = document.getElementById('agentEditUrlGroup');
+        const urlInput = document.getElementById('agentEditUrl');
+        const paramsSection = document.getElementById('agentEditParamsSection');
         if (!overlay) return;
 
         const isEdit = agentId !== null;
@@ -1179,6 +1412,44 @@ export class Application {
         secretInput.value = isEdit ? agent.secret : '';
         if (descriptionInput) {
             descriptionInput.value = isEdit ? (agent.description || '') : '';
+        }
+
+        // Agent type
+        const agentType = isEdit ? (agent.agentType || 'copilot') : 'copilot';
+        if (typeSelect) typeSelect.value = agentType;
+        if (urlInput) urlInput.value = isEdit ? (agent.websiteUrl || '') : '';
+
+        // Direct-to-Engine config fields
+        const d2eGroup = document.getElementById('agentEditD2EGroup');
+        const d2eAppClientId = document.getElementById('agentEditAppClientId');
+        const d2eTenantId = document.getElementById('agentEditTenantId');
+        const d2eEnvironmentId = document.getElementById('agentEditEnvironmentId');
+        const d2eSchemaName = document.getElementById('agentEditSchemaName');
+        const d2e = isEdit ? (agent.directEngine || {}) : {};
+        if (d2eAppClientId) d2eAppClientId.value = d2e.appClientId || '';
+        if (d2eTenantId) d2eTenantId.value = d2e.tenantId || '';
+        if (d2eEnvironmentId) d2eEnvironmentId.value = d2e.environmentId || '';
+        if (d2eSchemaName) d2eSchemaName.value = d2e.schemaName || '';
+
+        // Toggle fields based on agent type
+        const updateTypeFields = (type) => {
+            const isCopilot = type === 'copilot';
+            const isDirectEngine = type === 'directengine';
+            const isWebsite = type === 'website';
+            if (secretGroup) secretGroup.style.display = isCopilot ? '' : 'none';
+            if (d2eGroup) d2eGroup.style.display = isDirectEngine ? '' : 'none';
+            if (urlGroup) urlGroup.style.display = isWebsite ? '' : 'none';
+            if (paramsSection) paramsSection.style.display = (isCopilot || isDirectEngine) ? '' : 'none';
+            if (secretInput) secretInput.required = isCopilot;
+        };
+        updateTypeFields(agentType);
+
+        // Listen for type changes
+        if (typeSelect) {
+            const newTypeSelect = typeSelect.cloneNode(true);
+            typeSelect.parentNode.replaceChild(newTypeSelect, typeSelect);
+            newTypeSelect.value = agentType;
+            newTypeSelect.addEventListener('change', (e) => updateTypeFields(e.target.value));
         }
 
         // Render params
@@ -1206,21 +1477,44 @@ export class Application {
 
         newSaveBtn.addEventListener('click', async () => {
             const name = nameInput.value.trim();
+            const currentType = document.getElementById('agentEditType')?.value || 'copilot';
             const secret = secretInput.value.trim();
-            if (!name || !secret) return;
+            const websiteUrl = document.getElementById('agentEditUrl')?.value.trim() || '';
 
-            // Collect params
+            // Direct-to-Engine config
+            const d2eConfig = {
+                appClientId: document.getElementById('agentEditAppClientId')?.value.trim() || '',
+                tenantId: document.getElementById('agentEditTenantId')?.value.trim() || '',
+                environmentId: document.getElementById('agentEditEnvironmentId')?.value.trim() || '',
+                schemaName: document.getElementById('agentEditSchemaName')?.value.trim() || '',
+            };
+
+            if (!name) return;
+            if (currentType === 'copilot' && !secret) return;
+            if (currentType === 'website' && !websiteUrl) return;
+            if (currentType === 'directengine') {
+                if (!d2eConfig.appClientId || !d2eConfig.tenantId || !d2eConfig.environmentId || !d2eConfig.schemaName) {
+                    return; // all four D2E fields required
+                }
+            }
+
+            // Collect params (for copilot + directengine types)
             const rows = paramsList.querySelectorAll('.param-row');
             const initParams = [];
-            rows.forEach(row => {
-                const key = row.querySelector('.param-key-input')?.value.trim();
-                const display = row.querySelector('.param-display-input')?.value.trim();
-                if (key) initParams.push({ name: key, displayName: display || key });
-            });
+            if (currentType === 'copilot' || currentType === 'directengine') {
+                rows.forEach(row => {
+                    const key = row.querySelector('.param-key-input')?.value.trim();
+                    const display = row.querySelector('.param-display-input')?.value.trim();
+                    if (key) initParams.push({ name: key, displayName: display || key });
+                });
+            }
 
-            const savedId = await agentManager.addOrUpdateAgent(agentId, name, secret);
-            // Save params and description
+            const savedId = await agentManager.addOrUpdateAgent(agentId, name, currentType === 'copilot' ? secret : '');
+            // Save params, description, type, URL, and Direct-to-Engine config
             agentManager.agents[savedId].initParams = initParams;
+            agentManager.agents[savedId].agentType = currentType;
+            agentManager.agents[savedId].websiteUrl = currentType === 'website' ? websiteUrl : '';
+            agentManager.agents[savedId].directEngine = currentType === 'directengine' ? d2eConfig : null;
             const descEl = document.getElementById('agentEditDescription');
             if (descEl) {
                 agentManager.agents[savedId].description = descEl.value.trim().substring(0, 200);
@@ -1397,7 +1691,8 @@ export class Application {
         const quickActionButtons = document.querySelectorAll('.quick-action-btn');
         quickActionButtons.forEach(btn => {
             DOMUtils.addEventListener(btn, 'click', async (e) => {
-                const action = e.target.dataset.action;
+                const actionBtn = e.target.closest('.quick-action-btn');
+                const action = actionBtn?.dataset.action;
                 console.log('Quick action clicked:', action);
 
                 // AutoQA has special handling — opens config modal, doesn't require AI Companion mode
@@ -1618,6 +1913,14 @@ export class Application {
         const backToHomeBtn = document.getElementById('backToHomeButton');
         if (backToHomeBtn) {
             DOMUtils.addEventListener(backToHomeBtn, 'click', () => {
+                // Website agents don't need disconnect confirmation
+                const currentAgent = this.state.currentAgent;
+                if (currentAgent && currentAgent.agentType === 'website') {
+                    this.cleanupWebsiteAgent();
+                    this.state.isConnected = false;
+                    this.showHomePage();
+                    return;
+                }
                 this.showLeaveConfirmOverlay();
             });
         }
@@ -1956,6 +2259,13 @@ export class Application {
         if (this.elements.autoOpenCitationsCheckbox) {
             DOMUtils.addEventListener(this.elements.autoOpenCitationsCheckbox, 'change', (e) => {
                 localStorage.setItem('autoOpenCitations', e.target.checked.toString());
+            });
+        }
+
+        // Open attachments in side browser checkbox
+        if (this.elements.openAttachmentsSideBrowserCheckbox) {
+            DOMUtils.addEventListener(this.elements.openAttachmentsSideBrowserCheckbox, 'change', (e) => {
+                localStorage.setItem('openAttachmentsSideBrowser', e.target.checked.toString());
             });
         }
 
@@ -2485,13 +2795,30 @@ export class Application {
                 // Send to AI Companion instead of DirectLine
                 messagePromise = this.sendMessageToAICompanion(messageText);
             } else {
-                // Normal flow - send to DirectLine
+                // Normal flow - send to the active transport (DirectLine or Direct-to-Engine)
                 if (this.selectedFiles && this.selectedFiles.length > 0) {
                     messagePromise = this.sendMessageWithFiles(messageText, [...this.selectedFiles]);
                     this.removeAllSelectedFiles();
                 } else {
-                    messagePromise = directLineService.sendMessage(messageText);
+                    messagePromise = this.getConnectorForAgent().sendMessage(messageText);
                 }
+
+                // The transport send is async (D2E streams over SSE). A mid-stream
+                // network drop on a long generative answer rejects this promise
+                // LATER, after the synchronous try/catch has already exited — which
+                // previously surfaced as an unhandled rejection and left the typing
+                // indicator stuck for 30s. Attach a dedicated failure sink so the
+                // UI degrades gracefully. (This is a separate handler; the original
+                // promise is still passed to the thinking simulation below.)
+                messagePromise.catch((err) => {
+                    console.error('[Application] Message send failed (transport):', err);
+                    this.hideProgressIndicator();
+                    this.isEvaluatingThinkingSimulation = false;
+                    if (window.aiCompanion?.isThinkingActive?.()) {
+                        try { window.aiCompanion.emergencyStopThinking?.(); } catch (_) { /* ignore */ }
+                    }
+                    this.showErrorMessage('The connection was interrupted before the agent finished responding. Please try again.');
+                });
             }
 
             // Start intelligent thinking simulation after DirectLine send
@@ -2735,59 +3062,50 @@ export class Application {
 
     /**
      * Handle a native streaming chunk from DirectLineService.
-     * Renders incremental text updates in real-time.
-     * @param {Object} entry - MessageEntry with partial text
+     * Routes incremental updates through messageRenderer so the live bubble has
+     * the same Markdown/KaTeX/icon/metrics treatment as a normal message and
+     * shares a single DOM element with the eventual finalized message.
+     * @param {Object} entry - MessageEntry with cumulative partial text
      * @private
      */
     handleStreamingChunk(entry) {
         this.hideProgressIndicator();
+        this.clearInformativeIndicator();
         this._lastMessageTime = Date.now();
 
-        // Skip empty chunks that would create empty bubbles
-        if (!entry.text?.trim() && !this._streamingElements?.has(entry.id || `stream-${entry.timestamp}`)) {
-            return;
-        }
+        // Skip leading empty chunks that would create an empty bubble
+        if (!entry.text?.trim()) return;
 
-        // Use messageRenderer to update the streaming message in place
+        // Stream diagnostic: one concise line per chunk showing the growing
+        // content tail, so the live answer is readable in the console.
+        const _streamText = typeof entry.text === 'string' ? entry.text : '';
+        console.log(`💬 [stream ${entry?.id ?? '?'}] ${_streamText.length} chars | …${_streamText.slice(-60)}`);
+
+        // MessageEntry is activity-shaped (id/from/text/timestamp/attachments).
+        // entry.id is kept stable across chunks + finalize so the renderer reuses
+        // the same streaming bubble. entry.text is cumulative → non-realtime path.
+        // Serialize chunk rendering: handleStreamingMessageDirect is async and the
+        // first chunk creates the DOM container; without serialization, fast
+        // follow-up chunks race ahead while the container is still being built.
+        // Wrap the synchronous kick-off in try/catch so a throw before the first
+        // await still surfaces instead of dying silently.
+        try {
+            this._streamRenderChain = (this._streamRenderChain || Promise.resolve())
+                .then(() => messageRenderer.handleStreamingMessageDirect(entry))
+                .catch((err) => console.error('[Application] handleStreamingChunk async render error:', err));
+        } catch (err) {
+            console.error('[Application] handleStreamingChunk sync error:', err);
+        }
+    }
+
+    /**
+     * Remove a "regretted" livestream bubble (bot concluded with no content).
+     * @param {Object} entry - MessageEntry whose stream was cancelled
+     * @private
+     */
+    handleStreamCancelled(entry) {
         const messageId = entry.id || `stream-${entry.timestamp}`;
-
-        if (!this._streamingElements) {
-            this._streamingElements = new Map();
-        }
-
-        if (!this._streamingElements.has(messageId)) {
-            // First chunk — create the message container
-            const chatWindow = this.elements.chatWindow;
-            if (!chatWindow) return;
-
-            const messageContainer = document.createElement('div');
-            messageContainer.className = 'messageContainer botMessage';
-            messageContainer.id = `msg-${messageId}`;
-
-            const messageWrapper = document.createElement('div');
-            messageWrapper.className = 'message-wrapper';
-
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'messageContent';
-
-            messageWrapper.appendChild(messageDiv);
-            messageContainer.appendChild(messageWrapper);
-            chatWindow.appendChild(messageContainer);
-
-            this._streamingElements.set(messageId, { container: messageContainer, contentDiv: messageDiv });
-        }
-
-        // Update content
-        const el = this._streamingElements.get(messageId);
-        if (el && el.contentDiv) {
-            el.contentDiv.textContent = entry.text;
-            this.elements.chatWindow.scrollTop = this.elements.chatWindow.scrollHeight;
-        }
-
-        // If entry is complete, clean up tracking
-        if (entry.isComplete) {
-            this._streamingElements.delete(messageId);
-        }
+        messageRenderer.cancelStreamingMessage(messageId);
     }
 
     /**
@@ -2863,6 +3181,7 @@ export class Application {
      */
     async handleCompleteMessage(activity) {
         this.hideProgressIndicator();
+        this.clearInformativeIndicator();
         this._lastMessageTime = Date.now();
 
         // Skip internal/system activities
@@ -2954,7 +3273,13 @@ export class Application {
             return;
         }
 
-        if (streamingEnabled) {
+        if (activity.meta?.wasStreamed) {
+            // Native livestreaming: a live bubble already exists for this entry —
+            // finalize it in place (Markdown/attachments/metrics/speech) instead of
+            // rendering a fresh bubble. Prevents duplicate bubbles.
+            console.log('Finalizing native streaming message in place:', activity.id);
+            messageRenderer.finalizeStreamingMessage(activity);
+        } else if (streamingEnabled) {
             console.log('Starting local streaming simulation');
             messageRenderer.simulateStreaming(activity);
         } else {
@@ -3117,6 +3442,70 @@ export class Application {
         });
 
         messageRenderer.renderCompleteMessage(activity);
+    }
+
+    /**
+     * Handle informative activity (thinking/status updates from Copilot Studio)
+     * Shows real-time bot thinking text as a temporary indicator in chat.
+     * @param {Object} info - { text, streamId, timestamp }
+     * @private
+     */
+    handleInformativeActivity(info) {
+        if (!info.text?.trim()) return;
+
+        this.hideProgressIndicator();
+        this._lastMessageTime = Date.now();
+
+        const chatWindow = this.elements.chatWindow;
+        if (!chatWindow) return;
+
+        // Reuse existing informative indicator or create new one
+        let indicator = chatWindow.querySelector('#informativeIndicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'informativeIndicator';
+            indicator.className = 'messageContainer botMessage informative-indicator';
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-wrapper';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'messageContent informative-content';
+
+            const dots = document.createElement('span');
+            dots.className = 'informative-dots';
+            dots.textContent = '';
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'informative-text';
+
+            contentDiv.appendChild(dots);
+            contentDiv.appendChild(textSpan);
+            wrapper.appendChild(contentDiv);
+            indicator.appendChild(wrapper);
+            chatWindow.appendChild(indicator);
+        }
+
+        // Update the thinking text
+        const textSpan = indicator.querySelector('.informative-text');
+        if (textSpan) {
+            textSpan.textContent = info.text;
+        }
+
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+        console.log(`[Application] Informative: "${info.text}"`);
+    }
+
+    /**
+     * Clear informative indicator from chat window
+     * @private
+     */
+    clearInformativeIndicator() {
+        const indicator = this.elements.chatWindow?.querySelector('#informativeIndicator');
+        if (indicator) {
+            indicator.classList.add('informative-fade-out');
+            setTimeout(() => indicator.remove(), 300);
+        }
     }
 
     /**
@@ -3416,6 +3805,13 @@ export class Application {
     handleAgentChanged(detail) {
         console.log('Agent changed:', detail);
         this.state.currentAgent = detail.agent;
+        // Skip the legacy DirectLine connect for agent types that own their own
+        // transport: website agents render an iframe (no connection), and
+        // direct-to-engine agents are connected via _doAgentConnect using
+        // directEngineConnector. Calling directLineService.connect() here for a
+        // D2E agent has no secret and throws "DirectLine secret is required".
+        if (detail.agent.agentType === 'website') return;
+        if (detail.agent.agentType === 'directengine') return;
         this.connectToAgent(detail.agent.secret);
     }
 
@@ -3844,6 +4240,11 @@ export class Application {
             this.elements.autoOpenCitationsCheckbox.checked = localStorage.getItem('autoOpenCitations') === 'true';
         }
 
+        // Load open attachments in side browser setting
+        if (this.elements.openAttachmentsSideBrowserCheckbox) {
+            this.elements.openAttachmentsSideBrowserCheckbox.checked = localStorage.getItem('openAttachmentsSideBrowser') === 'true';
+        }
+
         // Load full width messages settings
         if (this.elements.fullWidthMessagesCheckbox) {
             this.elements.fullWidthMessagesCheckbox.checked = localStorage.getItem('fullWidthMessages') === 'true';
@@ -4238,9 +4639,9 @@ export class Application {
             }, 100);
 
             console.log('Enhanced typing indicator removed');
-        } else {
-            console.log('No typing indicator found to remove');
         }
+        // No log when there is nothing to remove — this path fires on every
+        // streaming chunk and would otherwise flood the console.
     }
 
     /**
@@ -5520,6 +5921,112 @@ export class Application {
     }
 
     /**
+     * Open a file attachment in a tab within the analysis panel.
+     * Uses the same rendering approach as the overlay preview (no sandbox iframe)
+     * to avoid X-Frame-Options / Edge security blocking.
+     * @param {string} url - File URL
+     * @param {string} name - Display name
+     * @param {string} [contentType] - MIME type
+     */
+    openAttachmentInPanel(url, name = 'Attachment', contentType = '') {
+        const panel = document.getElementById('llmAnalysisPanel');
+        const tabBar = document.getElementById('analysisTabBar');
+        if (!panel || !tabBar) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+            return;
+        }
+
+        // Ensure analysis panel is visible
+        if (panel.style.display === 'none') {
+            panel.style.display = '';
+            DOMUtils.removeClass(panel, 'collapsed');
+        }
+
+        const tabId = 'attachment';
+
+        // Reuse or create tab
+        let existingPane = panel.querySelector(`.analysis-tab-pane[data-tab-pane="${tabId}"]`);
+        let existingTab = tabBar.querySelector(`.analysis-tab[data-tab="${tabId}"]`);
+
+        // Build content using the same logic as the overlay preview
+        const buildContent = (container) => {
+            container.innerHTML = '';
+            const ext = name.split('.').pop().toLowerCase();
+            const isPdf = contentType === 'application/pdf' || ext === 'pdf';
+            const isImage = (contentType && contentType.startsWith('image/')) || ['png','jpg','jpeg','gif','webp','svg'].includes(ext);
+
+            if (isPdf) {
+                const iframe = document.createElement('iframe');
+                iframe.src = url;
+                iframe.title = name;
+                iframe.style.cssText = 'width:100%;height:100%;border:none;';
+                container.appendChild(iframe);
+            } else if (isImage) {
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = name;
+                img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;margin:auto;display:block;';
+                container.appendChild(img);
+            } else {
+                const fallback = document.createElement('div');
+                fallback.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--color-text-secondary);';
+                fallback.innerHTML = `<div style="font-size:48px;">\uD83D\uDCC4</div><p><strong>${DOMUtils.escapeHtml ? DOMUtils.escapeHtml(name) : name}</strong></p><p>This file type cannot be previewed inline.</p>`;
+                const link = document.createElement('a');
+                link.href = url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = 'Open in New Tab';
+                link.style.cssText = 'color:var(--color-accent);text-decoration:underline;';
+                fallback.appendChild(link);
+                container.appendChild(fallback);
+            }
+        };
+
+        if (existingPane) {
+            buildContent(existingPane);
+            if (existingTab) {
+                const labelSpan = existingTab.querySelector('.tab-label');
+                if (labelSpan) labelSpan.textContent = name;
+            }
+        } else {
+            // Create tab button
+            const tabBtn = document.createElement('button');
+            tabBtn.className = 'analysis-tab';
+            tabBtn.dataset.tab = tabId;
+
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'tab-label';
+            labelSpan.textContent = name;
+            tabBtn.appendChild(labelSpan);
+
+            const closeSpan = document.createElement('span');
+            closeSpan.className = 'tab-close';
+            closeSpan.title = 'Close';
+            closeSpan.textContent = '\u00d7';
+            tabBtn.appendChild(closeSpan);
+
+            tabBar.appendChild(tabBtn);
+
+            // Create pane
+            const pane = document.createElement('div');
+            pane.className = 'analysis-tab-pane';
+            pane.dataset.tabPane = tabId;
+            pane.style.cssText = 'height:100%;overflow:auto;';
+
+            buildContent(pane);
+
+            const kpiModal = panel.querySelector('#kpiModal');
+            if (kpiModal) {
+                panel.insertBefore(pane, kpiModal);
+            } else {
+                panel.appendChild(pane);
+            }
+        }
+
+        this.switchAnalysisTab(tabId);
+    }
+
+    /**
      * Open URL in citation tab within the analysis panel
      * @param {string} url - URL to open for citation preview
      * @param {string} [title] - Optional display title for the tab (defaults to hostname)
@@ -5676,6 +6183,7 @@ export class Application {
                 if (doc && doc.body && doc.body.innerHTML.length > 0) {
                     console.log('[CitationPreview] Content loaded successfully');
                     if (loader) loader.style.display = 'none';
+                    if (errorEl) errorEl.style.display = 'none';
                     iframe.style.display = '';
                     return;
                 }
@@ -5683,6 +6191,7 @@ export class Application {
                 // Cross-origin: we can't inspect, but the page DID load — show it
                 console.log('[CitationPreview] Cross-origin frame loaded (assumed OK)');
                 if (loader) loader.style.display = 'none';
+                if (errorEl) errorEl.style.display = 'none';
                 iframe.style.display = '';
                 return;
             }
@@ -5748,7 +6257,7 @@ export class Application {
 
     // ── File handling ────────────────────────────────────────
 
-    /** Max upload size in bytes (DirectLine limit) */
+    /** Max upload size in bytes (DirectLine server hard limit) */
     static MAX_FILE_SIZE = 4 * 1024 * 1024; // 4 MB
 
     /**
@@ -5956,7 +6465,7 @@ export class Application {
         this.elements.sendButton.disabled = true;
 
         try {
-            await directLineService.sendMessageWithFiles(text, files, (progress) => {
+            await this.getConnectorForAgent().sendMessageWithFiles(text, files, (progress) => {
                 const percent = Math.round(progress * 100);
                 const currentFile = Math.min(Math.floor(progress * files.length) + 1, files.length);
                 const progressLabel = files.length === 1
@@ -6553,6 +7062,9 @@ export class Application {
         }
         if (this.elements.autoOpenCitationsCheckbox) {
             this.elements.autoOpenCitationsCheckbox.checked = localStorage.getItem('autoOpenCitations') === 'true';
+        }
+        if (this.elements.openAttachmentsSideBrowserCheckbox) {
+            this.elements.openAttachmentsSideBrowserCheckbox.checked = localStorage.getItem('openAttachmentsSideBrowser') === 'true';
         }
         if (this.elements.fullWidthMessagesCheckbox) {
             this.elements.fullWidthMessagesCheckbox.checked = fullWidthEnabled;

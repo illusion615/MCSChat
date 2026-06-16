@@ -26,6 +26,7 @@ node_modules/
 *.backup
 *-backup.*
 migration-backup-*/
+.backup-d2e/
 
 # Legacy code
 legacy/

@@ -108,7 +108,7 @@ class EventEmitter {
 // DirectLineService — main component
 // ============================================================
 
-const SERVICE_VERSION = '1.0.0';
+const SERVICE_VERSION = '1.1.0';
 
 // Connection status constants (mirrors DirectLine SDK)
 const ConnectionStatus = {
@@ -218,6 +218,34 @@ export class DirectLineService extends EventEmitter {
                 id => resolve(id),
                 err => {
                     console.error('[DirectLineService] Send error:', err);
+                    reject(err);
+                }
+            );
+        });
+    }
+
+    /**
+     * Send an Adaptive Card submit response back to the bot.
+     * Posts a message activity carrying the card form data in `value`
+     * (with a JSON `text` fallback), matching Bot Framework card submits.
+     * @param {Object} value - The Adaptive Card submit data (action.data)
+     * @returns {Promise<string>} Activity ID
+     */
+    sendCardResponse(value) {
+        if (!this._directLine) {
+            return Promise.reject(new Error('Not connected'));
+        }
+        const activity = {
+            type: 'message',
+            from: { id: 'user' },
+            value: value || {},
+            text: '',
+        };
+        return new Promise((resolve, reject) => {
+            this._directLine.postActivity(activity).subscribe(
+                id => resolve(id),
+                err => {
+                    console.error('[DirectLineService] Card response send error:', err);
                     reject(err);
                 }
             );
@@ -445,36 +473,54 @@ export class DirectLineService extends EventEmitter {
         // Skip user echo
         if (activity.from && activity.from.id === 'user') return;
 
-        // Diagnostic: log ALL bot activities with streaming-relevant fields
+        // Parse livestreaming metadata (channelData OR entities[type="streaminfo"])
+        const stream = this._getStreamInfo(activity);
+
+        // Diagnostic: log ALL bot activities with streaming-relevant fields.
+        // Includes RAW channelData + entities so we can verify whether the bot
+        // sends any livestreaming metadata our parser might not yet recognize.
         console.log(`📨 [DirectLine Activity] type=${activity.type} id=${activity.id}`, {
             text: activity.text?.substring(0, 80),
             textLength: activity.text?.length,
             inputHint: activity.inputHint,
             replyToId: activity.replyToId,
-            channelData: activity.channelData,
-            streamId: activity.channelData?.streamId,
-            streamType: activity.channelData?.streamType,
-            streamSequence: activity.channelData?.streamSequence,
+            parsedStreamId: stream.streamId,
+            parsedStreamType: stream.streamType,
+            parsedStreamSequence: stream.streamSequence,
+            rawChannelData: activity.channelData,
+            rawEntities: activity.entities,
             timestamp: activity.timestamp,
             from: activity.from?.id
         });
 
+        // Detect informative activities (thinking/status updates from Copilot Studio)
+        const isInformative = stream.streamType === 'informative';
+        if (isInformative) {
+            console.log(`💭 [DirectLineService] Informative activity: "${activity.text?.substring(0, 80)}"`);
+            this.emit('informative', {
+                text: activity.text || '',
+                streamId: stream.streamId,
+                timestamp: activity.timestamp
+            });
+            return;
+        }
+
         // Detect streaming activity patterns
-        const isStreamingChunk = activity.channelData?.streamType === 'streaming'
-            || activity.channelData?.streamSequence !== undefined
+        const isStreamingChunk = stream.streamType === 'streaming'
+            || stream.streamSequence !== undefined
             || (activity.type === 'typing' && activity.text);
 
         if (isStreamingChunk) {
-            this._handleStreamingChunk(activity);
+            this._handleStreamingChunk(activity, stream);
             return;
         }
 
         // Check if this is the final message of a stream
-        const isStreamFinal = activity.channelData?.streamType === 'final'
-            || (activity.channelData?.streamId && activity.type === 'message');
+        const isStreamFinal = stream.streamType === 'final'
+            || (stream.streamId && activity.type === 'message');
 
-        if (isStreamFinal && this._activeStreams.has(activity.channelData?.streamId)) {
-            this._finalizeStream(activity);
+        if (isStreamFinal && this._activeStreams.has(stream.streamId)) {
+            this._finalizeStream(activity, stream);
             return;
         }
 
@@ -521,25 +567,73 @@ export class DirectLineService extends EventEmitter {
     // ── Private: Streaming chunk handling ────────────────────
 
     /**
+     * Extract livestreaming metadata from an activity.
+     * Per BotFramework WebChat LIVESTREAMING.md, metadata may live in either
+     * `channelData` or `entities[type="streaminfo"]` — both are equivalent.
+     * `chunkType` ("delta" | "full") is an authoritative signal (sent by
+     * Copilot Studio in `channelData`) declaring whether a streaming chunk's
+     * text is an incremental fragment or the full text so far.
+     * @param {Object} activity
+     * @returns {{streamType: string|undefined, streamId: string|undefined, streamSequence: number|undefined, chunkType: string|undefined}}
+     */
+    _getStreamInfo(activity) {
+        const cd = activity.channelData || {};
+        if (cd.streamType !== undefined || cd.streamId !== undefined || cd.streamSequence !== undefined) {
+            return {
+                streamType: cd.streamType,
+                streamId: cd.streamId,
+                streamSequence: cd.streamSequence,
+                chunkType: cd.chunkType
+            };
+        }
+
+        const entity = Array.isArray(activity.entities)
+            ? activity.entities.find(e => e && e.type === 'streaminfo')
+            : null;
+        if (entity) {
+            return {
+                streamType: entity.streamType,
+                streamId: entity.streamId,
+                streamSequence: entity.streamSequence,
+                chunkType: entity.chunkType
+            };
+        }
+
+        return { streamType: undefined, streamId: undefined, streamSequence: undefined, chunkType: undefined };
+    }
+
+    /**
      * Handle a streaming chunk activity (incremental text from bot).
      * Emits 'messageChunk' for real-time UI updates.
+     * @param {Object} activity
+     * @param {Object} [stream] - Pre-parsed stream metadata from _getStreamInfo
      */
-    _handleStreamingChunk(activity) {
+    _handleStreamingChunk(activity, stream) {
+        stream = stream || this._getStreamInfo(activity);
+
         if (this._nativeStreamingSupported === null) {
             this._nativeStreamingSupported = true;
             console.log('🔥 [DirectLineService] Native streaming DETECTED — Copilot Studio is sending incremental activities');
         }
 
-        const streamId = activity.channelData?.streamId || activity.replyToId || `stream-${Date.now()}`;
+        const streamId = stream.streamId || activity.replyToId || `stream-${Date.now()}`;
         const text = activity.text || '';
+        const seq = stream.streamSequence;
 
         if (!this._activeStreams.has(streamId)) {
-            // First chunk: create entry
+            // First chunk: create entry with a STABLE id (= streamId when activity.id missing)
             const entry = new MessageEntry(activity);
+            entry.id = activity.id || streamId;
             entry.isComplete = false;
             entry.text = text;
             entry.metrics.firstTokenTime = Date.now();
-            this._activeStreams.set(streamId, { entry, lastText: text, chunks: 1 });
+            entry.meta.wasStreamed = true;
+            this._activeStreams.set(streamId, {
+                entry,
+                lastText: text,
+                chunks: 1,
+                lastSequence: seq
+            });
             this._entries.push(entry);
 
             // Greeting detection on first chunk
@@ -551,48 +645,97 @@ export class DirectLineService extends EventEmitter {
 
             this.emit('messageChunk', entry);
         } else {
-            // Subsequent chunk: update entry with new text
-            const stream = this._activeStreams.get(streamId);
-            stream.chunks++;
+            const streamState = this._activeStreams.get(streamId);
 
-            // Detect if text is incremental (appended) or replaced (full text so far)
-            if (text.length > stream.lastText.length && text.startsWith(stream.lastText)) {
-                // Incremental append
-                const newChunk = text.substring(stream.lastText.length);
-                stream.entry.appendText(newChunk);
-            } else {
-                // Full replacement
-                stream.entry.text = text;
+            // Out-of-order / obsolete chunk protection: drop chunks whose sequence
+            // is not newer than the last applied one (per LIVESTREAMING.md design).
+            if (seq !== undefined && streamState.lastSequence !== undefined && seq <= streamState.lastSequence) {
+                console.log(`⏭️ [DirectLineService] Dropping obsolete chunk seq=${seq} (last=${streamState.lastSequence}) for stream ${streamId}`);
+                return;
             }
-            stream.lastText = text;
 
-            this.emit('messageChunk', stream.entry);
+            streamState.chunks++;
+            if (seq !== undefined) streamState.lastSequence = seq;
+
+            // Two real-world chunk encodings exist and must both be supported:
+            //   • DELTA      — each activity carries only the NEW fragment.
+            //                  Copilot Studio declares this explicitly via
+            //                  channelData.chunkType === 'delta' (verified:
+            //                  682 chunks, each ≤10 chars, that concatenate
+            //                  into the final answer).
+            //   • CUMULATIVE — each activity carries the full text so far.
+            // Prefer the authoritative `chunkType` signal; fall back to a
+            // prefix heuristic only when the bot omits it.
+            const acc = streamState.entry.text;
+            if (!text) {
+                // Contentless chunk (e.g. first streaming activity) — nothing to add.
+            } else if (stream.chunkType === 'delta') {
+                // Authoritative delta: the chunk itself is the new fragment.
+                streamState.entry.appendText(text);
+            } else if (text === acc) {
+                // Cumulative resend of identical text — ignore to avoid duplication.
+            } else if (text.startsWith(acc)) {
+                // Cumulative: append only the newly added tail.
+                streamState.entry.appendText(text.substring(acc.length));
+            } else {
+                // Unknown/heuristic fallback: treat as a delta fragment.
+                streamState.entry.appendText(text);
+            }
+            streamState.lastText = text;
+
+            this.emit('messageChunk', streamState.entry);
         }
     }
 
     /**
      * Finalize a streaming message when the final activity arrives.
+     * @param {Object} activity
+     * @param {Object} [stream] - Pre-parsed stream metadata from _getStreamInfo
      */
-    _finalizeStream(activity) {
-        const streamId = activity.channelData?.streamId;
-        const stream = this._activeStreams.get(streamId);
+    _finalizeStream(activity, stream) {
+        stream = stream || this._getStreamInfo(activity);
+        const streamId = stream.streamId;
+        const streamState = this._activeStreams.get(streamId);
 
-        if (stream) {
-            // Update with final text
-            if (activity.text) {
-                stream.entry.text = activity.text;
-            }
-            stream.entry.markComplete();
-            stream.entry.id = activity.id || stream.entry.id;
+        if (!streamState) return;
 
-            // Add to seen IDs to prevent duplicate processing
-            if (activity.id) this._seenIds.add(activity.id);
+        // Empty final = "regretted livestream" — bot erased the response before
+        // concluding. Remove the bubble entirely (per LIVESTREAMING.md scenario 3).
+        const finalText = activity.text || '';
+        const hasContent = finalText.trim().length > 0
+            || (activity.attachments && activity.attachments.length > 0);
 
-            console.log(`✅ [DirectLineService] Stream ${streamId} finalized: ${stream.chunks} chunks, ${stream.entry.text.length} chars`);
+        if (!hasContent) {
             this._activeStreams.delete(streamId);
-
-            this.emit('message', stream.entry);
+            const idx = this._entries.indexOf(streamState.entry);
+            if (idx >= 0) this._entries.splice(idx, 1);
+            if (activity.id) this._seenIds.add(activity.id);
+            console.log(`🗑️ [DirectLineService] Stream ${streamId} regretted (empty final) — removing bubble`);
+            this.emit('streamCancelled', streamState.entry);
+            return;
         }
+
+        // Normal finalize — keep entry.id STABLE so the renderer can match the
+        // streaming bubble; record the real final activity id for dedup only.
+        if (activity.text) {
+            streamState.entry.text = activity.text;
+        }
+        if (activity.attachments && activity.attachments.length > 0) {
+            streamState.entry.attachments = activity.attachments;
+        }
+        if (activity.suggestedActions) {
+            streamState.entry.suggestedActions = activity.suggestedActions;
+        }
+        streamState.entry.markComplete();
+        streamState.entry.meta.finalId = activity.id || null;
+
+        // Dedup the real final activity id (entry.id stays as the stream key)
+        if (activity.id) this._seenIds.add(activity.id);
+
+        console.log(`✅ [DirectLineService] Stream ${streamId} finalized: ${streamState.chunks} chunks, ${streamState.entry.text.length} chars`);
+        this._activeStreams.delete(streamId);
+
+        this.emit('message', streamState.entry);
     }
 
     // ── Private: Connection status ──────────────────────────
