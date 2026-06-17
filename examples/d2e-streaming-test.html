@@ -36,8 +36,8 @@
   main { flex: 1; display: flex; min-height: 0; }
 
   /* Chat column */
-  .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; border-right: 1px solid #ddd; }
-  .messages { flex: 1; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid #ddd; }
+  .messages { flex: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
   .msg { max-width: 78%; padding: 10px 14px; border-radius: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
   .msg.user { align-self: flex-end; background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
   .msg.bot  { align-self: flex-start; background: #eef0f3; color: #111; border-bottom-left-radius: 4px; }
@@ -63,6 +63,7 @@
   .msg.bot h4 { font-size: 1.2em; }
   .msg.bot a { color: #2563eb; text-decoration: none; border-bottom: 1px solid transparent; }
   .msg.bot a:hover { border-bottom-color: #2563eb; }
+  .msg.bot img { max-width: 100%; height: auto; display: block; border-radius: 8px; }
   .msg.bot table { border-collapse: collapse; margin: 8px 0; }
   .msg.bot th, .msg.bot td { border: 1px solid #ccc; padding: 4px 8px; }
   .msg.bot > *:last-child { margin-bottom: 0; }
@@ -97,10 +98,15 @@
   /* Adaptive card container */
   .ac-card { align-self: flex-start; max-width: 78%; background: #fff; border: 1px solid #ddd;
              border-radius: 12px; padding: 12px; }
-  .composer { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid #ddd; background: #fff; }
-  .composer input { flex: 1; padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; }
-  .composer button { padding: 10px 18px; border-radius: 8px; border: 1px solid #2563eb; background: #2563eb; color: #fff; cursor: pointer; }
-  .composer button:disabled { opacity: .5; cursor: not-allowed; }
+  .composer { padding: 12px 16px; border-top: 1px solid #ddd; background: #fff; }
+  .composer-box { display: flex; align-items: center; gap: 8px; width: 100%; border: 1px solid #ccc; border-radius: 10px; background: #fff; padding: 4px 6px 4px 12px; }
+  .composer-box:focus-within { border-color: #2563eb; box-shadow: 0 0 0 3px #2563eb1f; }
+  .composer input { flex: 1; min-width: 0; padding: 8px 0; border: none; outline: none; background: transparent; font-size: 14px; }
+  .composer button { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; border: none; background: transparent; color: #2563eb; cursor: pointer; font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+  .composer button svg { width: 18px; height: 18px; display: block; stroke: currentColor; }
+  .composer button:hover, .composer button:focus-visible { background: #2563eb; color: #fff; outline: none; }
+  .composer button:disabled { opacity: .45; cursor: not-allowed; }
+  .composer button:disabled:hover { background: transparent; color: #2563eb; }
 
   /* Right sidebar = Benchmark panel */
   .sidecol { width: 460px; flex: 0 0 460px; display: flex; flex-direction: column; background: #f7f8fa; border-left: 1px solid #e3e6ea; }
@@ -112,6 +118,7 @@
   .bm-config summary { cursor: pointer; font-size: 12px; color: #374151; font-weight: 600; padding: 4px 0; }
   .bm-config .cfgrow { margin-top: 8px; }
   .bm-config label { font-size: 11px; color: #555; display: block; margin-bottom: 4px; }
+  .bm-config input[type=text] { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit; font-size: 12px; }
   .bm-config textarea { width: 100%; min-height: 120px; padding: 8px 10px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit; font-size: 12px; resize: vertical; }
   .bm-config input[type=number] { width: 80px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-size: 13px; }
   .bm-config .inline { display: flex; align-items: center; gap: 8px; }
@@ -184,9 +191,16 @@
     <section class="chat">
       <div class="messages" id="messages"></div>
       <div class="composer">
-        <input id="msg" placeholder="Type a message…" disabled
-               value="how to enter bios mode" />
-        <button id="sendBtn" disabled>Send</button>
+        <div class="composer-box">
+          <input id="msg" placeholder="Type a message…" disabled
+                 value="how to enter bios mode" />
+          <button id="sendBtn" disabled aria-label="Send message" title="Send">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 19V5" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M5 12l7-7 7 7" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </button>
+        </div>
       </div>
     </section>
 
