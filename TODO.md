@@ -114,6 +114,7 @@ The project is now well-organized with:
 ### DirectLine
 [x] Agent initialization parameters — In agent settings, allow defining custom init parameters per agent. On new session start, prompt user to fill values via overlay form, then pass to DirectLine startConversation event.
 [x] Print directline response into console so i can know what data returned for better debug.
+[x] Enable Copilot Studio DirectLine streaming opt-in with `deliveryMode: "stream"` and unify DirectLine streaming lifecycle handling via shared helpers + `StreamAssembler`.
 [x] Support adaptive card submission - ✅ **COMPLETED**: Enhanced with modal display and full response handling
     - ✅ **IMPROVED**: White background for optimal readability
     - ✅ **IMPROVED**: MCSChat-style close button matching application design

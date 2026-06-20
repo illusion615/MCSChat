@@ -20,6 +20,10 @@
  */
 
 import { MessageEntry } from './DirectLineService.js';
+import {
+    getStreamInfo,
+    mergeStreamingText,
+} from '../../utils/streamingActivity.js';
 
 const CONNECTOR_VERSION = '1.0.0';
 console.log(`🛰️ [DirectEngineConnector] v${CONNECTOR_VERSION} loaded`);
@@ -269,7 +273,7 @@ export class DirectEngineConnector extends EventEmitter {
                 activityCount++;
                 // Track what kind of content we actually received, to diagnose
                 // "stuck on informative" cases where the answer never streams.
-                const si = this._getStreamInfo(activity);
+                const si = getStreamInfo(activity);
                 if (si.streamType === 'informative') sawInformative = true;
                 if (si.streamType === 'streaming' || si.streamType === 'final'
                     || (activity.type === 'message' && activity.text)) sawContent = true;
@@ -311,21 +315,10 @@ export class DirectEngineConnector extends EventEmitter {
         }
     }
 
-    // ── Stream metadata (mirrors DirectLineService._getStreamInfo) ──
-    _getStreamInfo(activity) {
-        const cd = activity.channelData || {};
-        if (cd.streamType !== undefined || cd.streamId !== undefined || cd.streamSequence !== undefined) {
-            return { streamType: cd.streamType, streamId: cd.streamId, streamSequence: cd.streamSequence, chunkType: cd.chunkType };
-        }
-        const e = Array.isArray(activity.entities) ? activity.entities.find(x => x && x.type === 'streaminfo') : null;
-        if (e) return { streamType: e.streamType, streamId: e.streamId, streamSequence: e.streamSequence, chunkType: e.chunkType };
-        return {};
-    }
-
     // ── Activity handling (mirrors DirectLineService) ──
     _handleActivity(activity) {
         if (activity.from && activity.from.id === 'user') return;
-        const stream = this._getStreamInfo(activity);
+        const stream = getStreamInfo(activity);
 
         const isStreamingChunk = stream.streamType === 'streaming'
             || stream.streamSequence !== undefined
@@ -374,7 +367,7 @@ export class DirectEngineConnector extends EventEmitter {
     }
 
     _handleStreamingChunk(activity, stream) {
-        stream = stream || this._getStreamInfo(activity);
+        stream = stream || getStreamInfo(activity);
         if (this._nativeStreamingSupported === null) {
             this._nativeStreamingSupported = true;
             console.log('🔥 [DirectEngineConnector] Native streaming active (D2E SSE)');
@@ -409,17 +402,18 @@ export class DirectEngineConnector extends EventEmitter {
             if (seq !== undefined && st.lastSequence !== undefined && seq <= st.lastSequence) return;
             if (seq !== undefined) st.lastSequence = seq;
             const acc = st.entry.text;
-            if (!text) { /* contentless */ }
-            else if (stream.chunkType === 'delta') st.entry.appendText(text);
-            else if (text === acc) { /* dup */ }
-            else if (text.startsWith(acc)) st.entry.appendText(text.substring(acc.length));
-            else st.entry.appendText(text);
+            const merged = mergeStreamingText(acc, text, stream.chunkType);
+            if (merged !== acc) {
+                st.entry.text = merged;
+                st.entry.metrics.lastTokenTime = Date.now();
+                if (!st.entry.metrics.firstTokenTime) st.entry.metrics.firstTokenTime = Date.now();
+            }
             this.emit('messageChunk', st.entry);
         }
     }
 
     _finalizeStream(activity, stream) {
-        stream = stream || this._getStreamInfo(activity);
+        stream = stream || getStreamInfo(activity);
         const streamId = stream.streamId;
         const st = this._activeStreams.get(streamId);
         if (!st) return;

@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Knowledge Agent (DirectLine) — Streaming Chat</title>
+<!-- Markdown rendering (local libs) -->
+<script src="../lib/marked.min.js"></script>
+<script src="../lib/purify.min.js"></script>
+<!-- Adaptive Cards rendering -->
+<script src="https://unpkg.com/adaptivecards@2.11.1/dist/adaptivecards.min.js"></script>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    margin: 0; height: 100vh; display: flex; flex-direction: column;
+    background: #fafafa;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; border-bottom: 1px solid #ddd; background: #fff;
+  }
+  header h1 { font-size: 1rem; margin: 0; flex: 0 0 auto; }
+  header .status { font-size: 12px; color: #666; flex: 1; }
+  header button {
+    padding: 6px 12px; cursor: pointer; border-radius: 6px;
+    border: 1px solid #888; background: #f3f3f3; font-size: 13px;
+  }
+  header button:disabled { opacity: .5; cursor: not-allowed; }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #6c6; color: #fff; }
+  .pill.err { background: #d33; }
+
+  main { flex: 1; display: flex; min-height: 0; }
+
+  /* Chat column */
+  .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid #ddd; }
+  .messages { flex: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 78%; padding: 10px 14px; border-radius: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+  .msg.user { align-self: flex-end; background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
+  .msg.bot  { align-self: flex-start; background: #eef0f3; color: #111; border-bottom-left-radius: 4px; }
+  .msg.bot.streaming { border-left: 3px solid #6cf; }
+  /* Markdown layout — mirrors the main app (css/components/messages.css) */
+  /* Bot bubbles hold rendered HTML, so use normal whitespace: marked emits a
+     newline between every block tag, and pre-wrap would render those as blank
+     lines. Intra-paragraph line breaks are preserved via marked breaks:true. */
+  .msg.bot { line-height: 1.6; white-space: normal; }
+  .msg.bot p { margin: 0 0 12px; line-height: 1.6; }
+  .msg.bot p:last-child { margin-bottom: 0; }
+  .msg.bot ul, .msg.bot ol { margin: 8px 0; padding-left: 20px; }
+  .msg.bot li { margin: 4px 0; line-height: 1.6; }
+  .msg.bot li > p { margin: 0; }            /* tighten loose-list paragraphs */
+  .msg.bot pre { background: #00000010; padding: 8px 10px; border-radius: 6px; overflow: auto; margin: 8px 0; }
+  .msg.bot code { background: #00000010; padding: 1px 4px; border-radius: 4px; font-family: ui-monospace, Menlo, monospace; font-size: .92em; }
+  .msg.bot pre code { background: none; padding: 0; }
+  .msg.bot h1, .msg.bot h2, .msg.bot h3, .msg.bot h4 { margin: 16px 0 8px; line-height: 1.3; font-weight: 600; }
+  .msg.bot h1:first-child, .msg.bot h2:first-child, .msg.bot h3:first-child, .msg.bot h4:first-child { margin-top: 0; }
+  .msg.bot h1 { font-size: 1.5em; }
+  .msg.bot h2 { font-size: 1.4em; }
+  .msg.bot h3 { font-size: 1.3em; }
+  .msg.bot h4 { font-size: 1.2em; }
+  .msg.bot a { color: #2563eb; text-decoration: none; border-bottom: 1px solid transparent; }
+  .msg.bot a:hover { border-bottom-color: #2563eb; }
+  .msg.bot img { max-width: 100%; height: auto; display: block; border-radius: 8px; }
+  .msg.bot table { border-collapse: collapse; margin: 8px 0; }
+  .msg.bot th, .msg.bot td { border: 1px solid #ccc; padding: 4px 8px; }
+  .msg.bot > *:last-child { margin-bottom: 0; }
+  .informative { align-self: flex-start; font-style: italic; color: #888; font-size: 13px; }
+  /* Persistent informative steps (don't disappear; check mark when done) */
+  .step { align-self: flex-start; display: flex; align-items: center; gap: 7px; font-size: 13px; color: #888; }
+  .step .mark { width: 14px; height: 14px; flex: 0 0 14px; display: inline-flex; align-items: center; justify-content: center; }
+  .step.pending .mark { border: 2px solid #bbb; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+  .step.done .mark { color: #16a34a; font-weight: 700; }
+  .step.done { color: #4b5563; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* Message wrapper + metadata/actions row */
+  .msgwrap { display: flex; flex-direction: column; gap: 3px; max-width: 78%; }
+  .msgwrap.user { align-self: flex-end; align-items: flex-end; }
+  .msgwrap.bot  { align-self: flex-start; align-items: flex-start; }
+  .msgwrap .msg { max-width: 100%; }
+  .meta { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #9aa0a6; padding: 0 4px; }
+  .meta .sp { color: #c4c8cc; }
+  .meta button {
+    background: none; border: none; cursor: pointer; color: #6b7280; font-size: 11px;
+    padding: 1px 4px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;
+  }
+  .meta button:hover { background: #00000010; color: #2563eb; }
+  /* Suggested actions */
+  .suggested { align-self: flex-start; display: flex; flex-wrap: wrap; gap: 8px; max-width: 78%; }
+  .suggested button {
+    padding: 7px 14px; border: 1px solid #2563eb; background: #fff; color: #2563eb;
+    border-radius: 999px; font-size: 13px; cursor: pointer;
+  }
+  .suggested button:hover { background: #2563eb; color: #fff; }
+  .suggested.disabled button { opacity: .45; cursor: default; pointer-events: none; }
+  /* Adaptive card container */
+  .ac-card { align-self: flex-start; max-width: 78%; background: #fff; border: 1px solid #ddd;
+             border-radius: 12px; padding: 12px; }
+  .composer { padding: 12px 16px; border-top: 1px solid #ddd; background: #fff; }
+  .composer-box { display: flex; align-items: center; gap: 8px; width: 100%; border: 1px solid #ccc; border-radius: 10px; background: #fff; padding: 4px 6px 4px 12px; }
+  .composer-box:focus-within { border-color: #2563eb; box-shadow: 0 0 0 3px #2563eb1f; }
+  .composer input { flex: 1; min-width: 0; padding: 8px 0; border: none; outline: none; background: transparent; font-size: 14px; }
+  .composer button { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; border: none; background: transparent; color: #2563eb; cursor: pointer; font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+  .composer button svg { width: 18px; height: 18px; display: block; stroke: currentColor; }
+  .composer button:hover, .composer button:focus-visible { background: #2563eb; color: #fff; outline: none; }
+  .composer button:disabled { opacity: .45; cursor: not-allowed; }
+  .composer button:disabled:hover { background: transparent; color: #2563eb; }
+
+  /* Right sidebar = Benchmark panel */
+  .sidecol { width: 460px; flex: 0 0 460px; display: flex; flex-direction: column; background: #f7f8fa; border-left: 1px solid #e3e6ea; }
+  .side-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid #e3e6ea; background: #fff; }
+  .side-head h2 { font-size: 14px; margin: 0; flex: 1; }
+  .side-head button { background: #f3f3f3; border: 1px solid #bbb; border-radius: 6px; padding: 4px 9px; font-size: 12px; cursor: pointer; }
+  .side-body { flex: 1; overflow: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 14px; }
+
+  .bm-config summary { cursor: pointer; font-size: 12px; color: #374151; font-weight: 600; padding: 4px 0; }
+  .bm-config .cfgrow { margin-top: 8px; }
+  .bm-config label { font-size: 11px; color: #555; display: block; margin-bottom: 4px; }
+  .bm-config input[type=text] { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit; font-size: 12px; }
+  .bm-config textarea { width: 100%; min-height: 120px; padding: 8px 10px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit; font-size: 12px; resize: vertical; }
+  .bm-config input[type=number] { width: 80px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-size: 13px; }
+  .bm-config .inline { display: flex; align-items: center; gap: 8px; }
+
+  .bm-run { display: flex; gap: 10px; align-items: center; }
+  .bm-run button { padding: 8px 16px; border-radius: 8px; border: 1px solid #2563eb; background: #2563eb; color: #fff; cursor: pointer; font-size: 14px; }
+  .bm-run button.stop { border-color: #d33; background: #d33; }
+  .bm-run button:disabled { opacity: .5; cursor: not-allowed; }
+  .bm-prog { flex: 1; height: 8px; background: #e6e8eb; border-radius: 999px; overflow: hidden; }
+  .bm-prog > i { display: block; height: 100%; width: 0; background: #2563eb; transition: width .2s; }
+  .bm-progtext { font-size: 11px; color: #666; min-width: 120px; text-align: right; }
+
+  .bm-metric { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; background: #fff; }
+  .bm-metric h3 { margin: 0 0 8px; font-size: 12px; color: #374151; }
+  .bm-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
+  .bm-stat { text-align: center; }
+  .bm-stat .v { font-size: 16px; font-weight: 700; color: #111; }
+  .bm-stat .k { font-size: 9px; color: #9aa0a6; text-transform: uppercase; letter-spacing: .03em; }
+  .bm-legend { display: flex; gap: 14px; margin-bottom: 8px; font-size: 10px; color: #6b7280; }
+  .bm-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .bm-legend .sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .bm-substat { font-size: 9px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; margin: 2px 0; }
+  .bm-chart { width: 100%; height: 90px; border: 1px solid #eee; border-radius: 8px; }
+
+  /* Detail list — cards with expandable answers */
+  .bm-detail { display: flex; flex-direction: column; gap: 8px; }
+  .bm-card { border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; padding: 8px 10px; }
+  .bm-card .top { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #6b7280; }
+  .bm-card .top .idx { font-weight: 700; color: #111; }
+  .bm-card .top .nums { margin-left: auto; display: flex; gap: 10px; }
+  .bm-card .top .nums b { color: #111; }
+  .bm-card .q { font-size: 12px; color: #111; margin: 5px 0 2px; }
+  .bm-card.failrow { border-color: #f3b1b1; background: #fff5f5; }
+  .bm-card .st-ok { color: #16a34a; }
+  .bm-card .st-fail { color: #d33; }
+  .bm-card details > summary { cursor: pointer; font-size: 11px; color: #2563eb; }
+  .bm-card .answer { font-size: 12px; color: #333; white-space: pre-wrap; margin-top: 6px; max-height: 220px; overflow: auto; border-top: 1px dashed #e5e7eb; padding-top: 6px; }
+
+  /* Floating log panel (toggleable) */
+  .logfloat { position: fixed; right: 16px; bottom: 16px; width: 460px; height: 320px; z-index: 40;
+              display: none; flex-direction: column; background: #0d1117; border: 1px solid #30363d;
+              border-radius: 10px; box-shadow: 0 8px 30px #0006; }
+  .logfloat.open { display: flex; }
+  .logfloat .loghead { color: #9aa4af; font-size: 12px; padding: 8px 12px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+  .logfloat .loghead button { background: #222; color: #ccc; border: 1px solid #444; border-radius: 5px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
+  #log { flex: 1; overflow: auto; white-space: pre-wrap; font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #c9d1d9; padding: 10px 12px; }
+  #log .stream { color: #7ee787; }
+  #log .info { color: #79c0ff; }
+  #log .final { color: #ffa657; }
+  #log .err { color: #ff7b72; }
+  #log .dim { color: #6e7681; }
+
+  @media (max-width: 980px) {
+    main { flex-direction: column; }
+    .sidecol { width: 100%; flex: 0 0 50%; border-left: none; border-top: 1px solid #e3e6ea; }
+    .chat { border-right: none; }
+    .logfloat { width: auto; left: 16px; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Knowledge Agent (DirectLine)</h1>
+    <span class="status" id="status">Connecting…</span>
+    <button id="logToggleBtn">☰ Log</button>
+    <button id="newConvBtn" disabled>+ New conversation</button>
+  </header>
+
+  <main>
+    <section class="chat">
+      <div class="messages" id="messages"></div>
+      <div class="composer">
+        <div class="composer-box">
+          <input id="msg" placeholder="Type a message…" disabled
+                 value="how to enter bios mode" />
+          <button id="sendBtn" disabled aria-label="Send message" title="Send">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 19V5" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M5 12l7-7 7 7" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="sidecol">
+      <div class="side-head">
+        <h2>Performance Benchmark</h2>
+        <button id="benchExportBtn">Export CSV</button>
+      </div>
+      <div class="side-body">
+        <details class="bm-config" open>
+          <summary>Configuration</summary>
+          <div class="cfgrow">
+            <label for="benchPrefix">Prefix — prepended to every question (optional)</label>
+            <input id="benchPrefix" type="text" placeholder="e.g. agent flow + generative answer: " value="" />
+          </div>
+          <div class="cfgrow">
+            <label>Questions (one per line) — sent in the CURRENT conversation</label>
+            <textarea id="benchQuestions">What is Lenovo AI Now, and what does it offer to users?
+What main functions does Lenovo AI Now provide for a PC user?
+Which two assistants are the core of Lenovo AI Now?
+How does Lenovo AI Now ensure privacy when processing data?
+What is the difference between Lenovo AI Now local processing and cloud-based AI processing?
+What are the key advantages of Lenovo AI PC compared to a traditional PC with cloud AI?
+What are the prerequisites for accessing Lenovo Learning Zone's Local AI mode?
+In what countries is Lenovo Learning Zone available?
+Which devices support the Lenovo Learning Zone application?
+How does Lenovo Learning Zone improve learning efficiency?
+What functionalities does the "Local Chat" feature provide?
+How does "Cloud Chat" differ from "Local Chat" in Lenovo AI Now?
+What are the daily usage limits of GPT-4O and GPT-4O mini in Cloud Chat?
+What is the purpose of the Lenovo AI Now Knowledge Assistant?
+What file formats can be imported to build a personal knowledge base in Lenovo AI Now?
+What is the maximum size supported for document and image files in Knowledge Assistant?
+How can users add documents to the Lenovo AI Now knowledge base from Windows Explorer?
+What features are available in PowerPoint when using the Lenovo AI Now extension?
+How does Lenovo AI Now handle Q&A based on the personal knowledge base?
+What is the function of prompt recommendations in Lenovo AI Now?
+What device details can PC Assistant provide to users?
+How can users change device settings using PC Assistant natural language input?
+What steps can PC Assistant take when troubleshooting device issues?
+How does Lena support integrate with Lenovo AI Now for extended help?
+Which app must be installed on a PC for PC Assistant to work properly?
+Where can you download the Lenovo AI Now installer if it is not pre-installed?
+How can a user uninstall Lenovo AI Now from their device?
+How can auto-update be configured for Lenovo AI Now?
+Which shortcut key opens the Mini Window feature in Lenovo AI Now by default?
+What steps should a user take during the first-time login to Lenovo AI Now?
+Why is the Mini Window feature useful in Lenovo AI Now?
+What resources are available under the “Explore” section in Lenovo AI Now?
+How can users provide feedback for Lenovo AI Now?
+Which AI-driven features does Lenovo Learning Zone provide to improve study productivity?
+How does Lenovo Learning Zone handle file size limits for AI Notes uploads?
+What languages are supported by Lenovo Learning Zone for AI Recording?
+How can users customize notes in Lenovo Learning Zone?
+What is the purpose of the AI Quiz feature in Lenovo Learning Zone?
+Which features of Lenovo Learning Zone require an internet connection?
+What measures does Lenovo employ to ensure user privacy in its AI applications?
+Where can users find detailed Lenovo privacy policy information?
+How is user data handled in Local AI mode compared to Cloud AI mode in Lenovo Learning Zone?
+What are the distinct Lenovo Yoga Smart Modes, and what scenarios are they designed for?
+How can Lenovo AI PC integrate multiple devices for collaboration?
+Which productivity tool allows quick note-taking on Yoga devices, even when the screen is locked?
+What function does presence detection serve on Lenovo PCs?
+How can the keyboard backlight brightness be adjusted on Lenovo Yoga devices?
+What is the Lenovo Smart Share feature, and how is it activated?
+How can Smart Connect unify different devices, and which devices are supported?
+How do Adaptive Refresh Rate, Smart Noise Canceling, and Eye Care Mode enhance the user experience on Lenovo AI PCs?</textarea>
+          </div>
+          <div class="cfgrow inline">
+            <label style="margin:0">Batches</label>
+            <input id="benchBatches" type="number" min="1" max="50" value="1" />
+            <span style="font-size:11px;color:#888">(repeats of the list)</span>
+          </div>
+        </details>
+
+        <div class="bm-run">
+          <button id="benchStartBtn">Run</button>
+          <div class="bm-prog"><i id="benchBar"></i></div>
+        </div>
+        <div class="bm-progtext" id="benchProgText" style="text-align:left">Enter the agent's ready state in chat, then Run.</div>
+
+        <div class="bm-metric">
+          <h3>Response time — TTFT vs full response (ms)</h3>
+          <div class="bm-legend">
+            <span><i class="sw" style="background:#2563eb"></i>TTFT (time to first token)</span>
+            <span><i class="sw" style="background:#7c3aed"></i>generation (Total − TTFT)</span>
+          </div>
+          <div class="bm-substat">TTFT</div>
+          <div class="bm-stats" id="bmTtftStats"></div>
+          <div class="bm-substat">Total</div>
+          <div class="bm-stats" id="bmTotalStats"></div>
+          <svg class="bm-chart" id="bmStackChart" viewBox="0 0 600 140" preserveAspectRatio="none"></svg>
+        </div>
+
+        <div class="bm-detail" id="bmDetail"></div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Floating, toggleable raw SSE log -->
+  <div class="logfloat" id="logFloat">
+    <div class="loghead">
+      <span>Raw DirectLine event log</span>
+      <span style="display:flex; gap:6px;">
+        <button id="copyLogBtn">copy</button>
+        <button id="clearLogBtn">clear</button>
+        <button id="closeLogBtn">close</button>
+      </span>
+    </div>
+    <div id="log"></div>
+  </div>
+
+<script type="module">
+import { getStreamInfo } from '../src/utils/streamingActivity.js';
+import { StreamAssembler } from '../src/components/directline/StreamAssembler.js';
+
+// ─────────────────────────────────────────────────────────────────────────
+// Config — DirectLine secret (standalone test page; no login required)
+// ─────────────────────────────────────────────────────────────────────────
+// The secret is NEVER hardcoded in source. It is provided at runtime via, in
+// priority order: a `?secret=` URL parameter, localStorage ('dl_secret'), or a
+// prompt. It is then cached in localStorage for subsequent reloads.
+// NOTE: embedding a DirectLine secret in client-side code is fine for a local
+// test page but NOT for production — there a server should exchange the secret
+// for a short-lived token.
+let DIRECTLINE_SECRET = '';
+const DIRECTLINE_BASE = 'https://directline.botframework.com/v3/directline';
+
+function resolveSecret({ interactive = false } = {}) {
+  if (DIRECTLINE_SECRET) return DIRECTLINE_SECRET;
+  const fromUrl = new URLSearchParams(location.search).get('secret');
+  if (fromUrl) { DIRECTLINE_SECRET = fromUrl.trim(); try { localStorage.setItem('dl_secret', DIRECTLINE_SECRET); } catch {} return DIRECTLINE_SECRET; }
+  let cached = '';
+  try { cached = localStorage.getItem('dl_secret') || ''; } catch {}
+  if (cached) { DIRECTLINE_SECRET = cached.trim(); return DIRECTLINE_SECRET; }
+  if (interactive) {
+    const entered = (window.prompt('Enter DirectLine secret for this test page:') || '').trim();
+    if (entered) { DIRECTLINE_SECRET = entered; try { localStorage.setItem('dl_secret', entered); } catch {} }
+  }
+  return DIRECTLINE_SECRET;
+}
+
+const $ = (id) => document.getElementById(id);
+const logEl = $('log');
+const messagesEl = $('messages');
+
+// Transport state
+let conversationId = null;   // DirectLine conversation id
+let dlToken = null;          // DirectLine token (returned by conversation start)
+let streamUrl = null;        // WebSocket stream URL
+let ws = null;               // active WebSocket
+let wsIntentionalClose = false;
+let watermark = null;        // last activity watermark (for reconnect)
+let refreshTimer = null;     // periodic token refresh
+const USER_ID = 'user-' + Math.random().toString(36).slice(2, 10);
+let busy = false;
+
+// Per-turn completion plumbing (resolves when the bot's reply finishes)
+let turnResolve = null, turnReject = null, turnTimeout = null, turnIdleTimer = null;
+let currentTurnActivityId = null;
+const TURN_TIMEOUT_MS = 90000;   // hard cap for a single turn
+const TURN_IDLE_MS = 700;        // idle gap after the final message = turn done
+
+// ── Logging ──
+function log(msg, cls = 'dim') {
+  const t = new Date().toLocaleTimeString('en-US', { hour12: false }) +
+            '.' + String(Date.now() % 1000).padStart(3, '0');
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = `[${t}] ${msg}`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function setStatus(html) { $('status').innerHTML = html; }
+
+// ── DirectLine REST helpers ──────────────────────────────────────────────
+async function dlStartConversation() {
+  const res = await fetch(`${DIRECTLINE_BASE}/conversations`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${DIRECTLINE_SECRET}` },
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`start HTTP ${res.status} ${res.statusText} — ${txt.slice(0, 200)}`);
+  }
+  return res.json(); // { conversationId, token, streamUrl, expires_in }
+}
+async function dlPostActivity(activity) {
+  const res = await fetch(`${DIRECTLINE_BASE}/conversations/${conversationId}/activities`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${dlToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(activity),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${res.statusText} — ${txt.slice(0, 200)}`);
+  }
+  return res.json(); // { id }
+}
+async function dlReconnect() {
+  // Obtain a fresh streamUrl for the existing conversation (token auth).
+  const url = `${DIRECTLINE_BASE}/conversations/${conversationId}` +
+              (watermark ? `?watermark=${encodeURIComponent(watermark)}` : '');
+  const res = await fetch(url, { headers: { 'Authorization': `Bearer ${dlToken}` } });
+  if (!res.ok) throw new Error(`reconnect HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.streamUrl) streamUrl = data.streamUrl;
+  return data;
+}
+async function dlRefreshToken() {
+  try {
+    const res = await fetch(`${DIRECTLINE_BASE}/tokens/refresh`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${dlToken}` },
+    });
+    if (res.ok) { const d = await res.json(); if (d.token) { dlToken = d.token; log('DirectLine token refreshed', 'dim'); } }
+  } catch (e) { log('token refresh failed: ' + e.message, 'err'); }
+}
+
+// ── WebSocket stream (DirectLine pushes ALL activities over one socket) ─────
+function openStream() {
+  return new Promise((resolve, reject) => {
+    wsIntentionalClose = false;
+    let opened = false;
+    ws = new WebSocket(streamUrl);
+    ws.onopen = () => { opened = true; log('WebSocket stream opened', 'dim'); resolve(); };
+    ws.onmessage = (evt) => {
+      if (!evt.data) return;                 // empty keep-alive frame
+      let payload;
+      try { payload = JSON.parse(evt.data); } catch { log('non-JSON WS frame skipped', 'err'); return; }
+      if (payload.watermark != null) watermark = payload.watermark;
+      const acts = Array.isArray(payload.activities) ? payload.activities : [];
+      for (const activity of acts) handleIncoming(activity);
+    };
+    ws.onerror = () => { if (!opened) reject(new Error('WebSocket failed to open')); };
+    ws.onclose = () => {
+      if (wsIntentionalClose) return;
+      log('⚠️ WebSocket closed — attempting reconnect…', 'err');
+      reconnectStream();
+    };
+  });
+}
+async function reconnectStream() {
+  try {
+    await dlReconnect();
+    await openStream();
+    log('WebSocket reconnected', 'dim');
+  } catch (e) {
+    log('reconnect failed: ' + e.message + ' — retrying in 3s', 'err');
+    setTimeout(reconnectStream, 3000);
+  }
+}
+function closeStream() {
+  wsIntentionalClose = true;
+  if (ws) { try { ws.close(); } catch {} ws = null; }
+}
+
+// ── Incoming activity routing ──────────────────────────────────────────────
+// DirectLine echoes the user's own posted activities back; skip them. Everything
+// else flows through the shared rendering pipeline (applyActivity), then we check
+// for end-of-turn to release sendMessage()/benchProbe().
+function handleIncoming(activity) {
+  if (!activity || !activity.type) return;
+  if (activity.from && activity.from.id === USER_ID) return; // our own echo
+  if (activity.type === 'message' || activity.type === 'typing') {
+    applyActivity(activity);
+    if (greetingResolve && (activity.text || '').length > 0) markGreetingArrived();
+    maybeEndTurn(activity);
+  }
+}
+// Greeting gate: the bot pushes its greeting asynchronously over the WebSocket
+// AFTER startConversation returns. Without waiting, the input is enabled first
+// and a user message can be sent before the greeting renders, putting the
+// greeting out of order. startConversation awaits this until the greeting (the
+// first bot text) arrives, or a short timeout elapses as a fallback.
+let greetingResolve = null;
+function waitForGreeting(timeoutMs) {
+  return new Promise(res => {
+    let done = false;
+    const finish = () => { if (done) return; done = true; greetingResolve = null; res(); };
+    greetingResolve = finish;
+    setTimeout(finish, timeoutMs);
+  });
+}
+function markGreetingArrived() { if (greetingResolve) greetingResolve(); }
+function maybeEndTurn(activity) {
+  const s = getStreamInfo(activity);
+  if (currentTurnActivityId && activity.replyToId && activity.replyToId !== currentTurnActivityId) return;
+  const isFinal = s.streamType === 'final' ||
+                  (activity.type === 'message' && s.streamType === undefined);
+  if (!isFinal) return;
+  // Debounce: the bot may follow a final message with suggested actions or a
+  // second message; wait a short idle gap, then consider the turn complete.
+  clearTimeout(turnIdleTimer);
+  turnIdleTimer = setTimeout(resolveTurn, TURN_IDLE_MS);
+}
+function waitForTurn() {
+  return new Promise((resolve, reject) => {
+    turnResolve = resolve; turnReject = reject;
+    turnTimeout = setTimeout(() => { rejectTurn(new Error('Turn timed out')); }, TURN_TIMEOUT_MS);
+  });
+}
+function resolveTurn() {
+  clearTimeout(turnTimeout); clearTimeout(turnIdleTimer);
+  turnEndTime = Date.now();   // freeze Total here (final + idle), excluding the typewriter animation
+  const r = turnResolve; turnResolve = null; turnReject = null;
+  currentTurnActivityId = null;
+  if (r) r();
+}
+function rejectTurn(err) {
+  clearTimeout(turnTimeout); clearTimeout(turnIdleTimer);
+  const j = turnReject; turnResolve = null; turnReject = null;
+  currentTurnActivityId = null;
+  if (j) j(err);
+}
+
+// ── Markdown rendering (marked + DOMPurify, with graceful fallback) ──
+// Remove unnecessary blank lines so loose lists render tight (no big gaps).
+function tidyMarkdown(text) {
+  const lines = String(text).split('\n');
+  const isListItem = (l) => /^[ \t]*(?:[-*+]|\d+[.)])\s+/.test(l);
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() === '') {
+      // Find previous and next non-blank lines.
+      let p = out.length - 1; while (p >= 0 && out[p].trim() === '') p--;
+      let n = i + 1; while (n < lines.length && lines[n].trim() === '') n++;
+      const prev = p >= 0 ? out[p] : '';
+      const next = n < lines.length ? lines[n] : '';
+      // Drop blank lines sitting between two list items (loose -> tight list).
+      if (isListItem(prev) && isListItem(next)) continue;
+      // Collapse runs of blank lines to a single one elsewhere.
+      if (out.length && out[out.length - 1].trim() === '') continue;
+    }
+    out.push(line);
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+function renderMarkdown(el, text) {
+  try {
+    if (window.marked && window.DOMPurify) {
+      const html = window.marked.parse(tidyMarkdown(text), { breaks: true, gfm: true });
+      el.innerHTML = window.DOMPurify.sanitize(html);
+      el.style.whiteSpace = '';        // rendered HTML → inherit normal whitespace
+      return;
+    }
+  } catch { /* fall through to plain text */ }
+  el.style.whiteSpace = 'pre-wrap';    // plain-text fallback → keep raw line breaks
+  el.textContent = text;
+}
+
+// ── Per-turn timing (TTFT + total response time) ──
+let turnStart = 0;        // ms when the user message was sent
+let turnEndTime = 0;      // ms when the turn concluded (final + idle), set in resolveTurn
+let ttft = null;          // ms to first content chunk/message
+let lastAnswerText = '';  // fallback for non-streaming final messages
+let turnWasStreamed = false;
+function markFirstToken() { if (ttft === null && turnStart) ttft = Date.now() - turnStart; }
+function fmtMs(ms) {
+  if (ms === null || ms === undefined) return '–';
+  if (ms < 1000) return `${ms} ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)} s`;
+  return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
+}
+function nowTime() { return new Date().toLocaleTimeString('en-US', { hour12: false }); }
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); }
+  catch { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch {} ta.remove(); }
+}
+
+// Build a metadata/actions row. `opts.kind` = 'user' | 'bot'.
+function buildMeta(opts) {
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  const parts = [];
+  if (opts.kind === 'bot') {
+    const time = document.createElement('span'); time.textContent = nowTime(); parts.push(time);
+    const t1 = document.createElement('span'); t1.innerHTML = `<span class="sp">TTFT</span> ${fmtMs(opts.ttft)}`; parts.push(t1);
+    const t2 = document.createElement('span'); t2.innerHTML = `<span class="sp">Total</span> ${fmtMs(opts.total)}`; parts.push(t2);
+  } else {
+    const time = document.createElement('span'); time.textContent = nowTime(); parts.push(time);
+  }
+  parts.forEach(p => meta.appendChild(p));
+  const copyBtn = document.createElement('button');
+  copyBtn.textContent = '⧉ Copy';
+  copyBtn.onclick = () => { copyText(opts.getText()); copyBtn.textContent = '✓ Copied'; setTimeout(() => copyBtn.textContent = '⧉ Copy', 1200); };
+  meta.appendChild(copyBtn);
+  if (opts.kind === 'user') {
+    const retryBtn = document.createElement('button');
+    retryBtn.textContent = '↻ Retry';
+    retryBtn.onclick = () => { if (!busy) sendMessage(opts.getText()); };
+    meta.appendChild(retryBtn);
+  }
+  return meta;
+}
+
+// ── Chat bubble helpers ──
+function addUserMessage(text) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msgwrap user';
+  const el = document.createElement('div');
+  el.className = 'msg user';
+  el.textContent = text; // user input stays literal
+  wrap.appendChild(el);
+  wrap.appendChild(buildMeta({ kind: 'user', getText: () => text }));
+  messagesEl.appendChild(wrap);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+// ── Informative steps: each on its own line, persistent, checked when done ──
+let currentStep = null;        // the pending step element for the active turn
+let lastStepText = null;       // dedupe consecutive identical informative texts
+function completePendingStep() {
+  if (currentStep) {
+    currentStep.classList.remove('pending');
+    currentStep.classList.add('done');
+    currentStep.querySelector('.mark').textContent = '✓';
+    currentStep = null;
+  }
+}
+function addInformativeStep(text) {
+  if (!text) return;
+  if (text === lastStepText) return;   // same status repeated — keep one line
+  completePendingStep();               // tick the previous step
+  lastStepText = text;
+  const el = document.createElement('div');
+  el.className = 'step pending';
+  const mark = document.createElement('span'); mark.className = 'mark';
+  const label = document.createElement('span'); label.textContent = text;
+  el.appendChild(mark); el.appendChild(label);
+  messagesEl.appendChild(el);
+  currentStep = el;
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+function finishSteps() {                // call when the answer starts/ends
+  completePendingStep();
+  lastStepText = null;
+}
+
+// ── Suggested actions + Adaptive Cards ──
+const AC_CARD_TYPE = 'application/vnd.microsoft.card.adaptive';
+
+function renderSuggestedActions(actions) {
+  if (!Array.isArray(actions) || actions.length === 0) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'suggested';
+  actions.forEach((a) => {
+    const btn = document.createElement('button');
+    btn.textContent = a.title || a.text || a.value || '(action)';
+    btn.onclick = () => {
+      if (busy) return;
+      wrap.classList.add('disabled'); // lock this set once one is chosen
+      const payload = a.value ?? a.text ?? a.title;
+      log(`suggestedAction clicked: ${a.type || 'imBack'} "${btn.textContent}"`, 'dim');
+      sendMessage(String(payload), btn.textContent);
+    };
+    wrap.appendChild(btn);
+  });
+  messagesEl.appendChild(wrap);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function renderAdaptiveCard(cardContent) {
+  const host = document.createElement('div');
+  host.className = 'ac-card';
+  try {
+    if (!window.AdaptiveCards) { host.textContent = '[Adaptive Card library not loaded]'; messagesEl.appendChild(host); return; }
+    const card = new window.AdaptiveCards.AdaptiveCard();
+    card.onExecuteAction = (action) => {
+      if (busy) return;
+      if (action instanceof window.AdaptiveCards.SubmitAction) {
+        const data = action.data || {};
+        log('adaptiveCard submit: ' + JSON.stringify(data), 'dim');
+        sendCardResponse(data);
+      } else if (action instanceof window.AdaptiveCards.OpenUrlAction && action.url) {
+        window.open(action.url, '_blank', 'noopener,noreferrer');
+      }
+    };
+    card.parse(cardContent);
+    const rendered = card.render();
+    host.appendChild(rendered);
+  } catch (e) {
+    host.textContent = '[Adaptive Card render error: ' + e.message + ']';
+    log('adaptiveCard render error: ' + e.message, 'err');
+  }
+  messagesEl.appendChild(host);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// Render attachments (adaptive cards) + suggested actions that ride along with
+// a bot message (final or non-streaming).
+function renderExtras(activity) {
+  const atts = activity.attachments;
+  if (Array.isArray(atts)) {
+    for (const att of atts) {
+      if (att && att.contentType === AC_CARD_TYPE && att.content) {
+        renderAdaptiveCard(att.content);
+        log(`attachment: adaptive card`, 'dim');
+      }
+    }
+  }
+  const sa = activity.suggestedActions;
+  if (sa && Array.isArray(sa.actions) && sa.actions.length) {
+    renderSuggestedActions(sa.actions);
+    log(`suggestedActions: ${sa.actions.length}`, 'dim');
+  }
+}
+
+// ── Per-turn streaming accumulator (early, known-good logic) ──
+const streams = new Map(); // assembler ref -> { text, shownLen, done, el, wrap }
+const assembler = new StreamAssembler();
+
+// ── Display layer: typewriter reveal (decoupled from network arrival) ──────
+// The transport layer accumulates the authoritative answer into st.text. This
+// reveal loop is purely visual: it advances st.shownLen toward st.text.length and
+// renders st.text.slice(0, shownLen). Driven by its own rAF (not chunk arrival),
+// the animation stays smooth whether the server streams token-by-token OR dumps
+// everything at once. It NEVER changes st.text, timing, or what benchmark reads.
+//
+// Industry best practices applied here:
+//  • Rate clamp — reveal at a comfortable ~REVEAL_CPS chars/sec (time-based, not
+//    per-frame count) so the text never blurs past too fast.
+//  • Catch-up floor — if a big backlog piles up (e.g. a one-shot final dump),
+//    drain it within MAX_DRAIN_MS so users never wait on the animation.
+//  • Early response — the first token shows on the very next frame (~16ms) after
+//    it arrives, preserving the visible "streaming starts early" benefit.
+//  • Word-boundary reveal — avoids flashing half-rendered markdown tokens.
+const REVEAL_CPS = 45;       // baseline reveal speed (characters per second)
+const MAX_DRAIN_MS = 1500;   // worst-case time to flush a large backlog
+const revealing = new Set();
+let revealRaf = 0;
+let revealLastTs = 0;
+function revealTick(ts) {
+  const dt = revealLastTs ? Math.min(100, ts - revealLastTs) : 16; // ms, clamp hitches
+  revealLastTs = ts;
+  revealRaf = 0;
+  let active = false;
+  for (const st of revealing) {
+    if (!st.el.isConnected) { revealing.delete(st); continue; }
+    const target = st.text.length;
+    if (st.shownLen < target) {
+      const backlog = target - st.shownLen;
+      // Baseline pace + a catch-up floor that guarantees the backlog drains
+      // within MAX_DRAIN_MS (so huge one-shot dumps don't crawl).
+      const basePace = REVEAL_CPS * dt / 1000;
+      const drainPace = backlog * dt / MAX_DRAIN_MS;
+      const step = Math.max(1, Math.ceil(Math.max(basePace, drainPace)));
+      let next = Math.min(target, st.shownLen + step);
+      // Reveal on word/whitespace boundaries to avoid flashing half-markdown.
+      if (next < target) {
+        const slice = st.text.slice(next, Math.min(target, next + 24));
+        const ws = slice.search(/\s/);
+        if (ws >= 0) next += ws; // extend to the next whitespace
+      }
+      st.shownLen = next;
+      renderMarkdown(st.el, st.text.slice(0, st.shownLen));
+    }
+    if (st.shownLen < st.text.length) active = true;
+    else if (st.done) { finalizeBubble(st); revealing.delete(st); }
+  }
+  if (active || revealing.size) {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    revealRaf = requestAnimationFrame(revealTick);
+  } else {
+    revealLastTs = 0; // reset cadence when idle
+  }
+}
+function scheduleReveal(st) {
+  revealing.add(st);
+  if (!revealRaf) { revealLastTs = 0; revealRaf = requestAnimationFrame(revealTick); }
+}
+// Called when a stream is complete (final received): mark done and let the
+// reveal loop play out the remainder, then finalize. Returns a Promise that
+// resolves once the bubble is fully rendered (animation drained), so callers
+// can wait for the typewriter to finish before proceeding (e.g. the benchmark
+// only sends the next question after the current answer has rendered).
+function completeReveal(st) {
+  st.done = true;
+  if (!st._donePromise) {
+    st._donePromise = new Promise(res => { st._doneResolve = res; });
+  }
+  if (st.shownLen >= st.text.length) { finalizeBubble(st); revealing.delete(st); }
+  else scheduleReveal(st);
+  return st._donePromise;
+}
+
+function finalizeBubble(st) {
+  if (st._finalized) return;
+  st._finalized = true;
+  renderMarkdown(st.el, st.text);   // guarantee the full authoritative text
+  st.el.classList.remove('streaming');
+  attachBotMeta(st);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  if (st._doneResolve) { st._doneResolve(); st._doneResolve = null; }
+}
+
+function botBubbleFor(streamId) {
+  let st = streams.get(streamId);
+  if (!st) {
+    const wrap = document.createElement('div');
+    wrap.className = 'msgwrap bot';
+    const el = document.createElement('div');
+    el.className = 'msg bot streaming';
+    wrap.appendChild(el);
+    messagesEl.appendChild(wrap);
+    st = { text: '', shownLen: 0, done: false, lastSeq: undefined, el, wrap, _key: streamId };
+    streams.set(streamId, st);
+  }
+  return st;
+}
+// Append the metadata row (time / TTFT / total / copy) under a bot bubble once.
+function attachBotMeta(st) {
+  if (!st || !st.wrap || st.wrap.querySelector('.meta')) return;
+  // Total is frozen at turn conclusion (final + idle), NOT when the typewriter
+  // animation finishes, so the metric reflects server response time only.
+  const endRef = turnEndTime || Date.now();
+  const total = turnStart ? endRef - turnStart : null;
+  st.wrap.appendChild(buildMeta({ kind: 'bot', ttft, total, getText: () => st.text }));
+}
+function applyActivity(activity) {
+  const s = getStreamInfo(activity);
+  const text = activity.text || '';
+
+  // RAW probe: log EVERY activity's stream classification BEFORE any branching,
+  // so missing deltas are immediately visible regardless of rendering.
+  log(`raw type=${activity.type} len=${text.length} streamType=${s.streamType ?? '-'} seq=${s.streamSequence ?? '-'} chunk=${s.chunkType ?? '-'}`,
+      s.streamType === 'streaming' ? 'stream' : (s.streamType === 'informative' ? 'info' : (s.streamType === 'final' ? 'final' : 'dim')));
+
+  const action = assembler.ingest(activity, s);
+
+  if (action.type === 'informative') { addInformativeStep(text); return; }
+
+  if (action.type === 'streamStart' || action.type === 'streamUpdate') {
+    turnWasStreamed = true;
+    const st = botBubbleFor(action.ref);
+    st.text = action.text || '';
+    if (st.text) markFirstToken();
+    scheduleReveal(st);
+    finishSteps();
+    return;
+  }
+
+  if (action.type === 'streamFinal') {
+    finishSteps();
+    markFirstToken();
+    const st = botBubbleFor(action.ref);
+    st.text = action.text || st.text;
+    lastAnswerText = st.text;
+    renderExtras(activity);
+    completeReveal(st);
+    log(`final streamId=${s.streamId} len=${text.length}`, 'final');
+    return;
+  }
+
+  if (action.type === 'fallbackSplit') {
+    finishSteps();
+    markFirstToken();
+    const st = botBubbleFor(action.ref);
+    st.text = action.text || st.text;
+    lastAnswerText = st.text;
+    completeReveal(st);
+    const fb = botBubbleFor(`fallback-${Date.now()}`);
+    fb.text = action.fallbackText || '';
+    renderExtras(activity);
+    completeReveal(fb);
+    log(`final (fallback split) streamId=${s.streamId} kept ${st.text.length}, fallback ${fb.text.length}`, 'final');
+    return;
+  }
+
+  if (action.type === 'streamCancelled') {
+    const st = streams.get(action.ref);
+    if (st) { st.wrap.remove(); streams.delete(action.ref); }
+    finishSteps();
+    return;
+  }
+
+  if (action.type === 'ignore') return;
+
+  if (action.type === 'passthrough') {
+    if (activity.type === 'message') {
+      if (text) {
+        markFirstToken();
+        const wrap = document.createElement('div');
+        wrap.className = 'msgwrap bot';
+        const el = document.createElement('div');
+        el.className = 'msg bot';
+        renderMarkdown(el, text);
+        lastAnswerText = lastAnswerText ? `${lastAnswerText}\n\n${text}` : text;
+        wrap.appendChild(el);
+        wrap.appendChild(buildMeta({ kind: 'bot', ttft, total: turnStart ? Date.now() - turnStart : null, getText: () => text }));
+        messagesEl.appendChild(wrap);
+      }
+      renderExtras(activity); // adaptive cards + suggested actions
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+    return;
+  }
+}
+
+// ── Conversation lifecycle ──
+async function startConversation() {
+  if (!resolveSecret({ interactive: true })) {
+    throw new Error('DirectLine secret required (add ?secret=… to the URL or enter it when prompted)');
+  }
+  closeStream();
+  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+  streams.clear(); assembler.reset();
+  conversationId = null; dlToken = null; streamUrl = null; watermark = null;
+  messagesEl.innerHTML = '';
+  currentStep = null; lastStepText = null;
+  setStatus('Starting conversation…');
+  log('POST /conversations (DirectLine)', 'dim');
+  const data = await dlStartConversation();
+  conversationId = data.conversationId;
+  dlToken = data.token || DIRECTLINE_SECRET;
+  streamUrl = data.streamUrl;
+  log(`conversation ${conversationId} — expires in ${data.expires_in ?? '?'}s`, 'dim');
+  if (!streamUrl) throw new Error('No streamUrl returned — streaming endpoint unavailable');
+  await openStream();
+  // Refresh the token periodically so long sessions don't expire.
+  refreshTimer = setInterval(dlRefreshToken, 15 * 60 * 1000);
+  // Trigger the bot greeting / topic and opt into Copilot Studio streaming over
+  // DirectLine. Without deliveryMode:"stream", DirectLine only returns the final
+  // message even when the agent-level streaming flag is enabled.
+  try {
+    await dlPostActivity({
+      type: 'event',
+      name: 'startConversation',
+      from: { id: USER_ID },
+      deliveryMode: 'stream',
+      entities: [{ type: 'ClientCapabilities', requiresBotState: true, supportsListening: true, supportsTts: true }],
+      value: {}
+    });
+  } catch (e) { log('startConversation event skipped: ' + e.message, 'dim'); }
+  // Wait for the greeting to render before enabling input, so the greeting
+  // always precedes the first user message (3s fallback if none arrives).
+  setStatus('Waiting for greeting…');
+  await waitForGreeting(3000);
+  setStatus(`Ready <span class="pill">${conversationId ? conversationId.slice(0, 8) : 'no-id'}</span>`);
+}
+
+async function sendMessage(text, displayLabel) {
+  if (busy) return;
+  busy = true; $('sendBtn').disabled = true; $('msg').disabled = true;
+  // New per-turn stream group + timing.
+  streams.clear(); assembler.reset();
+  turnStart = Date.now(); turnEndTime = 0; ttft = null; lastAnswerText = ''; turnWasStreamed = false;
+  addUserMessage(displayLabel || text);
+  setStatus('Streaming…');
+  let ok = false, error = null;
+  try {
+    const activity = { type: 'message', from: { id: USER_ID }, text, deliveryMode: 'stream' };
+    log(`POST activity "${text.slice(0, 60)}"`, 'dim');
+    const posted = await dlPostActivity(activity);
+    currentTurnActivityId = posted.id;
+    await waitForTurn();
+    await Promise.all([...streams.values()].map(st => completeReveal(st))); // wait for the typewriter to finish before this turn ends
+    ok = true;
+    setStatus(`Ready <span class="pill">${conversationId ? conversationId.slice(0, 8) : 'no-id'}</span>`);
+  } catch (e) {
+    error = e.message || String(e);
+    log('Send failed: ' + error, 'err');
+    setStatus(`<span class="pill err">error</span> click ↻ Retry`);
+  } finally {
+    // Manual turns count toward the benchmark too (batch = 'manual').
+    recordTurn(text, ok, error);
+    busy = false; $('sendBtn').disabled = false; $('msg').disabled = false; $('msg').focus();
+  }
+}
+
+// Send an Adaptive Card submit response (value carries the form data).
+async function sendCardResponse(value) {
+  if (busy) return;
+  busy = true; $('sendBtn').disabled = true; $('msg').disabled = true;
+  streams.clear(); assembler.reset();
+  turnStart = Date.now(); turnEndTime = 0; ttft = null; lastAnswerText = ''; turnWasStreamed = false;
+  addUserMessage('↪ ' + (value && Object.keys(value).length ? JSON.stringify(value) : '(card submitted)'));
+  setStatus('Streaming…');
+  try {
+    const activity = { type: 'message', from: { id: USER_ID }, value: value || {}, text: '', deliveryMode: 'stream' };
+    log(`POST activity (card response)`, 'dim');
+    const posted = await dlPostActivity(activity);
+    currentTurnActivityId = posted.id;
+    await waitForTurn();
+    await Promise.all([...streams.values()].map(st => completeReveal(st)));
+    setStatus(`Ready <span class="pill">${conversationId ? conversationId.slice(0, 8) : 'no-id'}</span>`);
+  } catch (e) {
+    log('Card response failed: ' + e.message, 'err');
+    setStatus(`<span class="pill err">error</span> ${e.message}`);
+  } finally {
+    busy = false; $('sendBtn').disabled = false; $('msg').disabled = false; $('msg').focus();
+  }
+}
+
+// ── Performance benchmark ──────────────────────────────────────────────────
+// Probes run IN THE CURRENT CONVERSATION through the REAL chat pipeline (the
+// user first navigates the agent into its ready state in chat). Each probe
+// sends ONE question — the question and its streamed answer appear live in the
+// conversation window — and measures:
+//   • TTFT  = time from the question send to the first ANSWER content
+//             (message/final/streaming chunk that carries text), excluding
+//             informative/typing steps (handled by markFirstToken).
+//   • total = time from the question send until the SSE stream closes.
+let benchRunning = false, benchAbort = false, benchRecords = [];
+
+// Build a benchmark record from the timing globals + rendered stream bubbles of
+// the turn that just finished. Shared by benchProbe (automated) and recordTurn
+// (manual sends), so manual chat turns also count toward the benchmark.
+function summarizeTurn(question, ok, error) {
+  // Total is frozen at turn conclusion (final + idle), excluding the typewriter
+  // animation, so the benchmark measures server response time only.
+  const endRef = turnEndTime || Date.now();
+  const total = turnStart ? endRef - turnStart : null;
+  const answer = Array.from(streams.values()).map(s => s.text).filter(Boolean).join('\n\n') || lastAnswerText;
+  const streamed = turnWasStreamed;
+  return {
+    question,
+    ttft: ttft === null ? null : Math.round(ttft),
+    total: total === null ? null : Math.round(total),
+    ok, error, answer, streamed
+  };
+}
+// Record a manual chat turn into the benchmark (skipped while a batch is running
+// to avoid interleaving). Refreshes the charts/detail immediately.
+function recordTurn(question, ok, error) {
+  if (benchRunning) return;
+  const rec = summarizeTurn(question, ok, error);
+  rec.batch = 'manual';
+  benchRecords.push(rec);
+  renderBenchResults();
+}
+
+async function benchProbe(text) {
+  // Reuse the exact manual-send pipeline so it renders into the live chat and
+  // shares the current conversation's topic context. Timing comes from the same
+  // globals the chat already maintains: turnStart + ttft (set by markFirstToken,
+  // which fires on the first ANSWER content and skips informative steps).
+  streams.clear(); assembler.reset();
+  turnStart = Date.now(); turnEndTime = 0; ttft = null; lastAnswerText = ''; turnWasStreamed = false;
+  addUserMessage(text);
+  let ok = false, error = null;
+  try {
+    const activity = { type: 'message', from: { id: USER_ID }, text, deliveryMode: 'stream' };
+    log(`POST activity (benchmark) "${text.slice(0, 40)}"`, 'dim');
+    const posted = await dlPostActivity(activity);
+    currentTurnActivityId = posted.id;
+    await waitForTurn();             // renders via applyActivity into the chat
+    await Promise.all([...streams.values()].map(st => completeReveal(st))); // wait for the typewriter to finish before the next probe
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    ok = true;
+  } catch (e) {
+    error = e.message || String(e);
+  }
+  return summarizeTurn(text, ok, error);
+}
+
+function percentile(sorted, p) {
+  if (!sorted.length) return null;
+  const idx = Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1);
+  return sorted[Math.max(0, idx)];
+}
+function summarize(values) {
+  const v = values.filter(x => x !== null && x !== undefined).sort((a, b) => a - b);
+  if (!v.length) return { count: 0, avg: null, p50: null, p90: null, min: null, max: null };
+  const sum = v.reduce((a, b) => a + b, 0);
+  return { count: v.length, avg: Math.round(sum / v.length), p50: percentile(v, 50), p90: percentile(v, 90), min: v[0], max: v[v.length - 1] };
+}
+function renderStats(elId, s) {
+  const fmt = (x) => x === null ? '–' : x.toLocaleString();
+  $(elId).innerHTML =
+    `<div class="bm-stat"><div class="v">${fmt(s.avg)}</div><div class="k">avg</div></div>` +
+    `<div class="bm-stat"><div class="v">${fmt(s.p50)}</div><div class="k">p50</div></div>` +
+    `<div class="bm-stat"><div class="v">${fmt(s.p90)}</div><div class="k">p90</div></div>` +
+    `<div class="bm-stat"><div class="v">${fmt(s.max)}</div><div class="k">max</div></div>`;
+}
+// Stacked bar chart: each bar = TTFT (blue, bottom) + generation gap (purple,
+// Total − TTFT, on top), so the full height is Total. Failures show a red stub.
+// p50/p90 guide lines reference the Total distribution.
+function renderStackedChart(svgId, records, sTotal) {
+  const svg = $(svgId);
+  const W = 600, H = 140, pad = 6;
+  const totals = records.map(r => (r.ok && r.total != null) ? r.total : 0);
+  const max = Math.max(1, ...totals, sTotal.p90 || 0);
+  const n = records.length || 1;
+  const bw = (W - pad * 2) / n;
+  const scale = (v) => (v / max) * (H - pad * 2);
+  let bars = '';
+  records.forEach((r, i) => {
+    const x = pad + i * bw, wbar = Math.max(1, bw - 2);
+    if (!r.ok || r.total == null) {
+      const h = scale(max * 0.04);
+      bars += `<rect x="${x + 1}" y="${H - pad - h}" width="${wbar}" height="${h}" fill="#d33" opacity=".5"></rect>`;
+      return;
+    }
+    const ttft = r.ttft == null ? 0 : r.ttft;
+    const gap = Math.max(0, r.total - ttft);
+    const ttftH = scale(ttft), gapH = scale(gap);
+    const yTtft = H - pad - ttftH;
+    bars += `<rect x="${x + 1}" y="${yTtft}" width="${wbar}" height="${ttftH}" fill="#2563eb" opacity=".9"></rect>`;
+    bars += `<rect x="${x + 1}" y="${yTtft - gapH}" width="${wbar}" height="${gapH}" fill="#7c3aed" opacity=".75"></rect>`;
+  });
+  const line = (v, c, label) => {
+    if (v === null) return '';
+    const y = H - pad - scale(v);
+    return `<line x1="${pad}" y1="${y}" x2="${W - pad}" y2="${y}" stroke="${c}" stroke-width="1" stroke-dasharray="4 3"></line>` +
+           `<text x="${W - pad - 2}" y="${y - 2}" font-size="9" fill="${c}" text-anchor="end">${label} ${v.toLocaleString()}</text>`;
+  };
+  svg.innerHTML = bars + line(sTotal.p50, '#16a34a', 'p50') + line(sTotal.p90, '#ea580c', 'p90');
+}
+function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function renderBenchResults() {
+  const okTtft = benchRecords.filter(r => r.ok).map(r => r.ttft);
+  const okTotal = benchRecords.filter(r => r.ok).map(r => r.total);
+  const st = summarize(okTtft), su = summarize(okTotal);
+  renderStats('bmTtftStats', st);
+  renderStats('bmTotalStats', su);
+  renderStackedChart('bmStackChart', benchRecords, su);
+  // Detail cards (newest first) with expandable answers.
+  $('bmDetail').innerHTML = benchRecords.map((r, i) => {
+    const status = r.ok ? `<span class="st-ok">ok${r.streamed ? ' · streamed' : ''}</span>` : `<span class="st-fail">${esc(r.error || 'fail')}</span>`;
+    const ans = r.answer
+      ? `<details><summary>answer (${r.answer.length} chars)</summary><div class="answer">${esc(r.answer)}</div></details>`
+      : `<div style="font-size:11px;color:#9aa0a6">no answer captured</div>`;
+    return `<div class="bm-card ${r.ok ? '' : 'failrow'}">
+      <div class="top"><span class="idx">#${i + 1}</span><span>batch ${r.batch}</span>
+        <span class="nums"><span>TTFT <b>${r.ttft ?? '–'}</b></span><span>Total <b>${r.total ?? '–'}</b></span></span></div>
+      <div class="q">${esc(r.question)}</div>
+      <div>${status}</div>
+      ${ans}
+    </div>`;
+  }).reverse().join('');
+}
+async function runBenchmark() {
+  if (benchRunning) return;
+  const prefix = $('benchPrefix').value;
+  const questions = $('benchQuestions').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const batches = Math.max(1, Math.min(50, parseInt($('benchBatches').value, 10) || 1));
+  if (!questions.length) { alert('Add at least one question.'); return; }
+  if (!conversationId) {
+    $('benchProgText').textContent = 'No conversation — start one in chat and reach the ready state first.';
+    return;
+  }
+  if (busy) { $('benchProgText').textContent = 'Chat is busy — wait for the current response to finish.'; return; }
+
+  benchRunning = true; benchAbort = false; benchRecords = []; busy = true;
+  $('benchStartBtn').textContent = 'Stop'; $('benchStartBtn').classList.add('stop');
+  $('sendBtn').disabled = true; $('msg').disabled = true;
+  const total = questions.length * batches;
+  let done = 0;
+  const tick = () => { $('benchBar').style.width = `${(done / total) * 100}%`; };
+
+  try {
+    for (let b = 1; b <= batches && !benchAbort; b++) {
+      for (const q of questions) {
+        if (benchAbort) break;
+        $('benchProgText').textContent = `Running ${done + 1}/${total} · batch ${b} · ${q.slice(0, 40)}…`;
+        const sendText = prefix ? prefix + q : q;   // prepend the optional prefix
+        const rec = await benchProbe(sendText);
+        rec.batch = b; rec.question = q;            // keep the clean question for display
+        benchRecords.push(rec);
+        done++; tick(); renderBenchResults();
+      }
+    }
+    $('benchProgText').textContent = benchAbort ? `Stopped — ${done}/${total} done` : `Done — ${done}/${total}`;
+  } catch (e) {
+    $('benchProgText').textContent = 'Error: ' + (e.message || e);
+  } finally {
+    benchRunning = false; busy = false;
+    $('benchStartBtn').textContent = 'Run'; $('benchStartBtn').classList.remove('stop'); $('benchStartBtn').disabled = false;
+    $('sendBtn').disabled = false; $('msg').disabled = false;
+    renderBenchResults();
+  }
+}
+function exportBenchCsv() {
+  if (!benchRecords.length) return;
+  const head = 'index,question,batch,ttft_ms,total_ms,streamed,status,answer\n';
+  const csvCell = (s) => '"' + String(s ?? '').replace(/"/g, '""') + '"';
+  const body = benchRecords.map((r, i) =>
+    [i + 1, csvCell(r.question), r.batch, r.ttft ?? '', r.total ?? '', r.streamed ? 'yes' : 'no',
+     r.ok ? 'ok' : (r.error || 'fail'), csvCell(r.answer)].join(',')).join('\n');
+  const blob = new Blob([head + body], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `d2e-benchmark-${Date.now()}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ── Wire up ──
+$('sendBtn').onclick = () => { const t = $('msg').value.trim(); if (t) { $('msg').value = ''; sendMessage(t); } };
+$('msg').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); $('sendBtn').click(); } });
+$('newConvBtn').onclick = async () => {
+  if (busy) return;
+  $('newConvBtn').disabled = true;
+  try {
+    await startConversation();
+    $('msg').disabled = false; $('sendBtn').disabled = false; $('msg').focus();
+  }
+  catch (e) { log('New conversation failed: ' + e.message, 'err'); setStatus(`<span class="pill err">error</span> ${e.message}`); }
+  finally { $('newConvBtn').disabled = false; }
+};
+$('clearLogBtn').onclick = () => { logEl.innerHTML = ''; };
+$('copyLogBtn').onclick = async () => {
+  const btn = $('copyLogBtn');
+  await copyText(logEl.innerText);
+  btn.textContent = 'copied'; setTimeout(() => btn.textContent = 'copy', 1200);
+};
+// Floating log toggle
+$('logToggleBtn').onclick = () => { $('logFloat').classList.toggle('open'); };
+$('closeLogBtn').onclick = () => { $('logFloat').classList.remove('open'); };
+// Benchmark (in the sidebar)
+$('benchStartBtn').onclick = () => {
+  if (benchRunning) {
+    benchAbort = true;
+    // The current probe is mid-flight (one full Q&A can take 10s+); give instant
+    // feedback so the click clearly registers, then stop after it finishes.
+    const btn = $('benchStartBtn');
+    btn.textContent = 'Stopping…'; btn.disabled = true;
+    $('benchProgText').textContent = 'Stopping — finishing the current question…';
+  } else {
+    runBenchmark();
+  }
+};
+$('benchExportBtn').onclick = exportBenchCsv;
+
+// ── Boot: connect to DirectLine and start streaming ──
+(async () => {
+  if (!resolveSecret()) {
+    setStatus('Enter a DirectLine secret — click “+ New conversation” (or add <code>?secret=…</code> to the URL)');
+    $('newConvBtn').disabled = false;
+    return;
+  }
+  try {
+    setStatus('Connecting…');
+    await startConversation();
+    $('msg').disabled = false; $('sendBtn').disabled = false; $('newConvBtn').disabled = false;
+    $('msg').focus();
+  } catch (e) {
+    log('Init failed: ' + e.message, 'err');
+    setStatus(`<span class="pill err">error</span> ${e.message}`);
+    $('newConvBtn').disabled = false; // allow retry via the button
+  }
+})();
+</script>
+</body>
+</html>
