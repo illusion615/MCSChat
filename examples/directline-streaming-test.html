@@ -318,27 +318,93 @@ import { StreamAssembler } from '../src/components/directline/StreamAssembler.js
 // ─────────────────────────────────────────────────────────────────────────
 // Config — DirectLine secret (standalone test page; no login required)
 // ─────────────────────────────────────────────────────────────────────────
-// The secret is NEVER hardcoded in source. It is provided at runtime via, in
-// priority order: a `?secret=` URL parameter, localStorage ('dl_secret'), or a
-// prompt. It is then cached in localStorage for subsequent reloads.
-// NOTE: embedding a DirectLine secret in client-side code is fine for a local
-// test page but NOT for production — there a server should exchange the secret
-// for a short-lived token.
-let DIRECTLINE_SECRET = '';
+// The raw secret is NEVER hardcoded in source. Instead an AES-GCM ciphertext
+// (encrypted under a passphrase YOU choose) may be committed below — it is
+// opaque and useless to anyone who reads the repo, because the passphrase is
+// never committed (it lives only in your browser's localStorage). Trade-off:
+// someone with access to THIS browser's localStorage (where the passphrase is
+// cached for convenience) can still decrypt — acceptable for a local test page.
+//
+// First run: click “+ New conversation”, paste the raw secret + choose a
+// passphrase once. The page encrypts it, caches the passphrase locally (so you
+// never retype it), and prints the ciphertext blob to the console — paste that
+// blob into ENCRYPTED_SECRET below to commit it for use on any machine.
+let DIRECTLINE_SECRET = '';               // decrypted, in-memory only
+const ENCRYPTED_SECRET = '';              // paste AES-GCM blob here to commit it
 const DIRECTLINE_BASE = 'https://directline.botframework.com/v3/directline';
 
-function resolveSecret({ interactive = false } = {}) {
+// ── Crypto helpers (WebCrypto AES-GCM 256 + PBKDF2-SHA256) ──
+const _td = new TextDecoder();
+const _te = new TextEncoder();
+const _b64e = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const _b64d = (str) => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+async function _deriveKey(passphrase, salt) {
+  const base = await crypto.subtle.importKey('raw', _te.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function encryptSecretBlob(plain, passphrase) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await _deriveKey(passphrase, salt);
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, _te.encode(plain));
+  const out = new Uint8Array(16 + 12 + ct.byteLength);
+  out.set(salt, 0); out.set(iv, 16); out.set(new Uint8Array(ct), 28);
+  return _b64e(out);
+}
+async function decryptSecretBlob(blob, passphrase) {
+  const raw = _b64d(blob);
+  const key = await _deriveKey(passphrase, raw.slice(0, 16));
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.slice(16, 28) }, key, raw.slice(28));
+  return _td.decode(pt);
+}
+
+async function resolveSecret({ interactive = false } = {}) {
   if (DIRECTLINE_SECRET) return DIRECTLINE_SECRET;
+
+  // Dev override: ?secret=… (this load only; never persisted in plaintext).
   const fromUrl = new URLSearchParams(location.search).get('secret');
-  if (fromUrl) { DIRECTLINE_SECRET = fromUrl.trim(); try { localStorage.setItem('dl_secret', DIRECTLINE_SECRET); } catch {} return DIRECTLINE_SECRET; }
-  let cached = '';
-  try { cached = localStorage.getItem('dl_secret') || ''; } catch {}
-  if (cached) { DIRECTLINE_SECRET = cached.trim(); return DIRECTLINE_SECRET; }
-  if (interactive) {
-    const entered = (window.prompt('Enter DirectLine secret for this test page:') || '').trim();
-    if (entered) { DIRECTLINE_SECRET = entered; try { localStorage.setItem('dl_secret', entered); } catch {} }
+  if (fromUrl) { DIRECTLINE_SECRET = fromUrl.trim(); return DIRECTLINE_SECRET; }
+
+  // Encrypted path: ciphertext (committed constant or local) + passphrase (local only).
+  const blob = ENCRYPTED_SECRET || (() => { try { return localStorage.getItem('dl_enc') || ''; } catch { return ''; } })();
+  if (blob) {
+    let pass = '';
+    try { pass = localStorage.getItem('dl_pass') || ''; } catch {}
+    const maxTries = interactive ? 3 : 1;
+    for (let i = 0; i < maxTries; i++) {
+      if (!pass) {
+        if (!interactive) break;
+        pass = (window.prompt('Enter passphrase to unlock the DirectLine secret:') || '').trim();
+        if (!pass) break;
+      }
+      try {
+        DIRECTLINE_SECRET = await decryptSecretBlob(blob, pass);
+        try { localStorage.setItem('dl_pass', pass); } catch {}
+        return DIRECTLINE_SECRET;
+      } catch {
+        try { localStorage.removeItem('dl_pass'); } catch {}
+        pass = '';
+        if (interactive) window.alert('Wrong passphrase — try again.');
+      }
+    }
+    return '';
   }
-  return DIRECTLINE_SECRET;
+
+  // No secret stored yet → first-time setup (encrypt locally).
+  if (interactive) {
+    const raw = (window.prompt('No stored secret. Paste your DirectLine secret to encrypt & store:') || '').trim();
+    if (!raw) return '';
+    const pass = (window.prompt('Choose a passphrase to encrypt it (you set it — it is never committed):') || '').trim();
+    if (!pass) return '';
+    const newBlob = await encryptSecretBlob(raw, pass);
+    try { localStorage.setItem('dl_enc', newBlob); localStorage.setItem('dl_pass', pass); } catch {}
+    DIRECTLINE_SECRET = raw;
+    console.log('🔒 Encrypted DirectLine secret — paste this into ENCRYPTED_SECRET to commit it:\n' + newBlob);
+    return DIRECTLINE_SECRET;
+  }
+  return '';
 }
 
 const $ = (id) => document.getElementById(id);
@@ -900,7 +966,7 @@ function applyActivity(activity) {
 
 // ── Conversation lifecycle ──
 async function startConversation() {
-  if (!resolveSecret({ interactive: true })) {
+  if (!(await resolveSecret({ interactive: true }))) {
     throw new Error('DirectLine secret required (add ?secret=… to the URL or enter it when prompted)');
   }
   closeStream();
@@ -1226,7 +1292,7 @@ $('benchExportBtn').onclick = exportBenchCsv;
 
 // ── Boot: connect to DirectLine and start streaming ──
 (async () => {
-  if (!resolveSecret()) {
+  if (!(await resolveSecret())) {
     setStatus('Enter a DirectLine secret — click “+ New conversation” (or add <code>?secret=…</code> to the URL)');
     $('newConvBtn').disabled = false;
     return;
