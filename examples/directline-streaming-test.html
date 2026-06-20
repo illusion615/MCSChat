@@ -1258,7 +1258,9 @@ $('sendBtn').onclick = () => { const t = $('msg').value.trim(); if (t) { $('msg'
 $('msg').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); $('sendBtn').click(); } });
 $('newConvBtn').onclick = async () => {
   if (busy) return;
-  $('newConvBtn').disabled = true;
+  // Disable input + send during (re)connection so a message cannot be posted to
+  // a half-initialized conversation (which fails with HTTP 403 invalid token).
+  $('newConvBtn').disabled = true; $('msg').disabled = true; $('sendBtn').disabled = true;
   try {
     await startConversation();
     $('msg').disabled = false; $('sendBtn').disabled = false; $('msg').focus();
