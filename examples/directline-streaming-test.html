@@ -622,6 +622,7 @@ let turnEndTime = 0;      // ms when the turn concluded (final + idle), set in r
 let ttft = null;          // ms to first content chunk/message
 let lastAnswerText = '';  // fallback for non-streaming final messages
 let turnWasStreamed = false;
+let turnChunkCount = 0;   // streaming chunks observed this turn (0 = one-shot)
 function markFirstToken() { if (ttft === null && turnStart) ttft = Date.now() - turnStart; }
 function fmtMs(ms) {
   if (ms === null || ms === undefined) return '–';
@@ -899,6 +900,7 @@ function applyActivity(activity) {
 
   if (action.type === 'streamStart' || action.type === 'streamUpdate') {
     turnWasStreamed = true;
+    turnChunkCount++;
     const st = botBubbleFor(action.ref);
     st.text = action.text || '';
     if (st.text) markFirstToken();
@@ -1010,8 +1012,12 @@ async function sendMessage(text, displayLabel) {
   if (busy) return;
   busy = true; $('sendBtn').disabled = true; $('msg').disabled = true;
   // New per-turn stream group + timing.
-  streams.clear(); assembler.reset();
-  turnStart = Date.now(); turnEndTime = 0; ttft = null; lastAnswerText = ''; turnWasStreamed = false;
+  // NOTE: do NOT reset the assembler per turn — it must keep its finalized-
+  // streamId tombstones for the whole conversation, otherwise trailing chunks
+  // the server emits AFTER a turn's `final` would be treated as a new stream
+  // and render as a rogue bubble under the NEXT question.
+  streams.clear();
+  turnStart = Date.now(); turnEndTime = 0; ttft = null; lastAnswerText = ''; turnWasStreamed = false; turnChunkCount = 0;
   addUserMessage(displayLabel || text);
   setStatus('Streaming…');
   let ok = false, error = null;
@@ -1039,8 +1045,8 @@ async function sendMessage(text, displayLabel) {
 async function sendCardResponse(value) {
   if (busy) return;
   busy = true; $('sendBtn').disabled = true; $('msg').disabled = true;
-  streams.clear(); assembler.reset();
-  turnStart = Date.now(); turnEndTime = 0; ttft = null; lastAnswerText = ''; turnWasStreamed = false;
+  streams.clear(); // assembler persists across turns (keeps streamId tombstones)
+  turnStart = Date.now(); turnEndTime = 0; ttft = null; lastAnswerText = ''; turnWasStreamed = false; turnChunkCount = 0;
   addUserMessage('↪ ' + (value && Object.keys(value).length ? JSON.stringify(value) : '(card submitted)'));
   setStatus('Streaming…');
   try {
@@ -1084,7 +1090,7 @@ function summarizeTurn(question, ok, error) {
     question,
     ttft: ttft === null ? null : Math.round(ttft),
     total: total === null ? null : Math.round(total),
-    ok, error, answer, streamed
+    ok, error, answer, streamed, chunks: turnChunkCount
   };
 }
 // Record a manual chat turn into the benchmark (skipped while a batch is running
@@ -1102,8 +1108,8 @@ async function benchProbe(text) {
   // shares the current conversation's topic context. Timing comes from the same
   // globals the chat already maintains: turnStart + ttft (set by markFirstToken,
   // which fires on the first ANSWER content and skips informative steps).
-  streams.clear(); assembler.reset();
-  turnStart = Date.now(); turnEndTime = 0; ttft = null; lastAnswerText = ''; turnWasStreamed = false;
+  streams.clear(); // assembler persists across turns (keeps streamId tombstones)
+  turnStart = Date.now(); turnEndTime = 0; ttft = null; lastAnswerText = ''; turnWasStreamed = false; turnChunkCount = 0;
   addUserMessage(text);
   let ok = false, error = null;
   try {
@@ -1184,7 +1190,8 @@ function renderBenchResults() {
   renderStackedChart('bmStackChart', benchRecords, su);
   // Detail cards (newest first) with expandable answers.
   $('bmDetail').innerHTML = benchRecords.map((r, i) => {
-    const status = r.ok ? `<span class="st-ok">ok${r.streamed ? ' · streamed' : ''}</span>` : `<span class="st-fail">${esc(r.error || 'fail')}</span>`;
+    const mode = r.streamed ? `streamed (${r.chunks} chunks)` : 'one-shot';
+    const status = r.ok ? `<span class="st-ok">ok · ${mode}</span>` : `<span class="st-fail">${esc(r.error || 'fail')}</span>`;
     const ans = r.answer
       ? `<details><summary>answer (${r.answer.length} chars)</summary><div class="answer">${esc(r.answer)}</div></details>`
       : `<div style="font-size:11px;color:#9aa0a6">no answer captured</div>`;
@@ -1240,10 +1247,10 @@ async function runBenchmark() {
 }
 function exportBenchCsv() {
   if (!benchRecords.length) return;
-  const head = 'index,question,batch,ttft_ms,total_ms,streamed,status,answer\n';
+  const head = 'index,question,batch,ttft_ms,total_ms,streamed,chunks,status,answer\n';
   const csvCell = (s) => '"' + String(s ?? '').replace(/"/g, '""') + '"';
   const body = benchRecords.map((r, i) =>
-    [i + 1, csvCell(r.question), r.batch, r.ttft ?? '', r.total ?? '', r.streamed ? 'yes' : 'no',
+    [i + 1, csvCell(r.question), r.batch, r.ttft ?? '', r.total ?? '', r.streamed ? 'yes' : 'no', r.chunks ?? 0,
      r.ok ? 'ok' : (r.error || 'fail'), csvCell(r.answer)].join(',')).join('\n');
   const blob = new Blob([head + body], { type: 'text/csv' });
   const a = document.createElement('a');
