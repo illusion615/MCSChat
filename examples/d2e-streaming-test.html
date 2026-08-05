@@ -25,6 +25,11 @@
   }
   header h1 { font-size: 1rem; margin: 0; flex: 0 0 auto; }
   header .status { font-size: 12px; color: #666; flex: 1; }
+  .agent-picker { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #555; }
+  .agent-picker select {
+    max-width: 230px; padding: 5px 8px; border: 1px solid #aaa; border-radius: 4px;
+    background: #fff; color: #111; font-size: 12px;
+  }
   header button {
     padding: 6px 12px; cursor: pointer; border-radius: 6px;
     border: 1px solid #888; background: #f3f3f3; font-size: 13px;
@@ -183,6 +188,12 @@
   <header>
     <h1>Knowledge Agent (D2E)</h1>
     <span class="status" id="status">Connecting…</span>
+    <label class="agent-picker">Agent
+      <select id="agentSelect">
+        <option value="classic">Knowledge Agent (classic)</option>
+        <option value="new">Knowledge Agent (New Copilot)</option>
+      </select>
+    </label>
     <button id="logToggleBtn">☰ Log</button>
     <button id="newConvBtn" disabled>+ New conversation</button>
   </header>
@@ -321,8 +332,13 @@ const CFG = {
   appClientId:   '2758dee8-52ea-47c9-bcd1-5be0443f27a7',
   tenantId:      '899aca58-7bdc-45e9-bec6-1cc9d3f12894',
   environmentId: '448464af-64af-ec92-a521-6d203cf6811d',
-  schemaName:    'biz_knowledgeAgent',
 };
+const AGENTS = Object.freeze({
+  classic: Object.freeze({ label: 'Knowledge Agent (classic)', schemaName: 'biz_knowledgeAgent' }),
+  new: Object.freeze({ label: 'Knowledge Agent (New Copilot)', schemaName: 'Default_KnowledgeAgentNewCopilot_sodjEw' }),
+});
+let activeAgentKey = new URLSearchParams(window.location.search).get('agent') === 'new' ? 'new' : 'classic';
+const activeAgent = () => AGENTS[activeAgentKey];
 const POWER_PLATFORM_SCOPE = 'https://api.powerplatform.com/.default';
 const API_VERSION = '2022-03-01-preview';
 
@@ -352,7 +368,7 @@ function environmentHost(environmentId) {
   return `https://${hexPrefix}.${hexSuffix}.environment.api.powerplatform.com`;
 }
 function conversationsUrl(convId) {
-  let path = `/copilotstudio/dataverse-backed/authenticated/bots/${CFG.schemaName}/conversations`;
+  let path = `/copilotstudio/dataverse-backed/authenticated/bots/${activeAgent().schemaName}/conversations`;
   if (convId) path += `/${convId}`;
   return `${environmentHost(CFG.environmentId)}${path}?api-version=${API_VERSION}`;
 }
@@ -693,7 +709,7 @@ function botBubbleFor(streamId) {
     el.className = 'msg bot streaming';
     wrap.appendChild(el);
     messagesEl.appendChild(wrap);
-    st = { text: '', shownLen: 0, done: false, lastSeq: undefined, el, wrap };
+    st = { text: '', shownLen: 0, done: false, lastSeq: undefined, chunkCount: 0, el, wrap };
     streams.set(streamId, st);
   }
   return st;
@@ -752,6 +768,7 @@ function applyActivity(activity) {
   const st = botBubbleFor(streamId);
   if (seq !== undefined && st.lastSeq !== undefined && seq <= st.lastSeq) return; // out-of-order drop
   if (seq !== undefined) st.lastSeq = seq;
+  st.chunkCount++;
   const acc = st.text;
   if (!text) { /* contentless */ }
   else if (s.chunkType === 'delta') st.text = acc + text;        // authoritative delta
@@ -836,12 +853,12 @@ async function startConversation() {
   conversationId = null;
   messagesEl.innerHTML = '';
   currentStep = null; lastStepText = null;
-  setStatus('Starting conversation…');
+  setStatus(`Starting ${activeAgent().label}…`);
   const url = conversationsUrl();
   log(`POST ${url}`, 'dim');
   const res = await post(url, { emitStartConversationEvent: true });
   await consumeSSE(res);
-  setStatus(`Ready <span class="pill">${conversationId ? conversationId.slice(0, 8) : 'no-id'}</span>`);
+  setStatus(`${activeAgent().label} · Ready <span class="pill">${conversationId ? conversationId.slice(0, 8) : 'no-id'}</span>`);
 }
 
 async function sendMessage(text, displayLabel) {
@@ -917,12 +934,13 @@ let benchRunning = false, benchAbort = false, benchRecords = [];
 function summarizeTurn(question, ok, error) {
   const total = turnStart ? Date.now() - turnStart : null;
   const answer = Array.from(streams.values()).map(s => s.text).filter(Boolean).join('\n\n');
-  const streamed = ttft !== null && total !== null && (total - ttft > 50) && !!answer;
+  const chunks = Array.from(streams.values()).reduce((sum, stream) => sum + stream.chunkCount, 0);
+  const streamed = chunks > 1;
   return {
     question,
     ttft: ttft === null ? null : Math.round(ttft),
     total: total === null ? null : Math.round(total),
-    ok, error, answer, streamed
+    ok, error, answer, streamed, chunks
   };
 }
 // Record a manual chat turn into the benchmark (skipped while a batch is running
@@ -1022,7 +1040,8 @@ function renderBenchResults() {
   renderStackedChart('bmStackChart', benchRecords, su);
   // Detail cards (newest first) with expandable answers.
   $('bmDetail').innerHTML = benchRecords.map((r, i) => {
-    const status = r.ok ? `<span class="st-ok">ok${r.streamed ? ' · streamed' : ''}</span>` : `<span class="st-fail">${esc(r.error || 'fail')}</span>`;
+    const delivery = r.streamed ? `streamed (${r.chunks} chunks)` : `one-shot (${r.chunks} chunks)`;
+    const status = r.ok ? `<span class="st-ok">ok · ${delivery}</span>` : `<span class="st-fail">${esc(r.error || 'fail')}</span>`;
     const ans = r.answer
       ? `<details><summary>answer (${r.answer.length} chars)</summary><div class="answer">${esc(r.answer)}</div></details>`
       : `<div style="font-size:11px;color:#9aa0a6">no answer captured</div>`;
@@ -1078,10 +1097,10 @@ async function runBenchmark() {
 }
 function exportBenchCsv() {
   if (!benchRecords.length) return;
-  const head = 'index,question,batch,ttft_ms,total_ms,streamed,status,answer\n';
+  const head = 'index,question,batch,ttft_ms,total_ms,streamed,chunks,status,answer\n';
   const csvCell = (s) => '"' + String(s ?? '').replace(/"/g, '""') + '"';
   const body = benchRecords.map((r, i) =>
-    [i + 1, csvCell(r.question), r.batch, r.ttft ?? '', r.total ?? '', r.streamed ? 'yes' : 'no',
+    [i + 1, csvCell(r.question), r.batch, r.ttft ?? '', r.total ?? '', r.streamed ? 'yes' : 'no', r.chunks,
      r.ok ? 'ok' : (r.error || 'fail'), csvCell(r.answer)].join(',')).join('\n');
   const blob = new Blob([head + body], { type: 'text/csv' });
   const a = document.createElement('a');
@@ -1092,6 +1111,35 @@ function exportBenchCsv() {
 }
 
 // ── Wire up ──
+$('agentSelect').value = activeAgentKey;
+$('agentSelect').onchange = async (event) => {
+  const previousAgentKey = activeAgentKey;
+  if (busy || benchRunning) { event.target.value = previousAgentKey; return; }
+
+  activeAgentKey = event.target.value;
+  const params = new URLSearchParams(window.location.search);
+  if (activeAgentKey === 'classic') params.delete('agent'); else params.set('agent', activeAgentKey);
+  history.replaceState(null, '', `${window.location.pathname}${params.size ? `?${params}` : ''}${window.location.hash}`);
+
+  benchRecords = [];
+  renderBenchResults();
+  $('benchProgText').textContent = `Selected ${activeAgent().label}.`;
+  if (!account) { setStatus(`Selected ${activeAgent().label} · click “+ New conversation” to sign in`); return; }
+
+  busy = true;
+  $('agentSelect').disabled = true; $('newConvBtn').disabled = true;
+  $('msg').disabled = true; $('sendBtn').disabled = true;
+  try {
+    await startConversation();
+    $('msg').disabled = false; $('sendBtn').disabled = false; $('msg').focus();
+  } catch (e) {
+    log(`Agent switch failed: ${e.message}`, 'err');
+    setStatus(`<span class="pill err">error</span> ${e.message}`);
+  } finally {
+    busy = false;
+    $('agentSelect').disabled = false; $('newConvBtn').disabled = false;
+  }
+};
 $('sendBtn').onclick = () => { const t = $('msg').value.trim(); if (t) { $('msg').value = ''; sendMessage(t); } };
 $('msg').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); $('sendBtn').click(); } });
 $('newConvBtn').onclick = async () => {
