@@ -334,13 +334,22 @@ const CFG = {
   environmentId: '448464af-64af-ec92-a521-6d203cf6811d',
 };
 const AGENTS = Object.freeze({
-  classic: Object.freeze({ label: 'Knowledge Agent (classic)', schemaName: 'biz_knowledgeAgent' }),
-  new: Object.freeze({ label: 'Knowledge Agent (New Copilot)', schemaName: 'Default_KnowledgeAgentNewCopilot_sodjEw' }),
+  classic: Object.freeze({
+    label: 'Knowledge Agent (classic)',
+    schemaName: 'biz_knowledgeAgent',
+    runtimePath: 'dataverse-backed',
+    apiVersion: '2022-03-01-preview',
+  }),
+  new: Object.freeze({
+    label: 'Knowledge Agent (New Copilot)',
+    schemaName: 'Default_KnowledgeAgentNewCopilot_sodjEw',
+    runtimePath: 'agenticruntime/3p/dataverse-backed',
+    apiVersion: '1',
+  }),
 });
 let activeAgentKey = new URLSearchParams(window.location.search).get('agent') === 'new' ? 'new' : 'classic';
 const activeAgent = () => AGENTS[activeAgentKey];
 const POWER_PLATFORM_SCOPE = 'https://api.powerplatform.com/.default';
-const API_VERSION = '2022-03-01-preview';
 
 const $ = (id) => document.getElementById(id);
 const logEl = $('log');
@@ -368,9 +377,10 @@ function environmentHost(environmentId) {
   return `https://${hexPrefix}.${hexSuffix}.environment.api.powerplatform.com`;
 }
 function conversationsUrl(convId) {
-  let path = `/copilotstudio/dataverse-backed/authenticated/bots/${activeAgent().schemaName}/conversations`;
+  const agent = activeAgent();
+  let path = `/copilotstudio/${agent.runtimePath}/authenticated/bots/${agent.schemaName}/conversations`;
   if (convId) path += `/${convId}`;
-  return `${environmentHost(CFG.environmentId)}${path}?api-version=${API_VERSION}`;
+  return `${environmentHost(CFG.environmentId)}${path}?api-version=${agent.apiVersion}`;
 }
 
 // ── Auth (MSAL — automatic: silent SSO, popup only if required) ──
