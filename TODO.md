@@ -14,7 +14,7 @@
 ## TODO Task Items
 
 ### User Experience
-[ ] Verify D2E streaming against Knowledge Agent (New Copilot) and record the observed SSE chunk behavior
+[x] Re-verify Knowledge Agent (New Copilot) after the turn assembler ordering/deduplication fix
 [x] Add a setting option to turn message icon on/off
 [x] Home page agent cards support drag-and-drop reordering with auto-save
 [x] Allow uploading a blurred background image for the home page via Appearance settings

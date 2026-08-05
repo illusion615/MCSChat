@@ -22,6 +22,8 @@
 import { MessageEntry } from './DirectLineService.js';
 import {
     getStreamInfo,
+    getThoughtTexts,
+    mergeAgenticSnapshot,
     mergeStreamingText,
 } from '../../utils/streamingActivity.js';
 
@@ -51,7 +53,7 @@ export class DirectEngineConnector extends EventEmitter {
     constructor() {
         super();
         this._status = 'disconnected';
-        this._config = null;          // { appClientId, tenantId, environmentId, schemaName }
+        this._config = null;          // { appClientId, tenantId, environmentId, schemaName, runtimeFamily? }
         this._msal = null;
         this._account = null;
         this._conversationId = null;
@@ -60,6 +62,9 @@ export class DirectEngineConnector extends EventEmitter {
         this._greetingReceived = false;
         this._initContext = null;
         this._nativeStreamingSupported = null;
+        this._agenticTurnStream = null;
+        this._agenticTurnConcluded = false;
+        this._lastAgenticFinalText = '';
     }
 
     // ── Public status ──
@@ -83,9 +88,17 @@ export class DirectEngineConnector extends EventEmitter {
         return `https://${hexPrefix}.${hexSuffix}.environment.api.powerplatform.com`;
     }
     _conversationsUrl(conversationId) {
-        let path = `/copilotstudio/dataverse-backed/authenticated/bots/${this._config.schemaName}/conversations`;
+        const runtimePath = this._usesAgenticRuntime()
+            ? 'agenticruntime/3p/dataverse-backed'
+            : 'dataverse-backed';
+        const apiVersion = this._usesAgenticRuntime() ? '1' : API_VERSION;
+        let path = `/copilotstudio/${runtimePath}/authenticated/bots/${this._config.schemaName}/conversations`;
         if (conversationId) path += `/${conversationId}`;
-        return `${this._environmentHost()}${path}?api-version=${API_VERSION}`;
+        return `${this._environmentHost()}${path}?api-version=${apiVersion}`;
+    }
+
+    _usesAgenticRuntime() {
+        return this._config?.runtimeFamily === 'agentic3p';
     }
 
     // ── Auth (MSAL interactive) ──
@@ -125,7 +138,7 @@ export class DirectEngineConnector extends EventEmitter {
 
     /**
      * Connect to a Copilot Studio agent via Direct-to-Engine.
-     * @param {{appClientId:string, tenantId:string, environmentId:string, schemaName:string}} config
+    * @param {{appClientId:string, tenantId:string, environmentId:string, schemaName:string, runtimeFamily?:'agentic3p'}} config
      * @returns {Promise<boolean>}
      */
     async connect(config) {
@@ -168,6 +181,9 @@ export class DirectEngineConnector extends EventEmitter {
         this._conversationId = null;
         this._entries = [];
         this._activeStreams.clear();
+        this._agenticTurnStream = null;
+        this._agenticTurnConcluded = false;
+        this._lastAgenticFinalText = '';
         this._greetingReceived = false;
         this._setStatus('disconnected');
     }
@@ -184,6 +200,9 @@ export class DirectEngineConnector extends EventEmitter {
      */
     async sendMessage(text) {
         if (this._status !== 'connected') return Promise.reject(new Error('Not connected'));
+        this._agenticTurnStream = null;
+        this._agenticTurnConcluded = false;
+        this._lastAgenticFinalText = '';
         const activity = {
             type: 'message',
             text,
@@ -209,6 +228,9 @@ export class DirectEngineConnector extends EventEmitter {
      */
     async sendCardResponse(value) {
         if (this._status !== 'connected') return Promise.reject(new Error('Not connected'));
+        this._agenticTurnStream = null;
+        this._agenticTurnConcluded = false;
+        this._lastAgenticFinalText = '';
         const activity = {
             type: 'message',
             from: { id: 'user' },
@@ -320,9 +342,14 @@ export class DirectEngineConnector extends EventEmitter {
         if (activity.from && activity.from.id === 'user') return;
         const stream = getStreamInfo(activity);
 
+        for (const text of getThoughtTexts(activity)) {
+            this.emit('informative', { text, kind: 'thought', timestamp: activity.timestamp });
+        }
+
         const isStreamingChunk = stream.streamType === 'streaming'
-            || stream.streamSequence !== undefined
-            || (activity.type === 'typing' && activity.text);
+            || (stream.streamType !== 'final'
+                && stream.streamType !== 'informative'
+                && (stream.streamSequence !== undefined || (activity.type === 'typing' && activity.text)));
 
         // Log every NON-chunk activity (informative / message / final / event).
         // Streaming chunks are intentionally not logged here — they would flood
@@ -344,12 +371,20 @@ export class DirectEngineConnector extends EventEmitter {
         if (isChunk) { this._handleStreamingChunk(activity, stream); return; }
 
         const isFinal = stream.streamType === 'final'
-            || (stream.streamId && activity.type === 'message');
-        if (isFinal && this._activeStreams.has(stream.streamId)) { this._finalizeStream(activity, stream); return; }
+            || (stream.streamId && activity.type === 'message')
+            || (this._usesAgenticRuntime() && activity.type === 'message' && this._agenticTurnStream);
+        if (isFinal && (this._activeStreams.has(stream.streamId)
+            || (this._usesAgenticRuntime() && this._agenticTurnStream))) {
+            this._finalizeStream(activity, stream);
+            return;
+        }
 
         if (activity.type === 'typing') { this.emit('typing'); return; }
 
         if (activity.type === 'message') {
+            if (this._usesAgenticRuntime()
+                && activity.text
+                && activity.text === this._lastAgenticFinalText) return;
             const entry = new MessageEntry(activity);
             if (!this._greetingReceived && entry.text && entry.text.trim().length > 0) {
                 this._greetingReceived = true;
@@ -375,8 +410,15 @@ export class DirectEngineConnector extends EventEmitter {
         const streamId = stream.streamId || activity.replyToId || `stream-${Date.now()}`;
         const text = activity.text || '';
         const seq = stream.streamSequence;
+        if (!text || (this._usesAgenticRuntime() && this._agenticTurnConcluded)) return;
 
-        if (!this._activeStreams.has(streamId)) {
+        let state = this._activeStreams.get(streamId);
+        if (!state && this._usesAgenticRuntime() && this._agenticTurnStream) {
+            state = this._agenticTurnStream;
+            this._activeStreams.set(streamId, state);
+        }
+
+        if (!state) {
             const entry = new MessageEntry(activity);
             entry.id = activity.id || streamId;
             // Streamed deltas arrive on `typing` activities, but the entry is a real
@@ -389,7 +431,9 @@ export class DirectEngineConnector extends EventEmitter {
             entry.text = text;
             entry.metrics.firstTokenTime = Date.now();
             entry.meta.wasStreamed = true;
-            this._activeStreams.set(streamId, { entry, lastSequence: seq });
+            state = { entry, lastSequence: seq };
+            this._activeStreams.set(streamId, state);
+            if (this._usesAgenticRuntime()) this._agenticTurnStream = state;
             this._entries.push(entry);
             if (!this._greetingReceived && text.trim().length > 0) {
                 this._greetingReceived = true;
@@ -398,11 +442,13 @@ export class DirectEngineConnector extends EventEmitter {
             }
             this.emit('messageChunk', entry);
         } else {
-            const st = this._activeStreams.get(streamId);
+            const st = state;
             if (seq !== undefined && st.lastSequence !== undefined && seq <= st.lastSequence) return;
             if (seq !== undefined) st.lastSequence = seq;
             const acc = st.entry.text;
-            const merged = mergeStreamingText(acc, text, stream.chunkType);
+            const merged = this._usesAgenticRuntime()
+                ? mergeAgenticSnapshot(acc, text, stream.chunkType)
+                : mergeStreamingText(acc, text, stream.chunkType);
             if (merged !== acc) {
                 st.entry.text = merged;
                 st.entry.metrics.lastTokenTime = Date.now();
@@ -415,13 +461,17 @@ export class DirectEngineConnector extends EventEmitter {
     _finalizeStream(activity, stream) {
         stream = stream || getStreamInfo(activity);
         const streamId = stream.streamId;
-        const st = this._activeStreams.get(streamId);
+        const st = this._activeStreams.get(streamId)
+            || (this._usesAgenticRuntime() ? this._agenticTurnStream : null);
         if (!st) return;
 
         const finalText = activity.text || '';
         const hasContent = finalText.trim().length > 0 || (activity.attachments && activity.attachments.length > 0);
         if (!hasContent) {
-            this._activeStreams.delete(streamId);
+            for (const [key, value] of this._activeStreams) {
+                if (value === st) this._activeStreams.delete(key);
+            }
+            if (this._agenticTurnStream === st) this._agenticTurnStream = null;
             const idx = this._entries.indexOf(st.entry);
             if (idx >= 0) this._entries.splice(idx, 1);
             this.emit('streamCancelled', st.entry);
@@ -429,6 +479,10 @@ export class DirectEngineConnector extends EventEmitter {
         }
 
         if (activity.text) st.entry.text = activity.text;
+        if (this._usesAgenticRuntime()) {
+            this._lastAgenticFinalText = st.entry.text || '';
+            this._agenticTurnConcluded = true;
+        }
         if (activity.attachments?.length) st.entry.attachments = activity.attachments;
         if (activity.suggestedActions) st.entry.suggestedActions = activity.suggestedActions;
         // Defensive: ensure the finalized streamed entry is treated as a real message,
@@ -436,7 +490,10 @@ export class DirectEngineConnector extends EventEmitter {
         st.entry.type = 'message';
         if (!st.entry.from || !st.entry.from.id) st.entry.from = activity.from || { id: 'bot' };
         st.entry.markComplete();
-        this._activeStreams.delete(streamId);
+        for (const [key, value] of this._activeStreams) {
+            if (value === st) this._activeStreams.delete(key);
+        }
+        if (this._agenticTurnStream === st) this._agenticTurnStream = null;
         this.emit('message', st.entry);
     }
 

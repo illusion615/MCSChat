@@ -47,6 +47,21 @@ export function getStreamInfo(activity) {
 }
 
 /**
+ * Extract reasoning text carried by New Agent `/3p` activities.
+ * Reasoning is independent from livestream metadata and may accompany any
+ * activity type, so callers must inspect it before branching on streamType.
+ * @param {Object} activity
+ * @returns {string[]}
+ */
+export function getThoughtTexts(activity) {
+    if (!Array.isArray(activity && activity.entities)) return [];
+    return activity.entities
+        .filter(entity => entity && entity.type === 'thought' && typeof entity.text === 'string')
+        .map(entity => entity.text.trim())
+        .filter(Boolean);
+}
+
+/**
  * Length of the common leading prefix shared by two strings.
  * @param {string} a
  * @param {string} b
@@ -83,6 +98,22 @@ export function mergeStreamingText(current, incoming, chunkType) {
     const overlap = commonPrefixLength(current, incoming);
     if (incoming.length > 80 && current.length > 80 && overlap > 20) return incoming; // revised cumulative
     return current + incoming;                                // true delta / unknown → append
+}
+
+/**
+ * Reduce a New Agent `/agenticruntime/3p` answer activity.
+ * The runtime emits cumulative snapshots that may revise an earlier prefix.
+ * Only an explicit delta is appended; every other payload replaces the prior
+ * snapshot as the authoritative answer-so-far.
+ * @param {string} current
+ * @param {string} incoming
+ * @param {string} [chunkType]
+ * @returns {string}
+ */
+export function mergeAgenticSnapshot(current, incoming, chunkType) {
+    if (!incoming) return current;
+    if (chunkType === 'delta') return current + incoming;
+    return incoming;
 }
 
 /**

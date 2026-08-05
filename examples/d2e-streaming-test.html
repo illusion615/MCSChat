@@ -43,6 +43,8 @@
   /* Chat column */
   .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid #ddd; }
   .messages { flex: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .turn-output { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .turn-progress, .turn-answer { display: flex; flex-direction: column; gap: 7px; width: 100%; }
   .msg { max-width: 78%; padding: 10px 14px; border-radius: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
   .msg.user { align-self: flex-end; background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
   .msg.bot  { align-self: flex-start; background: #eef0f3; color: #111; border-bottom-left-radius: 4px; }
@@ -325,6 +327,12 @@ How do Adaptive Refresh Rate, Smart Noise Canceling, and Eye Care Mode enhance t
   </div>
 
 <script type="module">
+import {
+  getStreamInfo,
+  getThoughtTexts,
+  mergeAgenticSnapshot,
+} from '../src/utils/streamingActivity.js';
+
 // ─────────────────────────────────────────────────────────────────────────
 // Config (pre-set for this specific agent — no manual entry, no login button)
 // ─────────────────────────────────────────────────────────────────────────
@@ -430,17 +438,6 @@ async function getToken() {
   }
 }
 
-// ── Stream metadata parsing (channelData OR entities[type=streaminfo]) ──
-function getStreamInfo(activity) {
-  const cd = activity.channelData || {};
-  if (cd.streamType !== undefined || cd.streamId !== undefined || cd.streamSequence !== undefined) {
-    return { streamType: cd.streamType, streamId: cd.streamId, streamSequence: cd.streamSequence, chunkType: cd.chunkType };
-  }
-  const e = Array.isArray(activity.entities) ? activity.entities.find(x => x && x.type === 'streaminfo') : null;
-  if (e) return { streamType: e.streamType, streamId: e.streamId, streamSequence: e.streamSequence, chunkType: e.chunkType };
-  return {};
-}
-
 // ── Markdown rendering (marked + DOMPurify, with graceful fallback) ──
 // Remove unnecessary blank lines so loose lists render tight (no big gaps).
 function tidyMarkdown(text) {
@@ -532,9 +529,27 @@ function addUserMessage(text) {
   messagesEl.appendChild(wrap);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
-// ── Informative steps: each on its own line, persistent, checked when done ──
-let currentStep = null;        // the pending step element for the active turn
-let lastStepText = null;       // dedupe consecutive identical informative texts
+// ── Turn assembler: semantic order is independent from arrival order ──
+let activeTurn = null;
+let currentStep = null;
+
+function beginTurn() {
+  streams.clear();
+  currentStep = null;
+  const root = document.createElement('div'); root.className = 'turn-output';
+  const progress = document.createElement('div'); progress.className = 'turn-progress';
+  const answer = document.createElement('div'); answer.className = 'turn-answer';
+  root.append(progress, answer);
+  activeTurn = { root, progress, answer, mounted: false, seenProgress: new Set(), answerState: null };
+  return activeTurn;
+}
+
+function currentTurn() { return activeTurn || beginTurn(); }
+function mountTurn(turn = currentTurn()) {
+  if (!turn.mounted) { messagesEl.appendChild(turn.root); turn.mounted = true; }
+  return turn;
+}
+
 function completePendingStep() {
   if (currentStep) {
     currentStep.classList.remove('pending');
@@ -543,23 +558,27 @@ function completePendingStep() {
     currentStep = null;
   }
 }
-function addInformativeStep(text) {
+function addProgressStep(text, kind) {
   if (!text) return;
-  if (text === lastStepText) return;   // same status repeated — keep one line
-  completePendingStep();               // tick the previous step
-  lastStepText = text;
+  const turn = currentTurn();
+  const key = `${kind}:${text}`;
+  if (turn.seenProgress.has(key)) return;
+  turn.seenProgress.add(key);
+  completePendingStep();
   const el = document.createElement('div');
-  el.className = 'step pending';
+  el.className = turn.concluded ? 'step done' : 'step pending';
   const mark = document.createElement('span'); mark.className = 'mark';
+  if (turn.concluded) mark.textContent = '✓';
   const label = document.createElement('span'); label.textContent = text;
   el.appendChild(mark); el.appendChild(label);
-  messagesEl.appendChild(el);
-  currentStep = el;
+  mountTurn(turn).progress.appendChild(el);
+  currentStep = turn.concluded ? null : el;
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
+function addInformativeStep(text) { addProgressStep(text, 'informative'); }
+function addThoughtStep(text) { addProgressStep(text, 'thought'); }
 function finishSteps() {                // call when the answer starts/ends
   completePendingStep();
-  lastStepText = null;
 }
 
 // ── Suggested actions + Adaptive Cards ──
@@ -632,7 +651,8 @@ function renderExtras(activity) {
 }
 
 // ── Per-turn streaming accumulator (early, known-good logic) ──
-const streams = new Map(); // streamId -> { text, shownLen, done, lastSeq, el, wrap }
+const streams = new Map(); // streamId aliases -> shared answer state
+function uniqueStreamStates() { return Array.from(new Set(streams.values())); }
 
 // ── Display layer: typewriter reveal (decoupled from network arrival) ──────
 // The transport layer accumulates the authoritative answer into st.text. This
@@ -711,18 +731,33 @@ function finalizeBubble(st) {
 }
 
 function botBubbleFor(streamId) {
+  const turn = currentTurn();
   let st = streams.get(streamId);
+  if (!st && activeAgentKey === 'new' && turn.answerState) st = turn.answerState;
   if (!st) {
     const wrap = document.createElement('div');
     wrap.className = 'msgwrap bot';
     const el = document.createElement('div');
     el.className = 'msg bot streaming';
     wrap.appendChild(el);
-    messagesEl.appendChild(wrap);
+    mountTurn(turn).answer.appendChild(wrap);
     st = { text: '', shownLen: 0, done: false, lastSeq: undefined, chunkCount: 0, el, wrap };
-    streams.set(streamId, st);
+    if (activeAgentKey === 'new') turn.answerState = st;
   }
+  if (streamId) streams.set(streamId, st);
   return st;
+}
+
+function authoritativeFinal(st, text) {
+  if (text) st.text = text;
+  currentTurn().concluded = true;
+  st.done = true;
+  st.concluded = true;
+  if (st._finalized) {
+    renderMarkdown(st.el, st.text);
+    return;
+  }
+  completeReveal(st);
 }
 // Append the metadata row (time / TTFT / total / copy) under a bot bubble once.
 function attachBotMeta(st) {
@@ -734,6 +769,8 @@ function applyActivity(activity) {
   const s = getStreamInfo(activity);
   const text = activity.text || '';
 
+  for (const thought of getThoughtTexts(activity)) addThoughtStep(thought);
+
   // RAW probe: log EVERY activity's stream classification BEFORE any branching,
   // so missing deltas are immediately visible regardless of rendering.
   log(`raw type=${activity.type} len=${text.length} streamType=${s.streamType ?? '-'} seq=${s.streamSequence ?? '-'} chunk=${s.chunkType ?? '-'}`,
@@ -743,11 +780,14 @@ function applyActivity(activity) {
 
   if (s.streamType === 'final') {
     finishSteps();
-    markFirstToken();
-    const st = streams.get(s.streamId) || botBubbleFor(s.streamId);
-    if (text) st.text = text;       // authoritative full answer (transport layer)
-    renderExtras(activity);         // adaptive cards + suggested actions
-    completeReveal(st);             // play out the remaining reveal, then finalize
+    if (text) {
+      markFirstToken();
+      const st = streams.get(s.streamId)
+        || (activeAgentKey === 'new' ? currentTurn().answerState : null)
+        || botBubbleFor(s.streamId);
+      authoritativeFinal(st, text);
+    }
+    renderExtras(activity);
     log(`final streamId=${s.streamId} len=${text.length}`, 'final');
     return;
   }
@@ -757,6 +797,13 @@ function applyActivity(activity) {
     if (activity.type === 'message') {
       if (text) {
         markFirstToken();
+        if (activeAgentKey === 'new') {
+          const st = currentTurn().answerState || botBubbleFor(activity.id || activity.replyToId || 'answer');
+          authoritativeFinal(st, text);
+          renderExtras(activity);
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+          return;
+        }
         const wrap = document.createElement('div');
         wrap.className = 'msgwrap bot';
         const el = document.createElement('div');
@@ -773,14 +820,16 @@ function applyActivity(activity) {
   }
 
   // Streaming chunk — accumulate by streamId + sequence.
+  if (!text) return;
   const streamId = s.streamId || activity.replyToId || 'stream';
   const seq = s.streamSequence;
   const st = botBubbleFor(streamId);
+  if (st.concluded) return;
   if (seq !== undefined && st.lastSeq !== undefined && seq <= st.lastSeq) return; // out-of-order drop
   if (seq !== undefined) st.lastSeq = seq;
   st.chunkCount++;
   const acc = st.text;
-  if (!text) { /* contentless */ }
+  if (activeAgentKey === 'new') st.text = mergeAgenticSnapshot(acc, text, s.chunkType);
   else if (s.chunkType === 'delta') st.text = acc + text;        // authoritative delta
   else if (text === acc) { /* dup */ }
   else if (text.startsWith(acc)) st.text = acc + text.substring(acc.length); // cumulative
@@ -859,10 +908,9 @@ async function consumeSSE(response) {
 
 // ── Conversation lifecycle ──
 async function startConversation() {
-  streams.clear();
   conversationId = null;
   messagesEl.innerHTML = '';
-  currentStep = null; lastStepText = null;
+  beginTurn();
   setStatus(`Starting ${activeAgent().label}…`);
   const url = conversationsUrl();
   log(`POST ${url}`, 'dim');
@@ -875,9 +923,9 @@ async function sendMessage(text, displayLabel) {
   if (busy) return;
   busy = true; $('sendBtn').disabled = true; $('msg').disabled = true;
   // New per-turn stream group + timing.
-  streams.clear();
   turnStart = Date.now(); ttft = null;
   addUserMessage(displayLabel || text);
+  beginTurn();
   setStatus('Streaming…');
   let ok = false, error = null;
   try {
@@ -886,7 +934,7 @@ async function sendMessage(text, displayLabel) {
     log(`POST ${url}`, 'dim');
     const res = await post(url, { activity });
     await consumeSSE(res);
-    for (const st of streams.values()) completeReveal(st); // play out reveal, then finalize
+    for (const st of uniqueStreamStates()) completeReveal(st); // play out reveal, then finalize
     ok = true;
     setStatus(`Ready <span class="pill">${conversationId ? conversationId.slice(0, 8) : 'no-id'}</span>`);
   } catch (e) {
@@ -907,9 +955,9 @@ async function sendMessage(text, displayLabel) {
 async function sendCardResponse(value) {
   if (busy) return;
   busy = true; $('sendBtn').disabled = true; $('msg').disabled = true;
-  streams.clear();
   turnStart = Date.now(); ttft = null;
   addUserMessage('↪ ' + (value && Object.keys(value).length ? JSON.stringify(value) : '(card submitted)'));
+  beginTurn();
   setStatus('Streaming…');
   try {
     const url = conversationsUrl(conversationId);
@@ -917,7 +965,7 @@ async function sendCardResponse(value) {
     log(`POST ${url} (card response)`, 'dim');
     const res = await post(url, { activity });
     await consumeSSE(res);
-    for (const st of streams.values()) completeReveal(st);
+    for (const st of uniqueStreamStates()) completeReveal(st);
     setStatus(`Ready <span class="pill">${conversationId ? conversationId.slice(0, 8) : 'no-id'}</span>`);
   } catch (e) {
     log('Card response failed: ' + e.message, 'err');
@@ -943,8 +991,9 @@ let benchRunning = false, benchAbort = false, benchRecords = [];
 // (manual sends), so manual chat turns also count toward the benchmark.
 function summarizeTurn(question, ok, error) {
   const total = turnStart ? Date.now() - turnStart : null;
-  const answer = Array.from(streams.values()).map(s => s.text).filter(Boolean).join('\n\n');
-  const chunks = Array.from(streams.values()).reduce((sum, stream) => sum + stream.chunkCount, 0);
+  const states = uniqueStreamStates();
+  const answer = states.map(s => s.text).filter(Boolean).join('\n\n');
+  const chunks = states.reduce((sum, stream) => sum + stream.chunkCount, 0);
   const streamed = chunks > 1;
   return {
     question,
@@ -968,9 +1017,9 @@ async function benchProbe(text) {
   // shares the current conversation's topic context. Timing comes from the same
   // globals the chat already maintains: turnStart + ttft (set by markFirstToken,
   // which fires on the first ANSWER content and skips informative steps).
-  streams.clear();
   turnStart = Date.now(); ttft = null;
   addUserMessage(text);
+  beginTurn();
   let ok = false, error = null;
   try {
     const url = conversationsUrl(conversationId);
@@ -978,7 +1027,7 @@ async function benchProbe(text) {
     log(`POST ${url} (benchmark)`, 'dim');
     const res = await post(url, { activity });
     await consumeSSE(res);           // renders via applyActivity into the chat
-    for (const st of streams.values()) completeReveal(st);
+    for (const st of uniqueStreamStates()) completeReveal(st);
     messagesEl.scrollTop = messagesEl.scrollHeight;
     ok = true;
   } catch (e) {
@@ -1187,6 +1236,19 @@ $('benchStartBtn').onclick = () => {
   }
 };
 $('benchExportBtn').onclick = exportBenchCsv;
+
+// Deterministic activity replay for local regression checks. It is deliberately
+// unavailable on normal URLs so production-like verification remains untouched.
+if (new URLSearchParams(window.location.search).has('debug')) {
+  window.__d2eDebug = {
+    beginTurn,
+    applyActivity,
+    getState: () => ({
+      turn: activeTurn,
+      streams: uniqueStreamStates(),
+    }),
+  };
+}
 
 // ── Boot: process any redirect return, try silent SSO, else wait for a click ──
 (async () => {
