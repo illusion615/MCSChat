@@ -6,7 +6,7 @@
  *
  * It is a DROP-IN sibling of `DirectLineService`: it exposes the same
  * EventEmitter surface (`statusChange`, `message`, `messageChunk`,
- * `informative`, `streamCancelled`, `typing`, `greeting`, `connected`,
+ * `reasoning`, `toolCall`, `informative`, `streamCancelled`, `typing`, `greeting`, `connected`,
  * `disconnected`, `error`) and reuses the same `MessageEntry` model, so the
  * existing rendering pipeline in `application.js` works unchanged.
  *
@@ -23,6 +23,7 @@ import { MessageEntry } from './DirectLineService.js';
 import {
     getStreamInfo,
     getThoughtTexts,
+    getToolCallEvents,
     mergeAgenticSnapshot,
     mergeStreamingText,
 } from '../../utils/streamingActivity.js';
@@ -343,7 +344,12 @@ export class DirectEngineConnector extends EventEmitter {
         const stream = getStreamInfo(activity);
 
         for (const text of getThoughtTexts(activity)) {
-            this.emit('informative', { text, kind: 'thought', timestamp: activity.timestamp });
+            const reasoning = { text, timestamp: activity.timestamp };
+            this.emit('reasoning', reasoning);
+            this.emit('informative', { ...reasoning, kind: 'thought' });
+        }
+        for (const toolCall of getToolCallEvents(activity)) {
+            this.emit('toolCall', { ...toolCall, timestamp: activity.timestamp });
         }
 
         const isStreamingChunk = stream.streamType === 'streaming'

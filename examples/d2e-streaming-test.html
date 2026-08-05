@@ -45,6 +45,23 @@
   .messages { flex: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
   .turn-output { display: flex; flex-direction: column; gap: 8px; width: 100%; }
   .turn-progress, .turn-answer { display: flex; flex-direction: column; gap: 7px; width: 100%; }
+  .work-panel { max-width: 78%; color: #4b5563; font-size: 13px; }
+  .work-panel summary { display: flex; align-items: center; gap: 8px; width: fit-content; cursor: pointer; list-style: none; font-weight: 600; }
+  .work-panel summary::-webkit-details-marker { display: none; }
+  .work-indicator { width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 14px; }
+  .work-panel:not(.done) .work-indicator { border: 2px solid #9ca3af; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+  .work-panel.done .work-indicator { color: #16a34a; }
+  .work-chevron { color: #9ca3af; transition: transform .15s ease; }
+  .work-panel[open] .work-chevron { transform: rotate(90deg); }
+  .work-body { margin: 8px 0 2px 22px; padding-left: 12px; border-left: 2px solid #e5e7eb; display: grid; gap: 10px; }
+  .reasoning-block[hidden], .work-stages[hidden] { display: none; }
+  .work-label { color: #6b7280; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 3px; }
+  .reasoning-text { margin: 0; color: #4b5563; line-height: 1.55; white-space: pre-wrap; }
+  .work-stages { display: grid; gap: 5px; }
+  .work-stage { display: flex; align-items: center; gap: 7px; color: #6b7280; }
+  .work-stage-mark { width: 14px; text-align: center; flex: 0 0 14px; }
+  .work-stage.active .work-stage-mark { width: 12px; height: 12px; border: 2px solid #9ca3af; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+  .work-stage.done .work-stage-mark { color: #16a34a; font-weight: 700; }
   .msg { max-width: 78%; padding: 10px 14px; border-radius: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
   .msg.user { align-self: flex-end; background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
   .msg.bot  { align-self: flex-start; background: #eef0f3; color: #111; border-bottom-left-radius: 4px; }
@@ -330,7 +347,9 @@ How do Adaptive Refresh Rate, Smart Noise Canceling, and Eye Care Mode enhance t
 import {
   getStreamInfo,
   getThoughtTexts,
+  getToolCallEvents,
   mergeAgenticSnapshot,
+  mergeReasoningText,
 } from '../src/utils/streamingActivity.js';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -531,16 +550,17 @@ function addUserMessage(text) {
 }
 // ── Turn assembler: semantic order is independent from arrival order ──
 let activeTurn = null;
-let currentStep = null;
 
 function beginTurn() {
   streams.clear();
-  currentStep = null;
   const root = document.createElement('div'); root.className = 'turn-output';
   const progress = document.createElement('div'); progress.className = 'turn-progress';
   const answer = document.createElement('div'); answer.className = 'turn-answer';
   root.append(progress, answer);
-  activeTurn = { root, progress, answer, mounted: false, seenProgress: new Set(), answerState: null };
+  activeTurn = {
+    root, progress, answer, mounted: false, answerState: null, startedAt: Date.now(),
+    work: null, reasoningText: '', stages: new Map(), concluded: false,
+  };
   return activeTurn;
 }
 
@@ -550,35 +570,88 @@ function mountTurn(turn = currentTurn()) {
   return turn;
 }
 
-function completePendingStep() {
-  if (currentStep) {
-    currentStep.classList.remove('pending');
-    currentStep.classList.add('done');
-    currentStep.querySelector('.mark').textContent = '✓';
-    currentStep = null;
-  }
+function ensureWorkPanel(turn = currentTurn()) {
+  if (turn.work) return turn.work;
+  const panel = document.createElement('details'); panel.className = 'work-panel'; panel.open = true;
+  const summary = document.createElement('summary');
+  const indicator = document.createElement('span'); indicator.className = 'work-indicator';
+  const title = document.createElement('span'); title.className = 'work-title'; title.textContent = 'Working…';
+  const chevron = document.createElement('span'); chevron.className = 'work-chevron'; chevron.textContent = '›';
+  summary.append(indicator, title, chevron);
+  const body = document.createElement('div'); body.className = 'work-body';
+  const reasoning = document.createElement('div'); reasoning.className = 'reasoning-block'; reasoning.hidden = true;
+  const reasoningLabel = document.createElement('div'); reasoningLabel.className = 'work-label'; reasoningLabel.textContent = 'Reasoning';
+  const reasoningText = document.createElement('p'); reasoningText.className = 'reasoning-text';
+  reasoning.append(reasoningLabel, reasoningText);
+  const stages = document.createElement('div'); stages.className = 'work-stages'; stages.hidden = true;
+  body.append(reasoning, stages); panel.append(summary, body);
+  mountTurn(turn).progress.appendChild(panel);
+  turn.work = { panel, title, indicator, reasoning, reasoningText, stages };
+  return turn.work;
 }
-function addProgressStep(text, kind) {
-  if (!text) return;
+
+function updateReasoning(text) {
   const turn = currentTurn();
-  const key = `${kind}:${text}`;
-  if (turn.seenProgress.has(key)) return;
-  turn.seenProgress.add(key);
-  completePendingStep();
-  const el = document.createElement('div');
-  el.className = turn.concluded ? 'step done' : 'step pending';
-  const mark = document.createElement('span'); mark.className = 'mark';
-  if (turn.concluded) mark.textContent = '✓';
-  const label = document.createElement('span'); label.textContent = text;
-  el.appendChild(mark); el.appendChild(label);
-  mountTurn(turn).progress.appendChild(el);
-  currentStep = turn.concluded ? null : el;
+  turn.reasoningText = mergeReasoningText(turn.reasoningText, text);
+  if (!turn.reasoningText) return;
+  const work = ensureWorkPanel(turn);
+  work.reasoning.hidden = false;
+  work.reasoningText.textContent = turn.reasoningText;
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
-function addInformativeStep(text) { addProgressStep(text, 'informative'); }
-function addThoughtStep(text) { addProgressStep(text, 'thought'); }
-function finishSteps() {                // call when the answer starts/ends
-  completePendingStep();
+
+function normalizeStageKey(text) {
+  return String(text || '').toLowerCase()
+    .replace(/\.{3}$/g, '')
+    .replace(/^(calling|running|loading)\s+/i, '')
+    .replace(/\s+(completed|complete|finished|succeeded)\.?$/i, '')
+    .trim();
+}
+
+function upsertStage({ key, text, status, durationMs }) {
+  if (!text) return;
+  const turn = currentTurn();
+  const stageKey = key || normalizeStageKey(text) || text;
+  const work = ensureWorkPanel(turn);
+  work.stages.hidden = false;
+  let stage = turn.stages.get(stageKey);
+  if (!stage) {
+    for (const existing of turn.stages.values()) {
+      if (existing.status === 'active') {
+        existing.status = 'done'; existing.el.className = 'work-stage done'; existing.mark.textContent = '✓';
+      }
+    }
+    const el = document.createElement('div');
+    const mark = document.createElement('span'); mark.className = 'work-stage-mark';
+    const label = document.createElement('span');
+    el.append(mark, label); work.stages.appendChild(el);
+    stage = { el, mark, label, status: 'active' };
+    turn.stages.set(stageKey, stage);
+  }
+  stage.status = turn.concluded || /completed|complete|finished|succeeded/i.test(status || text) ? 'done' : 'active';
+  stage.el.className = `work-stage ${stage.status}`;
+  stage.mark.textContent = stage.status === 'done' ? '✓' : '';
+  stage.label.textContent = durationMs ? `${text} · ${(durationMs / 1000).toFixed(1)}s` : text;
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function addInformativeStep(text) { upsertStage({ text, status: text }); }
+function addThoughtStep(text) { updateReasoning(text); }
+function addToolCallStage(call) {
+  upsertStage({ key: `tool:${call.id || call.name}`, text: call.name, status: call.status, durationMs: call.durationMs });
+}
+function finishSteps() {
+  const turn = currentTurn();
+  turn.concluded = true;
+  for (const stage of turn.stages.values()) {
+    stage.status = 'done'; stage.el.className = 'work-stage done'; stage.mark.textContent = '✓';
+  }
+  if (!turn.work) return;
+  const seconds = Math.max(0.1, (Date.now() - turn.startedAt) / 1000).toFixed(1);
+  turn.work.panel.classList.add('done');
+  turn.work.indicator.textContent = '✓';
+  turn.work.title.textContent = `Worked for ${seconds}s`;
+  turn.work.panel.open = false;
 }
 
 // ── Suggested actions + Adaptive Cards ──
@@ -770,13 +843,18 @@ function applyActivity(activity) {
   const text = activity.text || '';
 
   for (const thought of getThoughtTexts(activity)) addThoughtStep(thought);
+  const toolCalls = getToolCallEvents(activity);
+  for (const call of toolCalls) addToolCallStage(call);
 
   // RAW probe: log EVERY activity's stream classification BEFORE any branching,
   // so missing deltas are immediately visible regardless of rendering.
   log(`raw type=${activity.type} len=${text.length} streamType=${s.streamType ?? '-'} seq=${s.streamSequence ?? '-'} chunk=${s.chunkType ?? '-'}`,
       s.streamType === 'streaming' ? 'stream' : (s.streamType === 'informative' ? 'info' : (s.streamType === 'final' ? 'final' : 'dim')));
 
-  if (s.streamType === 'informative') { addInformativeStep(text); return; }
+  if (s.streamType === 'informative') {
+    if (!toolCalls.length) addInformativeStep(text);
+    return;
+  }
 
   if (s.streamType === 'final') {
     finishSteps();

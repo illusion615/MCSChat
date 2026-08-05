@@ -14,6 +14,7 @@
 ## TODO Task Items
 
 ### User Experience
+[x] Verify the New Agent structured Work panel against a live GitHub Pages conversation
 [x] Re-verify Knowledge Agent (New Copilot) after the turn assembler ordering/deduplication fix
 [x] Add a setting option to turn message icon on/off
 [x] Home page agent cards support drag-and-drop reordering with auto-save

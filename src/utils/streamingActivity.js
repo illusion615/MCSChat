@@ -62,6 +62,23 @@ export function getThoughtTexts(activity) {
 }
 
 /**
+ * Extract structured tool-call lifecycle events from New Agent activities.
+ * @param {Object} activity
+ * @returns {Array<{id:string|undefined, name:string, status:string, durationMs:number|undefined}>}
+ */
+export function getToolCallEvents(activity) {
+    if (!Array.isArray(activity && activity.entities)) return [];
+    return activity.entities
+        .filter(entity => entity && (entity.type === 'toolCall' || entity.type === 'https://schema.org/toolCall'))
+        .map(entity => ({
+            id: entity.tool_call_id || entity.toolCallId,
+            name: entity.tool_display_name || entity.toolDisplayName || entity.tool_name || entity.toolName || 'Tool',
+            status: entity.status || '',
+            durationMs: entity.duration_ms || entity.durationMs,
+        }));
+}
+
+/**
  * Length of the common leading prefix shared by two strings.
  * @param {string} a
  * @param {string} b
@@ -114,6 +131,39 @@ export function mergeAgenticSnapshot(current, incoming, chunkType) {
     if (!incoming) return current;
     if (chunkType === 'delta') return current + incoming;
     return incoming;
+}
+
+/**
+ * Merge New Agent thought text into one turn-level reasoning transcript.
+ * Thought entities have no stable identifier or sequence and may arrive as a
+ * cumulative snapshot, a revised snapshot, an overlapping fragment, or a new
+ * fragment. This reducer preserves one readable transcript rather than exposing
+ * transport chunks as independent checklist items.
+ * @param {string} current
+ * @param {string} incoming
+ * @returns {string}
+ */
+export function mergeReasoningText(current, incoming) {
+    const previous = String(current || '').trim();
+    const next = String(incoming || '').trim();
+    if (!next) return previous;
+    if (!previous || previous === next) return next;
+    if (previous.includes(next)) return previous;
+    if (next.includes(previous)) return next;
+
+    const prefix = commonPrefixLength(previous, next);
+    const revisionThreshold = Math.min(24, Math.floor(Math.min(previous.length, next.length) * 0.35));
+    if (prefix >= Math.max(8, revisionThreshold)) return next;
+
+    const overlapLimit = Math.min(previous.length, next.length);
+    for (let overlap = overlapLimit; overlap >= 3; overlap--) {
+        if (previous.endsWith(next.slice(0, overlap))) {
+            return previous + next.slice(overlap);
+        }
+    }
+
+    const separator = /\s$/.test(previous) || /^[\s,.;:!?)]/.test(next) ? '' : ' ';
+    return previous + separator + next;
 }
 
 /**
