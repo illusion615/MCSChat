@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "fixture": "new-agent-3p-replay.json",
+  "assertions": {
+    "reasoningParagraphCount": 1,
+    "reasoningText": "The user is asking about the product. Let me query the knowledge base using the search action.",
+    "toolRowsById": { "search-1": 1 },
+    "answerBubbleCount": 1,
+    "emptyAnswerBubbleCount": 0,
+    "answerText": "The product is a personal AI agent.",
+    "metadataRowCount": 1,
+    "pendingStageCount": 0,
+    "workPanelBeforeAnswer": true,
+    "uniqueAnswerStateCount": 1
+  }
+}

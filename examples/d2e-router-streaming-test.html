@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>D2E Router Streaming Verification</title>
+<link rel="icon" href="data:," />
+<script src="/prototype-assets/marked.min.js"></script>
+<script src="/prototype-assets/purify.min.js"></script>
+<script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+    const theme =
+      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  min-height: 100vh;
+  background: var(--cp-bg);
+  color: var(--cp-text);
+  font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: 0.5; }
+.app-shell { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+.topbar {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--cp-border);
+  background: var(--cp-bg-elevated);
+}
+.brand { min-width: 220px; }
+.brand h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 0; }
+.brand p { margin: 3px 0 0; color: var(--cp-text-muted); font-size: 12px; }
+.connection-fields { flex: 1; display: grid; grid-template-columns: minmax(260px, 1fr) minmax(180px, 0.6fr); gap: 8px; }
+.field { display: grid; gap: 4px; }
+.field label { color: var(--cp-text-muted); font-size: 11px; font-weight: 600; }
+.field input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--cp-border);
+  border-radius: 0.625rem;
+  background: var(--cp-surface);
+  color: var(--cp-text);
+}
+.field input:focus, .composer textarea:focus { outline: 2px solid var(--cp-accent); outline-offset: 1px; }
+.actions { display: flex; align-items: end; gap: 8px; }
+.button {
+  min-height: 38px;
+  border: 1px solid var(--cp-border-strong);
+  border-radius: 0.625rem;
+  padding: 0 14px;
+  background: var(--cp-surface);
+  color: var(--cp-text);
+  font-weight: 600;
+}
+.button.primary { border-color: var(--cp-accent); background: var(--cp-accent); color: var(--cp-accent-fg); }
+.button.primary:hover { background: var(--cp-accent-hover); }
+.icon-button { width: 38px; padding: 0; display: inline-grid; place-items: center; }
+.status-line { display: inline-flex; align-items: center; gap: 7px; color: var(--cp-text-muted); font-size: 12px; white-space: nowrap; }
+.status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--cp-border-strong); }
+.status-dot.ready { background: var(--cp-success); }
+.status-dot.busy { background: var(--cp-warning); }
+.status-dot.error { background: var(--cp-danger); }
+.workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(340px, 0.75fr); }
+.chat-column { min-height: 0; display: grid; grid-template-rows: auto 1fr auto; border-right: 1px solid var(--cp-border); }
+.chat-head, .evidence-head {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--cp-border);
+  background: var(--cp-bg-elevated);
+}
+.chat-head strong, .evidence-head strong { flex: 1; font-size: 14px; }
+.conversation-id { color: var(--cp-text-muted); font-family: Consolas, "Courier New", Courier, monospace; font-size: 11px; }
+.messages { min-height: 0; overflow: auto; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+.empty-state { margin: auto; max-width: 420px; text-align: center; color: var(--cp-text-muted); }
+.empty-state strong { display: block; color: var(--cp-text); margin-bottom: 6px; }
+.message { max-width: min(78%, 760px); border-radius: 16px; padding: 12px 15px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.message.user { align-self: flex-end; background: var(--cp-accent); color: var(--cp-accent-fg); border-bottom-right-radius: 4px; }
+.message.answer { align-self: flex-start; background: var(--cp-surface); border: 1px solid var(--cp-border); border-bottom-left-radius: 4px; }
+.message.answer.streaming { border-left: 3px solid var(--cp-accent); }
+.message.answer { white-space: normal; }
+.message.answer p { margin: 0 0 12px; }
+.message.answer p:last-child { margin-bottom: 0; }
+.message.answer ul, .message.answer ol { margin: 8px 0; padding-left: 24px; }
+.message.answer li { margin: 4px 0; }
+.message.answer code { font-family: Consolas, "Courier New", Courier, monospace; }
+.work-panel { align-self: flex-start; max-width: min(78%, 760px); width: 100%; }
+.work-panel summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--cp-text-muted); }
+.work-list { margin: 8px 0 0; padding: 10px 12px; display: grid; gap: 7px; border-left: 2px solid var(--cp-border); }
+.work-row { display: flex; align-items: center; gap: 8px; color: var(--cp-text-muted); font-size: 12px; }
+.work-mark { width: 14px; text-align: center; color: var(--cp-warning); }
+.work-row.completed .work-mark { color: var(--cp-success); }
+.work-row.failed .work-mark { color: var(--cp-danger); }
+.composer { padding: 14px 18px; border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevated); }
+.composer-box { display: flex; align-items: end; gap: 10px; }
+.composer textarea {
+  min-height: 44px;
+  max-height: 140px;
+  resize: vertical;
+  flex: 1;
+  padding: 11px 12px;
+  border: 1px solid var(--cp-border);
+  border-radius: 0.625rem;
+  background: var(--cp-surface);
+  color: var(--cp-text);
+}
+.evidence-column { min-height: 0; display: grid; grid-template-rows: auto auto 1fr; background: var(--cp-surface-soft); }
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--cp-border); background: var(--cp-bg-elevated); }
+.metric { min-width: 0; padding: 13px 10px; border-right: 1px solid var(--cp-border); text-align: center; }
+.metric:last-child { border-right: 0; }
+.metric strong { display: block; font-size: 18px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.metric span { color: var(--cp-text-muted); font-size: 10px; text-transform: uppercase; }
+.evidence-body { min-height: 0; overflow: auto; padding: 16px; display: grid; align-content: start; gap: 14px; }
+.evidence-section { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 16px; overflow: hidden; }
+.evidence-section h2 { margin: 0; padding: 11px 13px; border-bottom: 1px solid var(--cp-border); font-size: 12px; }
+.evidence-section pre {
+  min-height: 120px;
+  max-height: 260px;
+  margin: 0;
+  padding: 12px 13px;
+  overflow: auto;
+  color: var(--cp-text-soft);
+  font: 11px/1.5 Consolas, "Courier New", Courier, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.event-list { margin: 0; padding: 8px 13px 12px; list-style: none; display: grid; gap: 6px; }
+.event-list li { display: flex; justify-content: space-between; gap: 12px; color: var(--cp-text-muted); font-size: 11px; }
+.event-list code { color: var(--cp-text); font-family: Consolas, "Courier New", Courier, monospace; }
+@media (max-width: 1000px) {
+  .topbar { align-items: stretch; flex-wrap: wrap; }
+  .brand { flex: 1 1 100%; }
+  .connection-fields { flex: 1 1 100%; }
+  .workspace { grid-template-columns: 1fr; grid-template-rows: minmax(620px, 1fr) auto; }
+  .chat-column { border-right: 0; border-bottom: 1px solid var(--cp-border); }
+  .evidence-column { min-height: 520px; }
+}
+@media (max-width: 620px) {
+  .topbar { padding: 12px; }
+  .connection-fields { grid-template-columns: 1fr; }
+  .actions { flex: 1 1 100%; align-items: center; }
+  .status-line { flex: 1; }
+  .workspace { grid-template-rows: minmax(580px, 1fr) auto; }
+  .messages { padding: 16px 12px; }
+  .message, .work-panel { max-width: 92%; }
+  .metrics { grid-template-columns: repeat(2, 1fr); }
+  .metric:nth-child(2) { border-right: 0; }
+  .metric:nth-child(-n+2) { border-bottom: 1px solid var(--cp-border); }
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand">
+      <h1>D2E Router Streaming Verification</h1>
+      <p>Knowledge Agent (New Copilot)</p>
+    </div>
+    <div class="connection-fields">
+      <div class="field">
+        <label for="gatewayUrl">Router URL</label>
+        <input id="gatewayUrl" type="url" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label for="apiKey">Prototype API key</label>
+        <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Optional on localhost" />
+      </div>
+    </div>
+    <div class="actions">
+      <span class="status-line"><span class="status-dot" id="statusDot"></span><span id="statusText">Disconnected</span></span>
+      <button class="button" id="connectButton">Connect</button>
+      <button class="button icon-button" id="themeButton" aria-label="Toggle theme" title="Toggle theme">◐</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="chat-column">
+      <div class="chat-head">
+        <strong>Streaming conversation</strong>
+        <span class="conversation-id" id="conversationId">No conversation</span>
+        <button class="button" id="newConversationButton" disabled>New conversation</button>
+      </div>
+      <div class="messages" id="messages">
+        <div class="empty-state" id="emptyState"><strong>Router not connected</strong>Enter the endpoint and prototype key.</div>
+      </div>
+      <div class="composer">
+        <div class="composer-box">
+          <textarea id="messageInput" rows="1" placeholder="Send a validation prompt" disabled>How do I enter BIOS mode?</textarea>
+          <button class="button primary" id="sendButton" disabled>Send</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="evidence-column">
+      <div class="evidence-head">
+        <strong>Verification evidence</strong>
+        <button class="button" id="exportButton" disabled>Export JSON</button>
+      </div>
+      <div class="metrics">
+        <div class="metric"><strong id="ttftMetric">--</strong><span>TTFT</span></div>
+        <div class="metric"><strong id="totalMetric">--</strong><span>Total</span></div>
+        <div class="metric"><strong id="eventMetric">0</strong><span>Events</span></div>
+        <div class="metric"><strong id="snapshotMetric">0</strong><span>Snapshots</span></div>
+      </div>
+      <div class="evidence-body">
+        <section class="evidence-section">
+          <h2>Event timeline</h2>
+          <ul class="event-list" id="eventTimeline"><li><span>No events</span><code>--</code></li></ul>
+        </section>
+        <section class="evidence-section">
+          <h2>Downstream SSE log</h2>
+          <pre id="eventLog">Waiting for Router connection.</pre>
+        </section>
+      </div>
+    </aside>
+  </main>
+</div>
+<script>
+const DEFAULT_GATEWAY = 'http://localhost:8090';
+const elements = Object.fromEntries([
+  'gatewayUrl', 'apiKey', 'connectButton', 'themeButton', 'statusDot', 'statusText',
+  'conversationId', 'newConversationButton', 'messages', 'emptyState', 'messageInput',
+  'sendButton', 'exportButton', 'ttftMetric', 'totalMetric', 'eventMetric',
+  'snapshotMetric', 'eventTimeline', 'eventLog'
+].map(id => [id, document.getElementById(id)]));
+
+const state = {
+  conversationId: null,
+  expiresAt: null,
+  busy: false,
+  turnStartedAt: 0,
+  ttftMs: null,
+  totalMs: null,
+  events: [],
+  answerSnapshots: 0,
+  finalText: '',
+  currentAnswer: null,
+  currentWork: null,
+  stages: new Map(),
+};
+
+function initialGatewayUrl() {
+  if (location.hostname === 'localhost'
+      || location.hostname === '127.0.0.1') return location.origin;
+  return DEFAULT_GATEWAY;
+}
+
+elements.gatewayUrl.value = initialGatewayUrl();
+
+function gatewayUrl() {
+  return elements.gatewayUrl.value.trim().replace(/\/$/, '');
+}
+
+function setStatus(text, kind = '') {
+  elements.statusText.textContent = text;
+  elements.statusDot.className = `status-dot ${kind}`.trim();
+}
+
+function setBusy(busy) {
+  state.busy = busy;
+  elements.connectButton.disabled = busy;
+  elements.newConversationButton.disabled = busy || !state.conversationId;
+  elements.messageInput.disabled = busy || !state.conversationId;
+  elements.sendButton.disabled = busy || !state.conversationId;
+}
+
+function formatDuration(value) {
+  if (!Number.isFinite(value)) return '--';
+  if (value < 1000) return `${Math.round(value)} ms`;
+  return `${(value / 1000).toFixed(2)} s`;
+}
+
+function resetTurnEvidence() {
+  state.turnStartedAt = 0;
+  state.ttftMs = null;
+  state.totalMs = null;
+  state.events = [];
+  state.answerSnapshots = 0;
+  state.finalText = '';
+  state.currentAnswer = null;
+  state.currentWork = null;
+  state.stages = new Map();
+  elements.eventTimeline.innerHTML = '<li><span>No events</span><code>--</code></li>';
+  elements.eventLog.textContent = 'Waiting for a turn.';
+  elements.eventMetric.textContent = '0';
+  elements.snapshotMetric.textContent = '0';
+  elements.ttftMetric.textContent = '--';
+  elements.totalMetric.textContent = '--';
+  elements.exportButton.disabled = true;
+}
+
+function log(line) {
+  const time = new Date().toISOString().slice(11, 23);
+  const current = elements.eventLog.textContent === 'Waiting for Router connection.' ? '' : elements.eventLog.textContent;
+  elements.eventLog.textContent = `${current}${current ? '\n' : ''}[${time}] ${line}`;
+  elements.eventLog.scrollTop = elements.eventLog.scrollHeight;
+}
+
+function recordEvent(eventName, data) {
+  const at = Date.now();
+  state.events.push({ event: eventName, at, data: structuredClone(data) });
+  elements.eventMetric.textContent = String(state.events.length);
+  const item = document.createElement('li');
+  item.innerHTML = `<span></span><code></code>`;
+  item.querySelector('span').textContent = eventName;
+  item.querySelector('code').textContent = `+${at - state.turnStartedAt} ms`;
+  if (elements.eventTimeline.firstElementChild?.textContent.includes('No events')) {
+    elements.eventTimeline.textContent = '';
+  }
+  elements.eventTimeline.appendChild(item);
+}
+
+function ensureTurnUi() {
+  if (state.currentAnswer) return;
+  elements.emptyState?.remove();
+  const work = document.createElement('details');
+  work.className = 'work-panel';
+  work.open = true;
+  work.innerHTML = '<summary>Working</summary><div class="work-list"></div>';
+  const answer = document.createElement('div');
+  answer.className = 'message answer streaming';
+  elements.messages.append(work, answer);
+  state.currentWork = work;
+  state.currentAnswer = answer;
+}
+
+function renderStage(data) {
+  ensureTurnUi();
+  const stageId = data.stageId || data.stage || 'working';
+  let row = state.stages.get(stageId);
+  if (!row) {
+    row = document.createElement('div');
+    row.className = 'work-row';
+    row.innerHTML = '<span class="work-mark"></span><span></span>';
+    state.currentWork.querySelector('.work-list').appendChild(row);
+    state.stages.set(stageId, row);
+  }
+  row.className = `work-row ${data.status || 'started'}`;
+  row.querySelector('.work-mark').textContent = data.status === 'completed' ? '✓' : (data.status === 'failed' ? '×' : '•');
+  row.lastElementChild.textContent = data.stage === 'tool' ? 'Tool execution' : String(data.stage || 'Working');
+}
+
+function renderAnswer(data, final = false) {
+  ensureTurnUi();
+  const text = data.text || '';
+  if (window.marked && window.DOMPurify) {
+    state.currentAnswer.innerHTML = window.DOMPurify.sanitize(window.marked.parse(text, {
+      breaks: true,
+      gfm: true,
+    }));
+  } else {
+    state.currentAnswer.textContent = text;
+  }
+  if (final) {
+    state.currentAnswer.classList.remove('streaming');
+    state.currentWork.querySelector('summary').textContent = 'Completed';
+    for (const row of state.stages.values()) {
+      if (!row.classList.contains('failed')) row.className = 'work-row completed';
+      row.querySelector('.work-mark').textContent = row.classList.contains('failed') ? '×' : '✓';
+    }
+  }
+  elements.messages.scrollTop = elements.messages.scrollHeight;
+}
+
+async function routerFetch(path, options = {}) {
+  const key = elements.apiKey.value;
+  const headers = new Headers(options.headers || {});
+  if (key) headers.set('X-API-Key', key);
+  if (options.body) headers.set('Content-Type', 'application/json');
+  return fetch(`${gatewayUrl()}${path}`, { ...options, headers, credentials: 'same-origin' });
+}
+
+async function connectRouter() {
+  setBusy(true);
+  setStatus('Checking Router', 'busy');
+  try {
+    if (['localhost', '127.0.0.1'].includes(new URL(gatewayUrl()).hostname)) {
+      const bootstrap = await fetch(`${gatewayUrl()}/local/bootstrap`, {
+        method: 'POST',
+        credentials: 'same-origin',
+      });
+      if (!bootstrap.ok) throw new Error('Local browser session bootstrap failed');
+    }
+    const response = await fetch(`${gatewayUrl()}/readyz`, { cache: 'no-store' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result?.upstreamIdentity?.state === 'reauthRequired'
+      ? 'Administrator reauthentication required'
+      : 'Router is not ready');
+    setStatus('Router ready', 'ready');
+    log('Router readiness check passed.');
+    await createConversation();
+  } catch (error) {
+    setStatus(error.message, 'error');
+    log(`ERROR ${error.message}`);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function createConversation() {
+  setStatus('Creating conversation', 'busy');
+  const response = await routerFetch('/v1/conversations', {
+    method: 'POST',
+    body: JSON.stringify({ agentId: 'knowledge-new' }),
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result?.error?.code || `HTTP ${response.status}`);
+  state.conversationId = result.conversationId;
+  state.expiresAt = result.expiresAt;
+  elements.conversationId.textContent = state.conversationId.slice(0, 8);
+  resetTurnEvidence();
+  elements.messages.innerHTML = '<div class="empty-state" id="emptyState"><strong>Conversation ready</strong>Send a prompt to validate Router streaming.</div>';
+  elements.emptyState = document.getElementById('emptyState');
+  setStatus('Conversation ready', 'ready');
+  log(`Conversation ${state.conversationId.slice(0, 8)} created.`);
+}
+
+async function newConversation() {
+  setBusy(true);
+  try {
+    await createConversation();
+  } catch (error) {
+    setStatus(error.message, 'error');
+    log(`ERROR ${error.message}`);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function parseSseLineBuffer(bufferState, chunk, onFrame) {
+  bufferState.buffer += chunk;
+  let index;
+  while ((index = bufferState.buffer.indexOf('\n')) >= 0) {
+    let line = bufferState.buffer.slice(0, index);
+    bufferState.buffer = bufferState.buffer.slice(index + 1);
+    if (line.endsWith('\r')) line = line.slice(0, -1);
+    if (line === '') {
+      if (bufferState.data.length) {
+        onFrame(bufferState.event || 'message', bufferState.data.join('\n'));
+      }
+      bufferState.event = '';
+      bufferState.data = [];
+    } else if (!line.startsWith(':')) {
+      if (line.startsWith('event:')) bufferState.event = line.slice(6).trim();
+      else if (line.startsWith('data:')) bufferState.data.push(line.slice(5).replace(/^ /, ''));
+    }
+  }
+}
+
+async function sendTurn() {
+  const text = elements.messageInput.value.trim();
+  if (!text || state.busy) return;
+  setBusy(true);
+  resetTurnEvidence();
+  state.turnStartedAt = Date.now();
+  elements.eventLog.textContent = '';
+  elements.emptyState?.remove();
+  const userMessage = document.createElement('div');
+  userMessage.className = 'message user';
+  userMessage.textContent = text;
+  elements.messages.appendChild(userMessage);
+  setStatus('Streaming', 'busy');
+
+  try {
+    const response = await routerFetch(`/v1/conversations/${encodeURIComponent(state.conversationId)}/turns`, {
+      method: 'POST',
+      headers: { Accept: 'text/event-stream' },
+      body: JSON.stringify({ text, clientTurnId: crypto.randomUUID() }),
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      throw new Error(result?.error?.code || `HTTP ${response.status}`);
+    }
+    if (!response.body) throw new Error('Router returned no stream body');
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    const frameState = { buffer: '', event: '', data: [] };
+    let terminal = false;
+    const onFrame = (eventName, rawData) => {
+      let data;
+      try { data = JSON.parse(rawData); } catch { return; }
+      recordEvent(eventName, data);
+      log(`${eventName} ${JSON.stringify(data)}`);
+      if (eventName === 'stage') renderStage(data);
+      if (eventName === 'answer') {
+        if (state.ttftMs === null && data.text) {
+          state.ttftMs = Date.now() - state.turnStartedAt;
+          elements.ttftMetric.textContent = formatDuration(state.ttftMs);
+        }
+        state.answerSnapshots += 1;
+        elements.snapshotMetric.textContent = String(state.answerSnapshots);
+        renderAnswer(data);
+      }
+      if (eventName === 'final') {
+        if (state.ttftMs === null && data.text) {
+          state.ttftMs = Date.now() - state.turnStartedAt;
+          elements.ttftMetric.textContent = formatDuration(state.ttftMs);
+        }
+        state.totalMs = Date.now() - state.turnStartedAt;
+        state.finalText = data.text || '';
+        elements.totalMetric.textContent = formatDuration(state.totalMs);
+        renderAnswer(data, true);
+        setStatus('Completed', 'ready');
+        terminal = true;
+      }
+      if (eventName === 'error') {
+        state.totalMs = Date.now() - state.turnStartedAt;
+        elements.totalMetric.textContent = formatDuration(state.totalMs);
+        setStatus(data.code || 'Stream interrupted', 'error');
+        terminal = true;
+      }
+    };
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      parseSseLineBuffer(frameState, decoder.decode(value, { stream: true }), onFrame);
+    }
+    if (!terminal) throw new Error('Stream ended without final or error');
+    elements.exportButton.disabled = false;
+  } catch (error) {
+    state.totalMs = Date.now() - state.turnStartedAt;
+    elements.totalMetric.textContent = formatDuration(state.totalMs);
+    setStatus(error.message, 'error');
+    log(`ERROR ${error.message}`);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function exportEvidence() {
+  const evidence = {
+    schemaVersion: 1,
+    evidenceType: 'd2e-router-live-validation',
+    capturedAt: new Date().toISOString(),
+    routerOrigin: new URL(gatewayUrl()).origin,
+    conversationIdPrefix: state.conversationId?.slice(0, 8),
+    expiresAt: state.expiresAt,
+    metrics: {
+      ttftMs: state.ttftMs,
+      totalMs: state.totalMs,
+      eventCount: state.events.length,
+      answerSnapshotCount: state.answerSnapshots,
+    },
+    finalText: state.finalText,
+    events: state.events,
+  };
+  const blob = new Blob([JSON.stringify(evidence, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `d2e-router-evidence-${Date.now()}.json`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+elements.connectButton.addEventListener('click', connectRouter);
+elements.newConversationButton.addEventListener('click', newConversation);
+elements.sendButton.addEventListener('click', sendTurn);
+elements.exportButton.addEventListener('click', exportEvidence);
+elements.themeButton.addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+});
+elements.messageInput.addEventListener('keydown', event => {
+  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+    event.preventDefault();
+    sendTurn();
+  }
+});
+</script>
+</body>
+</html>

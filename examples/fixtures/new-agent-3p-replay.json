@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "synthetic-deterministic-replay",
+  "scope": "Client reducer and UI behavior only; this file is not a production wire capture.",
+  "activities": [
+    { "type": "typing", "id": "thought-1", "text": "", "entities": [{ "type": "thought", "text": "The user is asking about the product. Let me query the knowledge" }] },
+    { "type": "typing", "id": "thought-2", "text": "", "entities": [{ "type": "thought", "text": "base using the search action." }] },
+    { "type": "typing", "id": "stage-1", "text": "Loading skill...", "channelData": { "streamType": "informative", "streamSequence": 1 } },
+    { "type": "typing", "id": "tool-1-start", "text": "", "entities": [{ "type": "toolCall", "tool_call_id": "search-1", "tool_display_name": "Knowledge search", "status": "started" }] },
+    { "type": "typing", "id": "tool-1-end", "text": "", "entities": [{ "type": "toolCall", "tool_call_id": "search-1", "tool_display_name": "Knowledge search", "status": "completed", "duration_ms": 1250 }] },
+    { "type": "typing", "id": "answer-temp", "text": "The product is", "channelData": { "streamType": "streaming", "streamSequence": 2 } },
+    { "type": "typing", "id": "answer-real", "text": "The product is a personal AI agent", "channelData": { "streamType": "streaming", "streamId": "answer-1", "streamSequence": 3 } },
+    { "type": "message", "id": "answer-final", "text": "The product is a personal AI agent.", "channelData": { "streamType": "final", "streamId": "answer-1" } },
+    { "type": "typing", "id": "late-stage", "text": "Knowledge search completed", "channelData": { "streamType": "informative", "streamId": "answer-1", "streamSequence": 4 } },
+    { "type": "typing", "id": "late-answer", "text": "SHOULD NOT APPEAR", "channelData": { "streamType": "streaming", "streamId": "answer-1", "streamSequence": 5 } },
+    { "type": "message", "id": "duplicate-final", "text": "The product is a personal AI agent." }
+  ]
+}

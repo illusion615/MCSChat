@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "deidentified-observed-capture",
+  "capturedAt": "2026-06-13T01:11:33Z",
+  "scope": "Classic Agent over Direct Line WebSocket in the tested preview environments",
+  "claimSupported": "This observed turn was delivered final-only; it does not establish behavior for other environments.",
+  "question": "[redacted non-sensitive test question]",
+  "activities": [
+    { "type": "typing", "id": "typing-1", "text": null, "channelData": null, "entities": [] },
+    { "type": "typing", "id": "typing-2", "text": null, "channelData": null, "entities": [] },
+    { "type": "typing", "id": "typing-3", "text": null, "channelData": null, "entities": [] },
+    { "type": "typing", "id": "typing-4", "text": null, "channelData": null, "entities": [] },
+    { "type": "typing", "id": "typing-5", "text": null, "channelData": null, "entities": [] },
+    { "type": "typing", "id": "typing-6", "text": null, "channelData": null, "entities": [] },
+    { "type": "typing", "id": "typing-7", "text": null, "channelData": null, "entities": [] },
+    { "type": "typing", "id": "typing-8", "text": null, "channelData": null, "entities": [] },
+    { "type": "typing", "id": "typing-9", "text": null, "channelData": null, "entities": [] },
+    {
+      "type": "message",
+      "id": "final-message",
+      "textLength": 1335,
+      "inputHint": "acceptingInput",
+      "channelData": { "feedbackLoop": { "type": "default" } },
+      "entities": []
+    }
+  ],
+  "metrics": { "totalMs": 33896, "typingCount": 9, "streamingChunkCount": 0 }
+}
