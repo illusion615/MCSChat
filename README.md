@@ -19,13 +19,33 @@ Ready to get started? Follow our quick setup guide:
 
 The isolated [`gateway/`](gateway/) prototype exposes the existing Copilot Studio New Agent D2E stream through a third-party REST/SSE API using one administrator-authorized delegated Entra user. Third-party callers do not sign in to Microsoft, and S2S/app-only is not implemented.
 
-- Router validation page: [`examples/d2e-router-streaming-test.html`](examples/d2e-router-streaming-test.html)
-- Local Router: `cd gateway && npm install && npm run start:local`
-- Real redacted verification: `cd gateway && npm run verify:local`
-- Fake-upstream check: `cd gateway && node scripts/fakeRouterServer.js`
-- Automated tests: `cd gateway && npm test`
+**Quick Setup**:
+```bash
+cd gateway
+npm install
+npm run generate:secrets      # Generate encryption keys
+cp .env.example .env.local    # Configure (add 4 secrets + Power Platform settings)
+chmod 600 .env.local
+npm run start:local           # Start local Router
+```
 
-The Router listens on `127.0.0.1:8090`, persists an encrypted MSAL cache in private local files, and serves its browser verification page at `http://localhost:8090/prototype`. Connect checks readiness and creates a conversation in one action, so the composer is immediately available. Subsequent turns append to the visible history; only New conversation clears it. Azure hosting was canceled; the local service and real New Agent streaming path are the supported prototype scope.
+**Documentation**:
+- 📖 [Full Gateway Usage Guide](gateway/README.md) - Complete setup and troubleshooting
+- ⚡ [Quick Start (5 min)](gateway/QUICKSTART.md) - Fast reference for common tasks
+- 🧪 [Validation Page](examples/d2e-router-streaming-test.html) - Live testing interface
+
+**Common Commands**:
+| Task | Command |
+|------|---------|
+| Generate secrets | `cd gateway && npm run generate:secrets` |
+| Start local Router | `cd gateway && npm run start:local` |
+| Verify functionality | `cd gateway && npm run verify:local` |
+| Run tests (27 cases) | `cd gateway && npm test` |
+| Test with fake upstream | `cd gateway && node scripts/fakeRouterServer.js` |
+
+The Router listens on `127.0.0.1:8090`, persists an encrypted MSAL cache in private local files, and serves its browser verification page at `http://localhost:8090/prototype`. Connect checks readiness and creates a conversation in one action, so the composer is immediately available. Subsequent turns append to the visible history; only New conversation clears it.
+
+**Architecture**: One delegated Entra user → MSAL token caching (AES-256-GCM encrypted) → Copilot Studio D2E stream → normalized REST/SSE API
 
 ## 📖 Documentation
 

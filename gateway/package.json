@@ -10,6 +10,7 @@
     "start": "node src/server.js",
     "start:local": "node --env-file=.env.local src/server.js",
     "verify:local": "node --env-file=.env.local scripts/verifyLocalRouter.js",
+    "generate:secrets": "node scripts/generateSecrets.js",
     "test": "node --test",
     "check": "node --check src/server.js"
   },
