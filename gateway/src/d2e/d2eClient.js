@@ -9,12 +9,12 @@ export class D2EClient {
         this.responseSignals = new WeakMap();
     }
 
+    async openConversation({ signal } = {}) {
+        return this.#post(this.#conversationsUrl(), { emitStartConversationEvent: true }, signal);
+    }
+
     async createConversation({ signal } = {}) {
-        const response = await this.#post(
-            this.#conversationsUrl(),
-            { emitStartConversationEvent: true },
-            signal
-        );
+        const response = await this.openConversation({ signal });
         let conversationId = response.headers.get('x-ms-conversationid');
         await this.consumeActivities(response, activity => {
             conversationId ||= activity?.conversation?.id;
@@ -43,26 +43,40 @@ export class D2EClient {
         );
     }
 
-    async consumeActivities(response, onActivity) {
+    /**
+     * Forwards a caller-supplied activity verbatim. The conversation binding is
+     * forced server-side so a caller cannot target another conversation.
+     */
+    async openRawTurn({ upstreamConversationId, activity, signal }) {
+        return this.#post(
+            this.#conversationsUrl(upstreamConversationId),
+            {
+                activity: {
+                    ...activity,
+                    conversation: { ...(activity?.conversation || {}), id: upstreamConversationId },
+                },
+            },
+            signal
+        );
+    }
+
+    /**
+     * Single SSE read path for the whole client. `onFrame` receives the raw
+     * `{ event, id, data }` frame so the verification passthrough can forward
+     * upstream bytes without a JSON round-trip.
+     */
+    async consumeFrames(response, onFrame) {
         if (!response.body) {
             throw new GatewayError('UPSTREAM_STREAM_MISSING', 'D2E response has no stream body', {
                 status: 502,
             });
         }
-        let activityCount = 0;
+        let frameCount = 0;
         try {
             for await (const frame of parseSseStream(response.body)) {
                 if (frame.event === 'end' || frame.data === '[DONE]') break;
-                let activity;
-                try {
-                    activity = JSON.parse(frame.data);
-                } catch {
-                    continue;
-                }
-                if (activity && typeof activity === 'object') {
-                    activityCount += 1;
-                    if (await onActivity(activity) === false) break;
-                }
+                frameCount += 1;
+                if (await onFrame(frame) === false) break;
             }
         } catch (error) {
             const signals = this.responseSignals.get(response);
@@ -77,6 +91,22 @@ export class D2EClient {
         } finally {
             this.responseSignals.delete(response);
         }
+        return frameCount;
+    }
+
+    async consumeActivities(response, onActivity) {
+        let activityCount = 0;
+        await this.consumeFrames(response, async frame => {
+            let activity;
+            try {
+                activity = JSON.parse(frame.data);
+            } catch {
+                return true;
+            }
+            if (!activity || typeof activity !== 'object') return true;
+            activityCount += 1;
+            return await onActivity(activity) !== false;
+        });
         return activityCount;
     }
 

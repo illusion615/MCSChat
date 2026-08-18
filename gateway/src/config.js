@@ -8,6 +8,13 @@ const DEFAULTS = Object.freeze({
     apiVersion: '1',
     conversationTtlMinutes: 60,
     upstreamTimeoutMs: 180_000,
+    // Node's Happy Eyeballs default is 250 ms per address family. The Power
+    // Platform host publishes AAAA records, so on a network without working
+    // IPv6 the IPv4 attempt loses that race and every call fails with ETIMEDOUT.
+    upstreamConnectAttemptMs: 3_000,
+    adminSessionTtlMinutes: 60,
+    adminRestartDrainMs: 10_000,
+    logBufferSize: 2_000,
     allowedOrigins: [
         'https://illusion615.github.io',
         'http://localhost:8000',
@@ -86,11 +93,27 @@ export function loadConfig(env = process.env) {
             'UPSTREAM_TIMEOUT_MS',
             DEFAULTS.upstreamTimeoutMs
         ),
+        upstreamConnectAttemptMs: positiveInteger(
+            env.UPSTREAM_CONNECT_ATTEMPT_MS,
+            'UPSTREAM_CONNECT_ATTEMPT_MS',
+            DEFAULTS.upstreamConnectAttemptMs
+        ),
         conversationTtlMinutes: positiveInteger(
             env.CONVERSATION_TTL_MINUTES,
             'CONVERSATION_TTL_MINUTES',
             DEFAULTS.conversationTtlMinutes
         ),
+        adminSessionTtlMinutes: positiveInteger(
+            env.ADMIN_SESSION_TTL_MINUTES,
+            'ADMIN_SESSION_TTL_MINUTES',
+            DEFAULTS.adminSessionTtlMinutes
+        ),
+        adminRestartDrainMs: positiveInteger(
+            env.ADMIN_RESTART_DRAIN_MS,
+            'ADMIN_RESTART_DRAIN_MS',
+            DEFAULTS.adminRestartDrainMs
+        ),
+        logBufferSize: positiveInteger(env.LOG_BUFFER_SIZE, 'LOG_BUFFER_SIZE', DEFAULTS.logBufferSize),
         prototypePagePath: String(env.PROTOTYPE_PAGE_PATH || '').trim() || undefined,
     });
 }

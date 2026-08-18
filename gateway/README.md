@@ -37,17 +37,22 @@ npm install
 ### 第 4 步：生成 4 个秘钥
 
 ```bash
-# 生成 ENTRA_CLIENT_SECRET（在 Entra App Registration 的 Certificates & secrets 创建，不能是自签名的）
-# 这个需要在 Entra 门户手动创建，复制值
+# ENTRA_CLIENT_SECRET 在 Entra App Registration 的 Certificates & secrets 创建，手动复制值
 
-# 生成其他三个密钥：
-node scripts/generateSecrets.js
+# 其余四个密钥：
+npm run generate:secrets
 ```
 
-该脚本会输出三个密钥，分别对应：
-- `msal-cache-encryption-key`（AES-256-GCM 对称密钥，用于加密 Token 缓存）
-- `prototype-api-key`（验证页面使用的 API 密钥）
-- `admin-session-signing-key`（浏览器会话签名密钥）
+该脚本输出四个可直接粘贴到 `.env.local` 的行：
+
+| 变量 | 编码 | 用途 |
+|------|------|------|
+| `LOCAL_MSAL_CACHE_ENCRYPTION_KEY` | **base64**（32 字节） | 加密 MSAL 令牌缓存（AES-256-GCM） |
+| `LOCAL_PROTOTYPE_API_KEY` | hex | `/v1` Router API 调用方凭据 |
+| `LOCAL_ADMIN_API_KEY` | hex，**可选** | 控制台密码；留空则控制台无密码，可在界面里自行设置 |
+| `LOCAL_ADMIN_SESSION_SIGNING_KEY` | hex | 仅用于签名浏览器会话 Cookie |
+
+> 缓存密钥必须是 base64。填入 hex 会在启动时报 `MSAL cache encryption key must be 32 bytes encoded as base64`。
 
 ### 第 5 步：配置 `.env.local`
 
@@ -67,14 +72,19 @@ nano .env.local
 | `PORT` | 自定义（本地） | `8090` |
 | `TENANT_ID` | Azure 租户 ID | `899aca58-7bdc-45e9-bec6-1cc9d3f12894` |
 | `ENTRA_CLIENT_ID` | Entra App Registration | `00000000-0000-0000-0000-000000000000` |
+| `PUBLIC_BASE_URL` | **必填**，Entra redirect URI 的前缀 | `http://localhost:8090` |
 | `LOCAL_ENTRA_CLIENT_SECRET` | Entra Certificates & secrets | `xxx_xxx_xxx` |
-| `LOCAL_MSAL_CACHE_ENCRYPTION_KEY` | `generateSecrets.js` 输出 | 64 字符十六进制 |
+| `LOCAL_MSAL_CACHE_ENCRYPTION_KEY` | `generate:secrets` 输出 | base64（44 字符） |
 | `ALLOWED_UPSTREAM_USER_OID` | 受控 Entra 用户的 Object ID | `00000000-0000-0000-0000-000000000000` |
 | `POWER_PLATFORM_ENVIRONMENT_ID` | Power Platform 管理中心 | `448464af-64af-ec92-a521-6d203cf6811d` |
 | `POWER_PLATFORM_SCHEMA_NAME` | Power Platform 解决方案 | `Default_KnowledgeAgentNewCopilot_sodjEw` |
-| `LOCAL_PROTOTYPE_API_KEY` | `generateSecrets.js` 输出 | 32 字符十六进制 |
-| `LOCAL_ADMIN_SESSION_SIGNING_KEY` | `generateSecrets.js` 输出 | 64 字符十六进制 |
+| `LOCAL_PROTOTYPE_API_KEY` | `generate:secrets` 输出 | 32 字符十六进制 |
+| `LOCAL_ADMIN_API_KEY` | `generate:secrets` 输出 | 48 字符十六进制 |
+| `LOCAL_ADMIN_SESSION_SIGNING_KEY` | `generate:secrets` 输出 | 64 字符十六进制 |
 | `ALLOWED_ORIGINS` | CORS 白名单 | `http://localhost:8000,http://127.0.0.1:8000` |
+| `ADMIN_SESSION_TTL_MINUTES` | 可选，控制台会话时长 | `60` |
+| `ADMIN_RESTART_DRAIN_MS` | 可选，重启前排空宽限 | `10000` |
+| `LOG_BUFFER_SIZE` | 可选，内存日志条数 | `2000` |
 
 **安全检查**：
 
@@ -82,7 +92,7 @@ nano .env.local
 # 确保文件权限为 600（仅所有者可读）
 chmod 600 .env.local
 
-# 验证配置正确性
+# 语法检查全部源文件
 npm run check
 ```
 
@@ -99,47 +109,53 @@ Delegated identity not ready (cache missing).
 Start administrator authorization: POST /admin/auth/start
 ```
 
-在**另一个终端**中，触发授权流：
+**打开管理控制台**：
+
+```
+http://127.0.0.1:8090/admin
+```
+
+1. 输入 `LOCAL_ADMIN_API_KEY` 登录（密钥只存内存，换成 HttpOnly 会话 Cookie）
+2. 在【概览】页点击 **开始授权**
+3. 在新标签页中用受控 Entra 用户登录并授权
+4. Entra 回调 `/admin/auth/callback` 后自动返回控制台，身份状态变为 **身份就绪**
+
+Router 会把加密的 MSAL 缓存持久化到 `.local-state/identity/msal-cache.bin`（mode 600），重启后自动恢复。
+
+<details>
+<summary>不用控制台，改用 curl 触发授权</summary>
 
 ```bash
 curl -X POST http://127.0.0.1:8090/admin/auth/start \
-  -H "X-Admin-Key: <LOCAL_ADMIN_SESSION_SIGNING_KEY>" \
+  -H "X-Admin-Key: $LOCAL_ADMIN_API_KEY" \
   -H "Content-Type: application/json"
 ```
 
-会收到：
+响应：
+
 ```json
-{
-  "authorizationUri": "https://login.microsoftonline.com/.../authorize?client_id=..."
-}
+{ "authorizationUrl": "https://login.microsoftonline.com/.../authorize?client_id=..." }
 ```
 
-**访问浏览器**，打开该 URI，使用受控 Entra 用户登录并授予权限。Entra 会回调到 `/admin/auth/callback`，Router 会持久化加密的 MSAL 缓存到 `.local-state/msal-cache.bin`。
-
-日志会显示：
-```
-Identity ready: Successfully acquired token.
-Server listening on 127.0.0.1:8090
-```
+在浏览器中打开该 URL 完成登录即可。
+</details>
 
 ### 第 7 步：验证本地服务
 
 #### 方式 A：使用验证页面（推荐 UI 演示）
-
-```bash
-npm run verify:local
-```
 
 打开浏览器：
 ```
 http://127.0.0.1:8090/prototype
 ```
 
-**在验证页面中**：
-1. 点击 **Connect** 按钮，应显示 "Conversation ready"
-2. 在文本框中输入提示词，点 **Send**
-3. 观察流式响应、处理阶段、最终答案
-4. 可选：导出 JSON 格式的转向日志
+无需登录 —— 页面自动取得 loopback 会话并建会话。该页由 `examples/d2e-streaming-test.html` 复制而来，**仅替换传输层**，因此功能与直连页完全一致：
+
+1. 聊天、Work 面板（reasoning 转录 + tool 阶段）、打字机逐步显示、Markdown 渲染
+2. 性能基准套件：题库 / 批次 / TTFT 与 Total 的 avg·p50·p90·max / 堆叠图 / CSV 导出
+3. 浮动日志面板：copy / clear / **export raw**
+4. Adaptive Cards 与 Suggested Actions
+5. `?debug=1` 显示 fixture 回放
 
 #### 方式 B：使用 curl 验证（API 验证）
 
@@ -147,7 +163,8 @@ http://127.0.0.1:8090/prototype
 # 创建会话
 CONV_ID=$(curl -s -X POST http://127.0.0.1:8090/v1/conversations \
   -H "Authorization: Bearer $LOCAL_PROTOTYPE_API_KEY" \
-  -H "Content-Type: application/json" | jq -r '.conversationId')
+  -H "Content-Type: application/json" \
+  -d '{"agentId": "knowledge-new"}' | jq -r '.conversationId')
 
 echo "Created conversation: $CONV_ID"
 
@@ -156,13 +173,13 @@ curl -N http://127.0.0.1:8090/v1/conversations/$CONV_ID/turns \
   -X POST \
   -H "Authorization: Bearer $LOCAL_PROTOTYPE_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "Hello"}'
+  -d '{"text": "Hello", "clientTurnId": "turn-1"}'
 ```
 
 可以观察到：
-- `stage: <stageName>` — 当前处理阶段（如 `evaluating`, `generating`）
-- `answer: <chunk>` — 增量答案文本
-- `final: <fullText>` — 完整答案（流的最后一个事件）
+- `event: stage` — 处理阶段（脉络/工具调用，已脱敏）
+- `event: answer` — 累计的答案快照
+- `event: final` — 完整答案（流的最后一个业务事件）
 
 ### 第 8 步：集成到主应用
 
@@ -193,12 +210,95 @@ if (agentType === 'new') {
 | 命令 | 用途 |
 |------|------|
 | `npm install` | 安装依赖 |
-| `npm run start:local` | 启动本地服务 |
-| `npm run verify:local` | 运行本地验证脚本 |
-| `npm test` | 运行 27 个测试用例 |
-| `npm run check` | 语法检查 |
-| `node scripts/generateSecrets.js` | 生成三个随机秘钥 |
+| `npm run start:local` | 启动本地服务（带监督者，支持控制台重启） |
+| `npm run start:local:once` | 直接启动单进程（调试用，不支持重启） |
+| `npm run verify:local` | 运行 CLI 取证脚本，输出 `evidence/local-router-live.json` |
+| `npm test` | 运行全量测试 |
+| `npm run check` | 对 `src/` 与 `scripts/` 全量语法检查 |
+| `npm run generate:secrets` | 生成四个随机密钥 |
 | `node scripts/fakeRouterServer.js` | 启动假 Router（无需 Power Platform） |
+
+---
+
+## 管理控制台
+
+地址：`http://127.0.0.1:8090/admin`，中英双语、light/dark 自适应。
+
+### 登录模型
+
+**默认无密码。** 首次打开 `http://127.0.0.1:8090/admin` 直接可用，顶部横幅提示尚未设置密码，【控制台安全】卡片可一键设置。
+
+| 状态 | 行为 |
+|------|------|
+| 无密码（默认） | 控制台直接打开；本机任何进程可访问 |
+| 在界面设了密码 | 需要登录；只存 scrypt 加盐哈希于 `.local-state/admin/credential.json`，明文不落盘 |
+| `.env.local` 设了 `LOCAL_ADMIN_API_KEY` | 该密钥优先，且无法在界面修改（适合脚本/CI） |
+
+密码登录后换取 `mcschat_admin` 会话 Cookie（`HttpOnly` / `SameSite=Strict` / `Path=/admin`，默认 60 分钟）。密码只存在内存，不写 localStorage、URL 或导出文件。会话令牌无状态，服务重启后仍然有效。
+
+> 改了 `.env.local` 后需要重启**监督者**（终端 Ctrl+C 后重跑 `npm run start:local`）—— 控制台的【重启 Router】只重启子进程，不会重读 `.env.local`。
+
+### 四个视图
+
+| 视图 | 内容 |
+|------|------|
+| 概览 | 委派身份状态、开始授权、清除身份、运行时信息、重启服务、**控制台安全（设置/修改/移除密码）**、脉敏后的 Router 配置 |
+| 流量 | 请求/轮次/错误计数、近 5 分钟曲线、TTFT 与总耗时 p50/p95、路由与状态码分布、上游调用、最近 20 个轮次 |
+| 日志 | SSE 实时流、级别/关键字/correlationId 过滤、暂停与继续、导出 |
+| 会话 | 活跃会话列表与管理员强制关闭 |
+
+### 重启机制
+
+`npm run start:local` 启动的是监督者 `scripts/routerSupervisor.js`：
+
+```
+控制台点击重启 → 202 → 停止接受新连接 → SSE 终止帧 → 排空在途请求（默认 10s）
+  → 进程以退出码 75 退出 → 监督者重新拉起 → 页面轮询 /healthz 恢复后自动刷新
+```
+
+连续 5 次在 3 秒内退出会触发崩溃回退，监督者停止重启并报错。SIGINT / SIGTERM 走同一排空序列。
+
+### 日志与指标边界
+
+- 仅存内存（默认 2000 条环形缓冲），**不落盘**，重启清零
+- 所有字段经脱敏：token / secret / cookie / MSAL 缓存 / UPN 一律丢弃，高熵长串替换为 `[redacted]`
+- 会话 ID 与调用方主体只以 SHA-256 前缀形式出现
+- 上游真实 conversationId 、答案正文永不进入日志或导出
+
+### 导出
+
+| 端点 | 内容 |
+|------|------|
+| `GET /admin/api/export/logs?format=json\|ndjson\|txt` | 按当前筛选导出日志 |
+| `GET /admin/api/export/metrics` | 指标快照 || `GET /admin/api/export/diagnostics` | 诊断包（概览 + 指标 + 全量日志 + 脱敏配置） |
+
+---
+
+## 两条并存的下游契约
+
+```text
+第三方 ─ prototype-api-key ─► POST /v1/conversations/{id}/turns
+                                归约后：stage / answer / final / error
+                                脱敏：无 thought 正文、无工具参数、无上游 ID
+
+本机验证 ─ loopback 会话 ──► POST /admin/api/verification/conversations[/{id}]
+                                逐帧原样透传上游 Activity
+                                仅改写 activity.conversation.id 为不透明 ID
+```
+
+> **安全边界**：透传面接受 `X-Admin-Key`、admin 会话或 `POST /local/bootstrap` 签发的 loopback 会话。因此它的边界是“**本机 vs 非本机**”而非“管理员 vs 第三方”：任何能触达该端口的本机进程都能读到 raw activity（含 reasoning 正文与工具参数）。路由仅在 `localDevelopment` 下注册，**若未来托管 Router，必须关闭透传或改回 admin 准入**。管理控制台 API 仍然只接受 admin 凭据。
+
+### 契约对拍（检测 Router 是否改变了 D2E 数据结构）
+
+```text
+1. examples/d2e-streaming-test.html（直连）  发问题 Q → export raw → A.json
+2. http://127.0.0.1:8090/prototype（透传） 发问题 Q → export raw → B.json
+3. diff A.activities B.activities
+   预期唯一差异：conversation.id
+   出现其他差异 = Router 改变了 D2E 数据结构
+```
+
+两个页面的渲染管线、Work 面板与基准套件是逐字节相同的代码，因此行为差异只可能来自传输层。
 
 ---
 
@@ -233,7 +333,7 @@ if (agentType === 'new') {
 | 特性 | 说明 |
 |------|------|
 | **会话映射** | 浏览器获得不透明会话 ID；Router 内部维护到上游会话的映射 |
-| **令牌缓存** | MSAL 缓存以 AES-256-GCM 加密，存储在 `.local-state/msal-cache.bin` |
+| **令牌缓存** | MSAL 缓存以 AES-256-GCM 加密，存储在 `.local-state/identity/msal-cache.bin` |
 | **SSE 标准化** | 简化上游复杂流为：`stage` → `answer` → `final` \| `error` |
 | **会话生命周期** | 60 分钟 TTL（可配置）；超时自动清理 |
 | **并发安全** | 使用原子文件写（temp + rename）+ ETag 冲突检测 |

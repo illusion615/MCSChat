@@ -66,7 +66,19 @@ npm run start:local
 cd gateway && npm run generate:secrets
 ```
 
-会输出三个秘钥，复制到 `.env.local`
+会输出四个秘钥（缓存密钥为 base64，其余为 hex），直接粘贴到 `.env.local`
+
+### 🛠️ 我要管理 Router（登录 / 日志 / 流量 / 重启）
+
+→ 管理控制台：`http://127.0.0.1:8090/admin`
+
+用 `LOCAL_ADMIN_API_KEY` 登录后可以：
+- 触发与重置 Entra 委派授权
+- 查看实时日志（按级别 / 关键字 / correlationId 过滤）
+- 查看流量指标（请求、轮次、TTFT p50/p95、上游调用）
+- 查看与强制关闭活跃会话
+- 导出日志 / 指标 / 诊断包
+- 重启服务（需 `npm run start:local` 带监督者启动）
 
 ### 🧪 我要测试验证页面
 
@@ -85,7 +97,7 @@ http://127.0.0.1:8090/prototype
 cd gateway && npm test
 ```
 
-覆盖 27 个测试用例（流处理、缓存、会话管理等）
+覆盖流处理、缓存加密、会话并发、可观测性脱敏、管理面认证与导出防泄漏等场景
 
 ## 📋 场景查找表
 
@@ -94,8 +106,9 @@ cd gateway && npm test
 | 初次设置 | [QUICKSTART](../gateway/QUICKSTART.md) | `npm run start:local` |
 | 生成秘钥 | [README](../gateway/README.md#第-4-步生成-4-个秘钥) | `npm run generate:secrets` |
 | 配置 .env.local | [README](../gateway/README.md#第-5-步配置-envlocal) | `nano .env.local` |
-| 管理员授权 | [README](../gateway/README.md#第-6-步首次启动--管理员授权) | `curl -X POST http://127.0.0.1:8090/admin/auth/start ...` |
-| UI 验证 | [README](../gateway/README.md#方式-a使用验证页面推荐-ui-演示) | `npm run verify:local` |
+| 管理员授权 | [README](../gateway/README.md#第-6-步首次启动--管理员授权) | 打开 `http://127.0.0.1:8090/admin` |
+| 管理控制台 | [README](../gateway/README.md#管理控制台) | `http://127.0.0.1:8090/admin` |
+| UI 验证 | [README](../gateway/README.md#方式-a使用验证页面推荐-ui-演示) | `http://127.0.0.1:8090/prototype` |
 | API 验证 | [README](../gateway/README.md#方式-b使用-curl-验证api-验证) | `curl -X POST http://127.0.0.1:8090/v1/conversations ...` |
 | 应用集成 | [Integration Guide](gateway-integration.md) | `http://localhost:8000/index.html?agent=new` |
 | 故障排查 | [README](../gateway/README.md#故障排查) | — |
@@ -177,10 +190,10 @@ cd gateway && npm test
 # 启动 Router
 npm run start:local
 
-# 在另一个终端
-npm run verify:local
+# 打开管理控制台（登录 / 日志 / 流量 / 重启）
+# http://127.0.0.1:8090/admin
 
-# 打开浏览器访问
+# 打开流式验证页面
 # http://127.0.0.1:8090/prototype
 ```
 
@@ -189,14 +202,16 @@ npm run verify:local
 ```bash
 # 创建会话
 curl -X POST http://127.0.0.1:8090/v1/conversations \
-  -H "Authorization: Bearer $LOCAL_PROTOTYPE_API_KEY"
+  -H "Authorization: Bearer $LOCAL_PROTOTYPE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"agentId": "knowledge-new"}'
 
 # 发送消息（SSE）
 curl -N http://127.0.0.1:8090/v1/conversations/{id}/turns \
   -X POST \
   -H "Authorization: Bearer $LOCAL_PROTOTYPE_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "Hello"}'
+  -d '{"text": "Hello", "clientTurnId": "turn-1"}'
 ```
 
 ### 4️⃣ 集成测试（应用）

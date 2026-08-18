@@ -116,6 +116,57 @@ export class ConversationStore {
         await this.stateStore.remove(this.#path(id), { etag: entry.etag });
     }
 
+    /**
+     * Administrative projection. Never exposes the upstream conversation ID or
+     * the caller subject in clear — only the stored subject hash prefix.
+     */
+    async list() {
+        const paths = await this.stateStore.list?.('conversations') ?? [];
+        const now = this.now();
+        const conversations = [];
+        for (const statePath of paths) {
+            if (!statePath.endsWith('.json')) continue;
+            const entry = await this.stateStore.readJson(statePath).catch(() => null);
+            if (!entry?.value?.id) continue;
+            const value = entry.value;
+            const expired = Date.parse(value.expiresAt) <= now;
+            conversations.push({
+                idPrefix: String(value.id).slice(0, 8),
+                id: value.id,
+                agentId: value.agentId,
+                subjectRef: String(value.subjectHash || '').slice(0, 12),
+                status: expired ? 'expired' : value.status,
+                turnCount: Array.isArray(value.recentTurnIds) ? value.recentTurnIds.length : 0,
+                createdAt: value.createdAt,
+                updatedAt: value.updatedAt,
+                expiresAt: value.expiresAt,
+                version: value.version,
+            });
+        }
+        return conversations.sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
+    }
+
+    /** Administrative removal that bypasses subject binding. */
+    async forceClose(id) {
+        const entry = await this.#read(id);
+        if (!entry) {
+            throw new GatewayError('CONVERSATION_NOT_FOUND', 'Conversation was not found', { status: 404 });
+        }
+        await this.stateStore.remove(this.#path(id), { etag: entry.etag });
+    }
+
+    /** Drops conversation state whose TTL has already elapsed. */
+    async purgeExpired() {
+        const conversations = await this.list();
+        let removed = 0;
+        for (const conversation of conversations) {
+            if (conversation.status !== 'expired') continue;
+            await this.stateStore.remove(this.#path(conversation.id)).catch(() => undefined);
+            removed += 1;
+        }
+        return removed;
+    }
+
     async #read(id) {
         if (!CONVERSATION_ID_PATTERN.test(String(id || ''))) {
             throw new GatewayError('CONVERSATION_NOT_FOUND', 'Conversation was not found', { status: 404 });

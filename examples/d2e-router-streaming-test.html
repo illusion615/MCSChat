@@ -3,635 +3,1358 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>D2E Router Streaming Verification</title>
-<link rel="icon" href="data:," />
+<title>Knowledge Agent via Router — Streaming Chat</title>
+<!-- Served by the Router at /prototype; every dependency comes from that origin. -->
 <script src="/prototype-assets/marked.min.js"></script>
 <script src="/prototype-assets/purify.min.js"></script>
-<script>
-  (() => {
-    const param = new URLSearchParams(window.location.search).get("scoutTheme");
-    const theme =
-      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    document.documentElement.setAttribute("data-theme", theme);
-  })();
-</script>
+<!-- Adaptive Cards rendering -->
+<script src="https://unpkg.com/adaptivecards@2.11.1/dist/adaptivecards.min.js"></script>
 <style>
-:root {
-  color-scheme: light;
-  --cp-bg: #f7f4ef;
-  --cp-bg-elevated: #fcfbf8;
-  --cp-surface: #ffffff;
-  --cp-surface-soft: #f5f5f5;
-  --cp-border: #dedede;
-  --cp-border-strong: #919191;
-  --cp-text: #242424;
-  --cp-text-muted: #5c5c5c;
-  --cp-text-soft: #6f6f6f;
-  --cp-accent: #b11f4b;
-  --cp-accent-hover: #9a1a41;
-  --cp-accent-soft: rgba(177, 31, 75, 0.08);
-  --cp-accent-fg: #ffffff;
-  --cp-success: #16a34a;
-  --cp-danger: #dc2626;
-  --cp-warning: #f59e0b;
-  --cp-link: #0078d4;
-  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
-  --cp-overlay: rgba(255, 255, 255, 0.8);
-  --cp-panel: rgba(255, 255, 255, 0.86);
-  --cp-panel-strong: rgba(255, 255, 255, 0.96);
-  --cp-sheen: rgba(255, 255, 255, 0.55);
-  --cp-highlight: rgba(177, 31, 75, 0.12);
-}
-html[data-theme="dark"] {
-  color-scheme: dark;
-  --cp-bg: #3d3b3a;
-  --cp-bg-elevated: #343231;
-  --cp-surface: #292929;
-  --cp-surface-soft: #2e2e2e;
-  --cp-border: #474747;
-  --cp-border-strong: #5f5f5f;
-  --cp-text: #dedede;
-  --cp-text-muted: #919191;
-  --cp-text-soft: #b0b0b0;
-  --cp-accent: #fd8ea1;
-  --cp-accent-hover: #fb7b91;
-  --cp-accent-soft: rgba(253, 142, 161, 0.14);
-  --cp-accent-fg: #1a1a1a;
-  --cp-success: #4ade80;
-  --cp-danger: #f87171;
-  --cp-warning: #fbbf24;
-  --cp-link: #4da6ff;
-  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
-  --cp-overlay: rgba(41, 41, 41, 0.88);
-  --cp-panel: rgba(41, 41, 41, 0.72);
-  --cp-panel-strong: rgba(41, 41, 41, 0.96);
-  --cp-sheen: rgba(255, 255, 255, 0.04);
-  --cp-highlight: rgba(253, 142, 161, 0.12);
-}
-* { box-sizing: border-box; }
-html, body { margin: 0; min-height: 100%; }
-body {
-  min-height: 100vh;
-  background: var(--cp-bg);
-  color: var(--cp-text);
-  font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
-}
-button, input, textarea { font: inherit; }
-button { cursor: pointer; }
-button:disabled { cursor: not-allowed; opacity: 0.5; }
-.app-shell { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
-.topbar {
-  min-height: 72px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 12px 24px;
-  border-bottom: 1px solid var(--cp-border);
-  background: var(--cp-bg-elevated);
-}
-.brand { min-width: 220px; }
-.brand h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 0; }
-.brand p { margin: 3px 0 0; color: var(--cp-text-muted); font-size: 12px; }
-.connection-fields { flex: 1; display: grid; grid-template-columns: minmax(260px, 1fr) minmax(180px, 0.6fr); gap: 8px; }
-.field { display: grid; gap: 4px; }
-.field label { color: var(--cp-text-muted); font-size: 11px; font-weight: 600; }
-.field input {
-  width: 100%;
-  min-width: 0;
-  height: 38px;
-  padding: 0 10px;
-  border: 1px solid var(--cp-border);
-  border-radius: 0.625rem;
-  background: var(--cp-surface);
-  color: var(--cp-text);
-}
-.field input:focus, .composer textarea:focus { outline: 2px solid var(--cp-accent); outline-offset: 1px; }
-.actions { display: flex; align-items: end; gap: 8px; }
-.button {
-  min-height: 38px;
-  border: 1px solid var(--cp-border-strong);
-  border-radius: 0.625rem;
-  padding: 0 14px;
-  background: var(--cp-surface);
-  color: var(--cp-text);
-  font-weight: 600;
-}
-.button.primary { border-color: var(--cp-accent); background: var(--cp-accent); color: var(--cp-accent-fg); }
-.button.primary:hover { background: var(--cp-accent-hover); }
-.icon-button { width: 38px; padding: 0; display: inline-grid; place-items: center; }
-.status-line { display: inline-flex; align-items: center; gap: 7px; color: var(--cp-text-muted); font-size: 12px; white-space: nowrap; }
-.status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--cp-border-strong); }
-.status-dot.ready { background: var(--cp-success); }
-.status-dot.busy { background: var(--cp-warning); }
-.status-dot.error { background: var(--cp-danger); }
-.workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(340px, 0.75fr); }
-.chat-column { min-height: 0; display: grid; grid-template-rows: auto 1fr auto; border-right: 1px solid var(--cp-border); }
-.chat-head, .evidence-head {
-  min-height: 52px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 18px;
-  border-bottom: 1px solid var(--cp-border);
-  background: var(--cp-bg-elevated);
-}
-.chat-head strong, .evidence-head strong { flex: 1; font-size: 14px; }
-.conversation-id { color: var(--cp-text-muted); font-family: Consolas, "Courier New", Courier, monospace; font-size: 11px; }
-.messages { min-height: 0; overflow: auto; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
-.empty-state { margin: auto; max-width: 420px; text-align: center; color: var(--cp-text-muted); }
-.empty-state strong { display: block; color: var(--cp-text); margin-bottom: 6px; }
-.message { max-width: min(78%, 760px); border-radius: 16px; padding: 12px 15px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
-.message.user { align-self: flex-end; background: var(--cp-accent); color: var(--cp-accent-fg); border-bottom-right-radius: 4px; }
-.message.answer { align-self: flex-start; background: var(--cp-surface); border: 1px solid var(--cp-border); border-bottom-left-radius: 4px; }
-.message.answer.streaming { border-left: 3px solid var(--cp-accent); }
-.message.answer { white-space: normal; }
-.message.answer p { margin: 0 0 12px; }
-.message.answer p:last-child { margin-bottom: 0; }
-.message.answer ul, .message.answer ol { margin: 8px 0; padding-left: 24px; }
-.message.answer li { margin: 4px 0; }
-.message.answer code { font-family: Consolas, "Courier New", Courier, monospace; }
-.work-panel { align-self: flex-start; max-width: min(78%, 760px); width: 100%; }
-.work-panel summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--cp-text-muted); }
-.work-list { margin: 8px 0 0; padding: 10px 12px; display: grid; gap: 7px; border-left: 2px solid var(--cp-border); }
-.work-row { display: flex; align-items: center; gap: 8px; color: var(--cp-text-muted); font-size: 12px; }
-.work-mark { width: 14px; text-align: center; color: var(--cp-warning); }
-.work-row.completed .work-mark { color: var(--cp-success); }
-.work-row.failed .work-mark { color: var(--cp-danger); }
-.composer { padding: 14px 18px; border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevated); }
-.composer-box { display: flex; align-items: end; gap: 10px; }
-.composer textarea {
-  min-height: 44px;
-  max-height: 140px;
-  resize: vertical;
-  flex: 1;
-  padding: 11px 12px;
-  border: 1px solid var(--cp-border);
-  border-radius: 0.625rem;
-  background: var(--cp-surface);
-  color: var(--cp-text);
-}
-.evidence-column { min-height: 0; display: grid; grid-template-rows: auto auto 1fr; background: var(--cp-surface-soft); }
-.metrics { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--cp-border); background: var(--cp-bg-elevated); }
-.metric { min-width: 0; padding: 13px 10px; border-right: 1px solid var(--cp-border); text-align: center; }
-.metric:last-child { border-right: 0; }
-.metric strong { display: block; font-size: 18px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.metric span { color: var(--cp-text-muted); font-size: 10px; text-transform: uppercase; }
-.evidence-body { min-height: 0; overflow: auto; padding: 16px; display: grid; align-content: start; gap: 14px; }
-.evidence-section { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 16px; overflow: hidden; }
-.evidence-section h2 { margin: 0; padding: 11px 13px; border-bottom: 1px solid var(--cp-border); font-size: 12px; }
-.evidence-section pre {
-  min-height: 120px;
-  max-height: 260px;
-  margin: 0;
-  padding: 12px 13px;
-  overflow: auto;
-  color: var(--cp-text-soft);
-  font: 11px/1.5 Consolas, "Courier New", Courier, monospace;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.event-list { margin: 0; padding: 8px 13px 12px; list-style: none; display: grid; gap: 6px; }
-.event-list li { display: flex; justify-content: space-between; gap: 12px; color: var(--cp-text-muted); font-size: 11px; }
-.event-list code { color: var(--cp-text); font-family: Consolas, "Courier New", Courier, monospace; }
-@media (max-width: 1000px) {
-  .topbar { align-items: stretch; flex-wrap: wrap; }
-  .brand { flex: 1 1 100%; }
-  .connection-fields { flex: 1 1 100%; }
-  .workspace { grid-template-columns: 1fr; grid-template-rows: minmax(620px, 1fr) auto; }
-  .chat-column { border-right: 0; border-bottom: 1px solid var(--cp-border); }
-  .evidence-column { min-height: 520px; }
-}
-@media (max-width: 620px) {
-  .topbar { padding: 12px; }
-  .connection-fields { grid-template-columns: 1fr; }
-  .actions { flex: 1 1 100%; align-items: center; }
-  .status-line { flex: 1; }
-  .workspace { grid-template-rows: minmax(580px, 1fr) auto; }
-  .messages { padding: 16px 12px; }
-  .message, .work-panel { max-width: 92%; }
-  .metrics { grid-template-columns: repeat(2, 1fr); }
-  .metric:nth-child(2) { border-right: 0; }
-  .metric:nth-child(-n+2) { border-bottom: 1px solid var(--cp-border); }
-}
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    margin: 0; height: 100vh; display: flex; flex-direction: column;
+    background: #fafafa;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; border-bottom: 1px solid #ddd; background: #fff;
+  }
+  header h1 { font-size: 1rem; margin: 0; flex: 0 0 auto; }
+  header .status { font-size: 12px; color: #666; flex: 1; }
+  .agent-picker { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #555; }
+  header button {
+    padding: 6px 12px; cursor: pointer; border-radius: 6px;
+    border: 1px solid #888; background: #f3f3f3; font-size: 13px;
+  }
+  header button:disabled { opacity: .5; cursor: not-allowed; }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #6c6; color: #fff; }
+  .pill.err { background: #d33; }
+
+  main { flex: 1; display: flex; min-height: 0; }
+
+  /* Chat column */
+  .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid #ddd; }
+  .messages { flex: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .turn-output { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .turn-progress, .turn-answer { display: flex; flex-direction: column; gap: 7px; width: 100%; }
+  .work-panel { max-width: 78%; color: #4b5563; font-size: 13px; }
+  .work-panel summary { display: flex; align-items: center; gap: 8px; width: fit-content; cursor: pointer; list-style: none; font-weight: 600; }
+  .work-panel summary::-webkit-details-marker { display: none; }
+  .work-indicator { width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 14px; }
+  .work-panel:not(.done) .work-indicator { border: 2px solid #9ca3af; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+  .work-panel.done .work-indicator { color: #16a34a; }
+  .work-chevron { color: #9ca3af; transition: transform .15s ease; }
+  .work-panel[open] .work-chevron { transform: rotate(90deg); }
+  .work-body { margin: 8px 0 2px 22px; padding-left: 12px; border-left: 2px solid #e5e7eb; display: grid; gap: 10px; }
+  .reasoning-block[hidden], .work-stages[hidden] { display: none; }
+  .work-label { color: #6b7280; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 3px; }
+  .reasoning-text { margin: 0; color: #4b5563; line-height: 1.55; white-space: pre-wrap; }
+  .work-stages { display: grid; gap: 5px; }
+  .work-stage { display: flex; align-items: center; gap: 7px; color: #6b7280; }
+  .work-stage-mark { width: 14px; text-align: center; flex: 0 0 14px; }
+  .work-stage.active .work-stage-mark { width: 12px; height: 12px; border: 2px solid #9ca3af; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+  .work-stage.done .work-stage-mark { color: #16a34a; font-weight: 700; }
+  .msg { max-width: 78%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+  .msg.user { align-self: flex-end; background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
+  .msg.bot  { align-self: flex-start; background: #eef0f3; color: #111; border-bottom-left-radius: 4px; }
+  .msg.bot.streaming { border-left: 3px solid #6cf; }
+  /* Markdown layout — mirrors the main app (css/components/messages.css) */
+  /* Bot bubbles hold rendered HTML, so use normal whitespace: marked emits a
+     newline between every block tag, and pre-wrap would render those as blank
+     lines. Intra-paragraph line breaks are preserved via marked breaks:true. */
+  .msg.bot { line-height: 1.6; white-space: normal; }
+  .msg.bot p { margin: 0 0 12px; line-height: 1.6; }
+  .msg.bot p:last-child { margin-bottom: 0; }
+  .msg.bot ul, .msg.bot ol { margin: 8px 0; padding-left: 20px; }
+  .msg.bot li { margin: 4px 0; line-height: 1.6; }
+  .msg.bot li > p { margin: 0; }            /* tighten loose-list paragraphs */
+  .msg.bot pre { background: #00000010; padding: 8px 10px; border-radius: 6px; overflow: auto; margin: 8px 0; }
+  .msg.bot code { background: #00000010; padding: 1px 4px; border-radius: 4px; font-family: ui-monospace, Menlo, monospace; font-size: .92em; }
+  .msg.bot pre code { background: none; padding: 0; }
+  .msg.bot h1, .msg.bot h2, .msg.bot h3, .msg.bot h4 { margin: 16px 0 8px; line-height: 1.3; font-weight: 600; }
+  .msg.bot h1:first-child, .msg.bot h2:first-child, .msg.bot h3:first-child, .msg.bot h4:first-child { margin-top: 0; }
+  .msg.bot h1 { font-size: 1.5em; }
+  .msg.bot h2 { font-size: 1.4em; }
+  .msg.bot h3 { font-size: 1.3em; }
+  .msg.bot h4 { font-size: 1.2em; }
+  .msg.bot a { color: #2563eb; text-decoration: none; border-bottom: 1px solid transparent; }
+  .msg.bot a:hover { border-bottom-color: #2563eb; }
+  .msg.bot img { max-width: 100%; height: auto; display: block; border-radius: 8px; }
+  .msg.bot table { border-collapse: collapse; margin: 8px 0; }
+  .msg.bot th, .msg.bot td { border: 1px solid #ccc; padding: 4px 8px; }
+  .msg.bot > *:last-child { margin-bottom: 0; }
+  .informative { align-self: flex-start; font-style: italic; color: #888; font-size: 13px; }
+  /* Persistent informative steps (don't disappear; check mark when done) */
+  .step { align-self: flex-start; display: flex; align-items: center; gap: 7px; font-size: 13px; color: #888; }
+  .step .mark { width: 14px; height: 14px; flex: 0 0 14px; display: inline-flex; align-items: center; justify-content: center; }
+  .step.pending .mark { border: 2px solid #bbb; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+  .step.done .mark { color: #16a34a; font-weight: 700; }
+  .step.done { color: #4b5563; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* Message wrapper + metadata/actions row */
+  .msgwrap { display: flex; flex-direction: column; gap: 3px; max-width: 78%; }
+  .msgwrap.user { align-self: flex-end; align-items: flex-end; }
+  .msgwrap.bot  { align-self: flex-start; align-items: flex-start; }
+  .msgwrap .msg { max-width: 100%; }
+  .meta { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #9aa0a6; padding: 0 4px; }
+  .meta .sp { color: #c4c8cc; }
+  .meta button {
+    background: none; border: none; cursor: pointer; color: #6b7280; font-size: 11px;
+    padding: 1px 4px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;
+  }
+  .meta button:hover { background: #00000010; color: #2563eb; }
+  /* Suggested actions */
+  .suggested { align-self: flex-start; display: flex; flex-wrap: wrap; gap: 8px; max-width: 78%; }
+  .suggested button {
+    padding: 7px 14px; border: 1px solid #2563eb; background: #fff; color: #2563eb;
+    border-radius: 999px; font-size: 13px; cursor: pointer;
+  }
+  .suggested button:hover { background: #2563eb; color: #fff; }
+  .suggested.disabled button { opacity: .45; cursor: default; pointer-events: none; }
+  /* Adaptive card container */
+  .ac-card { align-self: flex-start; max-width: 78%; background: #fff; border: 1px solid #ddd;
+             border-radius: 12px; padding: 12px; }
+  .composer { padding: 12px 16px; border-top: 1px solid #ddd; background: #fff; }
+  .composer-box { display: flex; align-items: center; gap: 8px; width: 100%; border: 1px solid #ccc; border-radius: 10px; background: #fff; padding: 4px 6px 4px 12px; }
+  .composer-box:focus-within { border-color: #2563eb; box-shadow: 0 0 0 3px #2563eb1f; }
+  .composer input { flex: 1; min-width: 0; padding: 8px 0; border: none; outline: none; background: transparent; font-size: 14px; }
+  .composer button { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; border: none; background: transparent; color: #2563eb; cursor: pointer; font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+  .composer button svg { width: 18px; height: 18px; display: block; stroke: currentColor; }
+  .composer button:hover, .composer button:focus-visible { background: #2563eb; color: #fff; outline: none; }
+  .composer button:disabled { opacity: .45; cursor: not-allowed; }
+  .composer button:disabled:hover { background: transparent; color: #2563eb; }
+
+  /* Right sidebar = Benchmark panel */
+  .sidecol { width: 460px; flex: 0 0 460px; display: flex; flex-direction: column; background: #f7f8fa; border-left: 1px solid #e3e6ea; }
+  .side-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid #e3e6ea; background: #fff; }
+  .side-head h2 { font-size: 14px; margin: 0; flex: 1; }
+  .side-head button { background: #f3f3f3; border: 1px solid #bbb; border-radius: 6px; padding: 4px 9px; font-size: 12px; cursor: pointer; }
+  .side-body { flex: 1; overflow: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 14px; }
+
+  .bm-config summary { cursor: pointer; font-size: 12px; color: #374151; font-weight: 600; padding: 4px 0; }
+  .bm-config .cfgrow { margin-top: 8px; }
+  .bm-config label { font-size: 11px; color: #555; display: block; margin-bottom: 4px; }
+  .bm-config input[type=text] { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit; font-size: 12px; }
+  .bm-config textarea { width: 100%; min-height: 120px; padding: 8px 10px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit; font-size: 12px; resize: vertical; }
+  .bm-config input[type=number] { width: 80px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-size: 13px; }
+  .bm-config .inline { display: flex; align-items: center; gap: 8px; }
+
+  .bm-run { display: flex; gap: 10px; align-items: center; }
+  .bm-run button { padding: 8px 16px; border-radius: 8px; border: 1px solid #2563eb; background: #2563eb; color: #fff; cursor: pointer; font-size: 14px; }
+  .bm-run button.stop { border-color: #d33; background: #d33; }
+  .bm-run button:disabled { opacity: .5; cursor: not-allowed; }
+  .bm-prog { flex: 1; height: 8px; background: #e6e8eb; border-radius: 999px; overflow: hidden; }
+  .bm-prog > i { display: block; height: 100%; width: 0; background: #2563eb; transition: width .2s; }
+  .bm-progtext { font-size: 11px; color: #666; min-width: 120px; text-align: right; }
+
+  .bm-metric { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; background: #fff; }
+  .bm-metric h3 { margin: 0 0 8px; font-size: 12px; color: #374151; }
+  .bm-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
+  .bm-stat { text-align: center; }
+  .bm-stat .v { font-size: 16px; font-weight: 700; color: #111; }
+  .bm-stat .k { font-size: 9px; color: #9aa0a6; text-transform: uppercase; letter-spacing: .03em; }
+  .bm-legend { display: flex; gap: 14px; margin-bottom: 8px; font-size: 10px; color: #6b7280; }
+  .bm-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .bm-legend .sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .bm-substat { font-size: 9px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; margin: 2px 0; }
+  .bm-chart { width: 100%; height: 90px; border: 1px solid #eee; border-radius: 8px; }
+
+  /* Detail list — cards with expandable answers */
+  .bm-detail { display: flex; flex-direction: column; gap: 8px; }
+  .bm-card { border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; padding: 8px 10px; }
+  .bm-card .top { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #6b7280; }
+  .bm-card .top .idx { font-weight: 700; color: #111; }
+  .bm-card .top .nums { margin-left: auto; display: flex; gap: 10px; }
+  .bm-card .top .nums b { color: #111; }
+  .bm-card .q { font-size: 12px; color: #111; margin: 5px 0 2px; }
+  .bm-card.failrow { border-color: #f3b1b1; background: #fff5f5; }
+  .bm-card .st-ok { color: #16a34a; }
+  .bm-card .st-fail { color: #d33; }
+  .bm-card details > summary { cursor: pointer; font-size: 11px; color: #2563eb; }
+  .bm-card .answer { font-size: 12px; color: #333; white-space: pre-wrap; margin-top: 6px; max-height: 220px; overflow: auto; border-top: 1px dashed #e5e7eb; padding-top: 6px; }
+
+  /* Floating log panel (toggleable) */
+  .logfloat { position: fixed; right: 16px; bottom: 16px; width: 460px; height: 320px; z-index: 40;
+              display: none; flex-direction: column; background: #0d1117; border: 1px solid #30363d;
+              border-radius: 10px; box-shadow: 0 8px 30px #0006; }
+  .logfloat.open { display: flex; }
+  .logfloat .loghead { color: #9aa4af; font-size: 12px; padding: 8px 12px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+  .logfloat .loghead button { background: #222; color: #ccc; border: 1px solid #444; border-radius: 5px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
+  #log { flex: 1; overflow: auto; white-space: pre-wrap; font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #c9d1d9; padding: 10px 12px; }
+  #log .stream { color: #7ee787; }
+  #log .info { color: #79c0ff; }
+  #log .final { color: #ffa657; }
+  #log .err { color: #ff7b72; }
+  #log .dim { color: #6e7681; }
+
+  @media (max-width: 980px) {
+    main { flex-direction: column; }
+    .sidecol { width: 100%; flex: 0 0 50%; border-left: none; border-top: 1px solid #e3e6ea; }
+    .chat { border-right: none; }
+    .logfloat { width: auto; left: 16px; }
+  }
 </style>
 </head>
 <body>
-<div class="app-shell">
-  <header class="topbar">
-    <div class="brand">
-      <h1>D2E Router Streaming Verification</h1>
-      <p>Knowledge Agent (New Copilot)</p>
-    </div>
-    <div class="connection-fields">
-      <div class="field">
-        <label for="gatewayUrl">Router URL</label>
-        <input id="gatewayUrl" type="url" autocomplete="off" spellcheck="false" />
-      </div>
-      <div class="field">
-        <label for="apiKey">Prototype API key</label>
-        <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Optional on localhost" />
-      </div>
-    </div>
-    <div class="actions">
-      <span class="status-line"><span class="status-dot" id="statusDot"></span><span id="statusText">Disconnected</span></span>
-      <button class="button" id="connectButton">Connect</button>
-      <button class="button icon-button" id="themeButton" aria-label="Toggle theme" title="Toggle theme">◐</button>
-    </div>
+  <header>
+    <h1>Knowledge Agent via Router</h1>
+    <span class="status" id="status">Connecting…</span>
+    <span class="agent-picker" id="agentLabel">Agent <b>New Copilot · via Router</b></span>
+    <button id="logToggleBtn">☰ Log</button>
+    <button id="newConvBtn" disabled>+ New conversation</button>
   </header>
 
-  <main class="workspace">
-    <section class="chat-column">
-      <div class="chat-head">
-        <strong>Streaming conversation</strong>
-        <span class="conversation-id" id="conversationId">No conversation</span>
-        <button class="button" id="newConversationButton" disabled>New conversation</button>
-      </div>
-      <div class="messages" id="messages">
-        <div class="empty-state" id="emptyState"><strong>Router not connected</strong>Enter the endpoint and prototype key.</div>
-      </div>
+  <main>
+    <section class="chat">
+      <div class="messages" id="messages"></div>
       <div class="composer">
         <div class="composer-box">
-          <textarea id="messageInput" rows="1" placeholder="Send a validation prompt" disabled>How do I enter BIOS mode?</textarea>
-          <button class="button primary" id="sendButton" disabled>Send</button>
+          <input id="msg" placeholder="Type a message…" disabled
+                 value="how to enter bios mode" />
+          <button id="sendBtn" disabled aria-label="Send message" title="Send">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 19V5" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M5 12l7-7 7 7" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </button>
         </div>
       </div>
     </section>
 
-    <aside class="evidence-column">
-      <div class="evidence-head">
-        <strong>Verification evidence</strong>
-        <button class="button" id="exportButton" disabled>Export JSON</button>
+    <aside class="sidecol">
+      <div class="side-head">
+        <h2>Performance Benchmark</h2>
+        <button id="benchExportBtn">Export CSV</button>
       </div>
-      <div class="metrics">
-        <div class="metric"><strong id="ttftMetric">--</strong><span>TTFT</span></div>
-        <div class="metric"><strong id="totalMetric">--</strong><span>Total</span></div>
-        <div class="metric"><strong id="eventMetric">0</strong><span>Events</span></div>
-        <div class="metric"><strong id="snapshotMetric">0</strong><span>Snapshots</span></div>
-      </div>
-      <div class="evidence-body">
-        <section class="evidence-section">
-          <h2>Event timeline</h2>
-          <ul class="event-list" id="eventTimeline"><li><span>No events</span><code>--</code></li></ul>
-        </section>
-        <section class="evidence-section">
-          <h2>Downstream SSE log</h2>
-          <pre id="eventLog">Waiting for Router connection.</pre>
-        </section>
+      <div class="side-body">
+        <details class="bm-config" open>
+          <summary>Configuration</summary>
+          <div class="cfgrow">
+            <label for="benchPrefix">Prefix — prepended to every question (optional)</label>
+            <input id="benchPrefix" type="text" placeholder="e.g. agent flow + generative answer: " value="agent flow+generative answer: " />
+          </div>
+          <div class="cfgrow">
+            <label>Questions (one per line) — sent in the CURRENT conversation</label>
+            <textarea id="benchQuestions">What is Lenovo AI Now, and what does it offer to users?
+What main functions does Lenovo AI Now provide for a PC user?
+Which two assistants are the core of Lenovo AI Now?
+How does Lenovo AI Now ensure privacy when processing data?
+What is the difference between Lenovo AI Now local processing and cloud-based AI processing?
+What are the key advantages of Lenovo AI PC compared to a traditional PC with cloud AI?
+What are the prerequisites for accessing Lenovo Learning Zone's Local AI mode?
+In what countries is Lenovo Learning Zone available?
+Which devices support the Lenovo Learning Zone application?
+How does Lenovo Learning Zone improve learning efficiency?
+What functionalities does the "Local Chat" feature provide?
+How does "Cloud Chat" differ from "Local Chat" in Lenovo AI Now?
+What are the daily usage limits of GPT-4O and GPT-4O mini in Cloud Chat?
+What is the purpose of the Lenovo AI Now Knowledge Assistant?
+What file formats can be imported to build a personal knowledge base in Lenovo AI Now?
+What is the maximum size supported for document and image files in Knowledge Assistant?
+How can users add documents to the Lenovo AI Now knowledge base from Windows Explorer?
+What features are available in PowerPoint when using the Lenovo AI Now extension?
+How does Lenovo AI Now handle Q&A based on the personal knowledge base?
+What is the function of prompt recommendations in Lenovo AI Now?
+What device details can PC Assistant provide to users?
+How can users change device settings using PC Assistant natural language input?
+What steps can PC Assistant take when troubleshooting device issues?
+How does Lena support integrate with Lenovo AI Now for extended help?
+Which app must be installed on a PC for PC Assistant to work properly?
+Where can you download the Lenovo AI Now installer if it is not pre-installed?
+How can a user uninstall Lenovo AI Now from their device?
+How can auto-update be configured for Lenovo AI Now?
+Which shortcut key opens the Mini Window feature in Lenovo AI Now by default?
+What steps should a user take during the first-time login to Lenovo AI Now?
+Why is the Mini Window feature useful in Lenovo AI Now?
+What resources are available under the “Explore” section in Lenovo AI Now?
+How can users provide feedback for Lenovo AI Now?
+Which AI-driven features does Lenovo Learning Zone provide to improve study productivity?
+How does Lenovo Learning Zone handle file size limits for AI Notes uploads?
+What languages are supported by Lenovo Learning Zone for AI Recording?
+How can users customize notes in Lenovo Learning Zone?
+What is the purpose of the AI Quiz feature in Lenovo Learning Zone?
+Which features of Lenovo Learning Zone require an internet connection?
+What measures does Lenovo employ to ensure user privacy in its AI applications?
+Where can users find detailed Lenovo privacy policy information?
+How is user data handled in Local AI mode compared to Cloud AI mode in Lenovo Learning Zone?
+What are the distinct Lenovo Yoga Smart Modes, and what scenarios are they designed for?
+How can Lenovo AI PC integrate multiple devices for collaboration?
+Which productivity tool allows quick note-taking on Yoga devices, even when the screen is locked?
+What function does presence detection serve on Lenovo PCs?
+How can the keyboard backlight brightness be adjusted on Lenovo Yoga devices?
+What is the Lenovo Smart Share feature, and how is it activated?
+How can Smart Connect unify different devices, and which devices are supported?
+How do Adaptive Refresh Rate, Smart Noise Canceling, and Eye Care Mode enhance the user experience on Lenovo AI PCs?</textarea>
+          </div>
+          <div class="cfgrow inline">
+            <label style="margin:0">Batches</label>
+            <input id="benchBatches" type="number" min="1" max="50" value="1" />
+            <span style="font-size:11px;color:#888">(repeats of the list)</span>
+          </div>
+        </details>
+
+        <div class="bm-run">
+          <button id="benchStartBtn">Run</button>
+          <div class="bm-prog"><i id="benchBar"></i></div>
+        </div>
+        <div class="bm-progtext" id="benchProgText" style="text-align:left">Enter the agent's ready state in chat, then Run.</div>
+
+        <div class="bm-metric">
+          <h3>Response time — TTFT vs full response (ms)</h3>
+          <div class="bm-legend">
+            <span><i class="sw" style="background:#2563eb"></i>TTFT (time to first token)</span>
+            <span><i class="sw" style="background:#7c3aed"></i>generation (Total − TTFT)</span>
+          </div>
+          <div class="bm-substat">TTFT</div>
+          <div class="bm-stats" id="bmTtftStats"></div>
+          <div class="bm-substat">Total</div>
+          <div class="bm-stats" id="bmTotalStats"></div>
+          <svg class="bm-chart" id="bmStackChart" viewBox="0 0 600 140" preserveAspectRatio="none"></svg>
+        </div>
+
+        <div class="bm-detail" id="bmDetail"></div>
       </div>
     </aside>
   </main>
-</div>
-<script>
-const DEFAULT_GATEWAY = 'http://localhost:8090';
-const elements = Object.fromEntries([
-  'gatewayUrl', 'apiKey', 'connectButton', 'themeButton', 'statusDot', 'statusText',
-  'conversationId', 'newConversationButton', 'messages', 'emptyState', 'messageInput',
-  'sendButton', 'exportButton', 'ttftMetric', 'totalMetric', 'eventMetric',
-  'snapshotMetric', 'eventTimeline', 'eventLog'
-].map(id => [id, document.getElementById(id)]));
 
-const state = {
-  conversationId: null,
-  expiresAt: null,
-  busy: false,
-  turnStartedAt: 0,
-  ttftMs: null,
-  totalMs: null,
-  events: [],
-  answerSnapshots: 0,
-  finalText: '',
-  currentAnswer: null,
-  currentWork: null,
-  stages: new Map(),
-};
+  <!-- Floating, toggleable raw SSE log -->
+  <div class="logfloat" id="logFloat">
+    <div class="loghead">
+      <span>Raw SSE event log</span>
+      <span style="display:flex; gap:6px;">
+        <button id="runFixtureBtn" hidden>run fixture</button>
+        <button id="exportRawBtn">export raw</button>
+        <button id="copyLogBtn">copy</button>
+        <button id="clearLogBtn">clear</button>
+        <button id="closeLogBtn">close</button>
+      </span>
+    </div>
+    <div id="log"></div>
+  </div>
 
-function initialGatewayUrl() {
-  if (location.hostname === 'localhost'
-      || location.hostname === '127.0.0.1') return location.origin;
-  return DEFAULT_GATEWAY;
+<script type="module">
+import {
+  getStreamInfo,
+  getThoughtTexts,
+  getToolCallEvents,
+  mergeAgenticSnapshot,
+  mergeReasoningText,
+} from '/prototype-assets/streamingActivity.js';
+
+// ─────────────────────────────────────────────────────────────────────────
+// Config (pre-set for this specific agent — no manual entry, no login button)
+// ─────────────────────────────────────────────────────────────────────────
+// Transport is the only BEHAVIOURAL difference from d2e-streaming-test.html (the
+// message font size is also reduced to 14px). The Router forwards upstream
+// activities frame-by-frame, so every renderer, the work panel and the whole
+// benchmark suite below run unmodified — which makes diffing this page's
+// `export raw` against the direct-connect page's a contract regression test for
+// the Router.
+const ROUTER_ORIGIN = window.location.origin;
+const VERIFICATION_BASE = `${ROUTER_ORIGIN}/admin/api/verification/conversations`;
+// The renderer branches on this key to select the New Agent turn-assembly path,
+// so it must stay 'new' — the Router only ever fronts the New Copilot agent.
+const activeAgentKey = 'new';
+const activeAgent = () => ({
+  label: 'Knowledge Agent (New Copilot) via Router',
+  schemaName: 'router-managed',
+  runtimePath: 'agenticruntime/3p',
+});
+
+const $ = (id) => document.getElementById(id);
+const logEl = $('log');
+const messagesEl = $('messages');
+
+let signedIn = false, conversationId = null, busy = false;
+let rawActivities = [];
+
+// ── Logging ──
+function log(msg, cls = 'dim') {
+  const t = new Date().toLocaleTimeString('en-US', { hour12: false }) +
+            '.' + String(Date.now() % 1000).padStart(3, '0');
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = `[${t}] ${msg}`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function setStatus(html) { $('status').innerHTML = html; }
+
+// ── URL construction (mirrors @microsoft/agents-copilotstudio-client, Prod) ──
+function conversationsUrl(convId) {
+  return convId ? `${VERIFICATION_BASE}/${encodeURIComponent(convId)}` : VERIFICATION_BASE;
 }
 
-elements.gatewayUrl.value = initialGatewayUrl();
-
-function gatewayUrl() {
-  return elements.gatewayUrl.value.trim().replace(/\/$/, '');
-}
-
-function setStatus(text, kind = '') {
-  elements.statusText.textContent = text;
-  elements.statusDot.className = `status-dot ${kind}`.trim();
-}
-
-function setBusy(busy) {
-  state.busy = busy;
-  elements.connectButton.disabled = busy;
-  elements.newConversationButton.disabled = busy || !state.conversationId;
-  elements.messageInput.disabled = busy || !state.conversationId;
-  elements.sendButton.disabled = busy || !state.conversationId;
-}
-
-function formatDuration(value) {
-  if (!Number.isFinite(value)) return '--';
-  if (value < 1000) return `${Math.round(value)} ms`;
-  return `${(value / 1000).toFixed(2)} s`;
-}
-
-function resetTurnEvidence() {
-  state.turnStartedAt = 0;
-  state.ttftMs = null;
-  state.totalMs = null;
-  state.events = [];
-  state.answerSnapshots = 0;
-  state.finalText = '';
-  state.currentAnswer = null;
-  state.currentWork = null;
-  state.stages = new Map();
-  elements.eventTimeline.innerHTML = '<li><span>No events</span><code>--</code></li>';
-  elements.eventLog.textContent = 'Waiting for a turn.';
-  elements.eventMetric.textContent = '0';
-  elements.snapshotMetric.textContent = '0';
-  elements.ttftMetric.textContent = '--';
-  elements.totalMetric.textContent = '--';
-  elements.exportButton.disabled = true;
-}
-
-function log(line) {
-  const time = new Date().toISOString().slice(11, 23);
-  const current = elements.eventLog.textContent === 'Waiting for Router connection.' ? '' : elements.eventLog.textContent;
-  elements.eventLog.textContent = `${current}${current ? '\n' : ''}[${time}] ${line}`;
-  elements.eventLog.scrollTop = elements.eventLog.scrollHeight;
-}
-
-function recordEvent(eventName, data) {
-  const at = Date.now();
-  state.events.push({ event: eventName, at, data: structuredClone(data) });
-  elements.eventMetric.textContent = String(state.events.length);
-  const item = document.createElement('li');
-  item.innerHTML = `<span></span><code></code>`;
-  item.querySelector('span').textContent = eventName;
-  item.querySelector('code').textContent = `+${at - state.turnStartedAt} ms`;
-  if (elements.eventTimeline.firstElementChild?.textContent.includes('No events')) {
-    elements.eventTimeline.textContent = '';
-  }
-  elements.eventTimeline.appendChild(item);
-}
-
-function ensureTurnUi() {
-  if (state.currentAnswer) return;
-  elements.emptyState?.remove();
-  const work = document.createElement('details');
-  work.className = 'work-panel';
-  work.open = true;
-  work.innerHTML = '<summary>Working</summary><div class="work-list"></div>';
-  const answer = document.createElement('div');
-  answer.className = 'message answer streaming';
-  elements.messages.append(work, answer);
-  state.currentWork = work;
-  state.currentAnswer = answer;
-}
-
-function renderStage(data) {
-  ensureTurnUi();
-  const stageId = data.stageId || data.stage || 'working';
-  let row = state.stages.get(stageId);
-  if (!row) {
-    row = document.createElement('div');
-    row.className = 'work-row';
-    row.innerHTML = '<span class="work-mark"></span><span></span>';
-    state.currentWork.querySelector('.work-list').appendChild(row);
-    state.stages.set(stageId, row);
-  }
-  row.className = `work-row ${data.status || 'started'}`;
-  row.querySelector('.work-mark').textContent = data.status === 'completed' ? '✓' : (data.status === 'failed' ? '×' : '•');
-  row.lastElementChild.textContent = data.stage === 'tool' ? 'Tool execution' : String(data.stage || 'Working');
-}
-
-function renderAnswer(data, final = false) {
-  ensureTurnUi();
-  const text = data.text || '';
-  if (window.marked && window.DOMPurify) {
-    state.currentAnswer.innerHTML = window.DOMPurify.sanitize(window.marked.parse(text, {
-      breaks: true,
-      gfm: true,
-    }));
-  } else {
-    state.currentAnswer.textContent = text;
-  }
-  if (final) {
-    state.currentAnswer.classList.remove('streaming');
-    state.currentWork.querySelector('summary').textContent = 'Completed';
-    for (const row of state.stages.values()) {
-      if (!row.classList.contains('failed')) row.className = 'work-row completed';
-      row.querySelector('.work-mark').textContent = row.classList.contains('failed') ? '×' : '✓';
-    }
-  }
-  elements.messages.scrollTop = elements.messages.scrollHeight;
-}
-
-async function routerFetch(path, options = {}) {
-  const key = elements.apiKey.value;
-  const headers = new Headers(options.headers || {});
-  if (key) headers.set('X-API-Key', key);
-  if (options.body) headers.set('Content-Type', 'application/json');
-  return fetch(`${gatewayUrl()}${path}`, { ...options, headers, credentials: 'same-origin' });
-}
-
-async function connectRouter() {
-  setBusy(true);
-  setStatus('Checking Router', 'busy');
-  try {
-    if (['localhost', '127.0.0.1'].includes(new URL(gatewayUrl()).hostname)) {
-      const bootstrap = await fetch(`${gatewayUrl()}/local/bootstrap`, {
-        method: 'POST',
-        credentials: 'same-origin',
-      });
-      if (!bootstrap.ok) throw new Error('Local browser session bootstrap failed');
-    }
-    const response = await fetch(`${gatewayUrl()}/readyz`, { cache: 'no-store' });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result?.upstreamIdentity?.state === 'reauthRequired'
-      ? 'Administrator reauthentication required'
-      : 'Router is not ready');
-    setStatus('Router ready', 'ready');
-    log('Router readiness check passed.');
-    await createConversation();
-  } catch (error) {
-    setStatus(error.message, 'error');
-    log(`ERROR ${error.message}`);
-  } finally {
-    setBusy(false);
-  }
-}
-
-async function createConversation() {
-  setStatus('Creating conversation', 'busy');
-  const response = await routerFetch('/v1/conversations', {
+// The Router issues a loopback HttpOnly session; no key is entered in the page.
+async function ensureSession() {
+  const res = await fetch(`${ROUTER_ORIGIN}/local/bootstrap`, {
     method: 'POST',
-    body: JSON.stringify({ agentId: 'knowledge-new' }),
+    credentials: 'same-origin',
   });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result?.error?.code || `HTTP ${response.status}`);
-  state.conversationId = result.conversationId;
-  state.expiresAt = result.expiresAt;
-  elements.conversationId.textContent = state.conversationId.slice(0, 8);
-  resetTurnEvidence();
-  elements.messages.innerHTML = '<div class="empty-state" id="emptyState"><strong>Conversation ready</strong>Send a prompt to validate Router streaming.</div>';
-  elements.emptyState = document.getElementById('emptyState');
-  setStatus('Conversation ready', 'ready');
-  log(`Conversation ${state.conversationId.slice(0, 8)} created.`);
+  if (!res.ok) throw new Error(`Router session unavailable (HTTP ${res.status})`);
+  signedIn = true;
 }
 
-async function newConversation() {
-  setBusy(true);
-  try {
-    await createConversation();
-  } catch (error) {
-    setStatus(error.message, 'error');
-    log(`ERROR ${error.message}`);
-  } finally {
-    setBusy(false);
-  }
+// Frees the Router and upstream conversation the page is about to abandon.
+async function releaseConversation() {
+  if (!conversationId) return;
+  const releasing = conversationId;
+  conversationId = null;
+  await fetch(conversationsUrl(releasing), {
+    method: 'DELETE',
+    credentials: 'same-origin',
+  }).catch(() => {});
 }
 
-function parseSseLineBuffer(bufferState, chunk, onFrame) {
-  bufferState.buffer += chunk;
-  let index;
-  while ((index = bufferState.buffer.indexOf('\n')) >= 0) {
-    let line = bufferState.buffer.slice(0, index);
-    bufferState.buffer = bufferState.buffer.slice(index + 1);
-    if (line.endsWith('\r')) line = line.slice(0, -1);
-    if (line === '') {
-      if (bufferState.data.length) {
-        onFrame(bufferState.event || 'message', bufferState.data.join('\n'));
-      }
-      bufferState.event = '';
-      bufferState.data = [];
-    } else if (!line.startsWith(':')) {
-      if (line.startsWith('event:')) bufferState.event = line.slice(6).trim();
-      else if (line.startsWith('data:')) bufferState.data.push(line.slice(5).replace(/^ /, ''));
+// ── Markdown rendering (marked + DOMPurify, with graceful fallback) ──
+// Remove unnecessary blank lines so loose lists render tight (no big gaps).
+function tidyMarkdown(text) {
+  const lines = String(text).split('\n');
+  const isListItem = (l) => /^[ \t]*(?:[-*+]|\d+[.)])\s+/.test(l);
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() === '') {
+      // Find previous and next non-blank lines.
+      let p = out.length - 1; while (p >= 0 && out[p].trim() === '') p--;
+      let n = i + 1; while (n < lines.length && lines[n].trim() === '') n++;
+      const prev = p >= 0 ? out[p] : '';
+      const next = n < lines.length ? lines[n] : '';
+      // Drop blank lines sitting between two list items (loose -> tight list).
+      if (isListItem(prev) && isListItem(next)) continue;
+      // Collapse runs of blank lines to a single one elsewhere.
+      if (out.length && out[out.length - 1].trim() === '') continue;
     }
+    out.push(line);
   }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+function renderMarkdown(el, text) {
+  try {
+    if (window.marked && window.DOMPurify) {
+      const html = window.marked.parse(tidyMarkdown(text), { breaks: true, gfm: true });
+      el.innerHTML = window.DOMPurify.sanitize(html);
+      el.style.whiteSpace = '';        // rendered HTML → inherit normal whitespace
+      return;
+    }
+  } catch { /* fall through to plain text */ }
+  el.style.whiteSpace = 'pre-wrap';    // plain-text fallback → keep raw line breaks
+  el.textContent = text;
 }
 
-async function sendTurn() {
-  const text = elements.messageInput.value.trim();
-  if (!text || state.busy) return;
-  setBusy(true);
-  resetTurnEvidence();
-  state.turnStartedAt = Date.now();
-  elements.eventLog.textContent = '';
-  elements.emptyState?.remove();
-  const userMessage = document.createElement('div');
-  userMessage.className = 'message user';
-  userMessage.textContent = text;
-  elements.messages.appendChild(userMessage);
-  setStatus('Streaming', 'busy');
+// ── Per-turn timing (TTFT + total response time) ──
+let turnStart = 0;        // ms when the user message was sent
+let ttft = null;          // ms to first content chunk/message
+function markFirstToken() { if (ttft === null && turnStart) ttft = Date.now() - turnStart; }
+function fmtMs(ms) {
+  if (ms === null || ms === undefined) return '–';
+  if (ms < 1000) return `${ms} ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)} s`;
+  return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
+}
+function nowTime() { return new Date().toLocaleTimeString('en-US', { hour12: false }); }
 
-  try {
-    const response = await routerFetch(`/v1/conversations/${encodeURIComponent(state.conversationId)}/turns`, {
-      method: 'POST',
-      headers: { Accept: 'text/event-stream' },
-      body: JSON.stringify({ text, clientTurnId: crypto.randomUUID() }),
-    });
-    if (!response.ok) {
-      const result = await response.json().catch(() => ({}));
-      throw new Error(result?.error?.code || `HTTP ${response.status}`);
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); }
+  catch { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch {} ta.remove(); }
+}
+
+// Build a metadata/actions row. `opts.kind` = 'user' | 'bot'.
+function buildMeta(opts) {
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  const parts = [];
+  if (opts.kind === 'bot') {
+    const time = document.createElement('span'); time.textContent = nowTime(); parts.push(time);
+    const t1 = document.createElement('span'); t1.innerHTML = `<span class="sp">TTFT</span> ${fmtMs(opts.ttft)}`; parts.push(t1);
+    const t2 = document.createElement('span'); t2.innerHTML = `<span class="sp">Total</span> ${fmtMs(opts.total)}`; parts.push(t2);
+  } else {
+    const time = document.createElement('span'); time.textContent = nowTime(); parts.push(time);
+  }
+  parts.forEach(p => meta.appendChild(p));
+  const copyBtn = document.createElement('button');
+  copyBtn.textContent = '⧉ Copy';
+  copyBtn.onclick = () => { copyText(opts.getText()); copyBtn.textContent = '✓ Copied'; setTimeout(() => copyBtn.textContent = '⧉ Copy', 1200); };
+  meta.appendChild(copyBtn);
+  if (opts.kind === 'user') {
+    const retryBtn = document.createElement('button');
+    retryBtn.textContent = '↻ Retry';
+    retryBtn.onclick = () => { if (!busy) sendMessage(opts.getText()); };
+    meta.appendChild(retryBtn);
+  }
+  return meta;
+}
+
+// ── Chat bubble helpers ──
+function addUserMessage(text) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msgwrap user';
+  const el = document.createElement('div');
+  el.className = 'msg user';
+  el.textContent = text; // user input stays literal
+  wrap.appendChild(el);
+  wrap.appendChild(buildMeta({ kind: 'user', getText: () => text }));
+  messagesEl.appendChild(wrap);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+// ── Turn assembler: semantic order is independent from arrival order ──
+let activeTurn = null;
+
+function beginTurn() {
+  streams.clear();
+  const root = document.createElement('div'); root.className = 'turn-output';
+  const progress = document.createElement('div'); progress.className = 'turn-progress';
+  const answer = document.createElement('div'); answer.className = 'turn-answer';
+  root.append(progress, answer);
+  activeTurn = {
+    root, progress, answer, mounted: false, answerState: null, startedAt: Date.now(),
+    work: null, reasoningText: '', stages: new Map(), concluded: false,
+  };
+  return activeTurn;
+}
+
+function currentTurn() { return activeTurn || beginTurn(); }
+function mountTurn(turn = currentTurn()) {
+  if (!turn.mounted) { messagesEl.appendChild(turn.root); turn.mounted = true; }
+  return turn;
+}
+
+function ensureWorkPanel(turn = currentTurn()) {
+  if (turn.work) return turn.work;
+  const panel = document.createElement('details'); panel.className = 'work-panel'; panel.open = true;
+  const summary = document.createElement('summary');
+  const indicator = document.createElement('span'); indicator.className = 'work-indicator';
+  const title = document.createElement('span'); title.className = 'work-title'; title.textContent = 'Working…';
+  const chevron = document.createElement('span'); chevron.className = 'work-chevron'; chevron.textContent = '›';
+  summary.append(indicator, title, chevron);
+  const body = document.createElement('div'); body.className = 'work-body';
+  const reasoning = document.createElement('div'); reasoning.className = 'reasoning-block'; reasoning.hidden = true;
+  const reasoningLabel = document.createElement('div'); reasoningLabel.className = 'work-label'; reasoningLabel.textContent = 'Reasoning';
+  const reasoningText = document.createElement('p'); reasoningText.className = 'reasoning-text';
+  reasoning.append(reasoningLabel, reasoningText);
+  const stages = document.createElement('div'); stages.className = 'work-stages'; stages.hidden = true;
+  body.append(reasoning, stages); panel.append(summary, body);
+  mountTurn(turn).progress.appendChild(panel);
+  turn.work = { panel, title, indicator, reasoning, reasoningText, stages };
+  return turn.work;
+}
+
+function updateReasoning(text) {
+  const turn = currentTurn();
+  turn.reasoningText = mergeReasoningText(turn.reasoningText, text);
+  if (!turn.reasoningText) return;
+  const work = ensureWorkPanel(turn);
+  work.reasoning.hidden = false;
+  work.reasoningText.textContent = turn.reasoningText;
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function normalizeStageKey(text) {
+  return String(text || '').toLowerCase()
+    .replace(/\.{3}$/g, '')
+    .replace(/^(calling|running|loading)\s+/i, '')
+    .replace(/\s+(completed|complete|finished|succeeded)\.?$/i, '')
+    .trim();
+}
+
+function upsertStage({ key, text, status, durationMs }) {
+  if (!text) return;
+  const turn = currentTurn();
+  const stageKey = key || normalizeStageKey(text) || text;
+  const work = ensureWorkPanel(turn);
+  work.stages.hidden = false;
+  let stage = turn.stages.get(stageKey);
+  if (!stage && !key) {
+    const normalized = normalizeStageKey(text);
+    stage = Array.from(turn.stages.values()).find(item => normalizeStageKey(item.baseLabel) === normalized);
+  }
+  if (!stage) {
+    for (const existing of turn.stages.values()) {
+      if (existing.status === 'active') {
+        existing.status = 'done'; existing.el.className = 'work-stage done'; existing.mark.textContent = '✓';
+      }
     }
-    if (!response.body) throw new Error('Router returned no stream body');
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    const frameState = { buffer: '', event: '', data: [] };
-    let terminal = false;
-    const onFrame = (eventName, rawData) => {
-      let data;
-      try { data = JSON.parse(rawData); } catch { return; }
-      recordEvent(eventName, data);
-      log(`${eventName} ${JSON.stringify(data)}`);
-      if (eventName === 'stage') renderStage(data);
-      if (eventName === 'answer') {
-        if (state.ttftMs === null && data.text) {
-          state.ttftMs = Date.now() - state.turnStartedAt;
-          elements.ttftMetric.textContent = formatDuration(state.ttftMs);
-        }
-        state.answerSnapshots += 1;
-        elements.snapshotMetric.textContent = String(state.answerSnapshots);
-        renderAnswer(data);
-      }
-      if (eventName === 'final') {
-        if (state.ttftMs === null && data.text) {
-          state.ttftMs = Date.now() - state.turnStartedAt;
-          elements.ttftMetric.textContent = formatDuration(state.ttftMs);
-        }
-        state.totalMs = Date.now() - state.turnStartedAt;
-        state.finalText = data.text || '';
-        elements.totalMetric.textContent = formatDuration(state.totalMs);
-        renderAnswer(data, true);
-        setStatus('Completed', 'ready');
-        terminal = true;
-      }
-      if (eventName === 'error') {
-        state.totalMs = Date.now() - state.turnStartedAt;
-        elements.totalMetric.textContent = formatDuration(state.totalMs);
-        setStatus(data.code || 'Stream interrupted', 'error');
-        terminal = true;
+    const el = document.createElement('div');
+    const mark = document.createElement('span'); mark.className = 'work-stage-mark';
+    const label = document.createElement('span');
+    el.append(mark, label); work.stages.appendChild(el);
+    el.dataset.stageKey = stageKey;
+    stage = { el, mark, label, baseLabel: text, status: 'active' };
+    turn.stages.set(stageKey, stage);
+  }
+  stage.status = turn.concluded || /completed|complete|finished|succeeded/i.test(status || text) ? 'done' : 'active';
+  stage.el.className = `work-stage ${stage.status}`;
+  stage.mark.textContent = stage.status === 'done' ? '✓' : '';
+  stage.label.textContent = durationMs ? `${text} · ${(durationMs / 1000).toFixed(1)}s` : text;
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function addInformativeStep(text) { upsertStage({ text, status: text }); }
+function addThoughtStep(text) { updateReasoning(text); }
+function addToolCallStage(call) {
+  upsertStage({ key: `tool:${call.id || call.name}`, text: call.name, status: call.status, durationMs: call.durationMs });
+}
+function finishSteps() {
+  const turn = currentTurn();
+  turn.concluded = true;
+  for (const stage of turn.stages.values()) {
+    stage.status = 'done'; stage.el.className = 'work-stage done'; stage.mark.textContent = '✓';
+  }
+  if (!turn.work) return;
+  const seconds = Math.max(0.1, (Date.now() - turn.startedAt) / 1000).toFixed(1);
+  turn.work.panel.classList.add('done');
+  turn.work.indicator.textContent = '✓';
+  turn.work.title.textContent = `Worked for ${seconds}s`;
+  turn.work.panel.open = false;
+}
+
+// ── Suggested actions + Adaptive Cards ──
+const AC_CARD_TYPE = 'application/vnd.microsoft.card.adaptive';
+
+function renderSuggestedActions(actions) {
+  if (!Array.isArray(actions) || actions.length === 0) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'suggested';
+  actions.forEach((a) => {
+    const btn = document.createElement('button');
+    btn.textContent = a.title || a.text || a.value || '(action)';
+    btn.onclick = () => {
+      if (busy) return;
+      wrap.classList.add('disabled'); // lock this set once one is chosen
+      const payload = a.value ?? a.text ?? a.title;
+      log(`suggestedAction clicked: ${a.type || 'imBack'} "${btn.textContent}"`, 'dim');
+      sendMessage(String(payload), btn.textContent);
+    };
+    wrap.appendChild(btn);
+  });
+  messagesEl.appendChild(wrap);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function renderAdaptiveCard(cardContent) {
+  const host = document.createElement('div');
+  host.className = 'ac-card';
+  try {
+    if (!window.AdaptiveCards) { host.textContent = '[Adaptive Card library not loaded]'; messagesEl.appendChild(host); return; }
+    const card = new window.AdaptiveCards.AdaptiveCard();
+    card.onExecuteAction = (action) => {
+      if (busy) return;
+      if (action instanceof window.AdaptiveCards.SubmitAction) {
+        const data = action.data || {};
+        log('adaptiveCard submit: ' + JSON.stringify(data), 'dim');
+        sendCardResponse(data);
+      } else if (action instanceof window.AdaptiveCards.OpenUrlAction && action.url) {
+        window.open(action.url, '_blank', 'noopener,noreferrer');
       }
     };
+    card.parse(cardContent);
+    const rendered = card.render();
+    host.appendChild(rendered);
+  } catch (e) {
+    host.textContent = '[Adaptive Card render error: ' + e.message + ']';
+    log('adaptiveCard render error: ' + e.message, 'err');
+  }
+  messagesEl.appendChild(host);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// Render attachments (adaptive cards) + suggested actions that ride along with
+// a bot message (final or non-streaming).
+function renderExtras(activity) {
+  const atts = activity.attachments;
+  if (Array.isArray(atts)) {
+    for (const att of atts) {
+      if (att && att.contentType === AC_CARD_TYPE && att.content) {
+        renderAdaptiveCard(att.content);
+        log(`attachment: adaptive card`, 'dim');
+      }
+    }
+  }
+  const sa = activity.suggestedActions;
+  if (sa && Array.isArray(sa.actions) && sa.actions.length) {
+    renderSuggestedActions(sa.actions);
+    log(`suggestedActions: ${sa.actions.length}`, 'dim');
+  }
+}
+
+// ── Per-turn streaming accumulator (early, known-good logic) ──
+const streams = new Map(); // streamId aliases -> shared answer state
+function uniqueStreamStates() { return Array.from(new Set(streams.values())); }
+
+// ── Display layer: typewriter reveal (decoupled from network arrival) ──────
+// The transport layer accumulates the authoritative answer into st.text. This
+// reveal loop is purely visual: it advances st.shownLen toward st.text.length and
+// renders st.text.slice(0, shownLen). Driven by its own rAF (not chunk arrival),
+// the animation stays smooth whether the server streams token-by-token OR dumps
+// everything at once. It NEVER changes st.text, timing, or what benchmark reads.
+//
+// Industry best practices applied here:
+//  • Rate clamp — reveal at a comfortable ~REVEAL_CPS chars/sec (time-based, not
+//    per-frame count) so the text never blurs past too fast.
+//  • Catch-up floor — if a big backlog piles up (e.g. a one-shot final dump),
+//    drain it within MAX_DRAIN_MS so users never wait on the animation.
+//  • Early response — the first token shows on the very next frame (~16ms) after
+//    it arrives, preserving the visible "streaming starts early" benefit.
+//  • Word-boundary reveal — avoids flashing half-rendered markdown tokens.
+const REVEAL_CPS = 45;       // baseline reveal speed (characters per second)
+const MAX_DRAIN_MS = 1500;   // worst-case time to flush a large backlog
+const revealing = new Set();
+let revealRaf = 0;
+let revealLastTs = 0;
+function revealTick(ts) {
+  const dt = revealLastTs ? Math.min(100, ts - revealLastTs) : 16; // ms, clamp hitches
+  revealLastTs = ts;
+  revealRaf = 0;
+  let active = false;
+  for (const st of revealing) {
+    if (!st.el.isConnected) { revealing.delete(st); continue; }
+    const target = st.text.length;
+    if (st.shownLen < target) {
+      const backlog = target - st.shownLen;
+      // Baseline pace + a catch-up floor that guarantees the backlog drains
+      // within MAX_DRAIN_MS (so huge one-shot dumps don't crawl).
+      const basePace = REVEAL_CPS * dt / 1000;
+      const drainPace = backlog * dt / MAX_DRAIN_MS;
+      const step = Math.max(1, Math.ceil(Math.max(basePace, drainPace)));
+      let next = Math.min(target, st.shownLen + step);
+      // Reveal on word/whitespace boundaries to avoid flashing half-markdown.
+      if (next < target) {
+        const slice = st.text.slice(next, Math.min(target, next + 24));
+        const ws = slice.search(/\s/);
+        if (ws >= 0) next += ws; // extend to the next whitespace
+      }
+      st.shownLen = next;
+      renderMarkdown(st.el, st.text.slice(0, st.shownLen));
+    }
+    if (st.shownLen < st.text.length) active = true;
+    else if (st.done) { finalizeBubble(st); revealing.delete(st); }
+  }
+  if (active || revealing.size) {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    revealRaf = requestAnimationFrame(revealTick);
+  } else {
+    revealLastTs = 0; // reset cadence when idle
+  }
+}
+function scheduleReveal(st) {
+  revealing.add(st);
+  if (!revealRaf) { revealLastTs = 0; revealRaf = requestAnimationFrame(revealTick); }
+}
+// Called when a stream is complete (final received): mark done and let the
+// reveal loop play out the remainder, then finalize. If nothing is pending it
+// finalizes immediately.
+function completeReveal(st) {
+  st.done = true;
+  if (st.shownLen >= st.text.length) { finalizeBubble(st); revealing.delete(st); }
+  else scheduleReveal(st);
+}
+function finalizeBubble(st) {
+  if (st._finalized) return;
+  st._finalized = true;
+  renderMarkdown(st.el, st.text);   // guarantee the full authoritative text
+  st.el.classList.remove('streaming');
+  attachBotMeta(st);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function botBubbleFor(streamId) {
+  const turn = currentTurn();
+  let st = streams.get(streamId);
+  if (!st && activeAgentKey === 'new' && turn.answerState) st = turn.answerState;
+  if (!st) {
+    const wrap = document.createElement('div');
+    wrap.className = 'msgwrap bot';
+    const el = document.createElement('div');
+    el.className = 'msg bot streaming';
+    wrap.appendChild(el);
+    mountTurn(turn).answer.appendChild(wrap);
+    st = { text: '', shownLen: 0, done: false, lastSeq: undefined, chunkCount: 0, el, wrap };
+    if (activeAgentKey === 'new') turn.answerState = st;
+  }
+  if (streamId) streams.set(streamId, st);
+  return st;
+}
+
+function authoritativeFinal(st, text) {
+  if (text) st.text = text;
+  currentTurn().concluded = true;
+  st.done = true;
+  st.concluded = true;
+  if (st._finalized) {
+    renderMarkdown(st.el, st.text);
+    return;
+  }
+  completeReveal(st);
+}
+// Append the metadata row (time / TTFT / total / copy) under a bot bubble once.
+function attachBotMeta(st) {
+  if (!st || !st.wrap || st.wrap.querySelector('.meta')) return;
+  const total = turnStart ? Date.now() - turnStart : null;
+  st.wrap.appendChild(buildMeta({ kind: 'bot', ttft, total, getText: () => st.text }));
+}
+function applyActivity(activity) {
+  const s = getStreamInfo(activity);
+  const text = activity.text || '';
+
+  for (const thought of getThoughtTexts(activity)) addThoughtStep(thought);
+  const toolCalls = getToolCallEvents(activity);
+  for (const call of toolCalls) addToolCallStage(call);
+
+  // RAW probe: log EVERY activity's stream classification BEFORE any branching,
+  // so missing deltas are immediately visible regardless of rendering.
+  log(`raw type=${activity.type} len=${text.length} streamType=${s.streamType ?? '-'} seq=${s.streamSequence ?? '-'} chunk=${s.chunkType ?? '-'}`,
+      s.streamType === 'streaming' ? 'stream' : (s.streamType === 'informative' ? 'info' : (s.streamType === 'final' ? 'final' : 'dim')));
+
+  if (s.streamType === 'informative') {
+    if (!toolCalls.length) addInformativeStep(text);
+    return;
+  }
+
+  if (s.streamType === 'final') {
+    finishSteps();
+    if (text) {
+      markFirstToken();
+      const st = streams.get(s.streamId)
+        || (activeAgentKey === 'new' ? currentTurn().answerState : null)
+        || botBubbleFor(s.streamId);
+      authoritativeFinal(st, text);
+    }
+    renderExtras(activity);
+    log(`final streamId=${s.streamId} len=${text.length}`, 'final');
+    return;
+  }
+
+  const isChunk = s.streamType === 'streaming' || s.streamSequence !== undefined || (activity.type === 'typing' && text);
+  if (!isChunk) {
+    if (activity.type === 'message') {
+      if (text) {
+        markFirstToken();
+        if (activeAgentKey === 'new') {
+          const st = currentTurn().answerState || botBubbleFor(activity.id || activity.replyToId || 'answer');
+          authoritativeFinal(st, text);
+          renderExtras(activity);
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+          return;
+        }
+        const wrap = document.createElement('div');
+        wrap.className = 'msgwrap bot';
+        const el = document.createElement('div');
+        el.className = 'msg bot';
+        renderMarkdown(el, text);
+        wrap.appendChild(el);
+        wrap.appendChild(buildMeta({ kind: 'bot', ttft, total: turnStart ? Date.now() - turnStart : null, getText: () => text }));
+        messagesEl.appendChild(wrap);
+      }
+      renderExtras(activity); // adaptive cards + suggested actions
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+    return;
+  }
+
+  // Streaming chunk — accumulate by streamId + sequence.
+  if (!text) return;
+  const streamId = s.streamId || activity.replyToId || 'stream';
+  const seq = s.streamSequence;
+  const st = botBubbleFor(streamId);
+  if (st.concluded) return;
+  if (seq !== undefined && st.lastSeq !== undefined && seq <= st.lastSeq) return; // out-of-order drop
+  if (seq !== undefined) st.lastSeq = seq;
+  st.chunkCount++;
+  const acc = st.text;
+  if (activeAgentKey === 'new') st.text = mergeAgenticSnapshot(acc, text, s.chunkType);
+  else if (s.chunkType === 'delta') st.text = acc + text;        // authoritative delta
+  else if (text === acc) { /* dup */ }
+  else if (text.startsWith(acc)) st.text = acc + text.substring(acc.length); // cumulative
+  else st.text = acc + text;                                     // heuristic delta
+  if (st.text) markFirstToken(); // first chunk that actually carries content
+  scheduleReveal(st);            // drive the typewriter reveal (display layer)
+  finishSteps();
+}
+
+// ── HTTP + SSE ──
+async function post(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${res.statusText} — ${txt.slice(0, 300)}`);
+  }
+  const cid = res.headers.get('x-ms-conversationid');
+  if (cid) { conversationId = cid; }
+  return res;
+}
+async function consumeSSE(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '', eventName = '', dataLines = [], events = 0, activities = 0;
+
+  function dispatch() {
+    if (!dataLines.length) { eventName = ''; return; }
+    const dataStr = dataLines.join('\n');
+    dataLines = [];
+    const name = eventName; eventName = '';
+    events++;
+    if (name === 'end' || dataStr === '[DONE]') return;
+    let activity;
+    try { activity = JSON.parse(dataStr); } catch { log('non-JSON data skipped', 'err'); return; }
+    if (activity && activity.type) {
+      activities++;
+      rawActivities.push(structuredClone(activity));
+      applyActivity(activity);
+    }
+  }
+
+  log('SSE stream opened', 'dim');
+  try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      parseSseLineBuffer(frameState, decoder.decode(value, { stream: true }), onFrame);
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf('\n')) >= 0) {
+        let line = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 1);
+        if (line.endsWith('\r')) line = line.slice(0, -1);
+        if (line === '') { dispatch(); continue; }
+        if (line.startsWith(':')) continue;
+        if (line.startsWith('event:')) eventName = line.slice(6).trim();
+        else if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
+      }
     }
-    if (!terminal) throw new Error('Stream ended without final or error');
-    elements.exportButton.disabled = false;
-  } catch (error) {
-    state.totalMs = Date.now() - state.turnStartedAt;
-    elements.totalMetric.textContent = formatDuration(state.totalMs);
-    setStatus(error.message, 'error');
-    log(`ERROR ${error.message}`);
+  } catch (e) {
+    // The connection was reset mid-stream (common on generative answers that
+    // have a silent generation gap — an intermediary drops the idle SSE conn).
+    log(`⚠️ SSE connection dropped after ${activities} activities (${e.message})`, 'err');
+    const err = new Error('Connection dropped mid-response');
+    err.midStream = true;
+    err.activities = activities;
+    throw err;
+  }
+  dispatch();
+  log(`SSE stream closed — ${events} events, ${activities} activities`, 'dim');
+}
+
+// ── Conversation lifecycle ──
+async function startConversation() {
+  conversationId = null;
+  messagesEl.innerHTML = '';
+  beginTurn();
+  setStatus(`Starting ${activeAgent().label}…`);
+  const url = conversationsUrl();
+  log(`POST ${url}`, 'dim');
+  const res = await post(url, { emitStartConversationEvent: true });
+  await consumeSSE(res);
+  setStatus(`${activeAgent().label} · Ready <span class="pill">${conversationId ? conversationId.slice(0, 8) : 'no-id'}</span>`);
+}
+
+async function sendMessage(text, displayLabel) {
+  if (busy) return;
+  busy = true; $('sendBtn').disabled = true; $('msg').disabled = true;
+  // New per-turn stream group + timing.
+  turnStart = Date.now(); ttft = null;
+  addUserMessage(displayLabel || text);
+  beginTurn();
+  setStatus('Streaming…');
+  let ok = false, error = null;
+  try {
+    const url = conversationsUrl(conversationId);
+    const activity = { type: 'message', text, conversation: { id: conversationId } };
+    log(`POST ${url}`, 'dim');
+    const res = await post(url, { activity });
+    await consumeSSE(res);
+    for (const st of uniqueStreamStates()) completeReveal(st); // play out reveal, then finalize
+    ok = true;
+    setStatus(`Ready <span class="pill">${conversationId ? conversationId.slice(0, 8) : 'no-id'}</span>`);
+  } catch (e) {
+    error = e.midStream ? 'Connection dropped mid-response' : (e.message || String(e));
+    const msg = e.midStream
+      ? 'Connection dropped mid-response — click ↻ Retry to resend.'
+      : ('Send failed: ' + e.message);
+    log(msg, 'err');
+    setStatus(`<span class="pill err">connection dropped</span> click ↻ Retry`);
   } finally {
-    setBusy(false);
+    // Manual turns count toward the benchmark too (batch = 'manual').
+    recordTurn(text, ok, error);
+    busy = false; $('sendBtn').disabled = false; $('msg').disabled = false; $('msg').focus();
   }
 }
 
-function exportEvidence() {
-  const evidence = {
-    schemaVersion: 1,
-    evidenceType: 'd2e-router-live-validation',
-    capturedAt: new Date().toISOString(),
-    routerOrigin: new URL(gatewayUrl()).origin,
-    conversationIdPrefix: state.conversationId?.slice(0, 8),
-    expiresAt: state.expiresAt,
-    metrics: {
-      ttftMs: state.ttftMs,
-      totalMs: state.totalMs,
-      eventCount: state.events.length,
-      answerSnapshotCount: state.answerSnapshots,
-    },
-    finalText: state.finalText,
-    events: state.events,
+// Send an Adaptive Card submit response (value carries the form data).
+async function sendCardResponse(value) {
+  if (busy) return;
+  busy = true; $('sendBtn').disabled = true; $('msg').disabled = true;
+  turnStart = Date.now(); ttft = null;
+  addUserMessage('↪ ' + (value && Object.keys(value).length ? JSON.stringify(value) : '(card submitted)'));
+  beginTurn();
+  setStatus('Streaming…');
+  try {
+    const url = conversationsUrl(conversationId);
+    const activity = { type: 'message', value: value || {}, text: '', conversation: { id: conversationId } };
+    log(`POST ${url} (card response)`, 'dim');
+    const res = await post(url, { activity });
+    await consumeSSE(res);
+    for (const st of uniqueStreamStates()) completeReveal(st);
+    setStatus(`Ready <span class="pill">${conversationId ? conversationId.slice(0, 8) : 'no-id'}</span>`);
+  } catch (e) {
+    log('Card response failed: ' + e.message, 'err');
+    setStatus(`<span class="pill err">error</span> ${e.message}`);
+  } finally {
+    busy = false; $('sendBtn').disabled = false; $('msg').disabled = false; $('msg').focus();
+  }
+}
+
+// ── Performance benchmark ──────────────────────────────────────────────────
+// Probes run IN THE CURRENT CONVERSATION through the REAL chat pipeline (the
+// user first navigates the agent into its ready state in chat). Each probe
+// sends ONE question — the question and its streamed answer appear live in the
+// conversation window — and measures:
+//   • TTFT  = time from the question send to the first ANSWER content
+//             (message/final/streaming chunk that carries text), excluding
+//             informative/typing steps (handled by markFirstToken).
+//   • total = time from the question send until the SSE stream closes.
+let benchRunning = false, benchAbort = false, benchRecords = [];
+
+// Build a benchmark record from the timing globals + rendered stream bubbles of
+// the turn that just finished. Shared by benchProbe (automated) and recordTurn
+// (manual sends), so manual chat turns also count toward the benchmark.
+function summarizeTurn(question, ok, error) {
+  const total = turnStart ? Date.now() - turnStart : null;
+  const states = uniqueStreamStates();
+  const answer = states.map(s => s.text).filter(Boolean).join('\n\n');
+  const chunks = states.reduce((sum, stream) => sum + stream.chunkCount, 0);
+  const streamed = chunks > 1;
+  return {
+    question,
+    ttft: ttft === null ? null : Math.round(ttft),
+    total: total === null ? null : Math.round(total),
+    ok, error, answer, streamed, chunks
   };
-  const blob = new Blob([JSON.stringify(evidence, null, 2)], { type: 'application/json' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `d2e-router-evidence-${Date.now()}.json`;
-  link.click();
-  URL.revokeObjectURL(link.href);
+}
+// Record a manual chat turn into the benchmark (skipped while a batch is running
+// to avoid interleaving). Refreshes the charts/detail immediately.
+function recordTurn(question, ok, error) {
+  if (benchRunning) return;
+  const rec = summarizeTurn(question, ok, error);
+  rec.batch = 'manual';
+  benchRecords.push(rec);
+  renderBenchResults();
 }
 
-elements.connectButton.addEventListener('click', connectRouter);
-elements.newConversationButton.addEventListener('click', newConversation);
-elements.sendButton.addEventListener('click', sendTurn);
-elements.exportButton.addEventListener('click', exportEvidence);
-elements.themeButton.addEventListener('click', () => {
-  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = next;
-});
-elements.messageInput.addEventListener('keydown', event => {
-  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
-    event.preventDefault();
-    sendTurn();
+async function benchProbe(text) {
+  // Reuse the exact manual-send pipeline so it renders into the live chat and
+  // shares the current conversation's topic context. Timing comes from the same
+  // globals the chat already maintains: turnStart + ttft (set by markFirstToken,
+  // which fires on the first ANSWER content and skips informative steps).
+  turnStart = Date.now(); ttft = null;
+  addUserMessage(text);
+  beginTurn();
+  let ok = false, error = null;
+  try {
+    const url = conversationsUrl(conversationId);
+    const activity = { type: 'message', text, conversation: { id: conversationId } };
+    log(`POST ${url} (benchmark)`, 'dim');
+    const res = await post(url, { activity });
+    await consumeSSE(res);           // renders via applyActivity into the chat
+    for (const st of uniqueStreamStates()) completeReveal(st);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    ok = true;
+  } catch (e) {
+    error = e.midStream ? 'Connection dropped mid-response' : (e.message || String(e));
   }
+  return summarizeTurn(text, ok, error);
+}
+
+function percentile(sorted, p) {
+  if (!sorted.length) return null;
+  const idx = Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1);
+  return sorted[Math.max(0, idx)];
+}
+function summarize(values) {
+  const v = values.filter(x => x !== null && x !== undefined).sort((a, b) => a - b);
+  if (!v.length) return { count: 0, avg: null, p50: null, p90: null, min: null, max: null };
+  const sum = v.reduce((a, b) => a + b, 0);
+  return { count: v.length, avg: Math.round(sum / v.length), p50: percentile(v, 50), p90: percentile(v, 90), min: v[0], max: v[v.length - 1] };
+}
+function renderStats(elId, s) {
+  const fmt = (x) => x === null ? '–' : x.toLocaleString();
+  $(elId).innerHTML =
+    `<div class="bm-stat"><div class="v">${fmt(s.avg)}</div><div class="k">avg</div></div>` +
+    `<div class="bm-stat"><div class="v">${fmt(s.p50)}</div><div class="k">p50</div></div>` +
+    `<div class="bm-stat"><div class="v">${fmt(s.p90)}</div><div class="k">p90</div></div>` +
+    `<div class="bm-stat"><div class="v">${fmt(s.max)}</div><div class="k">max</div></div>`;
+}
+// Stacked bar chart: each bar = TTFT (blue, bottom) + generation gap (purple,
+// Total − TTFT, on top), so the full height is Total. Failures show a red stub.
+// p50/p90 guide lines reference the Total distribution.
+function renderStackedChart(svgId, records, sTotal) {
+  const svg = $(svgId);
+  const W = 600, H = 140, pad = 6;
+  const totals = records.map(r => (r.ok && r.total != null) ? r.total : 0);
+  const max = Math.max(1, ...totals, sTotal.p90 || 0);
+  const n = records.length || 1;
+  const bw = (W - pad * 2) / n;
+  const scale = (v) => (v / max) * (H - pad * 2);
+  let bars = '';
+  records.forEach((r, i) => {
+    const x = pad + i * bw, wbar = Math.max(1, bw - 2);
+    if (!r.ok || r.total == null) {
+      const h = scale(max * 0.04);
+      bars += `<rect x="${x + 1}" y="${H - pad - h}" width="${wbar}" height="${h}" fill="#d33" opacity=".5"></rect>`;
+      return;
+    }
+    const ttft = r.ttft == null ? 0 : r.ttft;
+    const gap = Math.max(0, r.total - ttft);
+    const ttftH = scale(ttft), gapH = scale(gap);
+    const yTtft = H - pad - ttftH;
+    bars += `<rect x="${x + 1}" y="${yTtft}" width="${wbar}" height="${ttftH}" fill="#2563eb" opacity=".9"></rect>`;
+    bars += `<rect x="${x + 1}" y="${yTtft - gapH}" width="${wbar}" height="${gapH}" fill="#7c3aed" opacity=".75"></rect>`;
+  });
+  const line = (v, c, label) => {
+    if (v === null) return '';
+    const y = H - pad - scale(v);
+    return `<line x1="${pad}" y1="${y}" x2="${W - pad}" y2="${y}" stroke="${c}" stroke-width="1" stroke-dasharray="4 3"></line>` +
+           `<text x="${W - pad - 2}" y="${y - 2}" font-size="9" fill="${c}" text-anchor="end">${label} ${v.toLocaleString()}</text>`;
+  };
+  svg.innerHTML = bars + line(sTotal.p50, '#16a34a', 'p50') + line(sTotal.p90, '#ea580c', 'p90');
+}
+function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function renderBenchResults() {
+  const okTtft = benchRecords.filter(r => r.ok).map(r => r.ttft);
+  const okTotal = benchRecords.filter(r => r.ok).map(r => r.total);
+  const st = summarize(okTtft), su = summarize(okTotal);
+  renderStats('bmTtftStats', st);
+  renderStats('bmTotalStats', su);
+  renderStackedChart('bmStackChart', benchRecords, su);
+  // Detail cards (newest first) with expandable answers.
+  $('bmDetail').innerHTML = benchRecords.map((r, i) => {
+    const delivery = r.streamed ? `streamed (${r.chunks} chunks)` : `one-shot (${r.chunks} chunks)`;
+    const status = r.ok ? `<span class="st-ok">ok · ${delivery}</span>` : `<span class="st-fail">${esc(r.error || 'fail')}</span>`;
+    const ans = r.answer
+      ? `<details><summary>answer (${r.answer.length} chars)</summary><div class="answer">${esc(r.answer)}</div></details>`
+      : `<div style="font-size:11px;color:#9aa0a6">no answer captured</div>`;
+    return `<div class="bm-card ${r.ok ? '' : 'failrow'}">
+      <div class="top"><span class="idx">#${i + 1}</span><span>batch ${r.batch}</span>
+        <span class="nums"><span>TTFT <b>${r.ttft ?? '–'}</b></span><span>Total <b>${r.total ?? '–'}</b></span></span></div>
+      <div class="q">${esc(r.question)}</div>
+      <div>${status}</div>
+      ${ans}
+    </div>`;
+  }).reverse().join('');
+}
+async function runBenchmark() {
+  if (benchRunning) return;
+  const prefix = $('benchPrefix').value;
+  const questions = $('benchQuestions').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const batches = Math.max(1, Math.min(50, parseInt($('benchBatches').value, 10) || 1));
+  if (!questions.length) { alert('Add at least one question.'); return; }
+  if (!conversationId) {
+    $('benchProgText').textContent = 'No conversation — start one in chat and reach the ready state first.';
+    return;
+  }
+  if (busy) { $('benchProgText').textContent = 'Chat is busy — wait for the current response to finish.'; return; }
+
+  benchRunning = true; benchAbort = false; benchRecords = []; busy = true;
+  $('benchStartBtn').textContent = 'Stop'; $('benchStartBtn').classList.add('stop');
+  $('sendBtn').disabled = true; $('msg').disabled = true;
+  const total = questions.length * batches;
+  let done = 0;
+  const tick = () => { $('benchBar').style.width = `${(done / total) * 100}%`; };
+
+  try {
+    for (let b = 1; b <= batches && !benchAbort; b++) {
+      for (const q of questions) {
+        if (benchAbort) break;
+        $('benchProgText').textContent = `Running ${done + 1}/${total} · batch ${b} · ${q.slice(0, 40)}…`;
+        const sendText = prefix ? prefix + q : q;   // prepend the optional prefix
+        const rec = await benchProbe(sendText);
+        rec.batch = b; rec.question = q;            // keep the clean question for display
+        benchRecords.push(rec);
+        done++; tick(); renderBenchResults();
+      }
+    }
+    $('benchProgText').textContent = benchAbort ? `Stopped — ${done}/${total} done` : `Done — ${done}/${total}`;
+  } catch (e) {
+    $('benchProgText').textContent = 'Error: ' + (e.message || e);
+  } finally {
+    benchRunning = false; busy = false;
+    $('benchStartBtn').textContent = 'Run'; $('benchStartBtn').classList.remove('stop'); $('benchStartBtn').disabled = false;
+    $('sendBtn').disabled = false; $('msg').disabled = false;
+    renderBenchResults();
+  }
+}
+function exportBenchCsv() {
+  if (!benchRecords.length) return;
+  const head = 'index,question,batch,ttft_ms,total_ms,streamed,chunks,status,answer\n';
+  const csvCell = (s) => '"' + String(s ?? '').replace(/"/g, '""') + '"';
+  const body = benchRecords.map((r, i) =>
+    [i + 1, csvCell(r.question), r.batch, r.ttft ?? '', r.total ?? '', r.streamed ? 'yes' : 'no', r.chunks,
+     r.ok ? 'ok' : (r.error || 'fail'), csvCell(r.answer)].join(',')).join('\n');
+  const blob = new Blob([head + body], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `d2e-benchmark-${Date.now()}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function downloadJson(filename, value) {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
+  const anchor = document.createElement('a');
+  anchor.href = URL.createObjectURL(blob); anchor.download = filename; anchor.click();
+  setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
+}
+
+function inspectTurnResult() {
+  const bubbles = Array.from(messagesEl.querySelectorAll('.msg.bot'));
+  const panel = messagesEl.querySelector('.work-panel');
+  const turnRoot = messagesEl.querySelector('.turn-output');
+  const progress = turnRoot?.querySelector('.turn-progress');
+  const answer = turnRoot?.querySelector('.turn-answer');
+  return {
+    reasoningParagraphCount: messagesEl.querySelectorAll('.reasoning-text').length,
+    reasoningText: messagesEl.querySelector('.reasoning-text')?.textContent || '',
+    toolRowsById: { 'search-1': messagesEl.querySelectorAll('[data-stage-key="tool:search-1"]').length },
+    answerBubbleCount: bubbles.length,
+    emptyAnswerBubbleCount: bubbles.filter(bubble => !bubble.textContent.trim()).length,
+    answerText: bubbles[0]?.textContent.trim() || '',
+    metadataRowCount: messagesEl.querySelectorAll('.msgwrap.bot .meta').length,
+    pendingStageCount: messagesEl.querySelectorAll('.work-stage.active').length,
+    workPanelBeforeAnswer: Boolean(progress && answer && (progress.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING)),
+    uniqueAnswerStateCount: uniqueStreamStates().length,
+    panelTitle: panel?.querySelector('.work-title')?.textContent || '',
+  };
+}
+
+async function runDeterministicFixture() {
+  const [fixture, expected] = await Promise.all([
+    fetch('/prototype-assets/fixtures/new-agent-3p-replay.json').then(response => response.json()),
+    fetch('/prototype-assets/fixtures/new-agent-3p-expected.json').then(response => response.json()),
+  ]);
+  messagesEl.innerHTML = '';
+  beginTurn();
+  turnStart = Date.now(); ttft = null;
+  for (const activity of fixture.activities) applyActivity(activity);
+  for (const state of uniqueStreamStates()) {
+    state.shownLen = state.text.length;
+    finalizeBubble(state);
+  }
+  const actual = inspectTurnResult();
+  const failures = Object.entries(expected.assertions).filter(([key, value]) => {
+    if (key === 'toolRowsById') return actual.toolRowsById['search-1'] !== value['search-1'];
+    return actual[key] !== value;
+  });
+  const passed = failures.length === 0;
+  $('benchProgText').textContent = passed
+    ? 'Fixture PASS — reasoning, stages, answer, ordering and deduplication match expected.json.'
+    : `Fixture FAIL — ${failures.map(([key]) => key).join(', ')}`;
+  log(`fixture ${passed ? 'PASS' : 'FAIL'} ${failures.map(([key]) => key).join(', ')}`, passed ? 'final' : 'err');
+  return { passed, actual, expected: expected.assertions, failures };
+}
+
+// ── Wire up ──
+$('sendBtn').onclick = () => { const t = $('msg').value.trim(); if (t) { $('msg').value = ''; sendMessage(t); } };
+$('msg').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); $('sendBtn').click(); } });
+$('newConvBtn').onclick = async () => {
+  if (busy) return;
+  $('newConvBtn').disabled = true;
+  try {
+    if (!signedIn) await ensureSession();
+    await releaseConversation();
+    await startConversation();
+    $('msg').disabled = false; $('sendBtn').disabled = false; $('msg').focus();
+  }
+  catch (e) { log('New conversation failed: ' + e.message, 'err'); setStatus(`<span class="pill err">error</span> ${e.message}`); }
+  finally { $('newConvBtn').disabled = false; }
+};
+$('clearLogBtn').onclick = () => { logEl.innerHTML = ''; rawActivities = []; };
+$('exportRawBtn').onclick = () => downloadJson(
+  `router-raw-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
+  {
+    schemaVersion: 1,
+    evidenceType: 'router-passthrough-export',
+    transport: 'router-verification',
+    exportedAt: new Date().toISOString(),
+    agent: { key: activeAgentKey, schemaName: activeAgent().schemaName, runtimePath: activeAgent().runtimePath },
+    conversationId,
+    activities: rawActivities,
+  },
+);
+$('copyLogBtn').onclick = async () => {
+  const btn = $('copyLogBtn');
+  await copyText(logEl.innerText);
+  btn.textContent = 'copied'; setTimeout(() => btn.textContent = 'copy', 1200);
+};
+// Floating log toggle
+$('logToggleBtn').onclick = () => { $('logFloat').classList.toggle('open'); };
+$('closeLogBtn').onclick = () => { $('logFloat').classList.remove('open'); };
+// Benchmark (in the sidebar)
+$('benchStartBtn').onclick = () => {
+  if (benchRunning) {
+    benchAbort = true;
+    // The current probe is mid-flight (one full Q&A can take 10s+); give instant
+    // feedback so the click clearly registers, then stop after it finishes.
+    const btn = $('benchStartBtn');
+    btn.textContent = 'Stopping…'; btn.disabled = true;
+    $('benchProgText').textContent = 'Stopping — finishing the current question…';
+  } else {
+    runBenchmark();
+  }
+};
+$('benchExportBtn').onclick = exportBenchCsv;
+
+// Deterministic activity replay for local regression checks. It is deliberately
+// unavailable on normal URLs so production-like verification remains untouched.
+if (new URLSearchParams(window.location.search).has('debug')) {
+  $('runFixtureBtn').hidden = false;
+  $('runFixtureBtn').onclick = () => runDeterministicFixture().catch(error => {
+    $('benchProgText').textContent = `Fixture error — ${error.message}`;
+    log(`fixture error ${error.message}`, 'err');
+  });
+  window.__d2eDebug = {
+    beginTurn,
+    applyActivity,
+    runDeterministicFixture,
+    getState: () => ({
+      turn: activeTurn,
+      streams: uniqueStreamStates(),
+    }),
+  };
+}
+
+// Each page load starts its own conversation, so release the previous one on
+// unload instead of leaving an unused upstream conversation behind.
+window.addEventListener('pagehide', () => {
+  if (!conversationId) return;
+  fetch(conversationsUrl(conversationId), {
+    method: 'DELETE',
+    credentials: 'same-origin',
+    keepalive: true,
+  }).catch(() => {});
 });
+
+// ── Boot: take a loopback session, then start a conversation ──
+(async () => {
+  try {
+    setStatus('Connecting to Router…');
+    await ensureSession();
+    await startConversation();
+    $('msg').disabled = false; $('sendBtn').disabled = false; $('newConvBtn').disabled = false;
+    $('msg').focus();
+  } catch (e) {
+    log('Init failed: ' + e.message, 'err');
+    setStatus(`<span class="pill err">error</span> ${e.message}`);
+    $('newConvBtn').disabled = false;
+  }
+})();
 </script>
 </body>
 </html>

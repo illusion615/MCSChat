@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { StateConflictError } from '../errors.js';
@@ -63,6 +63,22 @@ export class LocalFileStateStore {
 
     async writeJson(statePath, value, options = {}) {
         return this.write(statePath, Buffer.from(JSON.stringify(value), 'utf8'), options);
+    }
+
+    /** Relative state paths directly under `prefix`, sorted for stable output. */
+    async list(prefix) {
+        const normalized = String(prefix || '').replace(/\/$/, '');
+        const directory = normalized ? this.#resolve(normalized) : this.rootDirectory;
+        try {
+            const names = await readdir(directory, { withFileTypes: true });
+            return names
+                .filter(entry => entry.isFile())
+                .map(entry => (normalized ? `${normalized}/${entry.name}` : entry.name))
+                .sort();
+        } catch (error) {
+            if (error.code === 'ENOENT') return [];
+            throw error;
+        }
     }
 
     async permissions(statePath) {

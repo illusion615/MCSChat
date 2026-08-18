@@ -24,4 +24,9 @@ export class EncryptedMsalCachePlugin {
         const result = await this.stateStore.write(CACHE_PATH, envelope, { etag: this.etag });
         this.etag = result.etag;
     }
+
+    /** Forgets the tracked ETag after the cache file is removed out-of-band. */
+    reset() {
+        this.etag = undefined;
+    }
 }

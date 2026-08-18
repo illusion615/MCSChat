@@ -104,6 +104,8 @@ The project is now well-organized with:
 
 ## Next Priority
 - [x] Local D2E delegated Router with one-click Connect, persistent multi-turn chat history, no-Entra third-party REST/SSE validation page, and real New Agent verification (Batch 26)
+- [x] Router admin console at `/admin` — bilingual sign-in, delegated identity management, live log stream, traffic metrics, conversation management, one-click restart, and log/metrics/diagnostics export (Batch 27)
+- [x] Router verification page rebuilt as a transport-only copy of the direct-connect page, backed by a loopback-session Activity passthrough, so `export raw` diffing detects any Router change to the D2E data structure (Batch 28)
 - [ ] Color theme implementation for enhanced user customization
 - [ ] AI companion panel expansion functionality
 - [ ] Continue feature development based on user feedback

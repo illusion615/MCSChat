@@ -15,6 +15,7 @@ import { SECRET_NAMES } from '../secrets/secretProvider.js';
 import { EncryptedMsalCachePlugin } from './encryptedMsalCachePlugin.js';
 
 const ACCOUNT_PATH = 'identity/account.json';
+const CACHE_PATH = 'identity/msal-cache.bin';
 const AUTH_TRANSACTION_TTL_MS = 10 * 60 * 1000;
 const AUTH_STATE_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -42,6 +43,7 @@ export class DelegatedIdentity {
         ]);
         this.encryptionKey = decodeEncryptionKey(encodedCacheKey);
         const cachePlugin = new EncryptedMsalCachePlugin(this.stateStore, this.encryptionKey);
+        this.cachePlugin = cachePlugin;
         this.client = new ConfidentialClientApplication({
             auth: {
                 clientId: this.config.clientId,
@@ -179,10 +181,54 @@ export class DelegatedIdentity {
 
     async status() {
         const metadata = await this.stateStore.readJson(ACCOUNT_PATH);
+        const value = metadata?.value;
         return {
-            state: metadata?.value?.state || 'disabled',
-            updatedAt: metadata?.value?.updatedAt,
+            state: value?.state || 'disabled',
+            updatedAt: value?.updatedAt,
+            tenantId: value?.tenantId,
+            objectIdPrefix: value?.objectId ? String(value.objectId).slice(0, 8) : undefined,
         };
+    }
+
+    /**
+     * Clears the delegated session so an administrator can sign in again.
+     * Removes the encrypted MSAL cache and the account pointer; the Entra
+     * app registration and consent are untouched.
+     */
+    async signOut() {
+        this.#assertInitialized();
+        return this.#serialize(async () => {
+            await this.client.getTokenCache().clear().catch(() => undefined);
+            await this.stateStore.remove(CACHE_PATH).catch(() => undefined);
+            await this.stateStore.remove(ACCOUNT_PATH).catch(() => undefined);
+            this.cachePlugin?.reset();
+            this.logger.warn?.('Delegated identity signed out', { code: 'IDENTITY_SIGNED_OUT' });
+            return { state: 'disabled' };
+        });
+    }
+
+    /** Removes authorization transactions whose PKCE window has elapsed. */
+    async purgeExpiredAuthTransactions() {
+        const paths = await this.stateStore.list?.('identity/auth-transactions') ?? [];
+        const cutoff = Date.now() - AUTH_TRANSACTION_TTL_MS;
+        let removed = 0;
+        for (const statePath of paths) {
+            const entry = await this.stateStore.read(statePath).catch(() => null);
+            if (!entry) continue;
+            const state = statePath.split('/').pop()?.replace(/\.bin$/, '') || '';
+            let expiresAt = 0;
+            try {
+                expiresAt = JSON.parse(
+                    decryptCache(entry.data, this.encryptionKey, `mcschat-auth:${state}`).toString('utf8')
+                ).expiresAt;
+            } catch {
+                expiresAt = cutoff;
+            }
+            if (expiresAt > Date.now()) continue;
+            await this.stateStore.remove(statePath).catch(() => undefined);
+            removed += 1;
+        }
+        return removed;
     }
 
     async readiness() {

@@ -42,6 +42,8 @@
 | Batch 24 | [技术债 Phase 5 — CSS 精细化](#batch-24-技术债-phase-5) | P3 | 🔴 未开始 | Batch 4 |
 | Batch 25 | [Livestreaming 兼容性与渲染统一](#batch-25-livestreaming-兼容性与渲染统一) | P2 | 🟡 进行中 | Batch 8 |
 | Batch 26 | [D2E Delegated Gateway 原型验证](#batch-26-d2e-delegated-gateway-原型验证) | P1 | 🟡 进行中 | Batch 25 |
+| Batch 27 | [Router 管理控制台](#batch-27-router-管理控制台) | P1 | 🟡 进行中 | Batch 26 |
+| Batch 28 | [Router 验证页与 D2E 契约对拍](#batch-28-router-验证页与-d2e-契约对拍) | P1 | 🟡 进行中 | Batch 27 |
 **状态图标：** 🔴 未开始 → 🟡 进行中 → 🟢 已完成 → ⚪ 已跳过
 
 ---
@@ -557,6 +559,50 @@
 
 ---
 
+## Batch 27: Router 管理控制台
+
+**目录：** `docs/iterations/batch-27-router-admin-console/`
+**优先级：** P1
+**依赖：** Batch 26（D2E Local Router）
+**目标：** 为 Router 提供可访问的双语管理界面，覆盖管理员登录、实时日志、流量指标、会话管理、服务重启与日志导出
+
+### 任务清单
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 27.1 | requirements/design/checklist 文档先行 | 🟢 |
+| 27.2 | 前置修复：密钥编码、中间件顺序、admin key 拆分 | 🟢 |
+| 27.3 | 可观测性内核（logStore 脱敏环形缓冲 + metrics） | 🟢 |
+| 27.4 | Runtime lifecycle 与监督者重启机制 | 🟢 |
+| 27.5 | Admin API（会话/身份/日志/指标/会话管理/导出/重启/SSE） | 🟢 |
+| 27.6 | createApp 埋点接入与 admin 路由挂载 | 🟢 |
+| 27.7 | 双语控制台单页 `gateway/public/admin.html` | 🟢 |
+| 27.8 | 新增测试与既有 27 项回归（52 项全绿） | 🟢 |
+| 27.9 | 文档同步与端到端实测 | 🟢 |
+
+---
+
+## Batch 28: Router 验证页与 D2E 契约对拍
+
+**目录：** `docs/iterations/batch-28-router-page-parity/`
+**优先级：** P1
+**依赖：** Batch 27
+**目标：** Router 提供 Activity 透传模式，验证页改为由 `d2e-streaming-test.html` 复制并仅替换传输层，使两页功能完全一致，并能通过 export raw 对拍检测 Router 是否改变了 D2E 数据结构
+
+### 任务清单
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 28.1 | requirements/design/checklist 文档先行 | 🟢 |
+| 28.2 | `d2eClient.consumeFrames()` 原始帧暴露 | 🟢 |
+| 28.3 | verification 透传端点（admin 认证） | 🟢 |
+| 28.4 | Router 托管 streamingActivity 与 fixtures、`/prototype` CSP 放宽 | 🟢 |
+| 28.5 | 验证页复制与传输层替换 | 🟢 |
+| 28.6 | 透传保真、ID 改写与权限隔离测试（58 项全绿） | 🟢 |
+| 28.7 | 文档同步与契约对拍实测 | 🟡 |
+
+---
+
 ## 变更日志
 
 | 日期 | 变更 |
@@ -577,6 +623,14 @@
 | 2026-06-13 | 新增 Batch 25（Livestreaming 兼容性与渲染统一）；修正 Batch 8 过期结论 |
 | 2026-08-18 | 新增 Batch 26（D2E Delegated Gateway 原型验证）；确认 S2S Private Preview 不进入实施范围 |
 | 2026-08-18 | Batch 26 改为 local-only Router；完成 encrypted cache restart recovery、真实 New Agent CLI/browser streaming 与密钥泄漏检查，取消 Azure hosting |
+| 2026-08-18 | Gateway 代码审查：定位密钥编码不匹配、中间件顺序导致 CORS 缺失、tool-call ID 泄漏等 P0/P1 问题 |
+| 2026-08-18 | 新增 Batch 27（Router 管理控制台）：双语界面 + 登录管理 + 实时日志 + 流量指标 + 重启服务 + 导出，并入 P0 前置修复 |
+| 2026-08-18 | Batch 27 实施完成：admin 控制台 + 可观测性内核 + 监督者重启 + 三类导出；52 项测试全绿，真实 turn / 重启 / 导出脱敏端到端验证通过 |
+| 2026-08-18 | 新增 Batch 28（Router 验证页与 D2E 契约对拍）：改为复制 d2e 页仅换传输层，Router 新增 admin 认证的 Activity 透传模式 |
+| 2026-08-18 | Batch 28 实施：透传端点上线，验证页 5 个核心函数与直连页逐字节相同，真实转 26 个 Activity 结构全保真 |
+| 2026-08-18 | Batch 28 修正：`activeAgentKey` 误设为 `'router'` 导致渲染器走经典 agent 分支（空气泡），改回 `'new'` 后 fixture PASS；之前“fixture 旧有失败”的结论作废（当时直连页未带 `agent=new`） |
+| 2026-08-18 | Batch 28 调整：移除验证页管理员登录，透传改由 loopback 会话准入；安全边界由“管理员 vs 第三方”变为“本机 vs 非本机”，仅在 localDevelopment 下注册 |
+| 2026-08-18 | 控制台密码改为自服务且可选：默认无密码直接可用并提示初始化，密码以 scrypt 加盐哈希存于 `.local-state/admin/credential.json`；`LOCAL_ADMIN_API_KEY` 变为可选且优先。共 66 项测试全绿 |
 | 2026-03-15 | AI Companion 设置改进：Test Connection 点击后按钮进入 Testing... 并禁用，完成后自动恢复 |
 | 2026-03-15 | 修复 full-width 模式新会话不持久化问题；修复 thinking dot 文字换行（正确定位到 typing-status-area） |
 | 2026-03-15 | Batch 4 进行中：补充 variables.css token，完成 splash/navigation/buttons/panels/chat CSS 令牌迁移 |

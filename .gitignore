@@ -39,3 +39,6 @@ legacy/
 *.tmp
 *.swp
 *~
+
+# Batch archives pending user confirmation
+.archive-batch-*/

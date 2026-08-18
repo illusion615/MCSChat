@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>D2E Router Admin Console</title>
+<link rel="icon" href="data:," />
+<script>
+  (() => {
+    const stored = localStorage.getItem("adminTheme");
+    const theme = stored || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  min-height: 100vh;
+  background: var(--cp-bg);
+  color: var(--cp-text);
+  font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: 0.5; }
+code, .mono { font-family: "SF Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace; }
+
+.shell { min-height: 100vh; display: grid; grid-template-rows: auto auto 1fr; }
+/* Grid children default to min-width:auto, which would let wide tables widen the page. */
+.shell > *, main > *, .grid > *, .kpis > * { min-width: 0; }
+.topbar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--cp-border);
+  background: var(--cp-bg-elevated);
+}
+.brand { display: flex; flex-direction: column; margin-right: auto; }
+.brand strong { font-size: 15px; letter-spacing: -0.01em; }
+.brand span { font-size: 12px; color: var(--cp-text-muted); }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--cp-border);
+  background: var(--cp-surface);
+  font-size: 12px; white-space: nowrap;
+}
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cp-text-muted); }
+.pill[data-tone="ready"] .dot { background: var(--cp-success); }
+.pill[data-tone="warn"] .dot { background: var(--cp-warning); }
+.pill[data-tone="error"] .dot { background: var(--cp-danger); }
+
+.btn {
+  padding: 7px 14px; border-radius: 8px;
+  border: 1px solid var(--cp-border-strong);
+  background: var(--cp-surface); color: var(--cp-text);
+}
+.btn:hover:not(:disabled) { border-color: var(--cp-accent); color: var(--cp-accent); }
+.btn.primary { background: var(--cp-accent); border-color: var(--cp-accent); color: var(--cp-accent-fg); }
+.btn.primary:hover:not(:disabled) { background: var(--cp-accent-hover); color: var(--cp-accent-fg); }
+.btn.danger { border-color: var(--cp-danger); color: var(--cp-danger); }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.small { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
+
+.tabs { display: flex; gap: 4px; padding: 0 20px; border-bottom: 1px solid var(--cp-border); background: var(--cp-bg-elevated); overflow-x: auto; }
+.tab {
+  padding: 10px 14px; border: none; background: transparent;
+  border-bottom: 2px solid transparent; color: var(--cp-text-muted); white-space: nowrap;
+}
+.tab[aria-selected="true"] { color: var(--cp-accent); border-bottom-color: var(--cp-accent); font-weight: 600; }
+
+main { padding: 20px; display: grid; gap: 16px; align-content: start; }
+.hidden { display: none !important; }
+
+.card {
+  background: var(--cp-surface); border: 1px solid var(--cp-border);
+  border-radius: 12px; padding: 16px;
+}
+.card > h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--cp-text-muted); }
+.grid { display: grid; gap: 16px; }
+.grid.cols { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.kpi { background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 10px; padding: 12px; }
+.kpi .value { font-size: 24px; font-weight: 600; line-height: 1.1; }
+.kpi .label { font-size: 12px; color: var(--cp-text-muted); margin-top: 4px; }
+
+dl.props { display: grid; grid-template-columns: minmax(120px, auto) 1fr; gap: 6px 16px; margin: 0; }
+dl.props dt { color: var(--cp-text-muted); font-size: 12px; align-self: center; }
+dl.props dd { margin: 0; word-break: break-all; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--cp-border); white-space: nowrap; }
+th { color: var(--cp-text-muted); font-weight: 600; font-size: 12px; }
+tbody tr:last-child td { border-bottom: none; }
+.table-wrap { overflow-x: auto; }
+.table-wrap table { min-width: 100%; width: max-content; }
+
+.chart { display: flex; align-items: stretch; gap: 2px; height: 90px; padding-top: 8px; }
+.chart .bar { flex: 1; min-width: 2px; position: relative; background: var(--cp-accent-soft); border-radius: 2px; }
+.chart .bar i { position: absolute; inset: auto 0 0 0; display: block; background: var(--cp-accent); border-radius: 2px 2px 0 0; }
+.chart .bar u { position: absolute; inset: auto 0 0 0; display: block; background: var(--cp-danger); border-radius: 2px 2px 0 0; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--cp-text-muted); margin-top: 8px; }
+.legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+.legend .req::before { background: var(--cp-accent); }
+.legend .err::before { background: var(--cp-danger); }
+
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.toolbar input[type="search"], .toolbar input[type="text"], .toolbar select {
+  padding: 6px 10px; border-radius: 8px; border: 1px solid var(--cp-border-strong); background: var(--cp-surface);
+}
+.toolbar input[type="search"] { min-width: 180px; flex: 1; }
+
+.log-list { max-height: 60vh; overflow: auto; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface-soft); }
+.log-row { display: grid; grid-template-columns: 84px 56px 1fr; gap: 10px; padding: 6px 10px; border-bottom: 1px solid var(--cp-border); font-size: 12.5px; }
+.log-row:last-child { border-bottom: none; }
+.log-row .lvl { font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; }
+.log-row[data-level="warn"] .lvl { color: var(--cp-warning); }
+.log-row[data-level="error"] .lvl { color: var(--cp-danger); }
+.log-row[data-level="debug"] .lvl { color: var(--cp-text-soft); }
+.log-row[data-level="info"] .lvl { color: var(--cp-link); }
+.log-row .msg { word-break: break-word; }
+.log-row .meta { color: var(--cp-text-muted); font-size: 11.5px; margin-top: 2px; }
+.log-row .cid { cursor: pointer; text-decoration: underline dotted; }
+
+.empty { padding: 24px; text-align: center; color: var(--cp-text-muted); }
+.notice { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--cp-border); background: var(--cp-surface-soft); font-size: 13px; }
+.notice[data-tone="error"] { border-color: var(--cp-danger); color: var(--cp-danger); }
+.notice[data-tone="ok"] { border-color: var(--cp-success); color: var(--cp-success); }
+.notice a { color: inherit; }
+
+.gate { min-height: 70vh; display: grid; place-items: center; padding: 20px; }
+.gate .card { width: min(420px, 100%); box-shadow: var(--cp-shadow); }
+.gate h1 { margin: 0 0 6px; font-size: 20px; }
+.gate p { margin: 0 0 16px; color: var(--cp-text-muted); font-size: 13px; }
+.gate label { display: block; font-size: 12px; color: var(--cp-text-muted); margin-bottom: 6px; }
+.gate input {
+  width: 100%; padding: 9px 12px; border-radius: 8px;
+  border: 1px solid var(--cp-border-strong); background: var(--cp-surface); margin-bottom: 12px;
+}
+
+.overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: grid; place-items: center; padding: 20px; z-index: 20; }
+.overlay .card { width: min(420px, 100%); box-shadow: var(--cp-shadow); }
+.overlay h3 { margin: 0 0 8px; font-size: 16px; }
+.overlay p { margin: 0 0 16px; color: var(--cp-text-muted); white-space: pre-line; }
+.overlay .actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+@media (max-width: 640px) {
+  main { padding: 14px; }
+  .topbar { padding: 10px 14px; gap: 8px; }
+  .brand { flex-basis: 100%; margin-right: 0; }
+  .tabs { padding: 0 8px; }
+  .log-row { grid-template-columns: 1fr; gap: 2px; }
+  .toolbar > * { flex: 1 1 auto; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <strong data-i18n="app.title">D2E Router Admin Console</strong>
+      <span data-i18n="app.subtitle">Local delegated Router for Copilot Studio New Agent</span>
+    </div>
+    <span class="pill" id="identityPill"><span class="dot"></span><span id="identityPillText" data-i18n="status.unknown">Unknown</span></span>
+    <span class="pill" id="streamPill"><span class="dot"></span><span id="streamPillText" data-i18n="logs.offline">Offline</span></span>
+    <button class="btn small" id="langToggle" data-i18n-title="common.language" title="Language">中文</button>
+    <button class="btn small" id="themeToggle" data-i18n-title="common.theme" title="Theme">◐</button>
+    <button class="btn small ghost hidden" id="signOutBtn" data-i18n="auth.signOut">Sign out</button>
+  </header>
+
+  <nav class="tabs hidden" id="tabs">
+    <button class="tab" data-tab="overview" aria-selected="true" data-i18n="nav.overview">Overview</button>
+    <button class="tab" data-tab="traffic" aria-selected="false" data-i18n="nav.traffic">Traffic</button>
+    <button class="tab" data-tab="logs" aria-selected="false" data-i18n="nav.logs">Logs</button>
+    <button class="tab" data-tab="conversations" aria-selected="false" data-i18n="nav.conversations">Conversations</button>
+  </nav>
+
+  <div class="gate" id="gate">
+    <div class="card">
+      <h1 data-i18n="auth.title">Administrator sign-in</h1>
+      <p data-i18n="auth.hint">Enter the Router administrator key. It is exchanged for an HttpOnly session cookie and never stored in the browser.</p>
+      <label for="adminKey" data-i18n="auth.key">Administrator key</label>
+      <input id="adminKey" type="password" autocomplete="current-password" spellcheck="false" data-i18n-placeholder="auth.keyPlaceholder" placeholder="LOCAL_ADMIN_API_KEY" />
+      <button class="btn primary" id="signInBtn" style="width:100%" data-i18n="auth.signIn">Sign in</button>
+      <div class="notice hidden" id="authError" data-tone="error" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <main class="hidden" id="app">
+    <div class="notice hidden" id="unprotectedBanner" data-tone="warn">
+      <span data-i18n="security.unprotectedWarning">This console has no password. Any process on this machine can reach it.</span>
+      <button class="btn small" id="bannerSetPassword" data-i18n="security.setPassword">Set a password</button>
+    </div>
+
+    <!-- Overview -->
+    <section class="view grid cols" data-view="overview">
+      <div class="card">
+        <h2 data-i18n="overview.identity">Delegated identity</h2>
+        <dl class="props">
+          <dt data-i18n="overview.identityState">State</dt><dd id="idState">—</dd>
+          <dt data-i18n="overview.tenant">Tenant</dt><dd id="idTenant" class="mono">—</dd>
+          <dt data-i18n="overview.objectId">User object ID</dt><dd id="idOid" class="mono">—</dd>
+          <dt data-i18n="overview.updatedAt">Updated</dt><dd id="idUpdated">—</dd>
+        </dl>
+        <div class="toolbar" style="margin:14px 0 0">
+          <button class="btn primary" id="startAuthBtn" data-i18n="overview.startAuth">Start authorization</button>
+          <button class="btn danger" id="resetAuthBtn" data-i18n="overview.resetAuth">Sign out identity</button>
+        </div>
+        <div class="notice hidden" id="authNotice" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="overview.runtime">Runtime</h2>
+        <dl class="props">
+          <dt data-i18n="overview.uptime">Uptime</dt><dd id="rtUptime">—</dd>
+          <dt data-i18n="overview.inFlight">In-flight requests</dt><dd id="rtInFlight">—</dd>
+          <dt data-i18n="overview.node">Node.js</dt><dd id="rtNode" class="mono">—</dd>
+          <dt data-i18n="overview.pid">PID</dt><dd id="rtPid" class="mono">—</dd>
+          <dt data-i18n="overview.supervised">Restart supervisor</dt><dd id="rtSupervised">—</dd>
+          <dt data-i18n="overview.logBuffer">Log buffer</dt><dd id="rtLogBuffer">—</dd>
+        </dl>
+        <div class="toolbar" style="margin:14px 0 0">
+          <button class="btn danger" id="restartBtn" data-i18n="overview.restart">Restart Router</button>
+        </div>
+        <div class="notice hidden" id="restartNotice" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="security.title">Console security</h2>
+        <dl class="props">
+          <dt data-i18n="security.state">Protection</dt><dd id="secState">—</dd>
+          <dt data-i18n="security.source">Managed by</dt><dd id="secSource">—</dd>
+          <dt data-i18n="security.updatedAt">Updated</dt><dd id="secUpdated">—</dd>
+        </dl>
+        <div class="toolbar" style="margin:14px 0 0">
+          <button class="btn primary" id="setPasswordBtn" data-i18n="security.setPassword">Set a password</button>
+          <button class="btn danger hidden" id="clearPasswordBtn" data-i18n="security.clearPassword">Remove password</button>
+        </div>
+        <div class="notice hidden" id="securityNotice" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="overview.router">Router configuration</h2>
+        <dl class="props">
+          <dt data-i18n="overview.port">Port</dt><dd id="cfgPort" class="mono">—</dd>
+          <dt data-i18n="overview.environment">Environment</dt><dd id="cfgEnv" class="mono">—</dd>
+          <dt data-i18n="overview.schema">Agent schema</dt><dd id="cfgSchema" class="mono">—</dd>
+          <dt data-i18n="overview.ttl">Conversation TTL</dt><dd id="cfgTtl">—</dd>
+          <dt data-i18n="overview.timeout">Upstream timeout</dt><dd id="cfgTimeout">—</dd>
+          <dt data-i18n="overview.origins">Allowed origins</dt><dd id="cfgOrigins" class="mono">—</dd>
+        </dl>
+      </div>
+    </section>
+
+    <!-- Traffic -->
+    <section class="view hidden" data-view="traffic">
+      <div class="kpis" id="trafficKpis"></div>
+      <div class="card" style="margin-top:16px">
+        <h2 data-i18n="traffic.series5m">Last 5 minutes</h2>
+        <div class="chart" id="chart5m"></div>
+        <div class="legend">
+          <span class="req" data-i18n="traffic.requests">Requests</span>
+          <span class="err" data-i18n="traffic.errors">Errors</span>
+        </div>
+      </div>
+      <div class="grid cols" style="margin-top:16px">
+        <div class="card">
+          <h2 data-i18n="traffic.latency">Latency (ms)</h2>
+          <div class="table-wrap"><table><thead><tr>
+            <th data-i18n="traffic.metric">Metric</th><th data-i18n="traffic.count">Count</th>
+            <th>p50</th><th>p95</th><th data-i18n="traffic.max">Max</th>
+          </tr></thead><tbody id="latencyBody"></tbody></table></div>
+        </div>
+        <div class="card">
+          <h2 data-i18n="traffic.upstream">Upstream D2E</h2>
+          <div class="table-wrap"><table><thead><tr>
+            <th data-i18n="traffic.operation">Operation</th><th data-i18n="traffic.count">Count</th>
+          </tr></thead><tbody id="upstreamBody"></tbody></table></div>
+        </div>
+        <div class="card">
+          <h2 data-i18n="traffic.byRoute">Requests by route</h2>
+          <div class="table-wrap"><table><thead><tr>
+            <th data-i18n="traffic.route">Route</th><th data-i18n="traffic.count">Count</th>
+          </tr></thead><tbody id="routeBody"></tbody></table></div>
+        </div>
+        <div class="card">
+          <h2 data-i18n="traffic.byStatus">Responses by status</h2>
+          <div class="table-wrap"><table><thead><tr>
+            <th data-i18n="traffic.status">Status</th><th data-i18n="traffic.count">Count</th>
+          </tr></thead><tbody id="statusBody"></tbody></table></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2 data-i18n="traffic.recentTurns">Recent turns</h2>
+        <div class="table-wrap"><table><thead><tr>
+          <th data-i18n="traffic.time">Time</th><th data-i18n="traffic.outcome">Outcome</th>
+          <th>TTFT</th><th data-i18n="traffic.total">Total</th>
+          <th data-i18n="traffic.snapshots">Snapshots</th><th data-i18n="traffic.stages">Stages</th>
+          <th data-i18n="traffic.conversationRef">Conversation</th>
+        </tr></thead><tbody id="turnsBody"></tbody></table></div>
+      </div>
+    </section>
+
+    <!-- Logs -->
+    <section class="view hidden" data-view="logs">
+      <div class="card">
+        <div class="toolbar">
+          <select id="logLevel">
+            <option value="debug" data-i18n="logs.levelDebug">Debug and above</option>
+            <option value="info" selected data-i18n="logs.levelInfo">Info and above</option>
+            <option value="warn" data-i18n="logs.levelWarn">Warning and above</option>
+            <option value="error" data-i18n="logs.levelError">Errors only</option>
+          </select>
+          <input type="search" id="logSearch" data-i18n-placeholder="logs.search" placeholder="Search" />
+          <input type="text" id="logCorrelation" class="mono" data-i18n-placeholder="logs.correlation" placeholder="Correlation ID" style="width:150px" />
+          <button class="btn small" id="logPause" data-i18n="logs.pause">Pause</button>
+          <button class="btn small" id="logRefresh" data-i18n="common.refresh">Refresh</button>
+          <button class="btn small" id="logClear" data-i18n="logs.clear">Clear view</button>
+          <select id="exportPicker">
+            <option value="" data-i18n="logs.export">Export…</option>
+            <option value="logs:json" data-i18n="logs.exportJson">Logs (JSON)</option>
+            <option value="logs:ndjson" data-i18n="logs.exportNdjson">Logs (NDJSON)</option>
+            <option value="logs:txt" data-i18n="logs.exportTxt">Logs (text)</option>
+            <option value="metrics:json" data-i18n="logs.exportMetrics">Metrics snapshot</option>
+            <option value="diagnostics:json" data-i18n="logs.exportDiagnostics">Diagnostics bundle</option>
+          </select>
+        </div>
+        <div class="log-list" id="logList"><div class="empty" data-i18n="logs.empty">No log entries yet.</div></div>
+      </div>
+    </section>
+
+    <!-- Conversations -->
+    <section class="view hidden" data-view="conversations">
+      <div class="card">
+        <div class="toolbar">
+          <span class="pill"><span id="convSummary">—</span></span>
+          <button class="btn small" id="convRefresh" data-i18n="common.refresh">Refresh</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr>
+          <th data-i18n="conv.id">ID</th><th data-i18n="conv.agent">Agent</th>
+          <th data-i18n="conv.status">Status</th><th data-i18n="conv.turns">Turns</th>
+          <th data-i18n="conv.subject">Caller</th><th data-i18n="conv.created">Created</th>
+          <th data-i18n="conv.expires">Expires</th><th></th>
+        </tr></thead><tbody id="convBody"></tbody></table></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="overlay hidden" id="passwordOverlay">
+  <div class="card">
+    <h3 id="passwordTitle"></h3>
+    <p id="passwordHint"></p>
+    <label for="currentPassword" id="currentPasswordLabel" class="hidden" data-i18n="security.currentPassword">Current password</label>
+    <input id="currentPassword" type="password" autocomplete="current-password" class="hidden" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--cp-border-strong);background:var(--cp-surface);margin-bottom:10px" />
+    <label for="newPassword" data-i18n="security.newPassword">New password</label>
+    <input id="newPassword" type="password" autocomplete="new-password" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--cp-border-strong);background:var(--cp-surface);margin-bottom:10px" />
+    <label for="confirmPassword" data-i18n="security.confirmPassword">Confirm password</label>
+    <input id="confirmPassword" type="password" autocomplete="new-password" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--cp-border-strong);background:var(--cp-surface)" />
+    <div class="notice hidden" id="passwordError" data-tone="error" style="margin-top:10px"></div>
+    <div class="actions" style="margin-top:14px">
+      <button class="btn" id="passwordCancel" data-i18n="common.cancel">Cancel</button>
+      <button class="btn primary" id="passwordSave" data-i18n="common.save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="confirmOverlay">
+  <div class="card">
+    <h3 id="confirmTitle"></h3>
+    <p id="confirmBody"></p>
+    <div class="actions">
+      <button class="btn" id="confirmCancel" data-i18n="common.cancel">Cancel</button>
+      <button class="btn danger" id="confirmOk" data-i18n="common.confirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ------------------------------------------------------------------ i18n */
+const LOCALES = {
+  en: {
+    'app.title': 'D2E Router Admin Console',
+    'app.subtitle': 'Local delegated Router for Copilot Studio New Agent',
+    'nav.overview': 'Overview', 'nav.traffic': 'Traffic', 'nav.logs': 'Logs', 'nav.conversations': 'Conversations',
+    'common.language': 'Switch language', 'common.theme': 'Switch theme', 'common.refresh': 'Refresh',
+    'common.cancel': 'Cancel', 'common.confirm': 'Confirm', 'common.none': 'None', 'common.yes': 'Yes', 'common.no': 'No',
+    'common.save': 'Save',
+    'security.title': 'Console security',
+    'security.state': 'Protection', 'security.source': 'Managed by', 'security.updatedAt': 'Updated',
+    'security.protected': 'Password required', 'security.unprotected': 'No password — open to this machine',
+    'security.sourceEnvironment': 'LOCAL_ADMIN_API_KEY in .env.local',
+    'security.sourcePassword': 'Password set in this console',
+    'security.sourceNone': 'Nothing — anyone on this machine can sign in',
+    'security.setPassword': 'Set a password', 'security.changePassword': 'Change password',
+    'security.clearPassword': 'Remove password',
+    'security.currentPassword': 'Current password', 'security.newPassword': 'New password',
+    'security.confirmPassword': 'Confirm password',
+    'security.setTitle': 'Set a console password',
+    'security.changeTitle': 'Change the console password',
+    'security.setHint': 'At least 8 characters. Only a salted hash is stored; the password is never written in clear.',
+    'security.mismatch': 'The two passwords do not match.',
+    'security.tooShort': 'The password must be at least 8 characters.',
+    'security.saved': 'Password saved. It is required from now on.',
+    'security.cleared': 'Password removed. The console is open to this machine again.',
+    'security.externallyManaged': 'Managed by .env.local; remove LOCAL_ADMIN_API_KEY to manage it here.',
+    'security.clearConfirmTitle': 'Remove the console password?',
+    'security.clearConfirmBody': 'Anyone who can reach 127.0.0.1 will be able to open the console, restart the Router and clear the delegated identity.',
+    'security.unprotectedWarning': 'This console has no password. Any process on this machine can reach it.',
+    'auth.title': 'Administrator sign-in',
+    'auth.hint': 'Enter the console password. It is exchanged for an HttpOnly session cookie and never stored in the browser.',
+    'auth.key': 'Password', 'auth.keyPlaceholder': 'Console password',
+    'auth.signIn': 'Sign in', 'auth.signingIn': 'Signing in…', 'auth.signOut': 'Sign out',
+    'auth.failed': 'Sign-in failed. Check LOCAL_ADMIN_API_KEY in .env.local.',
+    'auth.expired': 'Session expired. Please sign in again.',
+    'status.ready': 'Identity ready', 'status.reauthRequired': 'Reauthorization required',
+    'status.disabled': 'Not authorized', 'status.error': 'Identity error', 'status.stopping': 'Stopping',
+    'status.unknown': 'Unknown',
+    'logs.offline': 'Stream offline', 'logs.live': 'Live', 'logs.paused': 'Paused',
+    'overview.identity': 'Delegated identity', 'overview.identityState': 'State', 'overview.tenant': 'Tenant',
+    'overview.objectId': 'User object ID', 'overview.updatedAt': 'Updated',
+    'overview.startAuth': 'Start authorization', 'overview.resetAuth': 'Sign out identity',
+    'overview.authOpen': 'Authorization URL created. Open it to sign in as the dedicated Entra user.',
+    'overview.authOpenLink': 'Open authorization page',
+    'overview.authReset': 'Delegated identity cleared. Start authorization to sign in again.',
+    'overview.authReady': 'Authorization completed. The Router can call the upstream agent again.',
+    'overview.resetConfirmTitle': 'Sign out the delegated identity?',
+    'overview.resetConfirmBody': 'The encrypted token cache is deleted. The Router cannot call the agent until an administrator authorizes again.',
+    'overview.runtime': 'Runtime', 'overview.uptime': 'Uptime', 'overview.inFlight': 'In-flight requests',
+    'overview.node': 'Node.js', 'overview.pid': 'PID', 'overview.supervised': 'Restart supervisor',
+    'overview.logBuffer': 'Log buffer',
+    'overview.restart': 'Restart Router',
+    'overview.restartConfirmTitle': 'Restart the Router?',
+    'overview.restartConfirmBody': 'In-flight turns are drained for up to ${drain}s, then the process restarts. Requires npm run start:local (supervised).',
+    'overview.restartUnsupervised': 'The Router is not running under the supervisor. It will stop and NOT come back automatically.',
+    'overview.restarting': 'Restarting… waiting for the Router to come back.',
+    'overview.restartDone': 'Router restarted successfully.',
+    'overview.restartTimeout': 'The Router did not come back within 60 seconds. Check the terminal.',
+    'overview.router': 'Router configuration', 'overview.port': 'Port', 'overview.environment': 'Environment',
+    'overview.schema': 'Agent schema', 'overview.ttl': 'Conversation TTL', 'overview.timeout': 'Upstream timeout',
+    'overview.origins': 'Allowed origins',
+    'traffic.requests': 'Requests', 'traffic.errors': 'Errors', 'traffic.inFlight': 'In-flight',
+    'traffic.turns': 'Turns', 'traffic.rateLimited': 'Rate limited', 'traffic.unauthorized': 'Unauthorized',
+    'traffic.idleConversations': 'Idle conversations',
+    'traffic.conversations': 'Conversations', 'traffic.latency': 'Latency (ms)', 'traffic.metric': 'Metric',    'traffic.count': 'Count', 'traffic.max': 'Max', 'traffic.upstream': 'Upstream D2E', 'traffic.operation': 'Operation',
+    'traffic.byRoute': 'Requests by route', 'traffic.route': 'Route', 'traffic.byStatus': 'Responses by status',
+    'traffic.status': 'Status', 'traffic.recentTurns': 'Recent turns', 'traffic.time': 'Time',
+    'traffic.outcome': 'Outcome', 'traffic.total': 'Total', 'traffic.snapshots': 'Snapshots',
+    'traffic.stages': 'Stages', 'traffic.conversationRef': 'Conversation', 'traffic.series5m': 'Last 5 minutes',
+    'traffic.latencyRequest': 'HTTP request', 'traffic.latencyTtft': 'Turn TTFT',
+    'traffic.latencyTurn': 'Turn total', 'traffic.latencyUpstream': 'Upstream call',
+    'outcome.final': 'Completed', 'outcome.error': 'Failed', 'outcome.interrupted': 'Interrupted',
+    'convStatus.active': 'Active', 'convStatus.busy': 'Turn in progress', 'convStatus.expired': 'Expired',
+    'logs.levelDebug': 'Debug and above', 'logs.levelInfo': 'Info and above',
+    'logs.levelWarn': 'Warning and above', 'logs.levelError': 'Errors only',
+    'logs.search': 'Search', 'logs.correlation': 'Correlation ID', 'logs.pause': 'Pause', 'logs.resume': 'Resume',
+    'logs.clear': 'Clear view', 'logs.export': 'Export…', 'logs.exportJson': 'Logs (JSON)',
+    'logs.exportNdjson': 'Logs (NDJSON)', 'logs.exportTxt': 'Logs (text)',
+    'logs.exportMetrics': 'Metrics snapshot', 'logs.exportDiagnostics': 'Diagnostics bundle',
+    'logs.empty': 'No log entries yet.',
+    'conv.id': 'ID', 'conv.agent': 'Agent', 'conv.status': 'Status', 'conv.turns': 'Turns',
+    'conv.subject': 'Caller', 'conv.created': 'Created', 'conv.expires': 'Expires', 'conv.close': 'Close',
+    'conv.empty': 'No conversations.', 'conv.summary': '${active} active of ${total}',
+    'conv.closeConfirmTitle': 'Force-close this conversation?',
+    'conv.closeConfirmBody': 'The caller loses access to conversation ${id}. The upstream Copilot Studio session is not deleted.',
+    'error.generic': 'Request failed: ${code}',
+  },
+  zh: {
+    'app.title': 'D2E Router 管理控制台',
+    'app.subtitle': '面向 Copilot Studio New Agent 的本地委派 Router',
+    'nav.overview': '概览', 'nav.traffic': '流量', 'nav.logs': '日志', 'nav.conversations': '会话',
+    'common.language': '切换语言', 'common.theme': '切换主题', 'common.refresh': '刷新',
+    'common.cancel': '取消', 'common.confirm': '确认', 'common.none': '无', 'common.yes': '是', 'common.no': '否',
+    'common.save': '保存',
+    'security.title': '控制台安全',
+    'security.state': '保护状态', 'security.source': '管理方式', 'security.updatedAt': '更新时间',
+    'security.protected': '需要密码', 'security.unprotected': '无密码 — 本机可直接访问',
+    'security.sourceEnvironment': '.env.local 中的 LOCAL_ADMIN_API_KEY',
+    'security.sourcePassword': '在本控制台设置的密码',
+    'security.sourceNone': '无 — 本机任何人都可登录',
+    'security.setPassword': '设置密码', 'security.changePassword': '修改密码',
+    'security.clearPassword': '移除密码',
+    'security.currentPassword': '当前密码', 'security.newPassword': '新密码',
+    'security.confirmPassword': '确认新密码',
+    'security.setTitle': '设置控制台密码',
+    'security.changeTitle': '修改控制台密码',
+    'security.setHint': '至少 8 个字符。只存加盐哈希，密码本身不会落盘。',
+    'security.mismatch': '两次输入的密码不一致。',
+    'security.tooShort': '密码至少需要 8 个字符。',
+    'security.saved': '密码已保存，今后登录需要输入。',
+    'security.cleared': '密码已移除，控制台重新对本机开放。',
+    'security.externallyManaged': '由 .env.local 管理；删除 LOCAL_ADMIN_API_KEY 后才能在此设置。',
+    'security.clearConfirmTitle': '确定移除控制台密码？',
+    'security.clearConfirmBody': '任何能触达 127.0.0.1 的人都将可以打开控制台、重启 Router 并清除委派身份。',
+    'security.unprotectedWarning': '控制台尚未设置密码，本机任何进程都可访问。',
+    'auth.title': '管理员登录',
+    'auth.hint': '输入控制台密码。密码会换成 HttpOnly 会话 Cookie，不会保存在浏览器中。',
+    'auth.key': '密码', 'auth.keyPlaceholder': '控制台密码',
+    'auth.signIn': '登录', 'auth.signingIn': '登录中…', 'auth.signOut': '退出',
+    'auth.failed': '登录失败，请检查 .env.local 中的 LOCAL_ADMIN_API_KEY。',
+    'auth.expired': '会话已过期，请重新登录。',
+    'status.ready': '身份就绪', 'status.reauthRequired': '需要重新授权',
+    'status.disabled': '尚未授权', 'status.error': '身份异常', 'status.stopping': '正在停止',
+    'status.unknown': '未知',
+    'logs.offline': '日志流未连接', 'logs.live': '实时', 'logs.paused': '已暂停',
+    'overview.identity': '委派身份', 'overview.identityState': '状态', 'overview.tenant': '租户',
+    'overview.objectId': '用户对象 ID', 'overview.updatedAt': '更新时间',
+    'overview.startAuth': '开始授权', 'overview.resetAuth': '清除身份',
+    'overview.authOpen': '已生成授权链接，打开后用受控 Entra 用户登录。',
+    'overview.authOpenLink': '打开授权页面',
+    'overview.authReset': '委派身份已清除，请重新开始授权。',
+    'overview.authReady': '授权完成，Router 已可调用上游 Agent。',
+    'overview.resetConfirmTitle': '确定清除委派身份？',
+    'overview.resetConfirmBody': '加密的令牌缓存会被删除。在管理员重新授权之前，Router 无法调用 Agent。',
+    'overview.runtime': '运行时', 'overview.uptime': '运行时长', 'overview.inFlight': '在途请求',
+    'overview.node': 'Node.js', 'overview.pid': '进程 ID', 'overview.supervised': '重启监督者',
+    'overview.logBuffer': '日志缓冲',
+    'overview.restart': '重启 Router',
+    'overview.restartConfirmTitle': '确定重启 Router？',
+    'overview.restartConfirmBody': '在途请求最多排空 ${drain} 秒后进程重启。需要以 npm run start:local（带监督者）方式运行。',
+    'overview.restartUnsupervised': 'Router 未运行在监督者下，重启后不会自动拉起。',
+    'overview.restarting': '正在重启…等待 Router 恢复。',
+    'overview.restartDone': 'Router 已重启完成。',
+    'overview.restartTimeout': 'Router 在 60 秒内未恢复，请检查终端。',
+    'overview.router': 'Router 配置', 'overview.port': '端口', 'overview.environment': '环境',
+    'overview.schema': 'Agent Schema', 'overview.ttl': '会话有效期', 'overview.timeout': '上游超时',
+    'overview.origins': '允许的来源',
+    'traffic.requests': '请求数', 'traffic.errors': '错误数', 'traffic.inFlight': '在途请求',
+    'traffic.turns': '对话轮次', 'traffic.rateLimited': '限流命中', 'traffic.unauthorized': '认证失败',
+    'traffic.idleConversations': '空闲会话（0 轮）',
+    'traffic.conversations': '活跃会话', 'traffic.latency': '耗时（毫秒）', 'traffic.metric': '指标',
+    'traffic.count': '次数', 'traffic.max': '最大', 'traffic.upstream': '上游 D2E', 'traffic.operation': '操作',
+    'traffic.byRoute': '按路由统计', 'traffic.route': '路由', 'traffic.byStatus': '按状态码统计',
+    'traffic.status': '状态码', 'traffic.recentTurns': '最近轮次', 'traffic.time': '时间',
+    'traffic.outcome': '结果', 'traffic.total': '总耗时', 'traffic.snapshots': '快照数',
+    'traffic.stages': '阶段数', 'traffic.conversationRef': '会话', 'traffic.series5m': '最近 5 分钟',
+    'traffic.latencyRequest': 'HTTP 请求', 'traffic.latencyTtft': '首字节（TTFT）',
+    'traffic.latencyTurn': '轮次总耗时', 'traffic.latencyUpstream': '上游调用',
+    'outcome.final': '已完成', 'outcome.error': '失败', 'outcome.interrupted': '已中断',
+    'convStatus.active': '活跃', 'convStatus.busy': '轮次进行中', 'convStatus.expired': '已过期',
+    'logs.levelDebug': 'Debug 及以上', 'logs.levelInfo': 'Info 及以上',
+    'logs.levelWarn': 'Warning 及以上', 'logs.levelError': '仅 Error',
+    'logs.search': '搜索', 'logs.correlation': 'Correlation ID', 'logs.pause': '暂停', 'logs.resume': '继续',
+    'logs.clear': '清空视图', 'logs.export': '导出…', 'logs.exportJson': '日志（JSON）',
+    'logs.exportNdjson': '日志（NDJSON）', 'logs.exportTxt': '日志（纯文本）',
+    'logs.exportMetrics': '指标快照', 'logs.exportDiagnostics': '诊断包',
+    'logs.empty': '暂无日志。',
+    'conv.id': 'ID', 'conv.agent': 'Agent', 'conv.status': '状态', 'conv.turns': '轮次',
+    'conv.subject': '调用方', 'conv.created': '创建时间', 'conv.expires': '过期时间', 'conv.close': '关闭',
+    'conv.empty': '暂无会话。', 'conv.summary': '${total} 个会话，其中 ${active} 个活跃',
+    'conv.closeConfirmTitle': '确定强制关闭该会话？',
+    'conv.closeConfirmBody': '调用方将失去对会话 ${id} 的访问权限。上游 Copilot Studio 会话不会被删除。',
+    'error.generic': '请求失败：${code}',
+  },
+};
+
+const i18n = {
+  lang: LOCALES[localStorage.getItem('appLanguage')] ? localStorage.getItem('appLanguage')
+    : (navigator.language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en',
+  t(key, params) {
+    const raw = LOCALES[this.lang][key] ?? LOCALES.en[key] ?? key;
+    return params ? raw.replace(/\$\{(\w+)\}/g, (_, k) => params[k] ?? '') : raw;
+  },
+  set(lang) {
+    this.lang = lang;
+    localStorage.setItem('appLanguage', lang);
+    this.apply();
+  },
+  apply() {
+    document.documentElement.lang = this.lang === 'zh' ? 'zh-CN' : 'en';
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = this.t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = this.t(el.dataset.i18nPlaceholder); });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = this.t(el.dataset.i18nTitle); });
+    document.querySelectorAll('[data-i18n-aria]').forEach(el => { el.setAttribute('aria-label', this.t(el.dataset.i18nAria)); });
+    $('langToggle').textContent = this.lang === 'zh' ? 'EN' : '中文';
+    render();
+  },
+};
+
+/* ------------------------------------------------------------------ utils */
+const $ = id => document.getElementById(id);
+const state = {
+  overview: null, metrics: null, conversations: null, security: null,
+  logs: [], paused: false, stream: null, restarting: false, view: 'overview',
+};
+
+function text(value, fallback = '—') {
+  return value === undefined || value === null || value === '' ? fallback : String(value);
+}
+function num(value) { return value === null || value === undefined ? '—' : Number(value).toLocaleString(); }
+function duration(ms) {
+  if (!Number.isFinite(ms)) return '—';
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
+}
+function clock(iso) {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+}
+function timeOnly(iso) {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleTimeString();
+}
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+function element(tag, className, textContent) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (textContent !== undefined) node.textContent = textContent;
+  return node;
+}
+function notice(id, message, tone) {
+  const node = $(id);
+  node.textContent = message;
+  node.dataset.tone = tone || '';
+  node.classList.remove('hidden');
+}
+function hideNotice(id) { $(id).classList.add('hidden'); }
+
+class ApiError extends Error {
+  constructor(code, status) { super(code); this.code = code; this.status = status; }
+}
+
+async function api(path, options = {}) {
+  const response = await fetch(path, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+  });
+  if (response.status === 401) { showGate(i18n.t('auth.expired')); throw new ApiError('UNAUTHORIZED', 401); }
+  if (response.status === 204) return null;
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new ApiError(body?.error?.code || `HTTP_${response.status}`, response.status);
+  return body;
+}
+
+/* ------------------------------------------------------------------ auth */
+function showGate(message) {
+  state.stream?.close();
+  state.stream = null;
+  $('gate').classList.remove('hidden');
+  $('app').classList.add('hidden');
+  $('tabs').classList.add('hidden');
+  $('signOutBtn').classList.add('hidden');
+  setStreamPill('offline');
+  if (message) notice('authError', message, 'error'); else hideNotice('authError');
+}
+
+function showApp() {
+  $('gate').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  $('tabs').classList.remove('hidden');
+  // Signing out is only meaningful when a password actually guards the console.
+  $('signOutBtn').classList.toggle('hidden', !state.security?.protected);
+  hideNotice('authError');
+}
+
+async function signIn() {
+  const key = $('adminKey').value.trim();
+  if (!key) return;
+  const button = $('signInBtn');
+  button.disabled = true;
+  button.textContent = i18n.t('auth.signingIn');
+  try {
+    await api('/admin/session', { method: 'POST', body: JSON.stringify({ adminKey: key }) });
+    $('adminKey').value = '';
+    showApp();
+    await refreshAll();
+    openStream();
+    if (new URLSearchParams(location.search).get('auth') === 'ready') {
+      notice('authNotice', i18n.t('overview.authReady'), 'ok');
+    }
+  } catch (error) {
+    if (error.status !== 401) notice('authError', i18n.t('error.generic', { code: error.code }), 'error');
+    else notice('authError', i18n.t('auth.failed'), 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = i18n.t('auth.signIn');
+  }
+}
+
+async function signOut() {
+  await fetch('/admin/session', { method: 'DELETE', credentials: 'same-origin' }).catch(() => {});
+  showGate();
+}
+
+/* ------------------------------------------------------------------ data */
+async function refreshOverview() {
+  state.overview = await api('/admin/api/overview');
+  render();
+}async function refreshMetrics() {
+  state.metrics = await api('/admin/api/metrics');
+  render();
+}
+async function refreshConversations() {
+  state.conversations = await api('/admin/api/conversations');
+  render();
+}
+async function refreshLogs() {
+  const params = new URLSearchParams({ level: $('logLevel').value, limit: '500' });
+  const search = $('logSearch').value.trim();
+  const correlation = $('logCorrelation').value.trim();
+  if (search) params.set('q', search);
+  if (correlation) params.set('correlationId', correlation);
+  const result = await api(`/admin/api/logs?${params}`);
+  state.logs = result.entries;
+  renderLogs();
+}
+async function refreshAll() {
+  await Promise.all([refreshOverview(), refreshMetrics(), refreshConversations(), refreshLogs()]);
+}
+
+/* ---------------------------------------------------------------- stream */
+const LEVEL_RANK = { debug: 0, info: 1, warn: 2, error: 3 };
+
+function setStreamPill(mode) {
+  const pill = $('streamPill');
+  const label = $('streamPillText');
+  if (mode === 'live') { pill.dataset.tone = 'ready'; label.textContent = i18n.t('logs.live'); }
+  else if (mode === 'paused') { pill.dataset.tone = 'warn'; label.textContent = i18n.t('logs.paused'); }
+  else { pill.dataset.tone = 'error'; label.textContent = i18n.t('logs.offline'); }
+}
+
+function matchesLogFilter(entry) {
+  if (LEVEL_RANK[entry.level] < LEVEL_RANK[$('logLevel').value]) return false;
+  const correlation = $('logCorrelation').value.trim();
+  if (correlation && entry.correlationId !== correlation) return false;
+  const search = $('logSearch').value.trim().toLowerCase();
+  if (search && !JSON.stringify(entry).toLowerCase().includes(search)) return false;
+  return true;
+}
+
+function openStream() {
+  state.stream?.close();
+  const source = new EventSource('/admin/api/stream');
+  state.stream = source;
+  source.addEventListener('ready', () => setStreamPill(state.paused ? 'paused' : 'live'));
+  source.addEventListener('log', event => {
+    if (state.paused) return;
+    const entry = JSON.parse(event.data);
+    state.logs.push(entry);
+    if (state.logs.length > 1000) state.logs.splice(0, state.logs.length - 1000);
+    if (matchesLogFilter(entry)) appendLogRow(entry);
+  });
+  source.addEventListener('metrics', event => {
+    state.metrics = JSON.parse(event.data);
+    if (state.view === 'traffic') renderTraffic();
+  });
+  source.addEventListener('shutdown', () => { source.close(); state.stream = null; setStreamPill('offline'); });
+  source.onerror = () => { if (!state.restarting) setStreamPill('offline'); };
+}
+
+/* ---------------------------------------------------------------- render */
+function render() {
+  renderOverview();
+  renderTraffic();
+  renderConversations();
+}
+
+function identityTone(identityState) {
+  if (identityState === 'ready') return 'ready';
+  if (identityState === 'reauthRequired' || identityState === 'disabled') return 'warn';
+  return 'error';
+}
+
+function statusLabel(identityState) {
+  const key = `status.${identityState}`;
+  return LOCALES[i18n.lang][key] || LOCALES.en[key] || identityState;
+}
+
+/** Falls back to the raw server value when a new enum member has no translation yet. */
+function enumLabel(prefix, value) {
+  const key = `${prefix}.${value}`;
+  return LOCALES[i18n.lang][key] || LOCALES.en[key] || value;
+}
+
+function renderOverview() {
+  const data = state.overview;
+  const pill = $('identityPill');
+  const identityState = data?.identity?.state || 'unknown';
+  pill.dataset.tone = data ? identityTone(identityState) : '';
+  $('identityPillText').textContent = statusLabel(identityState);
+  if (!data) return;
+
+  $('idState').textContent = statusLabel(identityState);
+  $('idTenant').textContent = text(data.identity.tenantId);
+  $('idOid').textContent = data.identity.objectIdPrefix ? `${data.identity.objectIdPrefix}…` : '—';
+  $('idUpdated').textContent = clock(data.identity.updatedAt);
+
+  $('rtUptime').textContent = duration(data.runtime.uptimeMs);
+  $('rtInFlight').textContent = num(data.runtime.inFlight);
+  $('rtNode').textContent = text(data.runtime.nodeVersion);
+  $('rtPid').textContent = text(data.runtime.pid);
+  $('rtSupervised').textContent = i18n.t(data.runtime.restartSupervised ? 'common.yes' : 'common.no');
+  $('rtLogBuffer').textContent = `${num(data.logs.buffered)} / ${num(data.logs.capacity)}`;
+
+  $('cfgPort').textContent = text(data.router.port);
+  $('cfgEnv').textContent = data.router.environmentIdPrefix ? `${data.router.environmentIdPrefix}…` : '—';
+  $('cfgSchema').textContent = text(data.router.schemaName);
+  $('cfgTtl').textContent = `${data.router.conversationTtlMinutes} min`;
+  $('cfgTimeout').textContent = `${Math.round(data.router.upstreamTimeoutMs / 1000)}s`;
+  $('cfgOrigins').textContent = (data.router.allowedOrigins || []).join('\n') || i18n.t('common.none');
+  renderSecurity(data.security);
+}
+
+function renderSecurity(security) {
+  if (!security) return;
+  state.security = security;
+  const sourceKey = { environment: 'security.sourceEnvironment', password: 'security.sourcePassword', none: 'security.sourceNone' }[security.source];
+  $('secState').textContent = i18n.t(security.protected ? 'security.protected' : 'security.unprotected');
+  $('secSource').textContent = i18n.t(sourceKey || 'common.none');
+  $('secUpdated').textContent = clock(security.updatedAt);
+  $('setPasswordBtn').textContent = i18n.t(security.source === 'password' ? 'security.changePassword' : 'security.setPassword');
+  $('setPasswordBtn').disabled = !security.changeable;
+  $('clearPasswordBtn').classList.toggle('hidden', security.source !== 'password');
+  $('unprotectedBanner').classList.toggle('hidden', security.protected);
+  if (!security.changeable) notice('securityNotice', i18n.t('security.externallyManaged'), '');
+  else hideNotice('securityNotice');
+}
+
+function kpi(label, value) {
+  const card = element('div', 'kpi');
+  card.append(element('div', 'value', value), element('div', 'label', label));
+  return card;
+}
+
+function fillTable(body, rows) {
+  body.replaceChildren();
+  if (!rows.length) {
+    const row = element('tr');
+    const cell = element('td', '', i18n.t('conv.empty'));
+    cell.colSpan = 8;
+    cell.className = 'empty';
+    row.append(cell);
+    body.append(row);
+    return;
+  }
+  for (const cells of rows) {
+    const row = element('tr');
+    for (const cell of cells) {
+      row.append(cell instanceof Node ? (() => { const td = element('td'); td.append(cell); return td; })() : element('td', '', cell));
+    }
+    body.append(row);
+  }
+}
+
+function renderTraffic() {
+  const data = state.metrics;
+  if (!data) return;
+
+  $('trafficKpis').replaceChildren(
+    kpi(i18n.t('traffic.requests'), num(data.requests.total)),
+    kpi(i18n.t('traffic.inFlight'), num(data.requests.inFlight)),
+    kpi(i18n.t('traffic.turns'), num(data.turns.started)),
+    kpi(i18n.t('traffic.conversations'), num(data.conversations.active ?? 0)),
+    kpi(i18n.t('traffic.idleConversations'), num(data.conversations.idle ?? 0)),
+    kpi(i18n.t('traffic.unauthorized'), num(data.auth.unauthorized)),
+    kpi(i18n.t('traffic.rateLimited'), num(data.rateLimit.hits)),
+  );
+
+  const points = data.series.fiveMinutes.points;
+  const peak = Math.max(1, ...points.map(point => point.requests || 0));
+  $('chart5m').replaceChildren(...points.map(point => {
+    const bar = element('div', 'bar');
+    bar.title = `${point.at} · ${point.requests || 0}`;
+    const requests = element('i');
+    requests.style.height = `${Math.round(((point.requests || 0) / peak) * 100)}%`;
+    const errors = element('u');
+    errors.style.height = `${Math.round(((point.errors || 0) / peak) * 100)}%`;
+    bar.append(requests, errors);
+    return bar;
+  }));
+
+  const latencyRows = [
+    ['traffic.latencyRequest', data.latency.request],
+    ['traffic.latencyTtft', data.latency.ttft],
+    ['traffic.latencyTurn', data.latency.turnTotal],
+    ['traffic.latencyUpstream', data.latency.upstream],
+  ].map(([key, sample]) => [i18n.t(key), num(sample.count), num(sample.p50), num(sample.p95), num(sample.max)]);
+  fillTable($('latencyBody'), latencyRows);
+
+  const upstreamRows = Object.entries(data.upstream.calls).map(([name, count]) => [name, num(count)]);
+  for (const [code, count] of Object.entries(data.upstream.errors)) upstreamRows.push([`error: ${code}`, num(count)]);
+  fillTable($('upstreamBody'), upstreamRows);
+
+  fillTable($('routeBody'), Object.entries(data.requests.byRoute)
+    .sort((left, right) => right[1] - left[1])
+    .map(([route, count]) => [route, num(count)]));
+
+  fillTable($('statusBody'), Object.entries(data.requests.byStatusClass)
+    .sort()
+    .map(([statusClass, count]) => [statusClass, num(count)]));
+
+  fillTable($('turnsBody'), data.recentTurns.map(turn => [
+    timeOnly(turn.at),
+    turn.code ? `${enumLabel('outcome', turn.outcome)} (${turn.code})` : enumLabel('outcome', turn.outcome),
+    turn.ttftMs === null ? '—' : `${num(turn.ttftMs)} ms`,
+    turn.totalMs === null ? '—' : `${num(turn.totalMs)} ms`,
+    num(turn.answerSnapshots), num(turn.stages), text(turn.conversationRef),
+  ]));
+}
+
+function logRow(entry) {
+  const row = element('div', 'log-row');
+  row.dataset.level = entry.level;
+  row.append(element('div', 'mono', timeOnly(entry.at)), element('div', 'lvl', entry.level));
+  const main = element('div');
+  main.append(element('div', 'msg', entry.message));
+  const metaParts = [];
+  if (entry.route) metaParts.push(entry.route);
+  if (entry.code) metaParts.push(`code=${entry.code}`);
+  for (const [key, value] of Object.entries(entry.fields || {})) {
+    metaParts.push(`${key}=${typeof value === 'string' ? value : JSON.stringify(value)}`);
+  }
+  const meta = element('div', 'meta mono');
+  if (entry.correlationId) {
+    const link = element('span', 'cid', entry.correlationId);
+    link.addEventListener('click', () => { $('logCorrelation').value = entry.correlationId; refreshLogs(); });
+    meta.append(link);
+    if (metaParts.length) meta.append(document.createTextNode(` · ${metaParts.join(' · ')}`));
+  } else {
+    meta.textContent = metaParts.join(' · ');
+  }
+  if (meta.textContent) main.append(meta);
+  row.append(main);
+  return row;
+}
+
+function appendLogRow(entry) {
+  const list = $('logList');
+  if (list.firstElementChild?.classList.contains('empty')) list.replaceChildren();
+  const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 24;
+  list.append(logRow(entry));
+  while (list.childElementCount > 600) list.firstElementChild.remove();
+  if (atBottom) list.scrollTop = list.scrollHeight;
+}
+
+function renderLogs() {
+  const list = $('logList');
+  const visible = state.logs.filter(matchesLogFilter);
+  if (!visible.length) {
+    list.replaceChildren(element('div', 'empty', i18n.t('logs.empty')));
+    return;
+  }
+  list.replaceChildren(...visible.map(logRow));
+  list.scrollTop = list.scrollHeight;
+}
+
+function renderConversations() {
+  const data = state.conversations;
+  if (!data) return;
+  $('convSummary').textContent = i18n.t('conv.summary', { total: data.total, active: data.active });
+  fillTable($('convBody'), data.conversations.map(conversation => {
+    const button = element('button', 'btn small danger', i18n.t('conv.close'));
+    button.addEventListener('click', () => confirmDialog(
+      i18n.t('conv.closeConfirmTitle'),
+      i18n.t('conv.closeConfirmBody', { id: conversation.idPrefix }),
+      async () => {
+        await api(`/admin/api/conversations/${encodeURIComponent(conversation.id)}`, { method: 'DELETE' });
+        await refreshConversations();
+      }
+    ));
+    return [
+      conversation.idPrefix, text(conversation.agentId), enumLabel('convStatus', conversation.status),
+      num(conversation.turnCount), text(conversation.subjectRef),
+      clock(conversation.createdAt), clock(conversation.expiresAt), button,
+    ];
+  }));
+}
+
+/* -------------------------------------------------------------- dialogs */
+let confirmHandler = null;
+function confirmDialog(title, body, handler) {
+  $('confirmTitle').textContent = title;
+  $('confirmBody').textContent = body;
+  confirmHandler = handler;
+  $('confirmOverlay').classList.remove('hidden');
+}
+function closeConfirm() {
+  $('confirmOverlay').classList.add('hidden');
+  confirmHandler = null;
+}
+
+function openPasswordDialog() {
+  const changing = state.security?.source === 'password';
+  $('passwordTitle').textContent = i18n.t(changing ? 'security.changeTitle' : 'security.setTitle');
+  $('passwordHint').textContent = i18n.t('security.setHint');
+  $('currentPassword').value = '';
+  $('newPassword').value = '';
+  $('confirmPassword').value = '';
+  hideNotice('passwordError');
+  // A cookie session already proves the current password, so only ask when it cannot.
+  const needsCurrent = false;
+  $('currentPasswordLabel').classList.toggle('hidden', !needsCurrent);
+  $('currentPassword').classList.toggle('hidden', !needsCurrent);
+  $('passwordOverlay').classList.remove('hidden');
+  $('newPassword').focus();
+}
+
+async function savePassword() {
+  const next = $('newPassword').value;
+  const confirm = $('confirmPassword').value;
+  if (next.length < 8) { notice('passwordError', i18n.t('security.tooShort'), 'error'); return; }
+  if (next !== confirm) { notice('passwordError', i18n.t('security.mismatch'), 'error'); return; }
+  $('passwordSave').disabled = true;
+  try {
+    const security = await api('/admin/api/security/password', {
+      method: 'POST',
+      body: JSON.stringify({ password: next, currentPassword: $('currentPassword').value }),
+    });
+    $('passwordOverlay').classList.add('hidden');
+    renderSecurity(security);
+    notice('securityNotice', i18n.t('security.saved'), 'ok');
+  } catch (error) {
+    notice('passwordError', i18n.t('error.generic', { code: error.code }), 'error');
+  } finally {
+    $('passwordSave').disabled = false;
+  }
+}
+
+/* -------------------------------------------------------------- actions */
+async function startAuthorization() {
+  hideNotice('authNotice');
+  try {
+    const result = await api('/admin/api/auth/start', { method: 'POST' });
+    const node = $('authNotice');
+    node.replaceChildren(document.createTextNode(`${i18n.t('overview.authOpen')} `));
+    const link = element('a', '', i18n.t('overview.authOpenLink'));
+    link.href = result.authorizationUrl;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    node.append(link);
+    node.dataset.tone = 'ok';
+    node.classList.remove('hidden');
+    window.open(result.authorizationUrl, '_blank', 'noopener');
+  } catch (error) {
+    notice('authNotice', i18n.t('error.generic', { code: error.code }), 'error');
+  }
+}
+
+function resetAuthorization() {
+  confirmDialog(i18n.t('overview.resetConfirmTitle'), i18n.t('overview.resetConfirmBody'), async () => {
+    await api('/admin/api/auth/reset', { method: 'POST' });
+    notice('authNotice', i18n.t('overview.authReset'), 'ok');
+    await refreshOverview();
+  });
+}
+
+function requestRestart() {
+  const drain = Math.round((state.overview?.router?.restartDrainMs || 10000) / 1000);
+  const supervised = state.overview?.runtime?.restartSupervised;
+  const body = i18n.t('overview.restartConfirmBody', { drain })
+    + (supervised ? '' : `\n\n${i18n.t('overview.restartUnsupervised')}`);
+  confirmDialog(i18n.t('overview.restartConfirmTitle'), body, async () => {
+    await api('/admin/api/restart', { method: 'POST' });
+    state.restarting = true;
+    notice('restartNotice', i18n.t('overview.restarting'), '');
+    state.stream?.close();
+    state.stream = null;
+    setStreamPill('offline');
+    await waitForRestart();
+  });
+}
+
+async function waitForRestart() {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    await sleep(1000);
+    try {
+      const response = await fetch('/healthz', { cache: 'no-store' });
+      if (response.ok) {
+        state.restarting = false;
+        notice('restartNotice', i18n.t('overview.restartDone'), 'ok');
+        state.logs = [];
+        await refreshAll();
+        openStream();
+        return;
+      }
+    } catch { /* the Router is still down */ }
+  }
+  state.restarting = false;
+  notice('restartNotice', i18n.t('overview.restartTimeout'), 'error');
+}
+
+function exportFile(value) {
+  if (!value) return;
+  const [kind, format] = value.split(':');
+  const params = new URLSearchParams({ format });
+  if (kind === 'logs') {
+    params.set('level', $('logLevel').value);
+    const search = $('logSearch').value.trim();
+    const correlation = $('logCorrelation').value.trim();
+    if (search) params.set('q', search);
+    if (correlation) params.set('correlationId', correlation);
+  }
+  location.href = `/admin/api/export/${kind}?${params}`;
+}
+
+/* ----------------------------------------------------------------- boot */
+function selectView(name) {
+  state.view = name;
+  document.querySelectorAll('.tab').forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.tab === name)));
+  document.querySelectorAll('.view').forEach(view => view.classList.toggle('hidden', view.dataset.view !== name));
+  if (name === 'logs') renderLogs();
+}
+
+document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => selectView(tab.dataset.tab)));
+$('signInBtn').addEventListener('click', signIn);
+$('adminKey').addEventListener('keydown', event => { if (event.key === 'Enter') signIn(); });
+$('signOutBtn').addEventListener('click', signOut);
+$('setPasswordBtn').addEventListener('click', openPasswordDialog);
+$('bannerSetPassword').addEventListener('click', openPasswordDialog);
+$('passwordCancel').addEventListener('click', () => $('passwordOverlay').classList.add('hidden'));
+$('passwordSave').addEventListener('click', savePassword);
+$('confirmPassword').addEventListener('keydown', e => { if (e.key === 'Enter') savePassword(); });
+$('clearPasswordBtn').addEventListener('click', () => confirmDialog(
+  i18n.t('security.clearConfirmTitle'),
+  i18n.t('security.clearConfirmBody'),
+  async () => {
+    renderSecurity(await api('/admin/api/security/password', { method: 'DELETE' }));
+    notice('securityNotice', i18n.t('security.cleared'), 'ok');
+  },
+));
+$('startAuthBtn').addEventListener('click', startAuthorization);
+$('resetAuthBtn').addEventListener('click', resetAuthorization);
+$('restartBtn').addEventListener('click', requestRestart);
+$('convRefresh').addEventListener('click', () => refreshConversations().catch(() => {}));
+$('logRefresh').addEventListener('click', () => refreshLogs().catch(() => {}));
+$('logClear').addEventListener('click', () => { state.logs = []; renderLogs(); });
+$('logLevel').addEventListener('change', () => refreshLogs().catch(() => {}));
+$('logSearch').addEventListener('input', renderLogs);
+$('logCorrelation').addEventListener('input', renderLogs);
+$('logPause').addEventListener('click', () => {
+  state.paused = !state.paused;
+  $('logPause').textContent = i18n.t(state.paused ? 'logs.resume' : 'logs.pause');
+  setStreamPill(state.stream ? (state.paused ? 'paused' : 'live') : 'offline');
+});
+$('exportPicker').addEventListener('change', event => { exportFile(event.target.value); event.target.value = ''; });
+$('confirmCancel').addEventListener('click', closeConfirm);
+$('confirmOk').addEventListener('click', async () => {
+  const handler = confirmHandler;
+  closeConfirm();
+  try { await handler?.(); } catch (error) { if (error.status !== 401) alert(i18n.t('error.generic', { code: error.code })); }
+});
+$('langToggle').addEventListener('click', () => i18n.set(i18n.lang === 'zh' ? 'en' : 'zh'));
+$('themeToggle').addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('adminTheme', next);
+});
+
+setInterval(() => {
+  if (!state.stream || state.restarting) return;
+  refreshOverview().catch(() => {});
+  if (state.view === 'conversations') refreshConversations().catch(() => {});
+}, 15_000);
+
+i18n.apply();
+(async () => {
+  try {
+    await refreshOverview();
+    showApp();
+    await Promise.all([refreshMetrics(), refreshConversations(), refreshLogs()]);
+    openStream();
+    if (new URLSearchParams(location.search).get('auth') === 'ready') {
+      notice('authNotice', i18n.t('overview.authReady'), 'ok');
+    }
+  } catch {
+    showGate();
+  }
+})();
+</script>
+</body>
+</html>

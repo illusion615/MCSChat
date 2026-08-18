@@ -2,34 +2,40 @@
 
 /**
  * Generate cryptographic secrets for the D2E Local Router.
- * 
- * Generates three secrets:
- * 1. MSAL cache encryption key (AES-256-GCM)
- * 2. Prototype API key
- * 3. Admin session signing key
+ * The MSAL cache key is base64 because decodeEncryptionKey() decodes base64;
+ * the remaining keys are opaque strings compared in constant time.
  */
 
-import crypto from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 
-function generateSecret(bytes) {
-  return crypto.randomBytes(bytes).toString('hex');
+const SECRETS = [
+    {
+        name: 'LOCAL_MSAL_CACHE_ENCRYPTION_KEY',
+        value: randomBytes(32).toString('base64'),
+        note: 'AES-256-GCM key for the encrypted MSAL cache (base64, 32 bytes)',
+    },
+    {
+        name: 'LOCAL_PROTOTYPE_API_KEY',
+        value: randomBytes(16).toString('hex'),
+        note: 'Caller credential for the /v1 Router API',
+    },
+    {
+        name: 'LOCAL_ADMIN_API_KEY',
+        value: randomBytes(24).toString('hex'),
+        note: 'OPTIONAL. Leave this line out to run the console without a password and set one in its UI',
+    },
+    {
+        name: 'LOCAL_ADMIN_SESSION_SIGNING_KEY',
+        value: randomBytes(32).toString('hex'),
+        note: 'HMAC key used only to sign browser session cookies',
+    },
+];
+
+console.log('D2E Local Router - generated secrets\n');
+for (const secret of SECRETS) {
+    console.log(`# ${secret.note}`);
+    console.log(`${secret.name}=${secret.value}\n`);
 }
-
-console.log('🔐 Generating D2E Local Router Secrets\n');
-
-const msalCacheKey = generateSecret(32);     // 32 bytes = 256-bit AES key
-const prototypeApiKey = generateSecret(16);  // 16 bytes = 128-bit API key
-const adminSigningKey = generateSecret(32);  // 32 bytes = 256-bit signing key
-
-console.log('✅ LOCAL_MSAL_CACHE_ENCRYPTION_KEY:');
-console.log(`   ${msalCacheKey}\n`);
-
-console.log('✅ LOCAL_PROTOTYPE_API_KEY:');
-console.log(`   ${prototypeApiKey}\n`);
-
-console.log('✅ LOCAL_ADMIN_SESSION_SIGNING_KEY:');
-console.log(`   ${adminSigningKey}\n`);
-
-console.log('📝 Add these to your .env.local file, then run:');
-console.log('   chmod 600 .env.local');
-console.log('   npm run start:local');
+console.log('Copy the lines above into .env.local, then run:');
+console.log('  chmod 600 .env.local');
+console.log('  npm run start:local');

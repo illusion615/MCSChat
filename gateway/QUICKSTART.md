@@ -5,57 +5,69 @@
 ```bash
 cd gateway
 
-# 1️⃣ 安装依赖
+# 1. 安装依赖
 npm install
 
-# 2️⃣ 生成秘钥
+# 2. 生成密钥（输出 4 行，直接粘贴进 .env.local）
 npm run generate:secrets
 
-# 复制并编辑配置（填入 4 个秘钥 + Power Platform 参数）
+# 复制并编辑配置
 cp .env.example .env.local
 chmod 600 .env.local
 nano .env.local
 
-# 3️⃣ 启动服务
+# 3. 启动服务（带重启监督者）
 npm run start:local
 ```
 
-如果看到缓存缺失提示，在另一个终端运行：
+## 首次授权
+
+打开管理控制台：
+
+```
+http://127.0.0.1:8090/admin
+```
+
+用 `LOCAL_ADMIN_API_KEY` 登录 → 概览页点【开始授权】→ 用受控 Entra 用户完成登录。回调后身份状态变为【身份就绪】，Router 自动持久化加密的令牌缓存。
+
+不用浏览器时：
 
 ```bash
 curl -X POST http://127.0.0.1:8090/admin/auth/start \
-  -H "X-Admin-Key: <LOCAL_ADMIN_SESSION_SIGNING_KEY>" \
-  -H "Content-Type: application/json"
+  -H "X-Admin-Key: $LOCAL_ADMIN_API_KEY" \
+  -H 'Content-Type: application/json'
 ```
-
-打开浏览器访问给出的 Entra 授权链接，使用受控用户登录。登录完成后，Router 会自动持久化加密的令牌缓存。
 
 ## 验证本地服务
 
 ### 方式 A：UI 验证页面（推荐）
 
-```bash
-npm run verify:local
-# 打开 http://127.0.0.1:8090/prototype
-```
+打开 `http://127.0.0.1:8090/prototype`，无需登录。
 
-- 点 **Connect** → 应显示 "Conversation ready"
-- 输入提示词，点 **Send**
-- 观察流式响应和最终答案
+该页由 `examples/d2e-streaming-test.html` 复制而来，仅替换传输层，所以聊天、Work 面板、性能基准套件、浮动日志与 export raw 全部可用。把两个页面的 export raw 一 diff，除 `conversation.id` 外的任何差异都说明 Router 改了 D2E 数据结构。
 
 ### 方式 B：API 验证
 
 ```bash
 # 创建会话
 CONV=$(curl -s -X POST http://127.0.0.1:8090/v1/conversations \
-  -H "Authorization: Bearer $LOCAL_PROTOTYPE_API_KEY" | jq -r '.conversationId')
+  -H "Authorization: Bearer $LOCAL_PROTOTYPE_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"agentId":"knowledge-new"}' | jq -r '.conversationId')
 
 # 发送转向
 curl -N http://127.0.0.1:8090/v1/conversations/$CONV/turns \
   -X POST \
   -H "Authorization: Bearer $LOCAL_PROTOTYPE_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Hello"}'
+  -H 'Content-Type: application/json' \
+  -d '{"text": "Hello", "clientTurnId": "turn-1"}'
+```
+
+### 方式 C：CLI 取证脚本
+
+```bash
+npm run verify:local
+# 输出脉络、TTFT、事件计数等证据到 evidence/local-router-live.json
 ```
 
 ## 在主应用中使用
@@ -71,8 +83,8 @@ http://localhost:8000/index.html?agent=new
 ## 测试
 
 ```bash
-npm test
-# 27 个测试用例覆盖流处理、缓存加密、会话管理等
+npm test        # 全量测试：流处理、缓存加密、会话并发、可观测性、管理面认证与导出脱敏
+npm run check   # src/ 与 scripts/ 全量语法检查
 ```
 
 ## 关键环境变量
@@ -81,22 +93,29 @@ npm test
 |------|------|
 | `TENANT_ID` | Azure 租户 ID |
 | `ENTRA_CLIENT_ID` | Entra App ID |
+| `PUBLIC_BASE_URL` | **必填**，Entra redirect URI 前缀（如 `http://localhost:8090`） |
 | `LOCAL_ENTRA_CLIENT_SECRET` | Entra Certificates & secrets（Entra 门户手动创建） |
-| `LOCAL_MSAL_CACHE_ENCRYPTION_KEY` | `npm run generate:secrets` |
+| `LOCAL_MSAL_CACHE_ENCRYPTION_KEY` | `npm run generate:secrets`（**base64**） |
 | `ALLOWED_UPSTREAM_USER_OID` | 受控 Entra 用户的 Object ID |
 | `POWER_PLATFORM_ENVIRONMENT_ID` | Power Platform 管理中心 → 环境 ID |
 | `POWER_PLATFORM_SCHEMA_NAME` | Power Platform 解决方案 schema name |
 | `LOCAL_PROTOTYPE_API_KEY` | `npm run generate:secrets` |
-| `LOCAL_ADMIN_SESSION_SIGNING_KEY` | `npm run generate:secrets` |
+| `LOCAL_ADMIN_API_KEY` | `npm run generate:secrets`（**可选**，留空则控制台无密码，在界面里设） |
+| `LOCAL_ADMIN_SESSION_SIGNING_KEY` | `npm run generate:secrets`（仅签名 Cookie） |
 
 ## 故障排查
 
 | 问题 | 原因 | 解决方案 |
 |------|------|--------|
-| `Delegated identity not ready` | 缓存缺失或令牌获取失败 | 完成管理员授权流（见 `npm run start:local` 日志） |
-| `401 Unauthorized` | API 密钥不匹配或缺失 | 验证 `Authorization: Bearer <KEY>` 格式 |
-| `CORS 错误` | Origin 未在白名单中 | 编辑 `.env.local` 的 `ALLOWED_ORIGINS` |
-| `ENOTFOUND` | 上游配置错误 | 验证 Power Platform 环境 ID 和 schema name |
+| `MSAL cache encryption key must be 32 bytes encoded as base64` | 密钥填成了 hex | 重跑 `npm run generate:secrets`，用其输出的 base64 值 |
+| `Router configuration is incomplete` | 缺少密钥 | 按错误信息列出的变量名补齐 `.env.local` |
+| `Delegated identity not ready` | 缓存缺失或令牌获取失败 | 在 `/admin` 完成管理员授权 |
+| `401 ADMIN_AUTHENTICATION_REQUIRED` | 控制台密码不对或会话过期 | 重新登录；忘密则删除 `.local-state/admin/credential.json` 后重启 |
+| 改了 `.env.local` 但不生效 | 控制台重启不重读 env | 终端 Ctrl+C 后重跑 `npm run start:local` |
+| `401 AUTHENTICATION_REQUIRED` | `/v1` API 密钥不匹配 | 验证 `Authorization: Bearer <KEY>` |
+| `CORS 错误` | Origin 未在白名单 | 编辑 `.env.local` 的 `ALLOWED_ORIGINS` |
+| 重启后服务没起来 | 用了 `start:local:once` | 改用 `npm run start:local`（带监督者） |
+| `EADDRINUSE` | 旧进程占用端口 | `lsof -nP -iTCP:8090 -sTCP:LISTEN` 找到后结束 |
 
 ## 文件结构
 

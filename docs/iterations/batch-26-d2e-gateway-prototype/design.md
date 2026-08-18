@@ -30,7 +30,15 @@ Copilot Studio New Agent /agenticruntime/3p
 | `conversationStore` | opaque ID、主体绑定、TTL、租约/版本 | 信任客户端传入真实 D2E ID |
 | `d2eClient` | endpoint、D2E POST、上游 SSE 分帧 | 下游 UI 或客户授权 |
 | `activityReducer` | Activity -> `stage/answer/final/error` | HTTP、DOM、Azure SDK |
+| `observability/logStore` | 结构化日志环形缓冲、脱敏、订阅推送（Batch 27） | 落盘、记录明文 secret/token/答案正文 |
+| `observability/metrics` | 计数器、耗时分位、滚动时间桶（Batch 27） | HTTP、身份、持久化 |
+| `runtime/lifecycle` | 排空在途请求、优雅关闭、重启信号（Batch 27） | 业务逻辑、直接写 HTTP 响应 |
+| `http/adminApi` | 管理会话、身份操作、日志/指标查询、导出、重启入口（Batch 27） | 调用 D2E、解析 MSAL 缓存、`process.exit` |
 | Router test page | 外部 API 消费、视觉呈现、指标与导出 | MSAL、Power Platform token、D2E endpoint |
+
+> Batch 27（Router 管理控制台）在此基础上新增了可观测性内核、生命周期协调与管理面路由，详见 `docs/iterations/batch-27-router-admin-console/design.md`。
+>
+> Batch 28（Router 验证页与 D2E 契约对拍）新增 `http/verificationApi`：admin 认证下逐帧原样透传上游 Activity，仅改写 `conversation.id`。该模式不属于第三方 `/v1` 面，上表的 reducer 脱敏契约对 `/v1` 仍完全成立；详见 `docs/iterations/batch-28-router-page-parity/design.md`。
 
 ## 身份流程
 
