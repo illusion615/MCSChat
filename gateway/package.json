@@ -1,0 +1,22 @@
+{
+  "name": "mcschat-d2e-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "start:local": "node --env-file=.env.local src/server.js",
+    "verify:local": "node --env-file=.env.local scripts/verifyLocalRouter.js",
+    "test": "node --test",
+    "check": "node --check src/server.js"
+  },
+  "dependencies": {
+    "@azure/msal-node": "5.5.0",
+    "express": "5.2.1",
+    "express-rate-limit": "8.6.2",
+    "helmet": "8.3.0"
+  }
+}

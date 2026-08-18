@@ -10,11 +10,15 @@ __pycache__/
 
 # Node (precautionary)
 node_modules/
+gateway/dist/
+gateway/.local-state/
+gateway/evidence/
 
 # Environment
 .env
 .env.local
 .env.*.local
+.copilot-azure/
 
 # IDE
 .vscode/settings.json
