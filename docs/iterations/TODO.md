@@ -41,6 +41,7 @@
 | Batch 23 | [技术债 Phase 4 — 规范统一](#batch-23-技术债-phase-4) | P3 | 🔴 未开始 | Batch 18 |
 | Batch 24 | [技术债 Phase 5 — CSS 精细化](#batch-24-技术债-phase-5) | P3 | 🔴 未开始 | Batch 4 |
 | Batch 25 | [Livestreaming 兼容性与渲染统一](#batch-25-livestreaming-兼容性与渲染统一) | P2 | 🟡 进行中 | Batch 8 |
+| Batch 26 | [D2E Delegated Gateway 原型验证](#batch-26-d2e-delegated-gateway-原型验证) | P1 | 🟡 进行中 | Batch 25 |
 **状态图标：** 🔴 未开始 → 🟡 进行中 → 🟢 已完成 → ⚪ 已跳过
 
 ---
@@ -533,6 +534,29 @@
 
 ---
 
+## Batch 26: D2E Delegated Gateway 原型验证
+
+**目录：** `docs/iterations/batch-26-d2e-gateway-prototype/`
+**优先级：** P1
+**依赖：** Batch 25（D2E/New Agent streaming 验证）
+**目标：** 在 localhost 建立 delegated-only D2E Router 原型，让无 Entra 账号的第三方通过稳定 REST/SSE API 调用同一个 Copilot Studio New Agent
+
+### 任务清单
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 26.1 | requirements/design/checklist 与 local Router 方案确认 | 🟢 |
+| 26.2 | 隔离 Node.js Router、encrypted MSAL cache、local atomic state | 🟢 |
+| 26.3 | D2E Activity reducer 与外部 REST/SSE contract | 🟢 |
+| 26.4 | Router Streaming 浏览器验证页 | 🟢 |
+| 26.5 | Fixture、加密、并发与 fake-upstream 自动化测试 | 🟢 |
+| 26.6 | App Service/Storage/Key Vault Bicep 探索（退出最终方案） | ⚪ |
+| 26.7 | Azure hosting（用户取消） | ⚪ |
+| 26.8 | 真实 delegated New Agent CLI + 浏览器 streaming 验证 | 🟢 |
+| 26.9 | Study-Room 文章与项目文档同步 | 🟢 |
+
+---
+
 ## 变更日志
 
 | 日期 | 变更 |
@@ -551,6 +575,8 @@
 | 2026-03-15 | Batch 10 完成：Enter keydown 增加 isComposing 判断，修复 IME 误发送 |
 | 2026-03-15 | Batch 13 完成：OpenAI Compatible 接口支持（UI + 请求层 + 测试连接 + 持久化） |
 | 2026-06-13 | 新增 Batch 25（Livestreaming 兼容性与渲染统一）；修正 Batch 8 过期结论 |
+| 2026-08-18 | 新增 Batch 26（D2E Delegated Gateway 原型验证）；确认 S2S Private Preview 不进入实施范围 |
+| 2026-08-18 | Batch 26 改为 local-only Router；完成 encrypted cache restart recovery、真实 New Agent CLI/browser streaming 与密钥泄漏检查，取消 Azure hosting |
 | 2026-03-15 | AI Companion 设置改进：Test Connection 点击后按钮进入 Testing... 并禁用，完成后自动恢复 |
 | 2026-03-15 | 修复 full-width 模式新会话不持久化问题；修复 thinking dot 文字换行（正确定位到 typing-status-area） |
 | 2026-03-15 | Batch 4 进行中：补充 variables.css token，完成 splash/navigation/buttons/panels/chat CSS 令牌迁移 |

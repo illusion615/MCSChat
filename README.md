@@ -15,6 +15,18 @@ Ready to get started? Follow our quick setup guide:
 
 [→ Detailed Setup Guide](docs/setup/quick-start.md)
 
+### Local D2E Router Prototype
+
+The isolated [`gateway/`](gateway/) prototype exposes the existing Copilot Studio New Agent D2E stream through a third-party REST/SSE API using one administrator-authorized delegated Entra user. Third-party callers do not sign in to Microsoft, and S2S/app-only is not implemented.
+
+- Router validation page: [`examples/d2e-router-streaming-test.html`](examples/d2e-router-streaming-test.html)
+- Local Router: `cd gateway && npm install && npm run start:local`
+- Real redacted verification: `cd gateway && npm run verify:local`
+- Fake-upstream check: `cd gateway && node scripts/fakeRouterServer.js`
+- Automated tests: `cd gateway && npm test`
+
+The Router listens on `127.0.0.1:8090`, persists an encrypted MSAL cache in private local files, and serves its browser verification page at `http://localhost:8090/prototype`. Connect checks readiness and creates a conversation in one action, so the composer is immediately available. Subsequent turns append to the visible history; only New conversation clears it. Azure hosting was canceled; the local service and real New Agent streaming path are the supported prototype scope.
+
 ## 📖 Documentation
 
 ### 🛠️ Setup & Configuration

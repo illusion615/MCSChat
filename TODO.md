@@ -14,6 +14,7 @@
 ## TODO Task Items
 
 ### User Experience
+[x] Publish live, replay, source, and evidence-bundle links for Classic/New Agent streaming verification
 [x] Verify the New Agent structured Work panel against a live GitHub Pages conversation
 [x] Re-verify Knowledge Agent (New Copilot) after the turn assembler ordering/deduplication fix
 [x] Add a setting option to turn message icon on/off
@@ -102,6 +103,7 @@ The project is now well-organized with:
 - ✅ Streamlined codebase with reduced technical debt
 
 ## Next Priority
+- [x] Local D2E delegated Router with one-click Connect, persistent multi-turn chat history, no-Entra third-party REST/SSE validation page, and real New Agent verification (Batch 26)
 - [ ] Color theme implementation for enhanced user customization
 - [ ] AI companion panel expansion functionality
 - [ ] Continue feature development based on user feedback
