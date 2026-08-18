@@ -182,6 +182,7 @@
     <h1>Knowledge Agent (DirectLine)</h1>
     <span class="status" id="status">Connecting…</span>
     <button id="logToggleBtn">☰ Log</button>
+    <button id="changeAgentBtn" title="Switch to a different agent by entering its DirectLine secret">🔑 Change agent</button>
     <button id="newConvBtn" disabled>+ New conversation</button>
   </header>
 
@@ -405,6 +406,29 @@ async function resolveSecret({ interactive = false } = {}) {
     return DIRECTLINE_SECRET;
   }
   return '';
+}
+
+// Switch to a different agent: prompt for a new DirectLine secret, re-encrypt it
+// under the existing passphrase (or a freshly chosen one), and swap it in as the
+// active secret. Returns true if a new secret was accepted. The caller is
+// responsible for restarting the conversation (startConversation resets all
+// per-conversation state and reads the new DIRECTLINE_SECRET).
+async function changeSecret() {
+  const raw = (window.prompt('Paste the DirectLine secret of the agent you want to test:') || '').trim();
+  if (!raw) return false;
+  // Reuse the cached passphrase so the user is not asked again; only prompt when
+  // none is stored yet (e.g. the very first agent on a clean browser).
+  let pass = '';
+  try { pass = localStorage.getItem('dl_pass') || ''; } catch {}
+  if (!pass) {
+    pass = (window.prompt('Choose a passphrase to encrypt it locally (never committed):') || '').trim();
+    if (!pass) return false;
+  }
+  const newBlob = await encryptSecretBlob(raw, pass);
+  try { localStorage.setItem('dl_enc', newBlob); localStorage.setItem('dl_pass', pass); } catch {}
+  DIRECTLINE_SECRET = raw;
+  console.log('🔒 Encrypted DirectLine secret for the new agent (paste into ENCRYPTED_SECRET to commit):\n' + newBlob);
+  return true;
 }
 
 const $ = (id) => document.getElementById(id);
@@ -1274,6 +1298,23 @@ $('newConvBtn').onclick = async () => {
   }
   catch (e) { log('New conversation failed: ' + e.message, 'err'); setStatus(`<span class="pill err">error</span> ${e.message}`); }
   finally { $('newConvBtn').disabled = false; }
+};
+$('changeAgentBtn').onclick = async () => {
+  if (busy) return;
+  let switched = false;
+  try { switched = await changeSecret(); }
+  catch (e) { log('Change agent failed: ' + e.message, 'err'); return; }
+  if (!switched) return;
+  // Reconnect to the new agent. startConversation() clears the chat and resets
+  // all per-conversation state, so the previous agent's messages don't linger.
+  $('newConvBtn').disabled = true; $('changeAgentBtn').disabled = true; $('msg').disabled = true; $('sendBtn').disabled = true;
+  log('Switching agent — reconnecting with the new secret…', 'dim');
+  try {
+    await startConversation();
+    $('msg').disabled = false; $('sendBtn').disabled = false; $('msg').focus();
+  }
+  catch (e) { log('Switch agent failed: ' + e.message, 'err'); setStatus(`<span class="pill err">error</span> ${e.message}`); }
+  finally { $('newConvBtn').disabled = false; $('changeAgentBtn').disabled = false; }
 };
 $('clearLogBtn').onclick = () => { logEl.innerHTML = ''; };
 $('copyLogBtn').onclick = async () => {

@@ -335,6 +335,8 @@ How do Adaptive Refresh Rate, Smart Noise Canceling, and Eye Care Mode enhance t
     <div class="loghead">
       <span>Raw SSE event log</span>
       <span style="display:flex; gap:6px;">
+        <button id="runFixtureBtn" hidden>run fixture</button>
+        <button id="exportRawBtn">export raw</button>
         <button id="copyLogBtn">copy</button>
         <button id="clearLogBtn">clear</button>
         <button id="closeLogBtn">close</button>
@@ -383,6 +385,7 @@ const logEl = $('log');
 const messagesEl = $('messages');
 
 let msal = null, account = null, conversationId = null, busy = false;
+let rawActivities = [];
 
 // ── Logging ──
 function log(msg, cls = 'dim') {
@@ -615,6 +618,10 @@ function upsertStage({ key, text, status, durationMs }) {
   const work = ensureWorkPanel(turn);
   work.stages.hidden = false;
   let stage = turn.stages.get(stageKey);
+  if (!stage && !key) {
+    const normalized = normalizeStageKey(text);
+    stage = Array.from(turn.stages.values()).find(item => normalizeStageKey(item.baseLabel) === normalized);
+  }
   if (!stage) {
     for (const existing of turn.stages.values()) {
       if (existing.status === 'active') {
@@ -625,7 +632,8 @@ function upsertStage({ key, text, status, durationMs }) {
     const mark = document.createElement('span'); mark.className = 'work-stage-mark';
     const label = document.createElement('span');
     el.append(mark, label); work.stages.appendChild(el);
-    stage = { el, mark, label, status: 'active' };
+    el.dataset.stageKey = stageKey;
+    stage = { el, mark, label, baseLabel: text, status: 'active' };
     turn.stages.set(stageKey, stage);
   }
   stage.status = turn.concluded || /completed|complete|finished|succeeded/i.test(status || text) ? 'done' : 'active';
@@ -951,7 +959,11 @@ async function consumeSSE(response) {
     if (name === 'end' || dataStr === '[DONE]') return;
     let activity;
     try { activity = JSON.parse(dataStr); } catch { log('non-JSON data skipped', 'err'); return; }
-    if (activity && activity.type) { activities++; applyActivity(activity); }
+    if (activity && activity.type) {
+      activities++;
+      rawActivities.push(structuredClone(activity));
+      applyActivity(activity);
+    }
   }
 
   log('SSE stream opened', 'dim');
@@ -1247,6 +1259,60 @@ function exportBenchCsv() {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+function downloadJson(filename, value) {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
+  const anchor = document.createElement('a');
+  anchor.href = URL.createObjectURL(blob); anchor.download = filename; anchor.click();
+  setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
+}
+
+function inspectTurnResult() {
+  const bubbles = Array.from(messagesEl.querySelectorAll('.msg.bot'));
+  const panel = messagesEl.querySelector('.work-panel');
+  const turnRoot = messagesEl.querySelector('.turn-output');
+  const progress = turnRoot?.querySelector('.turn-progress');
+  const answer = turnRoot?.querySelector('.turn-answer');
+  return {
+    reasoningParagraphCount: messagesEl.querySelectorAll('.reasoning-text').length,
+    reasoningText: messagesEl.querySelector('.reasoning-text')?.textContent || '',
+    toolRowsById: { 'search-1': messagesEl.querySelectorAll('[data-stage-key="tool:search-1"]').length },
+    answerBubbleCount: bubbles.length,
+    emptyAnswerBubbleCount: bubbles.filter(bubble => !bubble.textContent.trim()).length,
+    answerText: bubbles[0]?.textContent.trim() || '',
+    metadataRowCount: messagesEl.querySelectorAll('.msgwrap.bot .meta').length,
+    pendingStageCount: messagesEl.querySelectorAll('.work-stage.active').length,
+    workPanelBeforeAnswer: Boolean(progress && answer && (progress.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING)),
+    uniqueAnswerStateCount: uniqueStreamStates().length,
+    panelTitle: panel?.querySelector('.work-title')?.textContent || '',
+  };
+}
+
+async function runDeterministicFixture() {
+  const [fixture, expected] = await Promise.all([
+    fetch('./fixtures/new-agent-3p-replay.json').then(response => response.json()),
+    fetch('./fixtures/new-agent-3p-expected.json').then(response => response.json()),
+  ]);
+  messagesEl.innerHTML = '';
+  beginTurn();
+  turnStart = Date.now(); ttft = null;
+  for (const activity of fixture.activities) applyActivity(activity);
+  for (const state of uniqueStreamStates()) {
+    state.shownLen = state.text.length;
+    finalizeBubble(state);
+  }
+  const actual = inspectTurnResult();
+  const failures = Object.entries(expected.assertions).filter(([key, value]) => {
+    if (key === 'toolRowsById') return actual.toolRowsById['search-1'] !== value['search-1'];
+    return actual[key] !== value;
+  });
+  const passed = failures.length === 0;
+  $('benchProgText').textContent = passed
+    ? 'Fixture PASS — reasoning, stages, answer, ordering and deduplication match expected.json.'
+    : `Fixture FAIL — ${failures.map(([key]) => key).join(', ')}`;
+  log(`fixture ${passed ? 'PASS' : 'FAIL'} ${failures.map(([key]) => key).join(', ')}`, passed ? 'final' : 'err');
+  return { passed, actual, expected: expected.assertions, failures };
+}
+
 // ── Wire up ──
 $('agentSelect').value = activeAgentKey;
 $('agentSelect').onchange = async (event) => {
@@ -1291,7 +1357,18 @@ $('newConvBtn').onclick = async () => {
   catch (e) { log('New conversation failed: ' + e.message, 'err'); setStatus(`<span class="pill err">error</span> ${e.message}`); }
   finally { $('newConvBtn').disabled = false; }
 };
-$('clearLogBtn').onclick = () => { logEl.innerHTML = ''; };
+$('clearLogBtn').onclick = () => { logEl.innerHTML = ''; rawActivities = []; };
+$('exportRawBtn').onclick = () => downloadJson(
+  `d2e-raw-${activeAgentKey}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
+  {
+    schemaVersion: 1,
+    evidenceType: 'live-client-export',
+    exportedAt: new Date().toISOString(),
+    agent: { key: activeAgentKey, schemaName: activeAgent().schemaName, runtimePath: activeAgent().runtimePath },
+    conversationId,
+    activities: rawActivities,
+  },
+);
 $('copyLogBtn').onclick = async () => {
   const btn = $('copyLogBtn');
   await copyText(logEl.innerText);
@@ -1318,9 +1395,15 @@ $('benchExportBtn').onclick = exportBenchCsv;
 // Deterministic activity replay for local regression checks. It is deliberately
 // unavailable on normal URLs so production-like verification remains untouched.
 if (new URLSearchParams(window.location.search).has('debug')) {
+  $('runFixtureBtn').hidden = false;
+  $('runFixtureBtn').onclick = () => runDeterministicFixture().catch(error => {
+    $('benchProgText').textContent = `Fixture error — ${error.message}`;
+    log(`fixture error ${error.message}`, 'err');
+  });
   window.__d2eDebug = {
     beginTurn,
     applyActivity,
+    runDeterministicFixture,
     getState: () => ({
       turn: activeTurn,
       streams: uniqueStreamStates(),

@@ -545,10 +545,11 @@ export class MessageRenderer {
                 attachments: activity.attachments
             });
 
-            // Immediately hide typing indicator when message rendering starts
-            window.dispatchEvent(new CustomEvent('hideTypingIndicator', {
-                detail: { reason: 'complete-message-rendering-started' }
-            }));
+            // NOTE: The "waiting for agent" indicator is owned exclusively by the
+            // application layer and closed by its agent-response handlers. The
+            // renderer must not reach back to hide it — doing so here also fired
+            // when drawing the user's OWN message, wiping the indicator the user
+            // should see while waiting for the agent.
 
             // *** Stop any ongoing speech for user messages ***
             const isUserMessage = activity.from && activity.from.id === 'user';
@@ -796,10 +797,9 @@ export class MessageRenderer {
 
         console.log('Handling streaming message:', messageId, activity.text?.length || 0, 'chars');
 
-        // Immediately hide typing indicator when message rendering starts
-        window.dispatchEvent(new CustomEvent('hideTypingIndicator', {
-            detail: { reason: 'message-rendering-started' }
-        }));
+        // NOTE: The waiting indicator is owned by the application layer and is
+        // already closed by handleStreamingChunk before this renderer runs, so
+        // the renderer no longer reaches back to hide it.
 
         if (!streamingState) {
             // Initialize streaming speech for new message

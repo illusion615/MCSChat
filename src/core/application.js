@@ -54,6 +54,14 @@ export class Application {
         // Track thinking simulation evaluation period
         this.isEvaluatingThinkingSimulation = false;
 
+        // Single source of truth for the "waiting for agent" turn state.
+        // Set true when the user sends a message (turn opens), cleared when the
+        // agent's first content arrives (chunk / informative / final). The
+        // waiting indicator's visibility is derived solely from this flag, so
+        // rendering actions (e.g. drawing the user's own bubble) can never
+        // accidentally show or hide it.
+        this._awaitingAgentResponse = false;
+
         // Initialize enhanced typing indicator
         this.enhancedTypingIndicator = new EnhancedTypingIndicator();
 
@@ -2785,6 +2793,13 @@ export class Application {
             // Render user message with explicit timestamp and attachments
             this.renderUserMessage(messageText, userMessageTimestamp, userAttachments);
 
+            // Turn opens: we are now awaiting the agent's response. This is the
+            // single authoritative point that enables the waiting indicator;
+            // the agent-response handlers below close the turn when content
+            // arrives. (AI-thinking mode still suppresses the native indicator
+            // via the useAIThinking guard inside showProgressIndicator.)
+            this._awaitingAgentResponse = true;
+
             // Send to DirectLine immediately - don't wait for thinking simulation
             let messagePromise;
 
@@ -2812,6 +2827,7 @@ export class Application {
                 // promise is still passed to the thinking simulation below.)
                 messagePromise.catch((err) => {
                     console.error('[Application] Message send failed (transport):', err);
+                    this._awaitingAgentResponse = false;
                     this.hideProgressIndicator();
                     this.isEvaluatingThinkingSimulation = false;
                     if (window.aiCompanion?.isThinkingActive?.()) {
@@ -2846,6 +2862,7 @@ export class Application {
             // Re-enable send button on error
             this.elements.sendButton.disabled = false;
 
+            this._awaitingAgentResponse = false;
             this.showErrorMessage('Failed to send message. Please try again.');
             this.hideProgressIndicator();
         }
@@ -2884,6 +2901,7 @@ export class Application {
         // Disconnect current session
         directLineService.disconnect();
         this.state.isConnected = false;
+        this._awaitingAgentResponse = false;
 
         // Clear chat
         messageRenderer.clearMessages();
@@ -3069,6 +3087,8 @@ export class Application {
      * @private
      */
     handleStreamingChunk(entry) {
+        // Agent content has started arriving — close the waiting turn.
+        this._awaitingAgentResponse = false;
         this.hideProgressIndicator();
         this.clearInformativeIndicator();
         this._lastMessageTime = Date.now();
@@ -3180,6 +3200,8 @@ export class Application {
      * @private
      */
     async handleCompleteMessage(activity) {
+        // Agent content has arrived — close the waiting turn.
+        this._awaitingAgentResponse = false;
         this.hideProgressIndicator();
         this.clearInformativeIndicator();
         this._lastMessageTime = Date.now();
@@ -3453,6 +3475,9 @@ export class Application {
     handleInformativeActivity(info) {
         if (!info.text?.trim()) return;
 
+        // The agent has started reporting progress — close the waiting turn so
+        // the generic indicator yields to the informative (thinking) indicator.
+        this._awaitingAgentResponse = false;
         this.hideProgressIndicator();
         this._lastMessageTime = Date.now();
 
@@ -4555,9 +4580,12 @@ export class Application {
             return;
         }
 
-        // Check if streaming is currently active - don't show typing indicator during streaming
-        if (messageRenderer.currentlyStreamingMessageId) {
-            console.log('Message streaming is active, skipping typing indicator');
+        // Derive visibility from the turn state: only show while we are actually
+        // awaiting the agent's response. Once any agent content has arrived the
+        // turn handlers clear this flag, so a late typing signal (or a queued
+        // user-message render) can never re-show or retain the indicator.
+        if (!this._awaitingAgentResponse) {
+            console.log('Not awaiting an agent response, skipping typing indicator');
             return;
         }
 
