@@ -305,7 +305,8 @@ test('one route is reported under a single stable label', async () => {
         const metrics = await (await fetch(`${baseUrl}/admin/api/metrics`, {
             headers: { 'X-Admin-Key': 'valid-admin-key' },
         })).json();
-        const turnRoutes = Object.keys(metrics.requests.byRoute).filter(route => route.includes('/turns'));
+        const turnRoutes = Object.keys(metrics.requests.byRouteBySurface.business || {})
+            .filter(route => route.includes('/turns'));
         assert.deepEqual(turnRoutes, ['POST /v1/conversations/:id/turns']);
     } finally {
         server.close();

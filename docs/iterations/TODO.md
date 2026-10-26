@@ -44,6 +44,7 @@
 | Batch 26 | [D2E Delegated Gateway 原型验证](#batch-26-d2e-delegated-gateway-原型验证) | P1 | 🟡 进行中 | Batch 25 |
 | Batch 27 | [Router 管理控制台](#batch-27-router-管理控制台) | P1 | 🟡 进行中 | Batch 26 |
 | Batch 28 | [Router 验证页与 D2E 契约对拍](#batch-28-router-验证页与-d2e-契约对拍) | P1 | 🟡 进行中 | Batch 27 |
+| Batch 29 | Router 调试证据持久化与保留策略 | P1 | 🟡 待用户确认 | Batch 27, 28 |
 **状态图标：** 🔴 未开始 → 🟡 进行中 → 🟢 已完成 → ⚪ 已跳过
 
 ---

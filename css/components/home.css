@@ -11,7 +11,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: safe center;
     padding: 40px 20px;
     overflow: hidden;
     overflow-y: auto;
@@ -487,6 +487,61 @@
 /* Hide home button when on home page */
 .home-page ~ #sideCommandBar #backToHomeButton {
     display: none;
+}
+
+.home-test-tools {
+    flex-shrink: 0;
+    width: 100%;
+    max-width: 960px;
+    margin: var(--spacing-xxl) 0;
+    padding: var(--spacing-xl);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    text-align: center;
+}
+
+.home-test-tools h2 {
+    margin: 0 0 var(--spacing-lg);
+    font-size: var(--font-size-lg);
+}
+
+.home-test-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-md);
+}
+
+.home-test-links a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-primary);
+    background: var(--color-surface-secondary);
+    font-size: var(--font-size-md);
+    text-decoration: none;
+}
+
+.home-test-links a:hover {
+    background: var(--color-surface-tertiary);
+    text-decoration: underline;
+}
+
+.home-test-links a:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.home-test-tools p {
+    margin: var(--spacing-lg) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
 }
 
 /* Home footer with version info */

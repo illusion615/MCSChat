@@ -14,6 +14,7 @@
 ## TODO Task Items
 
 ### User Experience
+[ ] Add home page shortcuts for DirectLine, D2E direct, and local D2E Router streaming tests (implemented; awaiting user acceptance)
 [x] Publish live, replay, source, and evidence-bundle links for Classic/New Agent streaming verification
 [x] Verify the New Agent structured Work panel against a live GitHub Pages conversation
 [x] Re-verify Knowledge Agent (New Copilot) after the turn assembler ordering/deduplication fix

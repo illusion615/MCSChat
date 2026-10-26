@@ -43,6 +43,8 @@ function logsFilterFrom(query) {
         q: query.q ? String(query.q).slice(0, 200) : undefined,
         correlationId: query.correlationId ? String(query.correlationId).slice(0, 128) : undefined,
         since: query.since,
+        from: query.from ? String(query.from) : undefined,
+        to: query.to ? String(query.to) : undefined,
         limit: query.limit,
     };
 }
@@ -61,6 +63,19 @@ function formatLogLine(entry) {
     ].filter(Boolean).join(' ');
 }
 
+function retentionCutoff(query) {
+    const raw = String(query.before || '').trim();
+    const cutoffMs = Date.parse(raw);
+    if (!raw || !Number.isFinite(cutoffMs) || cutoffMs > Date.now()) {
+        throw new GatewayError(
+            'INVALID_RETENTION_CUTOFF',
+            'before must be a valid time that is not in the future',
+            { status: 400 }
+        );
+    }
+    return cutoffMs;
+}
+
 export function createAdminRouter({
     config,
     secretProvider,
@@ -72,6 +87,8 @@ export function createAdminRouter({
     metrics,
     lifecycle,
     logger = console,
+    evidenceArchive = null,
+    debugCapture = null,
 }) {
     const router = express.Router();
     const sessionTtlMs = (Number(config.adminSessionTtlMinutes) || 60) * 60_000;
@@ -301,16 +318,31 @@ export function createAdminRouter({
     async function metricsSnapshot() {
         const snapshot = metrics.snapshot();
         const stored = await conversationStore.list().catch(() => []);
+        const usable = stored.filter(item => item.status !== 'expired' && item.status !== 'closed');
         snapshot.conversations.stored = stored.length;
-        snapshot.conversations.active = stored.filter(item => item.status !== 'expired').length;
-        snapshot.conversations.idle = stored.filter(item => item.turnCount === 0).length;
+        snapshot.conversations.active = usable.length;
+        snapshot.conversations.idle = usable.filter(item => item.turnCount === 0).length;
         return snapshot;
     }
 
-    router.get('/api/logs', requireAdmin, (request, response) => {
+    router.get('/api/logs', requireAdmin, asyncRoute(async (request, response) => {
         const filter = logsFilterFrom(request.query);
-        response.json({ filter, stats: logStore.stats(), entries: logStore.query(filter) });
-    });
+        const entries = await logStore.queryArchive(filter);
+        response.json({ filter, stats: logStore.stats(), entries });
+    }));
+
+    router.delete('/api/logs', requireAdmin, asyncRoute(async (request, response) => {
+        const cutoffMs = retentionCutoff(request.query);
+        const removed = await logStore.purgeBefore(cutoffMs);
+        metrics.recordAdminEvent('purgeLogs');
+        logger.warn('Log evidence purged by administrator', {
+            route: 'DELETE /admin/api/logs',
+            correlationId: request.correlationId,
+            before: new Date(cutoffMs).toISOString(),
+            ...removed,
+        });
+        response.json({ before: new Date(cutoffMs).toISOString(), ...removed });
+    }));
 
     router.get('/api/metrics', requireAdmin, asyncRoute(async (request, response) => {
         response.json(await metricsSnapshot());
@@ -320,9 +352,91 @@ export function createAdminRouter({
         const conversations = await conversationStore.list();
         response.json({
             total: conversations.length,
-            active: conversations.filter(item => item.status !== 'expired').length,
+            active: conversations.filter(item => item.status !== 'expired' && item.status !== 'closed').length,
             conversations,
         });
+    }));
+
+    router.delete('/api/conversations', requireAdmin, asyncRoute(async (request, response) => {
+        const cutoffMs = retentionCutoff(request.query);
+        const removedConversations = await conversationStore.purgeBefore(cutoffMs);
+        let removedTraceTrees = 0;
+        if (evidenceArchive) {
+            const live = new Set((await conversationStore.list()).map(conversation => conversation.id));
+            for (const directory of await evidenceArchive.listSubdirectories('debug')) {
+                if (live.has(directory)) continue;
+                await evidenceArchive.removeTree(`debug/${directory}`);
+                removedTraceTrees += 1;
+            }
+        }
+        metrics.recordAdminEvent('purgeConversations');
+        logger.warn('Conversation evidence purged by administrator', {
+            route: 'DELETE /admin/api/conversations',
+            correlationId: request.correlationId,
+            before: new Date(cutoffMs).toISOString(),
+            removedConversations,
+            removedTraceTrees,
+        });
+        response.json({
+            before: new Date(cutoffMs).toISOString(),
+            removedConversations,
+            removedTraceTrees,
+        });
+    }));
+
+    router.get('/api/conversations/:id/turns', requireAdmin, asyncRoute(async (request, response) => {
+        response.json({
+            conversationId: request.params.id,
+            turns: await debugCapture?.listTurns(request.params.id) ?? [],
+        });
+    }));
+
+    router.get('/api/debug/:conversationId/:turnId', requireAdmin, asyncRoute(async (request, response) => {
+        const entries = await debugCapture?.readTurn(request.params.conversationId, request.params.turnId) ?? [];
+        if (!entries.length) {
+            throw new GatewayError('DEBUG_TRACE_NOT_FOUND', 'Debug trace was not found', { status: 404 });
+        }
+        metrics.recordAdminEvent('exportDebugTrace');
+        attachDownload(response, 'debug-trace', 'ndjson', 'application/x-ndjson; charset=utf-8');
+        response.send(`${entries.map(entry => JSON.stringify(entry)).join('\n')}\n`);
+    }));
+
+    async function settingsSnapshot() {
+        const conversations = await conversationStore.list().catch(() => []);
+        const [logs, traces, conversationFiles] = evidenceArchive
+            ? await Promise.all([
+                evidenceArchive.stats('logs'),
+                evidenceArchive.treeStats('debug'),
+                evidenceArchive.treeStats('conversations'),
+            ])
+            : [{ files: 0, bytes: 0 }, { files: 0, bytes: 0 }, { files: 0, bytes: 0 }];
+        return {
+            retentionDays: config.retentionDays,
+            debugCapture: Boolean(debugCapture?.enabled),
+            storage: {
+                logs: { ...logs, buffered: logStore.stats().buffered },
+                traces,
+                conversations: { ...conversationFiles, records: conversations.length },
+            },
+        };
+    }
+
+    router.get('/api/settings', requireAdmin, asyncRoute(async (request, response) => {
+        response.json(await settingsSnapshot());
+    }));
+
+    router.patch('/api/settings', requireAdmin, asyncRoute(async (request, response) => {
+        if (typeof request.body?.debugCapture !== 'boolean') {
+            throw new GatewayError('INVALID_SETTINGS', 'debugCapture must be a boolean', { status: 400 });
+        }
+        await debugCapture?.setEnabled(request.body.debugCapture);
+        metrics.recordAdminEvent('settingsChanged');
+        logger.warn('Debug capture setting changed', {
+            route: 'PATCH /admin/api/settings',
+            correlationId: request.correlationId,
+            enabled: Boolean(debugCapture?.enabled),
+        });
+        response.json(await settingsSnapshot());
     }));
 
     router.delete('/api/conversations/:id', requireAdmin, asyncRoute(async (request, response) => {
@@ -404,9 +518,9 @@ export function createAdminRouter({
         request.on('close', close);
     });
 
-    router.get('/api/export/logs', requireAdmin, (request, response) => {
+    router.get('/api/export/logs', requireAdmin, asyncRoute(async (request, response) => {
         const filter = logsFilterFrom({ ...request.query, limit: request.query.limit || logStore.capacity });
-        const entries = logStore.query(filter);
+        const entries = await logStore.queryArchive(filter);
         const format = ['json', 'ndjson', 'txt'].includes(request.query.format) ? request.query.format : 'json';
         metrics.recordAdminEvent('exportLogs');
 
@@ -428,7 +542,7 @@ export function createAdminRouter({
             stats: logStore.stats(),
             entries,
         }, null, 2));
-    });
+    }));
 
     router.get('/api/export/metrics', requireAdmin, asyncRoute(async (request, response) => {
         metrics.recordAdminEvent('exportMetrics');
@@ -473,6 +587,7 @@ export function createAdminRouter({
             d2eClient,
             metrics,
             logger,
+            debugCapture,
         });
     }
 

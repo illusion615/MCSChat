@@ -28,7 +28,9 @@ npm run start:local
 http://127.0.0.1:8090/admin
 ```
 
-用 `LOCAL_ADMIN_API_KEY` 登录 → 概览页点【开始授权】→ 用受控 Entra 用户完成登录。回调后身份状态变为【身份就绪】，Router 自动持久化加密的令牌缓存。
+用 `LOCAL_ADMIN_API_KEY` 登录 → 仪表盘的【委派身份】卡片点【开始授权】→ 用受控 Entra 用户完成登录。回调后身份状态变为【身份就绪】，Router 自动持久化加密的令牌缓存。
+
+仪表盘只把 `/v1/*` 与 verification passthrough 统计为 Agent 业务流量；控制台自身的 `/admin/*` 请求不会污染请求数与 5 分钟曲线。桌面端卡片可拖动，顺序保存在浏览器；↺ 恢复默认布局。
 
 不用浏览器时：
 
@@ -45,6 +47,10 @@ curl -X POST http://127.0.0.1:8090/admin/auth/start \
 打开 `http://127.0.0.1:8090/prototype`，无需登录。
 
 该页由 `examples/d2e-streaming-test.html` 复制而来，仅替换传输层，所以聊天、Work 面板、性能基准套件、浮动日志与 export raw 全部可用。把两个页面的 export raw 一 diff，除 `conversation.id` 外的任何差异都说明 Router 改了 D2E 数据结构。
+
+每一轮同时写入 `.local-state/debug/<conversationId>/<turnId>.ndjson`，包含上游 Activity、归约事件和时序，凭据字段会被剥离。该捕获默认开启，可在仪表盘【调试证据】卡片关闭。
+
+日志写入 `.local-state/logs/router-YYYY-MM-DD.ndjson`；日志、会话记录和轮次轨迹默认保留 30 天。会话在 60 分钟功能 TTL 后不能继续发送，但记录仍保留并显示为【已过期】。仪表盘可按时间点手工删除旧日志或旧会话。
 
 ### 方式 B：API 验证
 
@@ -122,7 +128,7 @@ npm run check   # src/ 与 scripts/ 全量语法检查
 ```
 gateway/
 ├── .env.local                    # ⚠️ 秘钥配置（mode 600，不要提交）
-├── .local-state/                # 加密的 MSAL 缓存和会话状态
+├── .local-state/                # MSAL 缓存、会话、日志、轮次轨迹和控制台设置
 ├── src/
 │   ├── server.js                # Express 应用入口
 │   ├── identity/delegatedIdentity.js  # MSAL 令牌管理
@@ -134,6 +140,6 @@ gateway/
 │   ├── generateSecrets.js       # 生成秘钥
 │   ├── fakeRouterServer.js      # 假 Router（无需 Power Platform）
 │   └── verifyLocalRouter.js     # 本地验证脚本
-└── test/                        # 27 个单元测试
+└── test/                        # Router 单元与集成测试
 
 详见 README.md

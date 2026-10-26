@@ -113,7 +113,7 @@ export class ConversationStore {
     async close(id, subject) {
         const entry = await this.#read(id);
         await this.#validate(entry, subject);
-        await this.stateStore.remove(this.#path(id), { etag: entry.etag });
+        await this.#markClosed(entry);
     }
 
     /**
@@ -135,7 +135,7 @@ export class ConversationStore {
                 id: value.id,
                 agentId: value.agentId,
                 subjectRef: String(value.subjectHash || '').slice(0, 12),
-                status: expired ? 'expired' : value.status,
+                status: value.status === 'closed' ? 'closed' : (expired ? 'expired' : value.status),
                 turnCount: Array.isArray(value.recentTurnIds) ? value.recentTurnIds.length : 0,
                 createdAt: value.createdAt,
                 updatedAt: value.updatedAt,
@@ -146,21 +146,35 @@ export class ConversationStore {
         return conversations.sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
     }
 
-    /** Administrative removal that bypasses subject binding. */
+    /** Administrative close that bypasses subject binding; the record is kept. */
     async forceClose(id) {
         const entry = await this.#read(id);
-        if (!entry) {
+        if (!entry || entry.value.status === 'closed') {
             throw new GatewayError('CONVERSATION_NOT_FOUND', 'Conversation was not found', { status: 404 });
         }
-        await this.stateStore.remove(this.#path(id), { etag: entry.etag });
+        await this.#markClosed(entry);
     }
 
-    /** Drops conversation state whose TTL has already elapsed. */
-    async purgeExpired() {
+    async #markClosed(entry) {
+        const now = this.now();
+        await this.stateStore.writeJson(this.#path(entry.value.id), {
+            ...entry.value,
+            status: 'closed',
+            lockOwner: undefined,
+            lockExpiresAt: undefined,
+            activeClientTurnId: undefined,
+            closedAt: new Date(now).toISOString(),
+            updatedAt: new Date(now).toISOString(),
+            version: entry.value.version + 1,
+        }, { etag: entry.etag });
+    }
+
+    /** Deletes records created before the cutoff; returns how many were removed. */
+    async purgeBefore(cutoffMs) {
         const conversations = await this.list();
         let removed = 0;
         for (const conversation of conversations) {
-            if (conversation.status !== 'expired') continue;
+            if (Date.parse(conversation.createdAt) >= cutoffMs) continue;
             await this.stateStore.remove(this.#path(conversation.id)).catch(() => undefined);
             removed += 1;
         }
@@ -178,8 +192,8 @@ export class ConversationStore {
         if (!entry || entry.value.subjectHash !== hashSubject(subject)) {
             throw new GatewayError('CONVERSATION_NOT_FOUND', 'Conversation was not found', { status: 404 });
         }
-        if (Date.parse(entry.value.expiresAt) <= this.now()) {
-            await this.stateStore.remove(this.#path(entry.value.id), { etag: entry.etag });
+        // The record is retained as debugging evidence; only the conversation is unusable.
+        if (entry.value.status === 'closed' || Date.parse(entry.value.expiresAt) <= this.now()) {
             throw new GatewayError('CONVERSATION_NOT_FOUND', 'Conversation was not found', { status: 404 });
         }
     }

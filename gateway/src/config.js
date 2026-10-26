@@ -15,6 +15,10 @@ const DEFAULTS = Object.freeze({
     adminSessionTtlMinutes: 60,
     adminRestartDrainMs: 10_000,
     logBufferSize: 2_000,
+    // Evidence retention is independent of conversationTtlMinutes: a conversation
+    // stops accepting turns after its TTL, but the record stays for debugging.
+    retentionDays: 30,
+    debugCaptureEnabled: true,
     allowedOrigins: [
         'https://illusion615.github.io',
         'http://localhost:8000',
@@ -114,6 +118,10 @@ export function loadConfig(env = process.env) {
             DEFAULTS.adminRestartDrainMs
         ),
         logBufferSize: positiveInteger(env.LOG_BUFFER_SIZE, 'LOG_BUFFER_SIZE', DEFAULTS.logBufferSize),
+        retentionDays: positiveInteger(env.RETENTION_DAYS, 'RETENTION_DAYS', DEFAULTS.retentionDays),
+        debugCaptureEnabled: env.DEBUG_CAPTURE === undefined
+            ? DEFAULTS.debugCaptureEnabled
+            : !/^(0|false|off|no)$/i.test(String(env.DEBUG_CAPTURE).trim()),
         prototypePagePath: String(env.PROTOTYPE_PAGE_PATH || '').trim() || undefined,
     });
 }

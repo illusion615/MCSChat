@@ -2,6 +2,12 @@
 
 [🇺🇸 English](../../en/features/) | [🏠 返回主页](../README.md)
 
+## 主页测试导航
+
+- Agent Hub 卡片区下方的“测试工具”提供 [DirectLine 流式测试](../../../examples/directline-streaming-test.html)、[D2E 直连流式测试](../../../examples/d2e-streaming-test.html)和 [D2E Router 流式测试](http://localhost:8090/prototype)快捷入口。
+- 入口在新标签页打开，保留主页状态，支持键盘焦点和移动端纵向排列；名称及提示跟随中英文界面语言。
+- Router 入口需先启动[本地 Router 服务](../../../gateway/QUICKSTART.md)（`localhost:8090`），使用服务提供的 `/prototype`，不能直接打开静态 HTML 文件。
+
 ## 🤖 AI 伴侣系统
 
 MCSChat 的 AI 伴侣是一个强大的对话分析和增强系统，为您的聊天体验提供实时智能支持。

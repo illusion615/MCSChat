@@ -89,11 +89,41 @@ function increment(target, key, amount = 1) {
     target[key] = (target[key] || 0) + amount;
 }
 
+function decrementToZero(target, key, amount = 1) {
+    target[key] = Math.max(0, (target[key] || 0) - amount);
+}
+
+function incrementNested(target, category, key, amount = 1) {
+    if (!target[category]) target[category] = {};
+    increment(target[category], key, amount);
+}
+
+function cloneNested(source) {
+    const result = {};
+    for (const [category, values] of Object.entries(source)) {
+        result[category] = { ...values };
+    }
+    return result;
+}
+
+function normalizeSurface(surface) {
+    return ['business', 'console', 'support'].includes(surface) ? surface : 'other';
+}
+
 export class RouterMetrics {
     constructor({ now = () => Date.now() } = {}) {
         this.now = now;
         this.startedAt = now();
-        this.requests = { total: 0, inFlight: 0, byRoute: {}, byStatusClass: {} };
+        this.requests = {
+            total: 0,
+            inFlight: 0,
+            bySurface: {},
+            inFlightBySurface: {},
+            byRoute: {},
+            byRouteBySurface: {},
+            byStatusClass: {},
+            byStatusClassBySurface: {},
+        };
         this.auth = { unauthorized: 0, adminEvents: {} };
         this.rateLimit = { hits: 0 };
         this.conversations = { created: 0, closed: 0, forceClosed: 0 };
@@ -101,6 +131,7 @@ export class RouterMetrics {
         this.upstream = { calls: {}, errors: {} };
         this.latency = {
             request: new Sampler(),
+            requestBusiness: new Sampler(),
             ttft: new Sampler(),
             turnTotal: new Sampler(),
             upstream: new Sampler(),
@@ -110,8 +141,10 @@ export class RouterMetrics {
         this.oneHour = new TimeSeries(60_000, 60, now);
     }
 
-    startRequest() {
+    startRequest(surface = 'other') {
+        const normalizedSurface = normalizeSurface(surface);
         this.requests.inFlight += 1;
+        increment(this.requests.inFlightBySurface, normalizedSurface);
         const startedAt = this.now();
         let settled = false;
         return (route, statusCode) => {
@@ -119,16 +152,25 @@ export class RouterMetrics {
             settled = true;
             const durationMs = this.now() - startedAt;
             this.requests.inFlight = Math.max(0, this.requests.inFlight - 1);
+            decrementToZero(this.requests.inFlightBySurface, normalizedSurface);
             this.requests.total += 1;
+            increment(this.requests.bySurface, normalizedSurface);
             increment(this.requests.byRoute, route || 'unknown');
+            incrementNested(this.requests.byRouteBySurface, normalizedSurface, route || 'unknown');
             const statusClass = `${Math.floor(Number(statusCode || 0) / 100) || 0}xx`;
             increment(this.requests.byStatusClass, statusClass);
+            incrementNested(this.requests.byStatusClassBySurface, normalizedSurface, statusClass);
             this.latency.request.add(durationMs);
+            if (normalizedSurface === 'business') this.latency.requestBusiness.add(durationMs);
             this.fiveMinutes.add('requests');
             this.oneHour.add('requests');
+            this.fiveMinutes.add(`${normalizedSurface}Requests`);
+            this.oneHour.add(`${normalizedSurface}Requests`);
             if (statusClass === '4xx' || statusClass === '5xx') {
                 this.fiveMinutes.add('errors');
                 this.oneHour.add('errors');
+                this.fiveMinutes.add(`${normalizedSurface}Errors`);
+                this.oneHour.add(`${normalizedSurface}Errors`);
             }
             return durationMs;
         };
@@ -188,8 +230,12 @@ export class RouterMetrics {
             requests: {
                 total: this.requests.total,
                 inFlight: this.requests.inFlight,
+                bySurface: { ...this.requests.bySurface },
+                inFlightBySurface: { ...this.requests.inFlightBySurface },
                 byRoute: { ...this.requests.byRoute },
+                byRouteBySurface: cloneNested(this.requests.byRouteBySurface),
                 byStatusClass: { ...this.requests.byStatusClass },
+                byStatusClassBySurface: cloneNested(this.requests.byStatusClassBySurface),
             },
             auth: { unauthorized: this.auth.unauthorized, adminEvents: { ...this.auth.adminEvents } },
             rateLimit: { ...this.rateLimit },
@@ -203,6 +249,7 @@ export class RouterMetrics {
             upstream: { calls: { ...this.upstream.calls }, errors: { ...this.upstream.errors } },
             latency: {
                 request: this.latency.request.snapshot(),
+                requestBusiness: this.latency.requestBusiness.snapshot(),
                 ttft: this.latency.ttft.snapshot(),
                 turnTotal: this.latency.turnTotal.snapshot(),
                 upstream: this.latency.upstream.snapshot(),

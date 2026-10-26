@@ -65,6 +65,7 @@ export function registerVerificationRoutes(router, {
     d2eClient,
     metrics,
     logger,
+    debugCapture,
 }) {
     router.post('/api/verification/conversations', requireAccess, asyncRoute(async (request, response, next) => {
         const startedAt = Date.now();
@@ -170,6 +171,17 @@ export function registerVerificationRoutes(router, {
         // The reducer runs as a pure observer so passthrough turns report the same
         // TTFT / snapshot / stage semantics as the reduced `/v1` path.
         const reducer = new D2ETurnReducer(lease.conversation.activeClientTurnId || 'verification');
+        const trace = debugCapture?.startTurn({
+            conversationId: request.params.id,
+            turnId: lease.conversation.activeClientTurnId || `verification-${Date.now()}`,
+            channel: 'verification-passthrough',
+        });
+        trace?.upstreamRequest({
+            method: 'POST',
+            operation: 'openRawTurn',
+            conversationId: request.params.id,
+            activity,
+        });
         metrics.turnStarted();
         try {
             const upstreamResponse = await d2eClient.openRawTurn({
@@ -185,13 +197,16 @@ export function registerVerificationRoutes(router, {
                     data: rewriteConversationId(frame.data, upstreamConversationId, request.params.id),
                 });
                 try {
-                    for (const event of reducer.reduce(JSON.parse(frame.data))) {
+                    const activity = JSON.parse(frame.data);
+                    trace?.frame(activity);
+                    for (const event of reducer.reduce(activity)) {
                         if (event.type === 'answer') {
                             answerSnapshots += 1;
                             firstAnswerAt ??= Date.now();
                         } else if (event.type === 'stage') {
                             stageEvents += 1;
                         }
+                        trace?.event(event);
                     }
                 } catch {
                     // Metrics observation must never affect what is forwarded.
@@ -209,11 +224,25 @@ export function registerVerificationRoutes(router, {
         } catch (error) {
             outcome = error?.name === 'AbortError' ? 'interrupted' : 'error';
             outcomeCode = error?.code || 'PASSTHROUGH_INTERRUPTED';
+            trace?.error({
+                code: outcomeCode,
+                name: error?.name,
+                message: error?.message,
+                retryable: Boolean(error?.retryable),
+            });
             if (!response.headersSent) next(error);
             else if (!response.writableEnded) response.end();
         } finally {
             response.off('close', abortOnClose);
             const durationMs = Date.now() - startedAt;
+            trace?.finish({
+                outcome,
+                code: outcomeCode,
+                ttftMs: firstAnswerAt ? firstAnswerAt - startedAt : null,
+                totalMs: durationMs,
+                answerSnapshots,
+                stages: stageEvents,
+            });
             metrics.recordTurn({
                 outcome,
                 code: outcomeCode,

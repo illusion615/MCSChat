@@ -15,6 +15,8 @@ Ready to get started? Follow our quick setup guide:
 
 [→ Detailed Setup Guide](docs/setup/quick-start.md)
 
+The Agent Hub home page includes **Test tools** shortcuts for [DirectLine streaming](examples/directline-streaming-test.html), [D2E direct streaming](examples/d2e-streaming-test.html), and [D2E Router streaming](http://localhost:8090/prototype). Each opens in a new tab, preserving the home page. Start the [local Router](gateway/QUICKSTART.md) before using its shortcut; it runs at `localhost:8090`.
+
 ### Local D2E Router Prototype
 
 The isolated [`gateway/`](gateway/) prototype exposes the existing Copilot Studio New Agent D2E stream through a third-party REST/SSE API using one administrator-authorized delegated Entra user. Third-party callers do not sign in to Microsoft, and S2S/app-only is not implemented.

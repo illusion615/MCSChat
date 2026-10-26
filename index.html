@@ -199,6 +199,15 @@
         <div id="homeAgentGrid" class="home-agent-grid">
             <!-- Agent cards will be rendered dynamically -->
         </div>
+        <nav class="home-test-tools" aria-labelledby="homeTestToolsTitle" aria-describedby="homeTestToolsHint">
+            <h2 id="homeTestToolsTitle" data-i18n="home.testTools">Test tools</h2>
+            <div class="home-test-links">
+                <a href="examples/directline-streaming-test.html" target="_blank" rel="noopener noreferrer" data-i18n="home.testDirectLine">DirectLine streaming test</a>
+                <a href="examples/d2e-streaming-test.html" target="_blank" rel="noopener noreferrer" data-i18n="home.testD2E">D2E direct streaming test</a>
+                <a href="http://localhost:8090/prototype" target="_blank" rel="noopener noreferrer" data-i18n="home.testRouter">D2E Router streaming test</a>
+            </div>
+            <p id="homeTestToolsHint" data-i18n="home.testToolsHint">Opens in a new tab. Router testing requires the local Router running at localhost:8090.</p>
+        </nav>
         <!-- Loading indicator (visible until app initializes) -->
         <div id="homeLoadingIndicator" class="home-loading">
             <div class="home-loading-bar"><div class="home-loading-fill"></div></div>

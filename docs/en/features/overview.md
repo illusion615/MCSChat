@@ -15,6 +15,11 @@ Comprehensive overview of MCS Chat's features and capabilities.
 
 ## Core Features
 
+### Home Page Test Navigation
+- **Test tools** below the Agent Hub cards provide [DirectLine](../../../examples/directline-streaming-test.html), [D2E direct](../../../examples/d2e-streaming-test.html), and [D2E Router](http://localhost:8090/prototype) streaming-test shortcuts.
+- Links open in a new tab, support keyboard focus, and stack on mobile. Labels and the startup hint follow the selected English/Chinese interface language.
+- The Router shortcut requires the [local Router service](../../../gateway/QUICKSTART.md) on `localhost:8090`; its test page must be served at `/prototype`, not opened as a static HTML file.
+
 ### 📱 Mobile Responsive Design
 - **Touch-optimized interface** for smartphones and tablets
 - **Collapsible sidebar** with hamburger menu navigation

@@ -128,6 +128,38 @@ test('metrics track request outcomes, latency quantiles and rolling series', () 
     assert.equal(snapshot.series.fiveMinutes.points.at(-1).errors, 2);
 });
 
+test('metrics partition request traffic by surface while keeping global totals', () => {
+    let clock = Date.now();
+    const metrics = new RouterMetrics({ now: () => clock });
+
+    const business = metrics.startRequest('business');
+    const consoleReq = metrics.startRequest('console');
+    const supportReq = metrics.startRequest('support');
+    clock += 12;
+    business('POST /v1/conversations/:id/turns', 200);
+    clock += 8;
+    consoleReq('GET /admin/api/metrics', 200);
+    clock += 5;
+    supportReq('GET /prototype', 404);
+
+    const snapshot = metrics.snapshot();
+    assert.equal(snapshot.requests.total, 3);
+    assert.equal(snapshot.requests.bySurface.business, 1);
+    assert.equal(snapshot.requests.bySurface.console, 1);
+    assert.equal(snapshot.requests.bySurface.support, 1);
+    assert.equal(snapshot.requests.byRouteBySurface.business['POST /v1/conversations/:id/turns'], 1);
+    assert.equal(snapshot.requests.byRouteBySurface.console['GET /admin/api/metrics'], 1);
+    assert.equal(snapshot.requests.byStatusClassBySurface.business['2xx'], 1);
+    assert.equal(snapshot.requests.byStatusClassBySurface.support['4xx'], 1);
+    assert.equal(snapshot.series.fiveMinutes.points.at(-1).businessRequests, 1);
+    assert.equal(snapshot.series.fiveMinutes.points.at(-1).consoleRequests, 1);
+    assert.equal(snapshot.series.fiveMinutes.points.at(-1).supportRequests, 1);
+    assert.equal(snapshot.series.fiveMinutes.points.at(-1).businessErrors || 0, 0);
+    assert.equal(snapshot.series.fiveMinutes.points.at(-1).supportErrors, 1);
+    assert.equal(snapshot.latency.request.count, 3);
+    assert.equal(snapshot.latency.requestBusiness.count, 1);
+});
+
 test('metrics keep the twenty most recent turns with TTFT and outcome', () => {
     const metrics = new RouterMetrics();
     for (let index = 0; index < 25; index += 1) {

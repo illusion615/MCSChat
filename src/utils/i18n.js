@@ -18,6 +18,11 @@ const locales = {
         'home.messages': 'Messages',
         'home.lastActive': 'Last Active',
         'home.params': 'params',
+        'home.testTools': 'Test tools',
+        'home.testDirectLine': 'DirectLine streaming test',
+        'home.testD2E': 'D2E direct streaming test',
+        'home.testRouter': 'D2E Router streaming test',
+        'home.testToolsHint': 'Opens in a new tab. Router testing requires the local Router running at localhost:8090.',
 
         // Agent edit form
         'agentEdit.type': 'Agent Type:',
@@ -372,6 +377,11 @@ const locales = {
         'home.messages': '消息数',
         'home.lastActive': '最后活跃',
         'home.params': '个参数',
+        'home.testTools': '测试工具',
+        'home.testDirectLine': 'DirectLine 流式测试',
+        'home.testD2E': 'D2E 直连流式测试',
+        'home.testRouter': 'D2E Router 流式测试',
+        'home.testToolsHint': '在新标签页打开。Router 测试需先启动本地 Router 服务（localhost:8090）。',
 
         // Agent edit form
         'agentEdit.type': '智能体类型：',

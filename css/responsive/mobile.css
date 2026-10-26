@@ -535,6 +535,10 @@
 }
 
 @media (max-width: 768px) {
+    .home-test-links a {
+        flex: 1 1 100%;
+    }
+
     .home-footer {
         right: var(--spacing-lg, 12px);
         bottom: var(--spacing-lg, 12px);

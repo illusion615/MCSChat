@@ -85,6 +85,8 @@ nano .env.local
 | `ADMIN_SESSION_TTL_MINUTES` | 可选，控制台会话时长 | `60` |
 | `ADMIN_RESTART_DRAIN_MS` | 可选，重启前排空宽限 | `10000` |
 | `LOG_BUFFER_SIZE` | 可选，内存日志条数 | `2000` |
+| `RETENTION_DAYS` | 日志、会话记录和轮次轨迹保留期 | `30` |
+| `DEBUG_CAPTURE` | 捕获原始 Activity / thought 与归约事件（仅 loopback） | `true` |
 
 **安全检查**：
 
@@ -116,7 +118,7 @@ http://127.0.0.1:8090/admin
 ```
 
 1. 输入 `LOCAL_ADMIN_API_KEY` 登录（密钥只存内存，换成 HttpOnly 会话 Cookie）
-2. 在【概览】页点击 **开始授权**
+2. 在【仪表盘】的「委派身份」卡片中点击 **开始授权**
 3. 在新标签页中用受控 Entra 用户登录并授权
 4. Entra 回调 `/admin/auth/callback` 后自动返回控制台，身份状态变为 **身份就绪**
 
@@ -238,14 +240,15 @@ if (agentType === 'new') {
 
 > 改了 `.env.local` 后需要重启**监督者**（终端 Ctrl+C 后重跑 `npm run start:local`）—— 控制台的【重启 Router】只重启子进程，不会重读 `.env.local`。
 
-### 四个视图
+### 三个视图
 
 | 视图 | 内容 |
 |------|------|
-| 概览 | 委派身份状态、开始授权、清除身份、运行时信息、重启服务、**控制台安全（设置/修改/移除密码）**、脉敏后的 Router 配置 |
-| 流量 | 请求/轮次/错误计数、近 5 分钟曲线、TTFT 与总耗时 p50/p95、路由与状态码分布、上游调用、最近 20 个轮次 |
+| 仪表盘 | Agent 业务请求/轮次/错误计数、近 5 分钟曲线、最近 20 个轮次、TTFT 与总耗时 p50/p95、业务路由与状态码分布、上游调用、委派身份、运行时、控制台安全与脱敏后的 Router 配置。卡片可从右上角句柄拖动，顺序保存在浏览器；`Alt+方向键` 可用键盘重排，↺ 恢复默认布局 |
 | 日志 | SSE 实时流、级别/关键字/correlationId 过滤、暂停与继续、导出 |
-| 会话 | 活跃会话列表与管理员强制关闭 |
+| 会话 | 会话记录、状态与管理员强制关闭 |
+
+仪表盘的请求 KPI、5 分钟曲线、HTTP 请求耗时、路由和状态码默认只统计 Agent 业务面（`/v1/*` 与 verification passthrough）。控制台自身的 `/admin/*` 请求不进入这些图表，避免轮询流量淹没 Agent 调用。
 
 ### 重启机制
 
@@ -260,17 +263,31 @@ if (agentType === 'new') {
 
 ### 日志与指标边界
 
-- 仅存内存（默认 2000 条环形缓冲），**不落盘**，重启清零
+- 日志同时写入内存环形缓冲与 `.local-state/logs/router-YYYY-MM-DD.ndjson`，重启时回填最近记录
 - 所有字段经脱敏：token / secret / cookie / MSAL 缓存 / UPN 一律丢弃，高熵长串替换为 `[redacted]`
 - 会话 ID 与调用方主体只以 SHA-256 前缀形式出现
-- 上游真实 conversationId 、答案正文永不进入日志或导出
+- 普通日志与诊断导出不记录答案正文；独立的 turn trace 会保留 Activity 正文、thought 和归约事件，但仍强制剥离凭据
+- 指标按 business / console / support / other 分面；仪表盘默认只展示 Agent business 面
+
+### 调试证据与保留
+
+- `.local-state/conversations/`：会话功能 TTL 仍为 60 分钟，但过期和关闭只改变状态，不再删除记录
+- `.local-state/debug/<conversationId>/<turnId>.ndjson`：逐轮上游 Activity、下游事件、时序与错误；单轮上限 256 KB
+- 日志、会话记录与轮次轨迹默认保留 30 天；每 5 分钟按保留期清理，PKCE 授权事务继续使用自己的短 TTL
+- 管理控制台可关闭后续 debug capture，并按明确时间点手工删除更早的日志或会话；删除会话时同步删除孤儿轨迹
 
 ### 导出
 
 | 端点 | 内容 |
 |------|------|
 | `GET /admin/api/export/logs?format=json\|ndjson\|txt` | 按当前筛选导出日志 |
-| `GET /admin/api/export/metrics` | 指标快照 || `GET /admin/api/export/diagnostics` | 诊断包（概览 + 指标 + 全量日志 + 脱敏配置） |
+| `GET /admin/api/export/metrics` | 指标快照 |
+| `GET /admin/api/export/diagnostics` | 诊断包（概览 + 指标 + 日志 + 脱敏配置） |
+| `GET /admin/api/settings` / `PATCH /admin/api/settings` | 证据占用、保留期与 debug capture 开关 |
+| `DELETE /admin/api/logs?before=<ISO>` | 精确删除早于指定时刻的日志 |
+| `DELETE /admin/api/conversations?before=<ISO>` | 删除早于指定时刻的会话记录与孤儿轨迹 |
+| `GET /admin/api/conversations/:id/turns` | 列出已捕获轮次 |
+| `GET /admin/api/debug/:conversationId/:turnId` | 下载单轮 NDJSON 轨迹 |
 
 ---
 
@@ -335,7 +352,7 @@ if (agentType === 'new') {
 | **会话映射** | 浏览器获得不透明会话 ID；Router 内部维护到上游会话的映射 |
 | **令牌缓存** | MSAL 缓存以 AES-256-GCM 加密，存储在 `.local-state/identity/msal-cache.bin` |
 | **SSE 标准化** | 简化上游复杂流为：`stage` → `answer` → `final` \| `error` |
-| **会话生命周期** | 60 分钟 TTL（可配置）；超时自动清理 |
+| **会话生命周期** | 60 分钟功能 TTL（可配置）；超时后不可继续，但记录保留至 30 天证据保留期或手工删除 |
 | **并发安全** | 使用原子文件写（temp + rename）+ ETag 冲突检测 |
 
 ---

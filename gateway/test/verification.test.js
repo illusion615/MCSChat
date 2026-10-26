@@ -427,8 +427,8 @@ test('metrics report live conversation totals rather than process counters', asy
         const after = await (await fetch(`${harness.baseUrl}/admin/api/metrics`, {
             headers: { 'X-Admin-Key': SECRETS['admin-api-key'] },
         })).json();
-        assert.equal(after.conversations.stored, 0);
-        assert.equal(after.conversations.active, 0);
+        assert.equal(after.conversations.stored, 1, 'the record is retained as debugging evidence');
+        assert.equal(after.conversations.active, 0, 'a closed conversation no longer counts as active');
     } finally {
         await harness.stop();
     }

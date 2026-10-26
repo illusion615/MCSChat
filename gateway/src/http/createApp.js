@@ -82,6 +82,17 @@ function routeLabel(request) {
     return `${request.method} ${path.replace(OPAQUE_ID_PATTERN, '/:id')}`.slice(0, 120);
 }
 
+/** Separates business traffic from control-plane and support traffic. */
+function requestSurface(request) {
+    const path = String(request.path || '/');
+    if (path.startsWith('/v1/') || path.startsWith('/admin/api/verification/')) return 'business';
+    if (path.startsWith('/admin/')) return 'console';
+    if (path.startsWith('/prototype') || path.startsWith('/prototype-assets/') || path === '/healthz' || path === '/readyz' || path.startsWith('/local/')) {
+        return 'support';
+    }
+    return 'other';
+}
+
 export function createApp({
     config,
     secretProvider,
@@ -93,6 +104,8 @@ export function createApp({
     metrics = new RouterMetrics(),
     lifecycle = new RouterLifecycle({ drainMs: config.adminRestartDrainMs }),
     logger = new RouterLogger(logStore),
+    evidenceArchive = null,
+    debugCapture = null,
 }) {
     const log = toLogger(logger);
     const app = express();
@@ -124,7 +137,7 @@ export function createApp({
                 'Access-Control-Allow-Headers',
                 'Authorization, Content-Type, X-API-Key, X-Admin-Key, X-Correlation-ID'
             );
-            response.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+            response.set('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
         }
         if (request.method === 'OPTIONS') return response.sendStatus(204);
         next();
@@ -132,7 +145,8 @@ export function createApp({
 
     app.use((request, response, next) => {
         const releaseRequest = lifecycle.trackRequest();
-        const finishRequest = metrics.startRequest();
+        const surface = requestSurface(request);
+        const finishRequest = metrics.startRequest(surface);
         let settled = false;
         const settle = () => {
             if (settled) return;
@@ -237,6 +251,8 @@ export function createApp({
         metrics,
         lifecycle,
         logger: log,
+        evidenceArchive,
+        debugCapture,
     }));
 
     if (config.localDevelopment) {
@@ -354,6 +370,17 @@ export function createApp({
         response.once('close', abortOnClose);
 
         const turnStartedAt = Date.now();
+        const trace = debugCapture?.startTurn({
+            conversationId: request.params.id,
+            turnId: clientTurnId,
+            channel: 'reduced-v1',
+        });
+        trace?.upstreamRequest({
+            method: 'POST',
+            operation: 'openTurn',
+            conversationId: request.params.id,
+            text,
+        });
         metrics.turnStarted();
         let firstAnswerAt;
         let answerSnapshots = 0;
@@ -389,6 +416,7 @@ export function createApp({
             writer.open(request.correlationId);
             const reducer = new D2ETurnReducer(clientTurnId);
             await d2eClient.consumeActivities(upstreamResponse, async activity => {
+                trace?.frame(activity);
                 for (const event of reducer.reduce(activity)) {
                     if (event.type === 'answer') {
                         answerSnapshots += 1;
@@ -396,6 +424,7 @@ export function createApp({
                     } else if (event.type === 'stage') {
                         stageEvents += 1;
                     }
+                    trace?.event(event);
                     writer.write(event);
                 }
                 return !reducer.concluded;
@@ -412,6 +441,12 @@ export function createApp({
             const aborted = error?.name === 'AbortError';
             outcome = aborted ? 'interrupted' : 'error';
             outcomeCode = aborted ? 'CLIENT_DISCONNECTED' : (error?.code || 'STREAM_INTERRUPTED');
+            trace?.error({
+                code: outcomeCode,
+                name: error?.name,
+                message: error?.message,
+                retryable: Boolean(error?.retryable),
+            });
             if (!writer?.opened && error?.code === 'UPSTREAM_IDENTITY_REAUTH_REQUIRED') {
                 forgetClientTurnId = clientTurnId;
             }
@@ -423,6 +458,14 @@ export function createApp({
         } finally {
             response.off('close', abortOnClose);
             const totalMs = Date.now() - turnStartedAt;
+            trace?.finish({
+                outcome,
+                code: outcomeCode,
+                ttftMs: firstAnswerAt ? firstAnswerAt - turnStartedAt : null,
+                totalMs,
+                answerSnapshots,
+                stages: stageEvents,
+            });
             metrics.recordTurn({
                 outcome,
                 code: outcomeCode,

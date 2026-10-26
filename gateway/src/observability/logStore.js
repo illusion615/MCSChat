@@ -70,7 +70,7 @@ export function redactFields(fields, depth = 0) {
 }
 
 export class LogStore {
-    constructor({ capacity = 2_000, now = () => Date.now() } = {}) {
+    constructor({ capacity = 2_000, now = () => Date.now(), archive = null, archivePrefix = 'logs' } = {}) {
         this.capacity = Math.max(50, capacity);
         this.now = now;
         this.entries = [];
@@ -78,6 +78,26 @@ export class LogStore {
         this.seq = 0;
         this.subscribers = new Set();
         this.dropped = 0;
+        this.archive = archive;
+        this.archivePrefix = archivePrefix;
+        this.archiveQueue = Promise.resolve();
+    }
+
+    /** Attached after construction so the archive can report failures through the logger. */
+    attachArchive(archive) {
+        this.archive = archive;
+    }
+
+    /** Refills the ring from the archive so a restart does not blank the console. */
+    async hydrate() {
+        if (!this.archive) return 0;
+        await this.archiveQueue;
+        const entries = await this.archive.readRange(this.archivePrefix, { limit: this.capacity });
+        for (const entry of entries) {
+            this.#push(Object.freeze({ ...entry, seq: this.seq + 1 }));
+            this.seq += 1;
+        }
+        return entries.length;
     }
 
     append(level, message, fields = {}) {
@@ -102,6 +122,14 @@ export class LogStore {
         }
         this.cursor = (this.cursor + 1) % this.capacity;
 
+        // Redaction already ran above, so the archived line carries no credentials.
+        if (this.archive) {
+            this.archiveQueue = this.archiveQueue.then(() => this.archive.appendLine(
+                this.archive.dailyPath(this.archivePrefix),
+                entry,
+            ));
+        }
+
         for (const subscriber of this.subscribers) {
             try {
                 subscriber(entry);
@@ -110,6 +138,19 @@ export class LogStore {
             }
         }
         return entry;
+    }
+
+    #push(entry) {
+        if (this.entries.length < this.capacity) this.entries.push(entry);
+        else {
+            this.entries[this.cursor] = entry;
+            this.dropped += 1;
+        }
+        this.cursor = (this.cursor + 1) % this.capacity;
+    }
+
+    flushArchive() {
+        return this.archiveQueue;
     }
 
     /** Entries in chronological order. */
@@ -131,6 +172,37 @@ export class LogStore {
         });
         const capped = Math.min(Math.max(Number(limit) || 500, 1), this.capacity);
         return results.slice(-capped);
+    }
+
+    /** Reads past the in-memory ring by falling back to the daily archive files. */
+    async queryArchive({ level, q, correlationId, from, to, limit = 500 } = {}) {
+        if (!this.archive) return this.query({ level, q, correlationId, limit });
+        const minimumRank = LEVEL_RANK[level] ?? 0;
+        const needle = String(q || '').trim().toLowerCase();
+        return this.archive.readRange(this.archivePrefix, {
+            from: from ? Date.parse(from) : undefined,
+            to: to ? Date.parse(to) : undefined,
+            limit: Math.min(Math.max(Number(limit) || 500, 1), 5_000),
+            match: entry => {
+                if (LEVEL_RANK[entry.level] < minimumRank) return false;
+                if (correlationId && entry.correlationId !== correlationId) return false;
+                if (needle && !JSON.stringify(entry).toLowerCase().includes(needle)) return false;
+                return true;
+            },
+        });
+    }
+
+    async purgeBefore(cutoffMs) {
+        const result = this.archive
+            ? await this.archive.purgeBefore(this.archivePrefix, cutoffMs)
+            : { removedFiles: 0, removedBytes: 0, removedEntries: 0 };
+        const retained = this.snapshot().filter(entry => {
+            const at = Date.parse(entry.at);
+            return !Number.isFinite(at) || at >= cutoffMs;
+        });
+        this.entries = retained.slice(-this.capacity);
+        this.cursor = this.entries.length % this.capacity;
+        return result;
     }
 
     subscribe(handler) {

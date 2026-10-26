@@ -123,9 +123,36 @@ main { padding: 20px; display: grid; gap: 16px; align-content: start; }
   background: var(--cp-surface); border: 1px solid var(--cp-border);
   border-radius: 12px; padding: 16px;
 }
+.grid.masonry > .card { position: relative; transition: opacity 120ms ease, border-color 120ms ease, transform 120ms ease; }
+.grid.masonry > .card.card-wide { grid-column: 1 / -1; }
+.grid.masonry > .card > h2 { padding-right: 28px; }
+.grid.masonry > .card.is-dragging { opacity: 0.42; }
+.grid.masonry > .card.is-drop-target { border-color: var(--cp-accent); transform: translateY(-2px); }
+.drag-handle {
+  position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; padding: 0;
+  display: grid; place-items: center; border: 0; border-radius: 6px;
+  background: transparent; color: var(--cp-text-muted); font-size: 17px; line-height: 1;
+  cursor: grab; -webkit-user-select: none; user-select: none; touch-action: none;
+}
+.drag-handle:hover, .drag-handle:focus-visible { background: var(--cp-surface-soft); color: var(--cp-text); }
+.drag-handle:active { cursor: grabbing; }
+.dashboard-layout-tools { display: flex; justify-content: flex-end; margin-top: 10px; }
+.btn.icon-only { width: 30px; height: 30px; padding: 0; display: grid; place-items: center; }
+@media (pointer: coarse), (max-width: 575px) {
+  .drag-handle, .dashboard-layout-tools { display: none; }
+}
 .card > h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--cp-text-muted); }
+.card > h3 {
+  margin: 18px 0 10px; padding-top: 14px; border-top: 1px solid var(--cp-border);
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--cp-text-muted); font-weight: 600;
+}
 .grid { display: grid; gap: 16px; }
 .grid.cols { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+/* 1px row track + JS row spans let cards keep their natural height and stagger. */
+.grid.masonry { grid-auto-rows: 1px; row-gap: 0; align-items: start; }
+.grid.masonry > .card { margin-bottom: 16px; }
+.grid.masonry.stacked { grid-auto-rows: auto; row-gap: 16px; }
+.grid.masonry.stacked > .card { margin-bottom: 0; }
 .kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 .kpi { background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 10px; padding: 12px; }
 .kpi .value { font-size: 24px; font-weight: 600; line-height: 1.1; }
@@ -156,6 +183,20 @@ tbody tr:last-child td { border-bottom: none; }
   padding: 6px 10px; border-radius: 8px; border: 1px solid var(--cp-border-strong); background: var(--cp-surface);
 }
 .toolbar input[type="search"] { min-width: 180px; flex: 1; }
+.evidence-actions { display: grid; gap: 10px; margin-top: 14px; }
+.evidence-actions input[type="datetime-local"] {
+  width: 100%; padding: 7px 9px; border: 1px solid var(--cp-border-strong); border-radius: 8px;
+  background: var(--cp-surface); color: var(--cp-text);
+}
+.toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.switch { position: relative; width: 38px; height: 22px; flex: 0 0 auto; }
+.switch input { position: absolute; opacity: 0; pointer-events: none; }
+.switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--cp-border-strong); cursor: pointer; }
+.switch span::after { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; border-radius: 50%; background: white; transition: transform 120ms ease; }
+.switch input:checked + span { background: var(--cp-accent); }
+.switch input:checked + span::after { transform: translateX(16px); }
+.trace-list { max-height: 55vh; overflow: auto; display: grid; gap: 8px; }
+.trace-item { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--cp-border); }
 
 .log-list { max-height: 60vh; overflow: auto; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface-soft); }
 .log-row { display: grid; grid-template-columns: 84px 56px 1fr; gap: 10px; padding: 6px 10px; border-bottom: 1px solid var(--cp-border); font-size: 12.5px; }
@@ -216,8 +257,7 @@ tbody tr:last-child td { border-bottom: none; }
   </header>
 
   <nav class="tabs hidden" id="tabs">
-    <button class="tab" data-tab="overview" aria-selected="true" data-i18n="nav.overview">Overview</button>
-    <button class="tab" data-tab="traffic" aria-selected="false" data-i18n="nav.traffic">Traffic</button>
+    <button class="tab" data-tab="dashboard" aria-selected="true" data-i18n="nav.dashboard">Dashboard</button>
     <button class="tab" data-tab="logs" aria-selected="false" data-i18n="nav.logs">Logs</button>
     <button class="tab" data-tab="conversations" aria-selected="false" data-i18n="nav.conversations">Conversations</button>
   </nav>
@@ -239,112 +279,135 @@ tbody tr:last-child td { border-bottom: none; }
       <button class="btn small" id="bannerSetPassword" data-i18n="security.setPassword">Set a password</button>
     </div>
 
-    <!-- Overview -->
-    <section class="view grid cols" data-view="overview">
-      <div class="card">
-        <h2 data-i18n="overview.identity">Delegated identity</h2>
-        <dl class="props">
-          <dt data-i18n="overview.identityState">State</dt><dd id="idState">—</dd>
-          <dt data-i18n="overview.tenant">Tenant</dt><dd id="idTenant" class="mono">—</dd>
-          <dt data-i18n="overview.objectId">User object ID</dt><dd id="idOid" class="mono">—</dd>
-          <dt data-i18n="overview.updatedAt">Updated</dt><dd id="idUpdated">—</dd>
-        </dl>
-        <div class="toolbar" style="margin:14px 0 0">
-          <button class="btn primary" id="startAuthBtn" data-i18n="overview.startAuth">Start authorization</button>
-          <button class="btn danger" id="resetAuthBtn" data-i18n="overview.resetAuth">Sign out identity</button>
-        </div>
-        <div class="notice hidden" id="authNotice" style="margin-top:12px"></div>
-      </div>
-
-      <div class="card">
-        <h2 data-i18n="overview.runtime">Runtime</h2>
-        <dl class="props">
-          <dt data-i18n="overview.uptime">Uptime</dt><dd id="rtUptime">—</dd>
-          <dt data-i18n="overview.inFlight">In-flight requests</dt><dd id="rtInFlight">—</dd>
-          <dt data-i18n="overview.node">Node.js</dt><dd id="rtNode" class="mono">—</dd>
-          <dt data-i18n="overview.pid">PID</dt><dd id="rtPid" class="mono">—</dd>
-          <dt data-i18n="overview.supervised">Restart supervisor</dt><dd id="rtSupervised">—</dd>
-          <dt data-i18n="overview.logBuffer">Log buffer</dt><dd id="rtLogBuffer">—</dd>
-        </dl>
-        <div class="toolbar" style="margin:14px 0 0">
-          <button class="btn danger" id="restartBtn" data-i18n="overview.restart">Restart Router</button>
-        </div>
-        <div class="notice hidden" id="restartNotice" style="margin-top:12px"></div>
-      </div>
-
-      <div class="card">
-        <h2 data-i18n="security.title">Console security</h2>
-        <dl class="props">
-          <dt data-i18n="security.state">Protection</dt><dd id="secState">—</dd>
-          <dt data-i18n="security.source">Managed by</dt><dd id="secSource">—</dd>
-          <dt data-i18n="security.updatedAt">Updated</dt><dd id="secUpdated">—</dd>
-        </dl>
-        <div class="toolbar" style="margin:14px 0 0">
-          <button class="btn primary" id="setPasswordBtn" data-i18n="security.setPassword">Set a password</button>
-          <button class="btn danger hidden" id="clearPasswordBtn" data-i18n="security.clearPassword">Remove password</button>
-        </div>
-        <div class="notice hidden" id="securityNotice" style="margin-top:12px"></div>
-      </div>
-
-      <div class="card">
-        <h2 data-i18n="overview.router">Router configuration</h2>
-        <dl class="props">
-          <dt data-i18n="overview.port">Port</dt><dd id="cfgPort" class="mono">—</dd>
-          <dt data-i18n="overview.environment">Environment</dt><dd id="cfgEnv" class="mono">—</dd>
-          <dt data-i18n="overview.schema">Agent schema</dt><dd id="cfgSchema" class="mono">—</dd>
-          <dt data-i18n="overview.ttl">Conversation TTL</dt><dd id="cfgTtl">—</dd>
-          <dt data-i18n="overview.timeout">Upstream timeout</dt><dd id="cfgTimeout">—</dd>
-          <dt data-i18n="overview.origins">Allowed origins</dt><dd id="cfgOrigins" class="mono">—</dd>
-        </dl>
-      </div>
-    </section>
-
-    <!-- Traffic -->
-    <section class="view hidden" data-view="traffic">
+    <!-- Dashboard -->
+    <section class="view" data-view="dashboard">
       <div class="kpis" id="trafficKpis"></div>
-      <div class="card" style="margin-top:16px">
+      <div class="dashboard-layout-tools">
+        <button class="btn small icon-only" id="resetCardLayout" data-i18n-title="dashboard.resetLayout" data-i18n-aria="dashboard.resetLayout" title="Reset card layout" aria-label="Reset card layout">↺</button>
+      </div>
+      <div class="grid cols masonry" style="margin-top:8px">
+      <div class="card card-wide" data-card-id="activity">
         <h2 data-i18n="traffic.series5m">Last 5 minutes</h2>
         <div class="chart" id="chart5m"></div>
         <div class="legend">
           <span class="req" data-i18n="traffic.requests">Requests</span>
           <span class="err" data-i18n="traffic.errors">Errors</span>
         </div>
-      </div>
-      <div class="grid cols" style="margin-top:16px">
-        <div class="card">
-          <h2 data-i18n="traffic.latency">Latency (ms)</h2>
-          <div class="table-wrap"><table><thead><tr>
-            <th data-i18n="traffic.metric">Metric</th><th data-i18n="traffic.count">Count</th>
-            <th>p50</th><th>p95</th><th data-i18n="traffic.max">Max</th>
-          </tr></thead><tbody id="latencyBody"></tbody></table></div>
-        </div>
-        <div class="card">
-          <h2 data-i18n="traffic.upstream">Upstream D2E</h2>
-          <div class="table-wrap"><table><thead><tr>
-            <th data-i18n="traffic.operation">Operation</th><th data-i18n="traffic.count">Count</th>
-          </tr></thead><tbody id="upstreamBody"></tbody></table></div>
-        </div>
-        <div class="card">
-          <h2 data-i18n="traffic.byRoute">Requests by route</h2>
-          <div class="table-wrap"><table><thead><tr>
-            <th data-i18n="traffic.route">Route</th><th data-i18n="traffic.count">Count</th>
-          </tr></thead><tbody id="routeBody"></tbody></table></div>
-        </div>
-        <div class="card">
-          <h2 data-i18n="traffic.byStatus">Responses by status</h2>
-          <div class="table-wrap"><table><thead><tr>
-            <th data-i18n="traffic.status">Status</th><th data-i18n="traffic.count">Count</th>
-          </tr></thead><tbody id="statusBody"></tbody></table></div>
-        </div>
-      </div>
-      <div class="card" style="margin-top:16px">
-        <h2 data-i18n="traffic.recentTurns">Recent turns</h2>
+        <h3 data-i18n="traffic.recentTurns">Recent turns</h3>
         <div class="table-wrap"><table><thead><tr>
           <th data-i18n="traffic.time">Time</th><th data-i18n="traffic.outcome">Outcome</th>
           <th>TTFT</th><th data-i18n="traffic.total">Total</th>
           <th data-i18n="traffic.snapshots">Snapshots</th><th data-i18n="traffic.stages">Stages</th>
           <th data-i18n="traffic.conversationRef">Conversation</th>
         </tr></thead><tbody id="turnsBody"></tbody></table></div>
+      </div>
+        <div class="card" data-card-id="latency">
+          <h2 data-i18n="traffic.latency">Latency (ms)</h2>
+          <div class="table-wrap"><table><thead><tr>
+            <th data-i18n="traffic.metric">Metric</th><th data-i18n="traffic.count">Count</th>
+            <th>p50</th><th>p95</th><th data-i18n="traffic.max">Max</th>
+          </tr></thead><tbody id="latencyBody"></tbody></table></div>
+        </div>
+        <div class="card" data-card-id="upstream">
+          <h2 data-i18n="traffic.upstream">Upstream D2E</h2>
+          <div class="table-wrap"><table><thead><tr>
+            <th data-i18n="traffic.operation">Operation</th><th data-i18n="traffic.count">Count</th>
+          </tr></thead><tbody id="upstreamBody"></tbody></table></div>
+        </div>
+        <div class="card" data-card-id="routes">
+          <h2 data-i18n="traffic.byRoute">Requests by route</h2>
+          <div class="table-wrap"><table><thead><tr>
+            <th data-i18n="traffic.route">Route</th><th data-i18n="traffic.count">Count</th>
+          </tr></thead><tbody id="routeBody"></tbody></table></div>
+        </div>
+        <div class="card" data-card-id="status">
+          <h2 data-i18n="traffic.byStatus">Responses by status</h2>
+          <div class="table-wrap"><table><thead><tr>
+            <th data-i18n="traffic.status">Status</th><th data-i18n="traffic.count">Count</th>
+          </tr></thead><tbody id="statusBody"></tbody></table></div>
+        </div>
+
+        <div class="card" data-card-id="identity">
+          <h2 data-i18n="overview.identity">Delegated identity</h2>
+          <dl class="props">
+            <dt data-i18n="overview.identityState">State</dt><dd id="idState">—</dd>
+            <dt data-i18n="overview.tenant">Tenant</dt><dd id="idTenant" class="mono">—</dd>
+            <dt data-i18n="overview.objectId">User object ID</dt><dd id="idOid" class="mono">—</dd>
+            <dt data-i18n="overview.updatedAt">Updated</dt><dd id="idUpdated">—</dd>
+          </dl>
+          <div class="toolbar" style="margin:14px 0 0">
+            <button class="btn primary" id="startAuthBtn" data-i18n="overview.startAuth">Start authorization</button>
+            <button class="btn danger" id="resetAuthBtn" data-i18n="overview.resetAuth">Sign out identity</button>
+          </div>
+          <div class="notice hidden" id="authNotice" style="margin-top:12px"></div>
+        </div>
+
+        <div class="card" data-card-id="runtime">
+          <h2 data-i18n="overview.runtime">Runtime</h2>
+          <dl class="props">
+            <dt data-i18n="overview.uptime">Uptime</dt><dd id="rtUptime">—</dd>
+            <dt data-i18n="overview.node">Node.js</dt><dd id="rtNode" class="mono">—</dd>
+            <dt data-i18n="overview.pid">PID</dt><dd id="rtPid" class="mono">—</dd>
+            <dt data-i18n="overview.supervised">Restart supervisor</dt><dd id="rtSupervised">—</dd>
+            <dt data-i18n="overview.logBuffer">Log buffer</dt><dd id="rtLogBuffer">—</dd>
+          </dl>
+          <div class="toolbar" style="margin:14px 0 0">
+            <button class="btn danger" id="restartBtn" data-i18n="overview.restart">Restart Router</button>
+          </div>
+          <div class="notice hidden" id="restartNotice" style="margin-top:12px"></div>
+        </div>
+
+        <div class="card" data-card-id="security">
+          <h2 data-i18n="security.title">Console security</h2>
+          <dl class="props">
+            <dt data-i18n="security.state">Protection</dt><dd id="secState">—</dd>
+            <dt data-i18n="security.source">Managed by</dt><dd id="secSource">—</dd>
+            <dt data-i18n="security.updatedAt">Updated</dt><dd id="secUpdated">—</dd>
+          </dl>
+          <div class="toolbar" style="margin:14px 0 0">
+            <button class="btn primary" id="setPasswordBtn" data-i18n="security.setPassword">Set a password</button>
+            <button class="btn danger hidden" id="clearPasswordBtn" data-i18n="security.clearPassword">Remove password</button>
+          </div>
+          <div class="notice hidden" id="securityNotice" style="margin-top:12px"></div>
+        </div>
+
+        <div class="card" data-card-id="configuration">
+          <h2 data-i18n="overview.router">Router configuration</h2>
+          <dl class="props">
+            <dt data-i18n="overview.port">Port</dt><dd id="cfgPort" class="mono">—</dd>
+            <dt data-i18n="overview.environment">Environment</dt><dd id="cfgEnv" class="mono">—</dd>
+            <dt data-i18n="overview.schema">Agent schema</dt><dd id="cfgSchema" class="mono">—</dd>
+            <dt data-i18n="overview.ttl">Conversation TTL</dt><dd id="cfgTtl">—</dd>
+            <dt data-i18n="overview.timeout">Upstream timeout</dt><dd id="cfgTimeout">—</dd>
+            <dt data-i18n="overview.origins">Allowed origins</dt><dd id="cfgOrigins" class="mono">—</dd>
+          </dl>
+        </div>
+
+        <div class="card" data-card-id="evidence">
+          <h2 data-i18n="evidence.title">Debug evidence</h2>
+          <dl class="props">
+            <dt data-i18n="evidence.retention">Retention</dt><dd id="evidenceRetention">—</dd>
+            <dt data-i18n="evidence.logs">Logs</dt><dd id="evidenceLogs">—</dd>
+            <dt data-i18n="evidence.conversations">Conversations</dt><dd id="evidenceConversations">—</dd>
+            <dt data-i18n="evidence.traces">Turn traces</dt><dd id="evidenceTraces">—</dd>
+          </dl>
+          <div class="toggle-row">
+            <span data-i18n="evidence.capture">Capture Activity bodies and thought text</span>
+            <label class="switch">
+              <input type="checkbox" id="debugCaptureToggle" />
+              <span></span>
+            </label>
+          </div>
+          <div class="evidence-actions">
+            <label for="purgeBefore" data-i18n="evidence.deleteBefore">Delete evidence older than</label>
+            <input type="datetime-local" id="purgeBefore" />
+            <div class="toolbar">
+              <button class="btn small danger" id="purgeLogsBtn" data-i18n="evidence.purgeLogs">Delete old logs</button>
+              <button class="btn small danger" id="purgeConversationsBtn" data-i18n="evidence.purgeConversations">Delete old conversations</button>
+            </div>
+          </div>
+          <div class="notice hidden" id="evidenceNotice"></div>
+        </div>
       </div>
     </section>
 
@@ -423,16 +486,39 @@ tbody tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
+<div class="overlay hidden" id="traceOverlay">
+  <div class="card">
+    <h3 data-i18n="evidence.traceTitle">Turn traces</h3>
+    <div class="trace-list" id="traceList"></div>
+    <div class="actions">
+      <button class="btn" id="traceClose" data-i18n="common.cancel">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ------------------------------------------------------------------ i18n */
 const LOCALES = {
   en: {
     'app.title': 'D2E Router Admin Console',
     'app.subtitle': 'Local delegated Router for Copilot Studio New Agent',
-    'nav.overview': 'Overview', 'nav.traffic': 'Traffic', 'nav.logs': 'Logs', 'nav.conversations': 'Conversations',
+    'nav.dashboard': 'Dashboard', 'nav.logs': 'Logs', 'nav.conversations': 'Conversations',
     'common.language': 'Switch language', 'common.theme': 'Switch theme', 'common.refresh': 'Refresh',
     'common.cancel': 'Cancel', 'common.confirm': 'Confirm', 'common.none': 'None', 'common.yes': 'Yes', 'common.no': 'No',
     'common.save': 'Save',
+    'dashboard.dragCard': 'Drag to move card', 'dashboard.resetLayout': 'Reset card layout',
+    'evidence.title': 'Debug evidence', 'evidence.retention': 'Retention', 'evidence.logs': 'Logs',
+    'evidence.conversations': 'Conversations', 'evidence.traces': 'Turn traces',
+    'evidence.capture': 'Capture Activity bodies and thought text',
+    'evidence.deleteBefore': 'Delete evidence older than', 'evidence.purgeLogs': 'Delete old logs',
+    'evidence.purgeConversations': 'Delete old conversations', 'evidence.days': '${days} days',
+    'evidence.storage': '${files} files · ${size}', 'evidence.records': '${records} records · ${size}',
+    'evidence.traceTitle': 'Turn traces', 'evidence.trace': 'Traces', 'evidence.traceEmpty': 'No captured turns.',
+    'evidence.download': 'Download', 'evidence.captureSaved': 'Debug capture setting saved.',
+    'evidence.purgeTitle': 'Delete old debug evidence?',
+    'evidence.purgeBody': 'Records older than ${before} will be permanently deleted. This cannot be undone.',
+    'evidence.purgedLogs': 'Deleted ${count} log entries.',
+    'evidence.purgedConversations': 'Deleted ${count} conversation records.',
     'security.title': 'Console security',
     'security.state': 'Protection', 'security.source': 'Managed by', 'security.updatedAt': 'Updated',
     'security.protected': 'Password required', 'security.unprotected': 'No password — open to this machine',
@@ -473,7 +559,7 @@ const LOCALES = {
     'overview.authReady': 'Authorization completed. The Router can call the upstream agent again.',
     'overview.resetConfirmTitle': 'Sign out the delegated identity?',
     'overview.resetConfirmBody': 'The encrypted token cache is deleted. The Router cannot call the agent until an administrator authorizes again.',
-    'overview.runtime': 'Runtime', 'overview.uptime': 'Uptime', 'overview.inFlight': 'In-flight requests',
+    'overview.runtime': 'Runtime', 'overview.uptime': 'Uptime',
     'overview.node': 'Node.js', 'overview.pid': 'PID', 'overview.supervised': 'Restart supervisor',
     'overview.logBuffer': 'Log buffer',
     'overview.restart': 'Restart Router',
@@ -497,7 +583,7 @@ const LOCALES = {
     'traffic.latencyRequest': 'HTTP request', 'traffic.latencyTtft': 'Turn TTFT',
     'traffic.latencyTurn': 'Turn total', 'traffic.latencyUpstream': 'Upstream call',
     'outcome.final': 'Completed', 'outcome.error': 'Failed', 'outcome.interrupted': 'Interrupted',
-    'convStatus.active': 'Active', 'convStatus.busy': 'Turn in progress', 'convStatus.expired': 'Expired',
+    'convStatus.active': 'Active', 'convStatus.busy': 'Turn in progress', 'convStatus.expired': 'Expired', 'convStatus.closed': 'Closed',
     'logs.levelDebug': 'Debug and above', 'logs.levelInfo': 'Info and above',
     'logs.levelWarn': 'Warning and above', 'logs.levelError': 'Errors only',
     'logs.search': 'Search', 'logs.correlation': 'Correlation ID', 'logs.pause': 'Pause', 'logs.resume': 'Resume',
@@ -515,10 +601,23 @@ const LOCALES = {
   zh: {
     'app.title': 'D2E Router 管理控制台',
     'app.subtitle': '面向 Copilot Studio New Agent 的本地委派 Router',
-    'nav.overview': '概览', 'nav.traffic': '流量', 'nav.logs': '日志', 'nav.conversations': '会话',
+    'nav.dashboard': '仪表盘', 'nav.logs': '日志', 'nav.conversations': '会话',
     'common.language': '切换语言', 'common.theme': '切换主题', 'common.refresh': '刷新',
     'common.cancel': '取消', 'common.confirm': '确认', 'common.none': '无', 'common.yes': '是', 'common.no': '否',
     'common.save': '保存',
+    'dashboard.dragCard': '拖动卡片', 'dashboard.resetLayout': '重置卡片布局',
+    'evidence.title': '调试证据', 'evidence.retention': '保留期', 'evidence.logs': '日志',
+    'evidence.conversations': '会话记录', 'evidence.traces': '轮次轨迹',
+    'evidence.capture': '捕获 Activity 正文与 thought 文本',
+    'evidence.deleteBefore': '删除早于该时间的证据', 'evidence.purgeLogs': '删除旧日志',
+    'evidence.purgeConversations': '删除旧会话', 'evidence.days': '${days} 天',
+    'evidence.storage': '${files} 个文件 · ${size}', 'evidence.records': '${records} 条 · ${size}',
+    'evidence.traceTitle': '轮次轨迹', 'evidence.trace': '轨迹', 'evidence.traceEmpty': '暂无已捕获轮次。',
+    'evidence.download': '下载', 'evidence.captureSaved': '调试捕获设置已保存。',
+    'evidence.purgeTitle': '确定删除旧调试证据？',
+    'evidence.purgeBody': '早于 ${before} 的记录将被永久删除，此操作无法撤销。',
+    'evidence.purgedLogs': '已删除 ${count} 条日志。',
+    'evidence.purgedConversations': '已删除 ${count} 条会话记录。',
     'security.title': '控制台安全',
     'security.state': '保护状态', 'security.source': '管理方式', 'security.updatedAt': '更新时间',
     'security.protected': '需要密码', 'security.unprotected': '无密码 — 本机可直接访问',
@@ -559,7 +658,7 @@ const LOCALES = {
     'overview.authReady': '授权完成，Router 已可调用上游 Agent。',
     'overview.resetConfirmTitle': '确定清除委派身份？',
     'overview.resetConfirmBody': '加密的令牌缓存会被删除。在管理员重新授权之前，Router 无法调用 Agent。',
-    'overview.runtime': '运行时', 'overview.uptime': '运行时长', 'overview.inFlight': '在途请求',
+    'overview.runtime': '运行时', 'overview.uptime': '运行时长',
     'overview.node': 'Node.js', 'overview.pid': '进程 ID', 'overview.supervised': '重启监督者',
     'overview.logBuffer': '日志缓冲',
     'overview.restart': '重启 Router',
@@ -584,7 +683,7 @@ const LOCALES = {
     'traffic.latencyRequest': 'HTTP 请求', 'traffic.latencyTtft': '首字节（TTFT）',
     'traffic.latencyTurn': '轮次总耗时', 'traffic.latencyUpstream': '上游调用',
     'outcome.final': '已完成', 'outcome.error': '失败', 'outcome.interrupted': '已中断',
-    'convStatus.active': '活跃', 'convStatus.busy': '轮次进行中', 'convStatus.expired': '已过期',
+    'convStatus.active': '活跃', 'convStatus.busy': '轮次进行中', 'convStatus.expired': '已过期', 'convStatus.closed': '已关闭',
     'logs.levelDebug': 'Debug 及以上', 'logs.levelInfo': 'Info 及以上',
     'logs.levelWarn': 'Warning 及以上', 'logs.levelError': '仅 Error',
     'logs.search': '搜索', 'logs.correlation': 'Correlation ID', 'logs.pause': '暂停', 'logs.resume': '继续',
@@ -627,14 +726,54 @@ const i18n = {
 /* ------------------------------------------------------------------ utils */
 const $ = id => document.getElementById(id);
 const state = {
-  overview: null, metrics: null, conversations: null, security: null,
-  logs: [], paused: false, stream: null, restarting: false, view: 'overview',
+  overview: null, metrics: null, conversations: null, security: null, settings: null,
+  logs: [], paused: false, stream: null, streamOnline: false, restarting: false, view: 'dashboard',
 };
 
 function text(value, fallback = '—') {
   return value === undefined || value === null || value === '' ? fallback : String(value);
 }
 function num(value) { return value === null || value === undefined ? '—' : Number(value).toLocaleString(); }
+function bytes(value) {
+  const amount = Number(value || 0);
+  if (amount < 1024) return `${amount} B`;
+  if (amount < 1024 ** 2) return `${(amount / 1024).toFixed(1)} KB`;
+  return `${(amount / 1024 ** 2).toFixed(1)} MB`;
+}
+function localInputTime(value) {
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+const BUSINESS_ROUTE_PREFIXES = ['/v1/', '/admin/api/verification/'];
+
+function isBusinessRoute(route) {
+  const path = String(route || '').replace(/^[A-Z]+\s+/, '');
+  return BUSINESS_ROUTE_PREFIXES.some(prefix => path.startsWith(prefix));
+}
+
+function routeSubsetByPrefix(map, predicate) {
+  const result = {};
+  for (const [route, count] of Object.entries(map || {})) {
+    if (!predicate(route)) continue;
+    result[route] = count;
+  }
+  return result;
+}
+
+function statusSubsetForRoutes(routeMap, statusMap) {
+  const totalByRoutes = Object.values(routeMap || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+  const totalByStatus = Object.values(statusMap || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+  if (!totalByStatus || !totalByRoutes) return {};
+  if (totalByRoutes >= totalByStatus) return { ...statusMap };
+  const scale = totalByRoutes / totalByStatus;
+  const result = {};
+  for (const [statusClass, count] of Object.entries(statusMap || {})) {
+    result[statusClass] = Math.round(Number(count || 0) * scale);
+  }
+  return result;
+}
+
 function duration(ms) {
   if (!Number.isFinite(ms)) return '—';
   const seconds = Math.floor(ms / 1000);
@@ -758,8 +897,12 @@ async function refreshLogs() {
   state.logs = result.entries;
   renderLogs();
 }
+async function refreshSettings() {
+  state.settings = await api('/admin/api/settings');
+  renderSettings();
+}
 async function refreshAll() {
-  await Promise.all([refreshOverview(), refreshMetrics(), refreshConversations(), refreshLogs()]);
+  await Promise.all([refreshOverview(), refreshMetrics(), refreshConversations(), refreshLogs(), refreshSettings()]);
 }
 
 /* ---------------------------------------------------------------- stream */
@@ -786,7 +929,11 @@ function openStream() {
   state.stream?.close();
   const source = new EventSource('/admin/api/stream');
   state.stream = source;
-  source.addEventListener('ready', () => setStreamPill(state.paused ? 'paused' : 'live'));
+  state.streamOnline = false;
+  source.addEventListener('ready', () => {
+    state.streamOnline = true;
+    setStreamPill(state.paused ? 'paused' : 'live');
+  });
   source.addEventListener('log', event => {
     if (state.paused) return;
     const entry = JSON.parse(event.data);
@@ -796,10 +943,23 @@ function openStream() {
   });
   source.addEventListener('metrics', event => {
     state.metrics = JSON.parse(event.data);
-    if (state.view === 'traffic') renderTraffic();
+    if (state.view === 'dashboard') {
+      renderOverview();
+      renderTraffic();
+    }
   });
-  source.addEventListener('shutdown', () => { source.close(); state.stream = null; setStreamPill('offline'); });
-  source.onerror = () => { if (!state.restarting) setStreamPill('offline'); };
+  source.addEventListener('shutdown', () => {
+    source.close();
+    state.stream = null;
+    state.streamOnline = false;
+    setStreamPill('offline');
+  });
+  source.onerror = () => {
+    if (!state.restarting) {
+      state.streamOnline = false;
+      setStreamPill('offline');
+    }
+  };
 }
 
 /* ---------------------------------------------------------------- render */
@@ -807,7 +967,159 @@ function render() {
   renderOverview();
   renderTraffic();
   renderConversations();
+  renderSettings();
 }
+
+const MASONRY_GAP = 16;
+const CARD_LAYOUT_KEY = 'routerAdminCardOrderV3';
+let masonryFrame = 0;
+let draggedCard = null;
+let dropTarget = null;
+let dropBeforeTarget = true;
+let dragPointerId = null;
+
+function dashboardCardGrid() {
+  return document.querySelector('.view[data-view="dashboard"] .grid.masonry');
+}
+
+function cardOrder(grid = dashboardCardGrid()) {
+  return grid ? Array.from(grid.querySelectorAll(':scope > .card[data-card-id]')).map(card => card.dataset.cardId) : [];
+}
+
+function saveCardOrder() {
+  localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(cardOrder()));
+}
+
+function restoreCardOrder() {
+  const grid = dashboardCardGrid();
+  if (!grid) return;
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem(CARD_LAYOUT_KEY) || '[]'); } catch { saved = []; }
+  const cards = new Map(Array.from(grid.querySelectorAll(':scope > .card[data-card-id]')).map(card => [card.dataset.cardId, card]));
+  for (const id of saved) {
+    const card = cards.get(id);
+    if (!card) continue;
+    grid.append(card);
+    cards.delete(id);
+  }
+  for (const card of cards.values()) grid.append(card);
+}
+
+function clearDropTarget() {
+  dropTarget?.classList.remove('is-drop-target');
+  dropTarget = null;
+}
+
+function finishCardDrag(handle, { apply = true } = {}) {
+  if (!draggedCard) return;
+  if (apply && dropTarget) {
+    const grid = dashboardCardGrid();
+    grid.insertBefore(draggedCard, dropBeforeTarget ? dropTarget : dropTarget.nextSibling);
+    saveCardOrder();
+  }
+  draggedCard.classList.remove('is-dragging');
+  if (dragPointerId !== null && handle.hasPointerCapture?.(dragPointerId)) handle.releasePointerCapture(dragPointerId);
+  draggedCard = null;
+  dragPointerId = null;
+  clearDropTarget();
+  scheduleMasonry();
+}
+
+function updateCardDropTarget(clientX, clientY) {
+  const grid = dashboardCardGrid();
+  const candidate = document.elementFromPoint(clientX, clientY)?.closest('.card[data-card-id]');
+  if (!candidate || candidate === draggedCard || candidate.parentElement !== grid) {
+    clearDropTarget();
+    return;
+  }
+  if (dropTarget !== candidate) {
+    clearDropTarget();
+    dropTarget = candidate;
+    dropTarget.classList.add('is-drop-target');
+  }
+  const rect = candidate.getBoundingClientRect();
+  const sameVisualRow = Math.abs(clientY - (rect.top + rect.height / 2)) < rect.height / 3;
+  dropBeforeTarget = sameVisualRow
+    ? clientX < rect.left + rect.width / 2
+    : clientY < rect.top + rect.height / 2;
+}
+
+function initializeCardDragging() {
+  const grid = dashboardCardGrid();
+  if (!grid) return;
+  restoreCardOrder();
+  grid.querySelectorAll(':scope > .card[data-card-id]').forEach(card => {
+    const handle = element('button', 'drag-handle', '⠿');
+    handle.type = 'button';
+    handle.dataset.i18nTitle = 'dashboard.dragCard';
+    handle.dataset.i18nAria = 'dashboard.dragCard';
+    handle.title = i18n.t('dashboard.dragCard');
+    handle.setAttribute('aria-label', i18n.t('dashboard.dragCard'));
+    handle.addEventListener('pointerdown', event => {
+      if (event.pointerType === 'touch' || event.button !== 0) return;
+      event.preventDefault();
+      draggedCard = card;
+      dragPointerId = event.pointerId;
+      handle.setPointerCapture(event.pointerId);
+      card.classList.add('is-dragging');
+    });
+    handle.addEventListener('pointermove', event => {
+      if (draggedCard !== card || event.pointerId !== dragPointerId) return;
+      const edge = 72;
+      if (event.clientY < edge) window.scrollBy(0, -20);
+      else if (event.clientY > window.innerHeight - edge) window.scrollBy(0, 20);
+      updateCardDropTarget(event.clientX, event.clientY);
+    });
+    handle.addEventListener('pointerup', event => {
+      if (draggedCard !== card || event.pointerId !== dragPointerId) return;
+      finishCardDrag(handle);
+    });
+    handle.addEventListener('pointercancel', () => finishCardDrag(handle, { apply: false }));
+    handle.addEventListener('keydown', event => {
+      if (!event.altKey || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+      event.preventDefault();
+      const cards = Array.from(grid.querySelectorAll(':scope > .card[data-card-id]'));
+      const index = cards.indexOf(card);
+      const backward = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+      const sibling = cards[index + (backward ? -1 : 1)];
+      if (!sibling) return;
+      grid.insertBefore(card, backward ? sibling : sibling.nextSibling);
+      saveCardOrder();
+      scheduleMasonry();
+      handle.focus();
+    });
+    card.append(handle);
+  });
+
+  $('resetCardLayout').addEventListener('click', () => {
+    localStorage.removeItem(CARD_LAYOUT_KEY);
+    const defaults = ['activity', 'latency', 'upstream', 'routes', 'status', 'identity', 'runtime', 'security', 'configuration', 'evidence'];
+    const cards = new Map(Array.from(grid.querySelectorAll(':scope > .card[data-card-id]')).map(card => [card.dataset.cardId, card]));
+    for (const id of defaults) if (cards.has(id)) grid.append(cards.get(id));
+    scheduleMasonry();
+  });
+}
+
+/** Cards keep their natural height; the span turns that height into 1px grid rows. */
+function layoutMasonry() {
+  document.querySelectorAll('.grid.masonry').forEach(grid => {
+    if (grid.closest('.view')?.classList.contains('hidden')) return;
+    const stacked = grid.getBoundingClientRect().width < 280 * 2 + MASONRY_GAP;
+    grid.classList.toggle('stacked', stacked);
+    Array.from(grid.children).forEach(card => {
+      card.style.gridRowEnd = stacked
+        ? ''
+        : `span ${Math.ceil(card.getBoundingClientRect().height) + MASONRY_GAP}`;
+    });
+  });
+}
+
+function scheduleMasonry() {
+  cancelAnimationFrame(masonryFrame);
+  masonryFrame = requestAnimationFrame(layoutMasonry);
+}
+
+new ResizeObserver(scheduleMasonry).observe(document.documentElement);
 
 function identityTone(identityState) {
   if (identityState === 'ready') return 'ready';
@@ -840,7 +1152,6 @@ function renderOverview() {
   $('idUpdated').textContent = clock(data.identity.updatedAt);
 
   $('rtUptime').textContent = duration(data.runtime.uptimeMs);
-  $('rtInFlight').textContent = num(data.runtime.inFlight);
   $('rtNode').textContent = text(data.runtime.nodeVersion);
   $('rtPid').textContent = text(data.runtime.pid);
   $('rtSupervised').textContent = i18n.t(data.runtime.restartSupervised ? 'common.yes' : 'common.no');
@@ -853,6 +1164,7 @@ function renderOverview() {
   $('cfgTimeout').textContent = `${Math.round(data.router.upstreamTimeoutMs / 1000)}s`;
   $('cfgOrigins').textContent = (data.router.allowedOrigins || []).join('\n') || i18n.t('common.none');
   renderSecurity(data.security);
+  scheduleMasonry();
 }
 
 function renderSecurity(security) {
@@ -868,6 +1180,26 @@ function renderSecurity(security) {
   $('unprotectedBanner').classList.toggle('hidden', security.protected);
   if (!security.changeable) notice('securityNotice', i18n.t('security.externallyManaged'), '');
   else hideNotice('securityNotice');
+}
+
+function renderSettings() {
+  const data = state.settings;
+  if (!data) return;
+  $('evidenceRetention').textContent = i18n.t('evidence.days', { days: num(data.retentionDays) });
+  $('evidenceLogs').textContent = i18n.t('evidence.storage', {
+    files: num(data.storage.logs.files), size: bytes(data.storage.logs.bytes),
+  });
+  $('evidenceConversations').textContent = i18n.t('evidence.records', {
+    records: num(data.storage.conversations.records), size: bytes(data.storage.conversations.bytes),
+  });
+  $('evidenceTraces').textContent = i18n.t('evidence.storage', {
+    files: num(data.storage.traces.files), size: bytes(data.storage.traces.bytes),
+  });
+  $('debugCaptureToggle').checked = Boolean(data.debugCapture);
+  if (!$('purgeBefore').value) {
+    $('purgeBefore').value = localInputTime(Date.now() - Number(data.retentionDays || 30) * 86_400_000);
+  }
+  scheduleMasonry();
 }
 
 function kpi(label, value) {
@@ -899,10 +1231,23 @@ function fillTable(body, rows) {
 function renderTraffic() {
   const data = state.metrics;
   if (!data) return;
+  const hasSurfaceBuckets = Boolean(data.requests.bySurface);
+
+  const businessRouteMap = data.requests.byRouteBySurface?.business
+    ?? routeSubsetByPrefix(data.requests.byRoute, isBusinessRoute);
+  const businessStatusMap = data.requests.byStatusClassBySurface?.business
+    ?? statusSubsetForRoutes(businessRouteMap, data.requests.byStatusClass);
+
+  const businessTotal = data.requests.bySurface
+    ? (data.requests.bySurface.business || 0)
+    : Object.values(businessRouteMap).reduce((sum, value) => sum + Number(value || 0), 0);
+  const businessInFlight = data.requests.inFlightBySurface
+    ? (data.requests.inFlightBySurface.business || 0)
+    : 0;
 
   $('trafficKpis').replaceChildren(
-    kpi(i18n.t('traffic.requests'), num(data.requests.total)),
-    kpi(i18n.t('traffic.inFlight'), num(data.requests.inFlight)),
+    kpi(i18n.t('traffic.requests'), num(businessTotal)),
+    kpi(i18n.t('traffic.inFlight'), num(businessInFlight)),
     kpi(i18n.t('traffic.turns'), num(data.turns.started)),
     kpi(i18n.t('traffic.conversations'), num(data.conversations.active ?? 0)),
     kpi(i18n.t('traffic.idleConversations'), num(data.conversations.idle ?? 0)),
@@ -911,20 +1256,28 @@ function renderTraffic() {
   );
 
   const points = data.series.fiveMinutes.points;
-  const peak = Math.max(1, ...points.map(point => point.requests || 0));
+  const countForPoint = point => hasSurfaceBuckets
+    ? Number(point.businessRequests || 0)
+    : Number(point.businessRequests ?? point.requests ?? 0);
+  const errorForPoint = point => hasSurfaceBuckets
+    ? Number(point.businessErrors || 0)
+    : Number(point.businessErrors ?? point.errors ?? 0);
+  const peak = Math.max(1, ...points.map(countForPoint));
   $('chart5m').replaceChildren(...points.map(point => {
+    const requestCount = countForPoint(point);
+    const errorCount = errorForPoint(point);
     const bar = element('div', 'bar');
-    bar.title = `${point.at} · ${point.requests || 0}`;
+    bar.title = `${point.at} · ${requestCount}`;
     const requests = element('i');
-    requests.style.height = `${Math.round(((point.requests || 0) / peak) * 100)}%`;
+    requests.style.height = `${Math.round((requestCount / peak) * 100)}%`;
     const errors = element('u');
-    errors.style.height = `${Math.round(((point.errors || 0) / peak) * 100)}%`;
+    errors.style.height = `${Math.round((errorCount / peak) * 100)}%`;
     bar.append(requests, errors);
     return bar;
   }));
 
   const latencyRows = [
-    ['traffic.latencyRequest', data.latency.request],
+    ['traffic.latencyRequest', data.latency.requestBusiness || data.latency.request],
     ['traffic.latencyTtft', data.latency.ttft],
     ['traffic.latencyTurn', data.latency.turnTotal],
     ['traffic.latencyUpstream', data.latency.upstream],
@@ -935,11 +1288,11 @@ function renderTraffic() {
   for (const [code, count] of Object.entries(data.upstream.errors)) upstreamRows.push([`error: ${code}`, num(count)]);
   fillTable($('upstreamBody'), upstreamRows);
 
-  fillTable($('routeBody'), Object.entries(data.requests.byRoute)
+  fillTable($('routeBody'), Object.entries(businessRouteMap)
     .sort((left, right) => right[1] - left[1])
     .map(([route, count]) => [route, num(count)]));
 
-  fillTable($('statusBody'), Object.entries(data.requests.byStatusClass)
+  fillTable($('statusBody'), Object.entries(businessStatusMap)
     .sort()
     .map(([statusClass, count]) => [statusClass, num(count)]));
 
@@ -950,6 +1303,7 @@ function renderTraffic() {
     turn.totalMs === null ? '—' : `${num(turn.totalMs)} ms`,
     num(turn.answerSnapshots), num(turn.stages), text(turn.conversationRef),
   ]));
+  scheduleMasonry();
 }
 
 function logRow(entry) {
@@ -1003,21 +1357,76 @@ function renderConversations() {
   if (!data) return;
   $('convSummary').textContent = i18n.t('conv.summary', { total: data.total, active: data.active });
   fillTable($('convBody'), data.conversations.map(conversation => {
-    const button = element('button', 'btn small danger', i18n.t('conv.close'));
-    button.addEventListener('click', () => confirmDialog(
-      i18n.t('conv.closeConfirmTitle'),
-      i18n.t('conv.closeConfirmBody', { id: conversation.idPrefix }),
-      async () => {
-        await api(`/admin/api/conversations/${encodeURIComponent(conversation.id)}`, { method: 'DELETE' });
-        await refreshConversations();
-      }
-    ));
+    const actions = element('div', 'toolbar');
+    const traces = element('button', 'btn small', i18n.t('evidence.trace'));
+    traces.addEventListener('click', () => showConversationTraces(conversation));
+    actions.append(traces);
+    if (conversation.status !== 'closed' && conversation.status !== 'expired') {
+      const close = element('button', 'btn small danger', i18n.t('conv.close'));
+      close.addEventListener('click', () => confirmDialog(
+        i18n.t('conv.closeConfirmTitle'),
+        i18n.t('conv.closeConfirmBody', { id: conversation.idPrefix }),
+        async () => {
+          await api(`/admin/api/conversations/${encodeURIComponent(conversation.id)}`, { method: 'DELETE' });
+          await Promise.all([refreshConversations(), refreshSettings()]);
+        }
+      ));
+      actions.append(close);
+    }
     return [
       conversation.idPrefix, text(conversation.agentId), enumLabel('convStatus', conversation.status),
       num(conversation.turnCount), text(conversation.subjectRef),
-      clock(conversation.createdAt), clock(conversation.expiresAt), button,
+      clock(conversation.createdAt), clock(conversation.expiresAt), actions,
     ];
   }));
+}
+
+async function showConversationTraces(conversation) {
+  const result = await api(`/admin/api/conversations/${encodeURIComponent(conversation.id)}/turns`);
+  const list = $('traceList');
+  if (!result.turns.length) {
+    list.replaceChildren(element('div', 'empty', i18n.t('evidence.traceEmpty')));
+  } else {
+    list.replaceChildren(...result.turns.map(turn => {
+      const row = element('div', 'trace-item');
+      row.append(
+        element('span', 'mono', turn.turnId),
+        element('span', '', `${bytes(turn.bytes)} · ${clock(turn.modifiedAt)}`),
+      );
+      const download = element('a', 'btn small', i18n.t('evidence.download'));
+      download.href = `/admin/api/debug/${encodeURIComponent(conversation.id)}/${encodeURIComponent(turn.turnId)}`;
+      row.append(download);
+      return row;
+    }));
+  }
+  $('traceOverlay').classList.remove('hidden');
+}
+
+function evidenceCutoff() {
+  const value = $('purgeBefore').value;
+  const timestamp = Date.parse(value);
+  if (!value || !Number.isFinite(timestamp) || timestamp > Date.now()) return null;
+  return new Date(timestamp).toISOString();
+}
+
+function confirmEvidencePurge(kind) {
+  const before = evidenceCutoff();
+  if (!before) {
+    notice('evidenceNotice', i18n.t('error.generic', { code: 'INVALID_RETENTION_CUTOFF' }), 'error');
+    return;
+  }
+  confirmDialog(
+    i18n.t('evidence.purgeTitle'),
+    i18n.t('evidence.purgeBody', { before: clock(before) }),
+    async () => {
+      const result = await api(`/admin/api/${kind}?before=${encodeURIComponent(before)}`, { method: 'DELETE' });
+      const count = kind === 'logs' ? result.removedEntries : result.removedConversations;
+      notice('evidenceNotice', i18n.t(kind === 'logs' ? 'evidence.purgedLogs' : 'evidence.purgedConversations', {
+        count: num(count),
+      }), 'ok');
+      await Promise.all([refreshSettings(), refreshLogs(), refreshConversations()]);
+    }
+  );
 }
 
 /* -------------------------------------------------------------- dialogs */
@@ -1153,6 +1562,8 @@ function selectView(name) {
   document.querySelectorAll('.tab').forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.tab === name)));
   document.querySelectorAll('.view').forEach(view => view.classList.toggle('hidden', view.dataset.view !== name));
   if (name === 'logs') renderLogs();
+  if (name === 'dashboard') { renderOverview(); renderTraffic(); }
+  scheduleMasonry();
 }
 
 document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => selectView(tab.dataset.tab)));
@@ -1175,6 +1586,26 @@ $('clearPasswordBtn').addEventListener('click', () => confirmDialog(
 $('startAuthBtn').addEventListener('click', startAuthorization);
 $('resetAuthBtn').addEventListener('click', resetAuthorization);
 $('restartBtn').addEventListener('click', requestRestart);
+$('debugCaptureToggle').addEventListener('change', async event => {
+  const enabled = event.target.checked;
+  event.target.disabled = true;
+  try {
+    state.settings = await api('/admin/api/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ debugCapture: enabled }),
+    });
+    renderSettings();
+    notice('evidenceNotice', i18n.t('evidence.captureSaved'), 'ok');
+  } catch (error) {
+    event.target.checked = !enabled;
+    notice('evidenceNotice', i18n.t('error.generic', { code: error.code }), 'error');
+  } finally {
+    event.target.disabled = false;
+  }
+});
+$('purgeLogsBtn').addEventListener('click', () => confirmEvidencePurge('logs'));
+$('purgeConversationsBtn').addEventListener('click', () => confirmEvidencePurge('conversations'));
+$('traceClose').addEventListener('click', () => $('traceOverlay').classList.add('hidden'));
 $('convRefresh').addEventListener('click', () => refreshConversations().catch(() => {}));
 $('logRefresh').addEventListener('click', () => refreshLogs().catch(() => {}));
 $('logClear').addEventListener('click', () => { state.logs = []; renderLogs(); });
@@ -1201,17 +1632,23 @@ $('themeToggle').addEventListener('click', () => {
 });
 
 setInterval(() => {
-  if (!state.stream || state.restarting) return;
-  refreshOverview().catch(() => {});
+  if (state.restarting) return;
+  if (!state.streamOnline) {
+    refreshOverview().catch(() => {});
+    refreshMetrics().catch(() => {});
+    if (state.view === 'conversations') refreshConversations().catch(() => {});
+    return;
+  }
   if (state.view === 'conversations') refreshConversations().catch(() => {});
 }, 15_000);
 
+initializeCardDragging();
 i18n.apply();
 (async () => {
   try {
     await refreshOverview();
     showApp();
-    await Promise.all([refreshMetrics(), refreshConversations(), refreshLogs()]);
+    await Promise.all([refreshMetrics(), refreshConversations(), refreshLogs(), refreshSettings()]);
     openStream();
     if (new URLSearchParams(location.search).get('auth') === 'ready') {
       notice('authNotice', i18n.t('overview.authReady'), 'ok');

@@ -64,6 +64,7 @@ async function startAdminApp({ exits = [] } = {}) {
         adminSessionTtlMinutes: 60,
         adminRestartDrainMs: 50,
         logBufferSize: 100,
+        retentionDays: 30,
     };
     const logStore = new LogStore({ capacity: config.logBufferSize });
     const logger = new RouterLogger(logStore, { mirror: null });
@@ -76,6 +77,20 @@ async function startAdminApp({ exits = [] } = {}) {
     });
     const stateStore = new MemoryStateStore();
     const conversationStore = new ConversationStore(stateStore);
+    const evidenceArchive = {
+        stats: async () => ({ files: 1, bytes: 128, oldestDay: '2026-08-18', newestDay: '2026-08-18' }),
+        treeStats: async prefix => prefix === 'debug'
+            ? { files: 2, bytes: 256 }
+            : { files: 1, bytes: 512 },
+        listSubdirectories: async () => [],
+        removeTree: async () => {},
+    };
+    const debugCapture = {
+        enabled: true,
+        setEnabled: async enabled => { debugCapture.enabled = enabled; return enabled; },
+        listTurns: async () => [{ turnId: 'turn-1', bytes: 42, modifiedAt: '2026-08-18T01:00:00.000Z' }],
+        readTurn: async () => [{ at: '2026-08-18T01:00:00.000Z', kind: 'turn.end' }],
+    };
     const identityCalls = [];
 
     const app = createApp({
@@ -100,6 +115,8 @@ async function startAdminApp({ exits = [] } = {}) {
         metrics,
         lifecycle,
         logger,
+        evidenceArchive,
+        debugCapture,
     });
 
     const server = app.listen(0);
@@ -111,6 +128,7 @@ async function startAdminApp({ exits = [] } = {}) {
         metrics,
         lifecycle,
         conversationStore,
+        debugCapture,
         identityCalls,
         exits,
         async stop() {
@@ -228,13 +246,102 @@ test('conversations can be listed and force-closed without exposing upstream ide
             headers: { Cookie: cookie },
         });
         assert.equal(deleted.status, 204);
-        assert.equal((await harness.conversationStore.list()).length, 0);
+        const afterClose = await harness.conversationStore.list();
+        assert.equal(afterClose.length, 1, 'the record is retained as debugging evidence');
+        assert.equal(afterClose[0].status, 'closed');
 
         const missing = await fetch(`${harness.baseUrl}/admin/api/conversations/${conversation.id}`, {
             method: 'DELETE',
             headers: { Cookie: cookie },
         });
         assert.equal(missing.status, 404);
+    } finally {
+        await harness.stop();
+    }
+});
+
+test('evidence settings report storage and persist runtime capture changes', async () => {
+    const harness = await startAdminApp();
+    try {
+        const { cookie } = await signIn(harness.baseUrl);
+        const before = await (await fetch(`${harness.baseUrl}/admin/api/settings`, {
+            headers: { Cookie: cookie },
+        })).json();
+        assert.equal(before.retentionDays, 30);
+        assert.equal(before.debugCapture, true);
+        assert.equal(before.storage.logs.bytes, 128);
+        assert.equal(before.storage.traces.files, 2);
+
+        const changed = await (await fetch(`${harness.baseUrl}/admin/api/settings`, {
+            method: 'PATCH',
+            headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ debugCapture: false }),
+        })).json();
+        assert.equal(changed.debugCapture, false);
+        assert.equal(harness.debugCapture.enabled, false);
+
+        const invalid = await fetch(`${harness.baseUrl}/admin/api/settings`, {
+            method: 'PATCH',
+            headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ debugCapture: 'no' }),
+        });
+        assert.equal(invalid.status, 400);
+    } finally {
+        await harness.stop();
+    }
+});
+
+test('trace list and download endpoints expose captured NDJSON to administrators', async () => {
+    const harness = await startAdminApp();
+    try {
+        const { cookie } = await signIn(harness.baseUrl);
+        const conversationId = '12345678-1234-4123-8123-123456789abc';
+        const listed = await (await fetch(`${harness.baseUrl}/admin/api/conversations/${conversationId}/turns`, {
+            headers: { Cookie: cookie },
+        })).json();
+        assert.equal(listed.turns[0].turnId, 'turn-1');
+
+        const downloaded = await fetch(`${harness.baseUrl}/admin/api/debug/${conversationId}/turn-1`, {
+            headers: { Cookie: cookie },
+        });
+        assert.equal(downloaded.status, 200);
+        assert.match(downloaded.headers.get('content-type'), /ndjson/);
+        assert.match(await downloaded.text(), /"kind":"turn.end"/);
+    } finally {
+        await harness.stop();
+    }
+});
+
+test('evidence cleanup requires an explicit past cutoff and removes old conversations', async () => {
+    const harness = await startAdminApp();
+    try {
+        const { cookie } = await signIn(harness.baseUrl);
+        await harness.conversationStore.create({
+            subject: 'prototype:caller',
+            agentId: 'knowledge-new',
+            upstreamConversationId: 'upstream-1',
+        });
+
+        const missing = await fetch(`${harness.baseUrl}/admin/api/conversations`, {
+            method: 'DELETE',
+            headers: { Cookie: cookie },
+        });
+        assert.equal(missing.status, 400);
+
+        const future = await fetch(`${harness.baseUrl}/admin/api/logs?before=${encodeURIComponent('2999-01-01T00:00:00.000Z')}`, {
+            method: 'DELETE',
+            headers: { Cookie: cookie },
+        });
+        assert.equal(future.status, 400);
+
+        await new Promise(resolve => setTimeout(resolve, 5));
+        const cutoff = new Date().toISOString();
+        const purged = await (await fetch(
+            `${harness.baseUrl}/admin/api/conversations?before=${encodeURIComponent(cutoff)}`,
+            { method: 'DELETE', headers: { Cookie: cookie } }
+        )).json();
+        assert.equal(purged.removedConversations, 1);
+        assert.equal((await harness.conversationStore.list()).length, 0);
     } finally {
         await harness.stop();
     }
